@@ -36,7 +36,7 @@ chat/
 └── index.js                # Barrel Export
 ```
 
-## 🔧 주요 기능
+## 🔧 주요 기능 ##
 
 ### ChatContext
 - 전역 채팅 상태 관리
