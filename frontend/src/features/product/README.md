@@ -85,3 +85,168 @@ function ProductList() {
 - `POST /products/:id/like` - 찜하기
 - `DELETE /products/:id/like` - 찜하기 취소
 - `PUT /products/:id/unavailable-dates` - 대여 불가 날짜 설정
+
+## 🏷️ 상품 카테고리
+
+### 주요 카테고리
+- **전자기기**: 카메라, 노트북, 태블릿, 게임기
+- **캠핑용품**: 텐트, 침낭, 버너, 랜턴
+- **스포츠용품**: 자전거, 골프채, 스키, 보드
+- **생활용품**: 청소기, 공기청정기, 가습기
+- **도구**: 드릴, 전동공구, 측정기
+- **의류**: 정장, 드레스, 액세서리
+- **기타**: 악기, 도서, 완구
+
+### 카테고리별 필터링
+```javascript
+const categoryFilters = {
+  electronics: ['카메라', '노트북', '태블릿', '게임기'],
+  camping: ['텐트', '침낭', '버너', '랜턴'],
+  sports: ['자전거', '골프채', '스키', '보드'],
+  living: ['청소기', '공기청정기', '가습기'],
+  tools: ['드릴', '전동공구', '측정기'],
+  fashion: ['정장', '드레스', '액세서리'],
+  others: ['악기', '도서', '완구']
+};
+```
+
+## 💰 가격 정책
+
+### 대여료 계산
+- **일일 대여료**: 상품 등록 시 설정
+- **주간 할인**: 7일 이상 대여 시 10% 할인
+- **월간 할인**: 30일 이상 대여 시 20% 할인
+
+### 보증금 정책
+```javascript
+const calculateDeposit = (product) => {
+  const baseDeposit = product.price * 0.3; // 상품 가격의 30%
+  const minDeposit = 50000; // 최소 5만원
+  const maxDeposit = 500000; // 최대 50만원
+  
+  return Math.min(Math.max(baseDeposit, minDeposit), maxDeposit);
+};
+```
+
+## 📅 대여 날짜 관리
+
+### 대여 불가 날짜
+- 이미 대여 중인 날짜
+- 상품 소유자가 설정한 불가 날짜
+- 점검 및 수리 기간
+- 공휴일 (선택사항)
+
+### 날짜 검증
+```javascript
+const validateRentalDates = (startDate, endDate, unavailableDates) => {
+  const rentalPeriod = getDatesInRange(startDate, endDate);
+  const conflicts = rentalPeriod.filter(date => 
+    unavailableDates.includes(date)
+  );
+  
+  return conflicts.length === 0;
+};
+```
+
+## 🔍 검색 및 필터링
+
+### 검색 기능
+- **키워드 검색**: 상품명, 설명, 태그
+- **카테고리 필터**: 대분류, 소분류
+- **지역 필터**: 법정동 기준 반경 설정
+- **가격 필터**: 일일 대여료 범위
+- **날짜 필터**: 대여 가능한 날짜
+
+### 정렬 옵션
+- 최신순 (기본)
+- 인기순 (찜하기 수)
+- 가격 낮은순
+- 가격 높은순
+- 거리순 (가까운 순)
+- 평점순
+
+## 🏆 신뢰도 시스템
+
+### 상품 신뢰도 지표
+- **평점**: 대여자들의 평가 (1-5점)
+- **리뷰 수**: 실제 대여 후기 개수
+- **대여 횟수**: 총 대여 완료 횟수
+- **응답률**: 문의 응답 비율
+- **반납률**: 정시 반납 비율
+
+### 신뢰도 뱃지
+```javascript
+const getTrustBadge = (product) => {
+  const { rating, reviewCount, rentalCount } = product;
+  
+  if (rating >= 4.8 && reviewCount >= 50) return '💎 최우수';
+  if (rating >= 4.5 && reviewCount >= 20) return '⭐ 우수';
+  if (rentalCount >= 100) return '🏆 인기';
+  if (reviewCount >= 10) return '✅ 검증됨';
+  
+  return null;
+};
+```
+
+## 🚀 개발 예정 사항
+
+### Phase 1: 기본 상품 관리
+- [x] 상품 CRUD
+- [x] 찜하기 기능
+- [x] 대여 불가 날짜 설정
+- [x] 기본 필터링
+
+### Phase 2: 고급 검색
+- [ ] 전문 검색 (Elasticsearch)
+- [ ] 자동완성 검색어
+- [ ] 검색 히스토리
+- [ ] 추천 상품 알고리즘
+
+### Phase 3: 상품 관리 도구
+- [ ] 상품 통계 대시보드
+- [ ] 자동 가격 추천
+- [ ] 재고 관리 시스템
+- [ ] 상품 성과 분석
+
+### Phase 4: AI 기능
+- [ ] 이미지 기반 상품 인식
+- [ ] 자동 카테고리 분류
+- [ ] 가격 최적화 AI
+- [ ] 개인화 추천 시스템
+
+## 📸 이미지 관리
+
+### 이미지 업로드 정책
+- **최대 개수**: 10장
+- **파일 크기**: 각 5MB 이하
+- **지원 형식**: JPEG, PNG, WebP
+- **해상도**: 최소 800x600, 권장 1200x900
+
+### 이미지 최적화
+```javascript
+const optimizeImage = async (file) => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // 리사이징 및 압축
+  canvas.width = Math.min(file.width, 1200);
+  canvas.height = Math.min(file.height, 900);
+  
+  // WebP 형식으로 변환
+  return canvas.toBlob(callback, 'image/webp', 0.8);
+};
+```
+
+## 📱 모바일 최적화
+
+### 터치 인터랙션
+- 스와이프로 이미지 갤러리 탐색
+- 길게 눌러서 상품 미리보기
+- 더블 탭으로 찜하기
+
+### 성능 최적화
+- 이미지 지연 로딩
+- 무한 스크롤 페이지네이션
+- 캐시 최적화
+
+이 feature를 통해 다양한 상품을 효율적으로 관리하고 검색할 수 있습니다.
