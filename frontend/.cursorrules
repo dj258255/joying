@@ -1,6 +1,16 @@
-# 프로젝트 개발 컨벤션 (필수 준수 사항)
+# 빌려joying 프로젝트 개발 컨벤션 (AI 전용)
 
 당신은 **시니어 풀스택 개발자**입니다. 아래 컨벤션을 **100% 엄격히 준수**하여 코드를 작성해주세요.
+
+## 🎯 프로젝트 개요
+빌려joying은 Three.js 기반 인터랙티브 UI와 11단계 FSM 거래 시스템을 가진 지역 기반 렌탈 마켓플레이스입니다.
+
+### 핵심 차별화 요소
+- **Three.js 메인 페이지**: 떠다니는 3D 물건들과 마우스 인터랙션
+- **11단계 FSM 거래**: 체계적이고 안전한 거래 프로세스
+- **보증금 에스크로**: 플랫폼이 보증금을 안전하게 보관
+- **개봉 영상 필수**: WebRTC 기반 수령/반납 시 영상 촬영
+- **신뢰도 뱃지**: 거래 횟수와 평점 기반 신뢰 시스템
 
 ---
 
@@ -584,6 +594,148 @@ fix bug
 
 ---
 
+## 🎯 FSM 거래 시스템 (핵심 비즈니스 로직)
+
+### 11단계 거래 상태
+```javascript
+// shared/constants/fsmStates.js에서 import하여 사용
+const FSM_STATES = {
+  PENDING_ACCEPTANCE: 'PENDING_ACCEPTANCE',           // 1. 수락 대기
+  DEPOSIT_PENDING: 'DEPOSIT_PENDING',                 // 2. 보증금 결제 대기
+  RENTAL_FEE_PENDING: 'RENTAL_FEE_PENDING',          // 3. 대여료 결제 대기
+  AWAITING_OUTBOUND_SHIPPING: 'AWAITING_OUTBOUND_SHIPPING', // 4. 발송 대기
+  OUTBOUND_SHIPPING_IN_PROGRESS: 'OUTBOUND_SHIPPING_IN_PROGRESS', // 5. 발송 배송 중
+  AWAITING_DELIVERY_CONFIRMATION: 'AWAITING_DELIVERY_CONFIRMATION', // 6. 수령 확인 대기
+  IN_USE: 'IN_USE',                                   // 7. 사용 중
+  AWAITING_RETURN_SHIPPING: 'AWAITING_RETURN_SHIPPING', // 8. 반납 발송 대기
+  RETURN_SHIPPING_IN_PROGRESS: 'RETURN_SHIPPING_IN_PROGRESS', // 9. 반납 배송 중
+  AWAITING_RETURN_CONFIRMATION: 'AWAITING_RETURN_CONFIRMATION', // 10. 반납 확인 대기
+  COMPLETED: 'COMPLETED',                             // 11. 거래 완료
+  CANCELLED: 'CANCELLED',                             // 특수: 거래 취소
+  DISPUTED: 'DISPUTED'                                // 특수: 분쟁 중
+};
+```
+
+### FSM 상태 전환 규칙
+- `shared/utils/fsm.js`의 `getNextState()` 함수 사용 필수
+- 상태 전환 시 시스템 메시지 자동 생성
+- 역할별 액션 버튼 동적 표시 (`getRoleActions()` 사용)
+
+## 🎨 Three.js 성능 최적화 규칙
+
+### 필수 최적화 기법
+```javascript
+// 1. React.memo로 불필요한 리렌더링 방지
+const FloatingObjects = memo(({ category }) => {
+  // 3D 객체 렌더링
+});
+
+// 2. LOD (Level of Detail) 적용
+<Lod distances={[0, 10, 20]}>
+  <HighDetailModel />   {/* 0-10 units */}
+  <MediumDetailModel /> {/* 10-20 units */}
+  <LowDetailModel />    {/* 20+ units */}
+</Lod>
+
+// 3. Instancing으로 동일 객체 최적화 (10개 이상일 때)
+<Instances limit={100} geometry={boxGeometry} material={material}>
+  {items.map((item, i) => (
+    <Instance key={i} position={item.position} />
+  ))}
+</Instances>
+```
+
+### 모바일 최적화 필수
+- `dpr={[1, 2]}` 픽셀 비율 제한
+- 모바일에서 자동 회전 모드 적용
+- 폴리곤 수 50% 감소
+
+## 🔐 보안 정책 (절대 준수)
+
+### 절대 금지 사항
+```javascript
+// ❌ 절대 금지: 프론트엔드에 결제 정보 저장
+const NEVER_DO_THIS = {
+  creditCardNumber: '1234-5678-9012-3456', // 절대 금지!
+  cvv: '123', // 절대 금지!
+};
+
+// ❌ 절대 금지: dangerouslySetInnerHTML 사용
+<div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+
+// ❌ 절대 금지: 매직 넘버/문자열
+if (status === 'PENDING_ACCEPTANCE') { ... } // 상수 사용 필수
+```
+
+### 필수 보안 규칙
+```javascript
+// ✅ 올바른 방식: 상수 사용
+import { FSM_STATES } from '@/shared/constants/fsmStates';
+if (status === FSM_STATES.PENDING_ACCEPTANCE) { ... }
+
+// ✅ 올바른 방식: 개인정보 마스킹
+import { maskPhoneNumber } from '@/shared/utils/maskingUtils';
+const maskedPhone = maskPhoneNumber('010-1234-5678'); // 010-****-5678
+```
+
+## 🎨 UI/UX 디자인 시스템
+
+### 색상 팔레트 (필수 사용)
+```css
+/* Primary Green (신뢰, 안전) */
+--primary-500: #10b981;  /* 메인 컬러 */
+--primary-600: #059669;  /* 호버 */
+
+/* 상태별 색상 */
+--success-500: #22c55e;  /* 성공, 완료 */
+--warning-500: #f59e0b;  /* 경고, 주의 */
+--error-500: #ef4444;    /* 에러, 위험 */
+```
+
+### 컴포넌트 필수 패턴
+```jsx
+// 버튼 기본 패턴
+<button className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-150">
+  Primary Button
+</button>
+
+// 카드 기본 패턴
+<div className="bg-white border border-gray-200 rounded-lg p-6 shadow hover:shadow-md transition-shadow duration-200">
+  <h3 className="text-xl font-semibold text-gray-900 mb-2">카드 제목</h3>
+  <p className="text-gray-600">카드 내용...</p>
+</div>
+```
+
+## 📱 WebRTC 영상 녹화 규칙
+
+### 개봉 영상 촬영 가이드 (필수 구현)
+```javascript
+// features/video/components/VideoRecorder.jsx 패턴 사용
+const videoConstraints = {
+  width: { ideal: 1280 },
+  height: { ideal: 720 },
+  facingMode: 'user'
+};
+
+// 촬영 순서 (시스템 메시지로 안내)
+// 1. 택배 박스 외부 → 2. 개봉 과정 → 3. 물건 전체 → 4. 손상 부위 (있다면)
+```
+
+## 🚢 배송 추적 시스템
+
+### 배송 상태 플로우
+```javascript
+const SHIPPING_STATUS = {
+  PENDING: '집화 대기',
+  COLLECTED: '집화 완료', 
+  IN_TRANSIT: '배송 중',
+  OUT_FOR_DELIVERY: '배송 출발',
+  DELIVERED: '배송 완료'
+};
+
+// features/shipping/components/ShippingStatusCard.jsx 패턴 사용
+```
+
 ## 🚀 시작 전 확인사항
 
 1. ✅ Node.js 18 이상 설치 확인
@@ -594,5 +746,5 @@ fix bug
 
 ---
 
-**이 컨벤션은 프로젝트 전체에서 일관성을 유지하기 위한 필수 규칙입니다.**  
-**모든 코드 작성 시 반드시 준수해주세요.** ✨
+**이 컨벤션은 AI가 빌려joying 프로젝트를 개발할 때 반드시 준수해야 하는 필수 규칙입니다.**  
+**모든 코드 작성 시 100% 엄격히 준수해주세요.** ✨
