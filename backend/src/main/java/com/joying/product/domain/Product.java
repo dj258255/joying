@@ -1,15 +1,13 @@
 package com.joying.product.domain;
 
 import com.joying.category.domain.Category;
+import com.joying.common.entity.BaseEntity;
 import com.joying.member.domain.Member;
 import com.joying.region.domain.Dong;
 import com.joying.region.domain.Gungu;
 import com.joying.region.domain.Sido;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.Comment;
 
 import java.sql.Timestamp;
@@ -19,7 +17,7 @@ import java.sql.Timestamp;
 @Table(name="product")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "productId", callSuper=false)
-public class Product {
+public class Product extends BaseEntity {
 
     @Id
     @Column(name = "product_id")
@@ -42,7 +40,7 @@ public class Product {
 
     @Comment("일일 대여 요금")
     @Column(name = "rental_fee")
-    private Integer retalFee;
+    private Integer rentalFee;
 
     @Comment("제목")
     @Column(name = "title")
@@ -82,14 +80,48 @@ public class Product {
     private Category category;
 
     @Comment("대여 가능 시작 날짜")
-    @Column(name = "start_ren")
-    private Timestamp startRen;
+    @Column(name = "start_rent")
+    private Timestamp startRent;
 
     @Comment("대여 가능 종료 날짜")
-    @Column(name = "end_ren")
-    private Timestamp endRen;
+    @Column(name = "end_rent")
+    private Timestamp endRent;
 
     @Comment("평점")
     @Column(name = "rating")
     private Double rating;
+
+    @Builder
+    private Product(Member writer,
+                    UploadType uploadType,
+                    Integer deposit,
+                    Integer rentalFee,
+                    String title,
+                    String content,
+                    Sido sido,
+                    Gungu gungu,
+                    Dong dong,
+                    RentMethod rentMethod,
+                    Boolean videoNecessary,
+                    Category category,
+                    Timestamp startRent,
+                    Timestamp endRent,
+                    Double rating) {
+
+        this.writer = writer;
+        this.uploadType = uploadType;
+        this.deposit = deposit;
+        this.rentalFee = rentalFee;
+        this.title = title;
+        this.content = content;
+        this.sido = sido;
+        this.gungu = gungu;
+        this.dong = dong;
+        this.rentMethod = rentMethod;
+        this.videoNecessary = (videoNecessary != null) ? videoNecessary : false;
+        this.category = category;
+        this.startRent = startRent;
+        this.endRent = endRent;
+        this.rating = (rating != null) ? rating : 0.0;
+    }
 }
