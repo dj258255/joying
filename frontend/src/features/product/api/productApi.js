@@ -5,70 +5,79 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 상품 관련 API
+ */
 export const productApi = {
   /**
-   * 상품 목록 조회
-   * @param {Object} params - 쿼리 파라미터
-   * @returns {Promise} 상품 목록
-   */
-  getProducts: (params) => 
-    axiosInstance.get('/products', { params }),
-
-  /**
-   * 상품 상세 조회
+   * 상품 조회
    * @param {string} productId - 상품 ID
-   * @returns {Promise} 상품 상세 정보
+   * @returns {Promise<Object>}
    */
-  getProduct: (productId) => 
-    axiosInstance.get(`/products/${productId}`),
+  getProduct: async (productId) => {
+    return await axiosInstance.get(`/product/${productId}`);
+  },
 
   /**
-   * 상품 생성
-   * @param {Object} productData - 상품 데이터
-   * @returns {Promise} 생성된 상품
+   * 상품 등록
+   * @param {Object} data
+   * @param {string} data.name - 상품명
+   * @param {string} data.description - 설명
+   * @param {number} data.pricePerDay - 일일 대여료
+   * @param {number} data.deposit - 보증금
+   * @param {number} data.categoryId - 카테고리 ID
+   * @param {string[]} [data.images] - 이미지 URL 목록
+   * @param {string[]} [data.hashtags] - 해시태그 목록
+   * @returns {Promise<Object>}
    */
-  createProduct: (productData) => 
-    axiosInstance.post('/products', productData),
+  createProduct: async (data) => {
+    return await axiosInstance.post('/product', data);
+  },
 
   /**
    * 상품 수정
    * @param {string} productId - 상품 ID
-   * @param {Object} productData - 수정할 상품 데이터
-   * @returns {Promise} 수정된 상품
+   * @param {Object} data - 수정할 데이터
+   * @returns {Promise<Object>}
    */
-  updateProduct: (productId, productData) => 
-    axiosInstance.put(`/products/${productId}`, productData),
+  updateProduct: async (productId, data) => {
+    return await axiosInstance.patch(`/product/${productId}`, data);
+  },
 
   /**
    * 상품 삭제
    * @param {string} productId - 상품 ID
-   * @returns {Promise} 삭제 응답
+   * @returns {Promise<void>}
    */
-  deleteProduct: (productId) => 
-    axiosInstance.delete(`/products/${productId}`),
+  deleteProduct: async (productId) => {
+    return await axiosInstance.delete(`/product/${productId}`);
+  },
 
   /**
    * 상품 찜하기
    * @param {string} productId - 상품 ID
-   * @returns {Promise} 찜하기 응답
+   * @returns {Promise<{liked: boolean}>}
    */
-  likeProduct: (productId) => 
-    axiosInstance.post(`/products/${productId}/like`),
+  likeProduct: async (productId) => {
+    return await axiosInstance.post(`/product/${productId}/like`);
+  },
 
   /**
-   * 상품 찜하기 취소
+   * 상품 찜 취소
    * @param {string} productId - 상품 ID
-   * @returns {Promise} 찜하기 취소 응답
+   * @returns {Promise<{liked: boolean}>}
    */
-  unlikeProduct: (productId) => 
-    axiosInstance.delete(`/products/${productId}/like`),
+  unlikeProduct: async (productId) => {
+    return await axiosInstance.delete(`/product/${productId}/dislike`);
+  },
 
   /**
    * 대여 불가 날짜 설정
    * @param {string} productId - 상품 ID
-   * @param {Object} unavailableDates - 대여 불가 날짜 데이터
-   * @returns {Promise} 설정 응답
+   * @param {string[]} dates - 불가 날짜 목록 (ISO8601)
+   * @returns {Promise<Object>}
    */
-  setUnavailableDates: (productId, unavailableDates) => 
-    axiosInstance.put(`/products/${productId}/unavailable-dates`, unavailableDates)
+  setUnavailableDates: async (productId, dates) => {
+    return await axiosInstance.post(`/product/${productId}/disable`, { dates });
+  }
 };

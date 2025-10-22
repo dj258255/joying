@@ -5,45 +5,74 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 채팅방 관련 API
+ */
 export const chatApi = {
   /**
-   * 채팅방 목록 조회
-   * @param {Object} params - 쿼리 파라미터
-   * @returns {Promise} 채팅방 목록
+   * 채팅방 생성
+   * @param {Object} data
+   * @param {string[]} data.participantIds - 참가자 ID 목록
+   * @param {string} data.type - 채팅방 타입 ('direct' | 'group')
+   * @returns {Promise<Object>}
    */
-  getChatRooms: (params) => 
-    axiosInstance.get('/chats', { params }),
+  createChatRoom: async (data) => {
+    return await axiosInstance.post('/chat-rooms', data);
+  },
 
   /**
-   * 채팅방 생성
-   * @param {Object} chatRoomData - 채팅방 데이터
-   * @returns {Promise} 생성된 채팅방
+   * 내 채팅방 목록 조회
+   * @param {Object} [params]
+   * @param {number} [params.page=1] - 페이지 번호
+   * @param {number} [params.size=20] - 페이지 크기
+   * @returns {Promise<{items: Array, total: number, page: number}>}
    */
-  createChatRoom: (chatRoomData) => 
-    axiosInstance.post('/chats', chatRoomData),
+  getChatRooms: async (params = {}) => {
+    return await axiosInstance.get('/chat-rooms', {
+      params: {
+        member: 'me',
+        page: params.page || 1,
+        size: params.size || 20
+      }
+    });
+  },
 
   /**
    * 채팅방 상세 조회
    * @param {string} chatRoomId - 채팅방 ID
-   * @returns {Promise} 채팅방 상세 정보
+   * @returns {Promise<Object>}
    */
-  getChatRoom: (chatRoomId) => 
-    axiosInstance.get(`/chats/${chatRoomId}`),
+  getChatRoomDetail: async (chatRoomId) => {
+    return await axiosInstance.get(`/chat-rooms/${chatRoomId}`);
+  },
 
   /**
-   * 채팅방 수정
+   * 채팅방 고정/해제
    * @param {string} chatRoomId - 채팅방 ID
-   * @param {Object} chatRoomData - 수정할 채팅방 데이터
-   * @returns {Promise} 수정된 채팅방
+   * @param {string} memberId - 멤버 ID
+   * @returns {Promise<{pinned: boolean}>}
    */
-  updateChatRoom: (chatRoomId, chatRoomData) => 
-    axiosInstance.put(`/chats/${chatRoomId}`, chatRoomData),
+  togglePinChatRoom: async (chatRoomId, memberId) => {
+    return await axiosInstance.patch(`/chat-rooms/${chatRoomId}/members/${memberId}/pin`);
+  },
 
   /**
-   * 채팅방 삭제
+   * 채팅방 알림 설정 (뮤트)
    * @param {string} chatRoomId - 채팅방 ID
-   * @returns {Promise} 삭제 응답
+   * @param {string} memberId - 멤버 ID
+   * @returns {Promise<{muted: boolean}>}
    */
-  deleteChatRoom: (chatRoomId) => 
-    axiosInstance.delete(`/chats/${chatRoomId}`)
+  toggleMuteChatRoom: async (chatRoomId, memberId) => {
+    return await axiosInstance.patch(`/chat-rooms/${chatRoomId}/members/${memberId}/mute`);
+  },
+
+  /**
+   * 채팅방 나가기
+   * @param {string} chatRoomId - 채팅방 ID
+   * @param {string} memberId - 멤버 ID
+   * @returns {Promise<void>}
+   */
+  leaveChatRoom: async (chatRoomId, memberId) => {
+    return await axiosInstance.post(`/chat-rooms/${chatRoomId}/members/${memberId}`);
+  }
 };

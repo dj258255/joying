@@ -5,41 +5,47 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 인증 관련 API
+ */
 export const authApi = {
   /**
    * 카카오 로그인
-   * @param {string} code - 카카오 인증 코드
-   * @returns {Promise} 로그인 응답
+   * @returns {Promise<{accessToken: string, refreshToken: string}>}
    */
-  kakaoLogin: (code) => 
-    axiosInstance.post('/auth/kakao', { code }),
+  kakaoLogin: async () => {
+    return await axiosInstance.post('/oauth2/authorization/kakao');
+  },
 
   /**
    * 로그아웃
-   * @returns {Promise} 로그아웃 응답
+   * @returns {Promise<void>}
    */
-  logout: () => 
-    axiosInstance.post('/auth/logout'),
+  logout: async () => {
+    return await axiosInstance.post('/auth/logout');
+  },
 
   /**
-   * 토큰 갱신
-   * @param {string} refreshToken - 리프레시 토큰
-   * @returns {Promise} 토큰 갱신 응답
+   * 액세스 토큰 갱신
+   * @returns {Promise<{accessToken: string}>}
    */
-  refreshToken: (refreshToken) => 
-    axiosInstance.post('/auth/refresh', { refreshToken }),
+  refreshToken: async () => {
+    return await axiosInstance.post('/auth/refresh');
+  },
 
   /**
-   * 현재 사용자 정보 조회
-   * @returns {Promise} 사용자 정보
+   * 현재 로그인 사용자 조회
+   * @returns {Promise<{id: string, email: string, nickname: string, profileImage: string}>}
    */
-  getCurrentUser: () => 
-    axiosInstance.get('/auth/me'),
+  getCurrentUser: async () => {
+    return await axiosInstance.get('/auth/me');
+  },
 
   /**
    * 토큰 유효성 검증
-   * @returns {Promise} 토큰 유효성 응답
+   * @returns {Promise<{valid: boolean}>}
    */
-  validateToken: () => 
-    axiosInstance.get('/auth/validate')
+  validateToken: async () => {
+    return await axiosInstance.get('/auth/validate');
+  }
 };

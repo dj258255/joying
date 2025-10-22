@@ -5,39 +5,81 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 메시지 관련 API
+ */
 export const messageApi = {
   /**
-   * 메시지 목록 조회
+   * 메시지 목록 조회 (채팅 내역)
    * @param {string} chatRoomId - 채팅방 ID
-   * @param {Object} params - 쿼리 파라미터
-   * @returns {Promise} 메시지 목록
+   * @param {Object} [params]
+   * @param {number} [params.page=1]
+   * @param {number} [params.size=50]
+   * @param {string} [params.before_message_id] - 커서 (이전 메시지 ID)
+   * @returns {Promise<{messages: Array, hasNext: boolean}>}
    */
-  getMessages: (chatRoomId, params) => 
-    axiosInstance.get(`/chats/${chatRoomId}/messages`, { params }),
+  getMessages: async (chatRoomId, params = {}) => {
+    return await axiosInstance.get(`/chat-rooms/${chatRoomId}/messages`, {
+      params: {
+        page: params.page || 1,
+        size: params.size || 50,
+        before_message_id: params.before_message_id
+      }
+    });
+  },
 
   /**
-   * 메시지 전송
+   * 텍스트 메시지 전송
    * @param {string} chatRoomId - 채팅방 ID
-   * @param {Object} messageData - 메시지 데이터
-   * @returns {Promise} 전송된 메시지
+   * @param {Object} data
+   * @param {string} data.content - 메시지 내용
+   * @param {string} [data.replyTo] - 답장할 메시지 ID
+   * @returns {Promise<Object>}
    */
-  sendMessage: (chatRoomId, messageData) => 
-    axiosInstance.post(`/chats/${chatRoomId}/messages`, messageData),
+  sendTextMessage: async (chatRoomId, data) => {
+    return await axiosInstance.post(`/chat-rooms/${chatRoomId}/messages`, {
+      type: 'text',
+      content: data.content,
+      replyTo: data.replyTo
+    });
+  },
 
   /**
-   * 메시지 수정
-   * @param {string} messageId - 메시지 ID
-   * @param {Object} messageData - 수정할 메시지 데이터
-   * @returns {Promise} 수정된 메시지
+   * 파일/이미지 전송
+   * @param {string} chatRoomId - 채팅방 ID
+   * @param {File} file - 파일
+   * @param {string} [replyTo] - 답장할 메시지 ID
+   * @returns {Promise<Object>}
    */
-  updateMessage: (messageId, messageData) => 
-    axiosInstance.put(`/messages/${messageId}`, messageData),
+  sendFileMessage: async (chatRoomId, file, replyTo = null) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (replyTo) formData.append('replyTo', replyTo);
+    
+    return await axiosInstance.post(`/chat-rooms/${chatRoomId}/messages`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
 
   /**
-   * 메시지 삭제
+   * 메시지 읽음 처리
    * @param {string} messageId - 메시지 ID
-   * @returns {Promise} 삭제 응답
+   * @returns {Promise<void>}
    */
-  deleteMessage: (messageId) => 
-    axiosInstance.delete(`/messages/${messageId}`)
+  markAsRead: async (messageId) => {
+    return await axiosInstance.post(`/messages/${messageId}/read`);
+  },
+
+  /**
+   * 대여 요청 (시스템 메시지)
+   * @param {string} chatRoomId - 채팅방 ID
+   * @param {Object} data
+   * @param {string} data.productId - 상품 ID
+   * @param {string} data.startDate - 시작일
+   * @param {string} data.endDate - 종료일
+   * @returns {Promise<Object>}
+   */
+  sendRentalRequest: async (chatRoomId, data) => {
+    return await axiosInstance.post(`/chat-rooms/${chatRoomId}/rental-request`, data);
+  }
 };
