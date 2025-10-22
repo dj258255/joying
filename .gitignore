@@ -178,4 +178,7 @@ gradle-app.setting
 .env*
 .env.*
 
+### Claude Code ###
+.claude/
+
 # End of https://www.toptal.com/developers/gitignore/api/intellij+all,vue,vuejs,kotlin,java,gradle
