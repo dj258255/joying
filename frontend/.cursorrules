@@ -1,0 +1,598 @@
+# 프로젝트 개발 컨벤션 (필수 준수 사항)
+
+당신은 **시니어 풀스택 개발자**입니다. 아래 컨벤션을 **100% 엄격히 준수**하여 코드를 작성해주세요.
+
+---
+
+## 🎯 기술 스택
+
+### Frontend
+- **Framework**: React 18
+- **Build Tool**: Vite
+- **Routing**: React Router v6
+- **State Management**: 
+  - 서버 상태: React Query (@tanstack/react-query)
+  - 클라이언트 상태: Context API
+- **HTTP Client**: Axios
+- **Styling**: Tailwind CSS
+- **Form**: React Hook Form + Zod (validation)
+
+### Backend (참고용)
+- **Runtime**: Node.js + Express
+- **Database**: PostgreSQL + Prisma ORM
+- **Authentication**: JWT + Refresh Token
+
+---
+
+## 📁 폴더 구조 아키텍처
+
+### Feature-Based 구조 원칙
+```
+src/
+├── features/          # 도메인별 독립 모듈
+│   └── [domain]/
+│       ├── api/       # API 호출 함수
+│       ├── components/# Feature 전용 컴포넌트
+│       ├── hooks/     # React Query 훅 + 커스텀 훅
+│       ├── pages/     # 라우팅 페이지
+│       ├── contexts/  # Feature 전용 Context (선택)
+│       └── index.js   # Barrel export
+│
+├── shared/            # 전역 공유 리소스
+│   ├── components/    # 공통 컴포넌트
+│   ├── hooks/         # 범용 훅
+│   ├── utils/         # 순수 함수
+│   ├── constants/     # 상수 관리
+│   └── layouts/       # 레이아웃 컴포넌트
+│
+└── lib/               # 외부 라이브러리 설정
+    ├── axios/
+    ├── react-query/
+    └── router/
+```
+
+### 분리 기준
+- **Feature**: 2개 미만 도메인에서 사용 → `features/[domain]/`
+- **Shared**: 2개 이상 도메인에서 사용 → `shared/`
+- **Lib**: 외부 라이브러리 초기화/설정 → `lib/`
+
+---
+
+## 📝 네이밍 컨벤션
+
+### 파일명
+| 타입 | 규칙 | 예시 |
+|------|------|------|
+| 컴포넌트 | PascalCase + .jsx | `ProductCard.jsx` |
+| 페이지 | PascalCase + Page.jsx | `ProductListPage.jsx` |
+| 훅 | camelCase + use 접두사 | `useProducts.js` |
+| API | camelCase + Api 접미사 | `productApi.js` |
+| 유틸 | camelCase | `validators.js` |
+| 상수 | camelCase 또는 UPPER_SNAKE_CASE | `apiEndpoints.js` |
+| Context | PascalCase + Context | `AuthContext.jsx` |
+| Layout | PascalCase + Layout | `BasicLayout.jsx` |
+
+### 변수명
+```javascript
+// 컴포넌트: PascalCase
+const ProductCard = () => {};
+
+// 함수: camelCase
+const getUserById = (id) => {};
+
+// 상수: UPPER_SNAKE_CASE (전역), camelCase (로컬)
+const API_BASE_URL = 'https://api.example.com';
+const maxRetries = 3;
+
+// Boolean: is/has/should 접두사
+const isLoading = true;
+const hasError = false;
+const shouldRender = true;
+
+// 배열: 복수형
+const products = [];
+const userList = []; // 또는
+
+// 객체: 단수형
+const user = {};
+const productData = {};
+
+// 함수명: 동사 시작
+const fetchProducts = () => {};
+const handleClick = () => {};
+const validateEmail = () => {};
+```
+
+---
+
+## 🔧 코드 작성 규칙
+
+### 1. Import 순서 (자동 정렬)
+```javascript
+// 1. 외부 라이브러리
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+
+// 2. 절대 경로 (@/)
+import { Button } from '@/shared/components';
+import { useAuth } from '@/features/auth';
+import { API_ENDPOINTS } from '@/shared/constants';
+
+// 3. 상대 경로
+import { ProductCard } from './ProductCard';
+import { useProducts } from '../hooks/useProducts';
+import styles from './ProductList.module.css';
+```
+
+### 2. 컴포넌트 구조 템플릿
+```javascript
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+
+/**
+ * 제품 카드 컴포넌트
+ * @param {Object} props
+ * @param {string} props.productId - 제품 ID
+ * @param {Function} props.onLike - 찜하기 콜백
+ */
+const ProductCard = ({ productId, onLike }) => {
+  // 1. State
+  const [isLiked, setIsLiked] = useState(false);
+
+  // 2. Hooks
+  const { data: product, isLoading } = useProduct(productId);
+
+  // 3. Handlers
+  const handleLikeClick = () => {
+    setIsLiked(!isLiked);
+    onLike?.(productId);
+  };
+
+  // 4. Effects
+  useEffect(() => {
+    console.log('Product loaded:', product);
+  }, [product]);
+
+  // 5. Early returns
+  if (isLoading) return <Loading />;
+  if (!product) return <div>상품을 찾을 수 없습니다</div>;
+
+  // 6. Render
+  return (
+    <div className="product-card">
+      <h3>{product.name}</h3>
+      <button onClick={handleLikeClick}>
+        {isLiked ? '찜 취소' : '찜하기'}
+      </button>
+    </div>
+  );
+};
+
+// PropTypes 정의
+ProductCard.propTypes = {
+  productId: PropTypes.string.isRequired,
+  onLike: PropTypes.func
+};
+
+// Default props
+ProductCard.defaultProps = {
+  onLike: undefined
+};
+
+export default ProductCard;
+```
+
+### 3. API 작성 규칙
+```javascript
+// features/product/api/productApi.js
+import { axiosInstance } from '@/lib/axios';
+
+/**
+ * 제품 관련 API
+ */
+export const productApi = {
+  /**
+   * 제품 목록 조회
+   * @param {Object} params - 쿼리 파라미터
+   * @param {number} params.page - 페이지 번호
+   * @param {number} params.limit - 페이지 크기
+   * @returns {Promise<{items: Array, total: number}>}
+   */
+  getProducts: async (params) => {
+    const { data } = await axiosInstance.get('/products', { params });
+    return data;
+  },
+
+  /**
+   * 제품 상세 조회
+   * @param {string} id - 제품 ID
+   * @returns {Promise<Object>}
+   */
+  getProductById: async (id) => {
+    const { data } = await axiosInstance.get(`/products/${id}`);
+    return data;
+  },
+
+  /**
+   * 제품 생성
+   * @param {Object} productData - 제품 정보
+   * @returns {Promise<Object>}
+   */
+  createProduct: async (productData) => {
+    const { data } = await axiosInstance.post('/products', productData);
+    return data;
+  },
+
+  /**
+   * 제품 수정
+   * @param {string} id - 제품 ID
+   * @param {Object} productData - 수정할 정보
+   * @returns {Promise<Object>}
+   */
+  updateProduct: async (id, productData) => {
+    const { data } = await axiosInstance.put(`/products/${id}`, productData);
+    return data;
+  },
+
+  /**
+   * 제품 삭제
+   * @param {string} id - 제품 ID
+   * @returns {Promise<void>}
+   */
+  deleteProduct: async (id) => {
+    await axiosInstance.delete(`/products/${id}`);
+  }
+};
+```
+
+### 4. React Query Hook 패턴
+```javascript
+// features/product/hooks/useProducts.js
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { productApi } from '../api/productApi';
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+
+/**
+ * 제품 목록 조회 훅
+ * @param {Object} filters - 필터 옵션
+ * @returns {Object} Query 결과
+ */
+export const useProducts = (filters = {}) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.PRODUCTS, filters],
+    queryFn: () => productApi.getProducts(filters),
+    staleTime: 1000 * 60 * 5, // 5분
+    gcTime: 1000 * 60 * 10,   // 10분
+    retry: 1
+  });
+};
+
+/**
+ * 제품 생성 Mutation 훅
+ * @returns {Object} Mutation 결과
+ */
+export const useCreateProduct = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: productApi.createProduct,
+    onSuccess: () => {
+      // 캐시 무효화
+      queryClient.invalidateQueries({ 
+        queryKey: [QUERY_KEYS.PRODUCTS] 
+      });
+    },
+    onError: (error) => {
+      console.error('상품 등록 실패:', error);
+    }
+  });
+};
+```
+
+### 5. Custom Hook 패턴
+```javascript
+// shared/hooks/useDebounce.js
+import { useState, useEffect } from 'react';
+
+/**
+ * 디바운스 훅
+ * @param {any} value - 디바운스할 값
+ * @param {number} delay - 지연 시간 (ms)
+ * @returns {any} 디바운스된 값
+ */
+export const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+```
+
+---
+
+## 🎨 스타일링 규칙
+
+### Tailwind CSS 사용
+```jsx
+// ✅ Good: Tailwind 유틸리티 클래스
+<div className="flex items-center gap-4 p-4 bg-white rounded-lg shadow-md">
+  <img src={image} className="w-20 h-20 object-cover rounded" />
+  <div className="flex-1">
+    <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+    <p className="text-sm text-gray-600">{description}</p>
+  </div>
+</div>
+
+// ❌ Bad: 인라인 스타일
+<div style={{ display: 'flex', padding: '16px' }}>
+  ...
+</div>
+
+// ✅ 조건부 클래스 (clsx 사용)
+import clsx from 'clsx';
+
+<button 
+  className={clsx(
+    'px-4 py-2 rounded',
+    isActive ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700',
+    isDisabled && 'opacity-50 cursor-not-allowed'
+  )}
+>
+  Click me
+</button>
+```
+
+---
+
+## 🚨 에러 핸들링
+
+### API 에러 처리
+```javascript
+// lib/axios/interceptors.js
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // 인증 실패: 로그인 페이지로 리다이렉트
+      window.location.href = '/login';
+    }
+    
+    if (error.response?.status === 403) {
+      // 권한 없음
+      console.error('접근 권한이 없습니다');
+    }
+
+    return Promise.reject(error);
+  }
+);
+```
+
+### React Query 에러 처리
+```javascript
+const { data, error, isError } = useProducts();
+
+if (isError) {
+  return (
+    <div className="error-message">
+      오류가 발생했습니다: {error.message}
+    </div>
+  );
+}
+```
+
+### ErrorBoundary 사용
+```jsx
+// shared/components/ErrorBoundary/ErrorBoundary.jsx
+import React from 'react';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <h1>문제가 발생했습니다. 페이지를 새로고침해주세요.</h1>;
+    }
+
+    return this.props.children;
+  }
+}
+
+export default ErrorBoundary;
+```
+
+---
+
+## 🔐 환경 변수 관리
+
+### .env 구조
+```bash
+# .env.development
+VITE_API_BASE_URL=http://localhost:3000/api
+VITE_KAKAO_APP_KEY=your_kakao_key
+VITE_ENV=development
+
+# .env.production
+VITE_API_BASE_URL=https://api.yourapp.com
+VITE_KAKAO_APP_KEY=your_prod_kakao_key
+VITE_ENV=production
+```
+
+### 사용법
+```javascript
+// lib/axios/axiosInstance.js
+export const axiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  timeout: 10000
+});
+
+// 환경 확인
+if (import.meta.env.VITE_ENV === 'development') {
+  console.log('개발 모드 실행 중');
+}
+```
+
+---
+
+## 📊 상수 관리
+
+### API 엔드포인트
+```javascript
+// shared/constants/apiEndpoints.js
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    LOGOUT: '/auth/logout',
+    REFRESH: '/auth/refresh'
+  },
+  PRODUCTS: {
+    LIST: '/products',
+    DETAIL: (id) => `/products/${id}`,
+    CREATE: '/products',
+    UPDATE: (id) => `/products/${id}`,
+    DELETE: (id) => `/products/${id}`,
+    LIKE: (id) => `/products/${id}/like`
+  },
+  USERS: {
+    PROFILE: '/users/me',
+    UPDATE: '/users/me',
+    DELETE: '/users/me'
+  }
+};
+```
+
+### 라우트 경로
+```javascript
+// shared/constants/routePaths.js
+export const ROUTE_PATHS = {
+  HOME: '/',
+  LOGIN: '/login',
+  PRODUCTS: {
+    LIST: '/products',
+    DETAIL: (id) => `/products/${id}`,
+    CREATE: '/products/new',
+    EDIT: (id) => `/products/${id}/edit`
+  },
+  MYPAGE: {
+    HOME: '/mypage',
+    RENT_HISTORY: '/mypage/rent-history',
+    LIKED: '/mypage/liked'
+  }
+};
+```
+
+### 에러 메시지
+```javascript
+// shared/constants/errorMessages.js
+export const ERROR_MESSAGES = {
+  NETWORK_ERROR: '네트워크 연결을 확인해주세요',
+  UNAUTHORIZED: '로그인이 필요합니다',
+  FORBIDDEN: '접근 권한이 없습니다',
+  NOT_FOUND: '요청하신 페이지를 찾을 수 없습니다',
+  SERVER_ERROR: '서버 오류가 발생했습니다',
+  VALIDATION: {
+    REQUIRED: (field) => `${field}는 필수 입력 항목입니다`,
+    EMAIL: '올바른 이메일 형식이 아닙니다',
+    PASSWORD: '비밀번호는 8자 이상이어야 합니다'
+  }
+};
+```
+
+---
+
+## ✅ Git 커밋 컨벤션
+
+### 커밋 메시지 형식
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+### Type 종류
+- `feat`: 새로운 기능 추가
+- `fix`: 버그 수정
+- `docs`: 문서 수정
+- `style`: 코드 포맷팅 (기능 변경 없음)
+- `refactor`: 코드 리팩토링
+- `test`: 테스트 코드 추가/수정
+- `chore`: 빌드 설정, 패키지 매니저 수정
+
+### 예시
+```bash
+# 좋은 예
+feat(product): 상품 찜하기 기능 추가
+fix(auth): 로그인 토큰 갱신 오류 수정
+docs(readme): 프로젝트 설치 가이드 업데이트
+
+# 나쁜 예
+update code
+fix bug
+추가 기능
+```
+
+---
+
+## 🎯 필수 체크리스트
+
+모든 코드 작성 시 다음을 확인하세요:
+
+### 코드 작성
+- [ ] 네이밍 컨벤션 준수
+- [ ] JSDoc 주석 작성
+- [ ] PropTypes 정의 (컴포넌트)
+- [ ] Early return 패턴 사용
+- [ ] 매직 넘버/문자열 없음 (상수화)
+
+### 구조
+- [ ] 올바른 폴더 위치
+- [ ] Barrel export 추가 (index.js)
+- [ ] 절대 경로 import (@/)
+- [ ] 순환 참조 없음
+
+### 성능
+- [ ] 불필요한 리렌더링 방지 (useMemo, useCallback)
+- [ ] React Query 캐싱 설정
+- [ ] 이미지 최적화 (lazy loading)
+- [ ] 코드 스플리팅 적용
+
+### 접근성
+- [ ] 시맨틱 HTML 사용
+- [ ] alt 속성 추가 (이미지)
+- [ ] aria-label 추가 (버튼/링크)
+- [ ] 키보드 네비게이션 지원
+
+---
+
+## 🚀 시작 전 확인사항
+
+1. ✅ Node.js 18 이상 설치 확인
+2. ✅ `.env` 파일 생성 및 설정
+3. ✅ `npm install` 실행
+4. ✅ ESLint + Prettier 설정 확인
+5. ✅ Git hooks 설정 (husky + lint-staged)
+
+---
+
+**이 컨벤션은 프로젝트 전체에서 일관성을 유지하기 위한 필수 규칙입니다.**  
+**모든 코드 작성 시 반드시 준수해주세요.** ✨
