@@ -3,23 +3,21 @@
  * 애플리케이션 진입점
  */
 
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter } from 'react-router-dom'
-import App from './App.jsx'
-import './styles/globalStyles.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
+import { queryClient } from '@/lib/react-query/queryClient';
+import App from './App.jsx';
+import './styles/globalStyles.css';
 
-// React Query 클라이언트 생성
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 60, // 1분
-    },
-  },
-})
+// MSW 활성화 (개발 환경)
+if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK === 'true') {
+  const { worker } = await import('./mocks/browser');
+  worker.start({
+    onUnhandledRequest: 'bypass', // 처리되지 않은 요청은 실제 API로
+  });
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -28,5 +26,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <App />
       </BrowserRouter>
     </QueryClientProvider>
-  </React.StrictMode>,
-)
+  </React.StrictMode>
+);

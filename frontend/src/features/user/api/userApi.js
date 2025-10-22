@@ -5,29 +5,35 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 회원 정보 API
+ */
 export const userApi = {
   /**
-   * 사용자 정보 조회
-   * @param {string} userId - 사용자 ID
-   * @returns {Promise} 사용자 정보
+   * 회원 정보 조회
+   * @returns {Promise<Object>}
    */
-  getUser: (userId) => 
-    axiosInstance.get(`/users/${userId}`),
+  getUser: async () => {
+    return await axiosInstance.get('/user');
+  },
 
   /**
-   * 사용자 정보 수정
-   * @param {string} userId - 사용자 ID
-   * @param {Object} userData - 수정할 사용자 데이터
-   * @returns {Promise} 수정된 사용자 정보
+   * 회원 정보 수정
+   * @param {Object} data - 수정할 정보
+   * @param {string} [data.nickname] - 닉네임
+   * @param {string} [data.phone] - 전화번호
+   * @param {string} [data.accountNumber] - 계좌번호
+   * @returns {Promise<Object>}
    */
-  updateUser: (userId, userData) => 
-    axiosInstance.put(`/users/${userId}`, userData),
+  updateUser: async (data) => {
+    return await axiosInstance.patch('/user', data);
+  },
 
   /**
-   * 사용자 탈퇴
-   * @param {string} userId - 사용자 ID
-   * @returns {Promise} 탈퇴 응답
+   * 회원 탈퇴
+   * @returns {Promise<void>}
    */
-  deleteUser: (userId) => 
-    axiosInstance.delete(`/users/${userId}`)
+  deleteUser: async () => {
+    return await axiosInstance.delete('/user');
+  }
 };

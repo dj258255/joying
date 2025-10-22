@@ -5,46 +5,71 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 결제 관련 API
+ */
 export const paymentApi = {
   /**
-   * 결제 생성
-   * @param {Object} paymentData - 결제 데이터
-   * @returns {Promise} 결제 정보
+   * 결제 금액 조회 (견적)
+   * @param {string} rentalId - 대여 ID
+   * @returns {Promise<{amount: number, deposit: number, total: number}>}
    */
-  createPayment: (paymentData) => 
-    axiosInstance.post('/payments', paymentData),
+  getPaymentQuote: async (rentalId) => {
+    return await axiosInstance.get('/payment/quote', {
+      params: { rentalId }
+    });
+  },
 
   /**
-   * 결제 조회
-   * @param {string} paymentId - 결제 ID
-   * @returns {Promise} 결제 정보
+   * 결제 생성
+   * @param {Object} data
+   * @param {string} data.rentalId - 대여 ID
+   * @param {string} data.paymentMethod - 결제 수단
+   * @param {number} data.amount - 결제 금액
+   * @returns {Promise<Object>}
    */
-  getPayment: (paymentId) => 
-    axiosInstance.get(`/payments/${paymentId}`),
+  createPayment: async (data) => {
+    return await axiosInstance.post('/payment', data);
+  },
+
+  /**
+   * 결제 상세 조회
+   * @param {string} paymentId - 결제 ID
+   * @returns {Promise<Object>}
+   */
+  getPaymentDetail: async (paymentId) => {
+    return await axiosInstance.get(`/payment/${paymentId}`);
+  },
 
   /**
    * 결제 취소
-   * @param {string} paymentId - 결제 ID
-   * @param {Object} cancelData - 취소 데이터
-   * @returns {Promise} 취소 응답
+   * @param {Object} data
+   * @param {string} data.paymentId - 결제 ID
+   * @param {string} [data.reason] - 취소 사유
+   * @returns {Promise<Object>}
    */
-  cancelPayment: (paymentId, cancelData) => 
-    axiosInstance.post(`/payments/${paymentId}/cancel`, cancelData),
+  cancelPayment: async (data) => {
+    return await axiosInstance.patch('/payment', data);
+  },
 
   /**
-   * 결제 환불
+   * 환불 요청
    * @param {string} paymentId - 결제 ID
-   * @param {Object} refundData - 환불 데이터
-   * @returns {Promise} 환불 응답
+   * @param {Object} data
+   * @param {number} data.amount - 환불 금액
+   * @param {string} data.reason - 환불 사유
+   * @returns {Promise<Object>}
    */
-  refundPayment: (paymentId, refundData) => 
-    axiosInstance.post(`/payments/${paymentId}/refund`, refundData),
+  refundPayment: async (paymentId, data) => {
+    return await axiosInstance.post(`/payments/${paymentId}/refund`, data);
+  },
 
   /**
-   * 결제 상태 확인
+   * 결제 웹훅 결과 확인 (프론트에서는 폴링용)
    * @param {string} paymentId - 결제 ID
-   * @returns {Promise} 결제 상태
+   * @returns {Promise<{status: string}>}
    */
-  getPaymentStatus: (paymentId) => 
-    axiosInstance.get(`/payments/${paymentId}/status`)
+  checkPaymentStatus: async (paymentId) => {
+    return await axiosInstance.get(`/payment/${paymentId}`);
+  }
 };

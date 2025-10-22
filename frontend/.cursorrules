@@ -746,5 +746,51 @@ const SHIPPING_STATUS = {
 
 ---
 
-**이 컨벤션은 AI가 빌려joying 프로젝트를 개발할 때 반드시 준수해야 하는 필수 규칙입니다.**  
-**모든 코드 작성 시 100% 엄격히 준수해주세요.** ✨
+## 🔌 API 레이어 관리 규칙
+
+### API 함수 작성 규칙
+- **모든 API 함수는 async/await 사용**
+- **JSDoc으로 타입 힌트 제공** (Promise<ReturnType>)
+- **에러 핸들링은 axios 인터셉터에서 처리**
+- **환경 변수로 Base URL 관리**
+
+### MSW Mock API 규칙
+- **개발 환경에서만 MSW 활성화**
+- **Mock 데이터는 실제 API 스펙과 일치**
+- **환경 변수 VITE_USE_MOCK으로 제어**
+- **처리되지 않은 요청은 실제 API로 전달**
+
+### React Query 훅 규칙
+- **Query 훅**: 데이터 조회용 (useQuery)
+- **Mutation 훅**: 데이터 변경용 (useMutation)
+- **캐시 무효화는 onSuccess에서 처리**
+- **에러 핸들링은 onError에서 처리**
+
+### 백엔드 연동 전환 규칙
+- **환경 변수만 변경하여 전환**
+- **API 함수는 수정 불필요**
+- **응답 형식 불일치 시에만 변환 로직 추가**
+
+### API 파일 구조
+```
+features/[domain]/api/
+├── [domain]Api.js          # 기본 CRUD
+├── [domain]DetailApi.js    # 상세 기능 (선택)
+└── index.js               # Barrel export
+```
+
+### 환경 변수 관리
+```bash
+# 개발
+VITE_API_BASE_URL=http://localhost:3000/api/v1
+VITE_USE_MOCK=true
+
+# 프로덕션  
+VITE_API_BASE_URL=https://api.yourapp.com/api/v1
+VITE_USE_MOCK=false
+```
+
+---
+
+**이 컨벤션은 프로젝트 전체에서 일관성을 유지하기 위한 필수 규칙입니다.**  
+**모든 코드 작성 시 반드시 준수해주세요.** ✨

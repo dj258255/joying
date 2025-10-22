@@ -5,39 +5,24 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 인물 리뷰 API
+ */
 export const userReviewApi = {
   /**
-   * 사용자 리뷰 목록 조회
-   * @param {string} userId - 사용자 ID
-   * @param {Object} params - 쿼리 파라미터
-   * @returns {Promise} 사용자 리뷰 목록
+   * 인물 리뷰 리스트 조회
+   * @param {string} memberId - 회원 ID
+   * @param {Object} [params]
+   * @param {number} [params.page=1]
+   * @param {number} [params.size=20]
+   * @returns {Promise<{items: Array, total: number}>}
    */
-  getUserReviews: (userId, params) => 
-    axiosInstance.get(`/users/${userId}/reviews`, { params }),
-
-  /**
-   * 사용자 리뷰 생성
-   * @param {string} userId - 사용자 ID
-   * @param {Object} reviewData - 리뷰 데이터
-   * @returns {Promise} 생성된 리뷰
-   */
-  createUserReview: (userId, reviewData) => 
-    axiosInstance.post(`/users/${userId}/reviews`, reviewData),
-
-  /**
-   * 사용자 리뷰 수정
-   * @param {string} reviewId - 리뷰 ID
-   * @param {Object} reviewData - 수정할 리뷰 데이터
-   * @returns {Promise} 수정된 리뷰
-   */
-  updateUserReview: (reviewId, reviewData) => 
-    axiosInstance.put(`/reviews/${reviewId}`, reviewData),
-
-  /**
-   * 사용자 리뷰 삭제
-   * @param {string} reviewId - 리뷰 ID
-   * @returns {Promise} 삭제 응답
-   */
-  deleteUserReview: (reviewId) => 
-    axiosInstance.delete(`/reviews/${reviewId}`)
+  getUserReviews: async (memberId, params = {}) => {
+    return await axiosInstance.get(`/review/member/${memberId}`, {
+      params: {
+        page: params.page || 1,
+        size: params.size || 20
+      }
+    });
+  }
 };
