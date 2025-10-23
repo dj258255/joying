@@ -6,7 +6,6 @@
 import React from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
-import { ROUTE_PATHS } from '@/shared/constants'
 
 // Lazy loading을 위한 컴포넌트 import
 const HomePage = React.lazy(() => import('@/features/home/pages/HomePage'))
