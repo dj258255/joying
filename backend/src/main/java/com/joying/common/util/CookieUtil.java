@@ -3,16 +3,14 @@ package com.joying.common.util;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.util.SerializationUtils;
 
-import java.util.Base64;
 import java.util.Optional;
 
 /**
  * Cookie 유틸리티
  *
- * 현업 표준 보안 설정 적용:
- * - Access Token: SameSite=Lax (외부 링크 클릭 시에도 동작)
+ * 보안 설정 적용:
+ * - Access Token: SameSite=Lax (일반적인 GET 요청 허용)
  * - Refresh Token: SameSite=Strict (완벽한 CSRF 방어)
  */
 public class CookieUtil {
@@ -34,7 +32,7 @@ public class CookieUtil {
 		cookie.setSecure(true); // HTTPS 환경에서만 전송
 		cookie.setPath("/");
 		cookie.setMaxAge(maxAge);
-		cookie.setAttribute("SameSite", "Lax"); // CSRF 보호 (POST 요청)
+		cookie.setAttribute("SameSite", "Lax");
 		return cookie;
 	}
 
@@ -55,7 +53,7 @@ public class CookieUtil {
 		cookie.setSecure(true);
 		cookie.setPath("/");
 		cookie.setMaxAge(maxAge);
-		cookie.setAttribute("SameSite", "Strict"); // 완벽한 CSRF 방어
+		cookie.setAttribute("SameSite", "Strict");
 		return cookie;
 	}
 
@@ -130,32 +128,5 @@ public class CookieUtil {
 				}
 			}
 		}
-	}
-
-	/**
-	 * 객체를 직렬화하여 Cookie 값으로 변환
-	 *
-	 * @param object 직렬화할 객체
-	 * @return Base64 인코딩된 문자열
-	 */
-	public static String serialize(Object object) {
-		return Base64.getUrlEncoder()
-			.encodeToString(SerializationUtils.serialize(object));
-	}
-
-	/**
-	 * Cookie 값을 역직렬화하여 객체로 변환
-	 *
-	 * @param cookie Cookie
-	 * @param cls    클래스 타입
-	 * @param <T>    제네릭 타입
-	 * @return 역직렬화된 객체
-	 */
-	public static <T> T deserialize(Cookie cookie, Class<T> cls) {
-		return cls.cast(
-			SerializationUtils.deserialize(
-				Base64.getUrlDecoder().decode(cookie.getValue())
-			)
-		);
 	}
 }
