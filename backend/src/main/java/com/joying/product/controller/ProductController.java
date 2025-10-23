@@ -28,7 +28,7 @@ public class ProductController {
     @GetMapping("/{productId}")
     public ResponseEntity<?> getProductInfo(@PathVariable Long productId) {
         try {
-            ProductResponseDto.ProductInfo product = productService.getProductInfo(productId);
+            ProductResponseDto.ProductDetail product = productService.getProductInfo(productId);
 
             if (product == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -40,7 +40,6 @@ public class ProductController {
             return ApiResponse.ok(product);
 
         } catch (IllegalArgumentException e) {
-            // 파라미터 등 잘못된 요청
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ErrorResponse.of(
                             400,
