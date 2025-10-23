@@ -57,6 +57,966 @@
   .card-footer {
     @apply px-4 py-4 sm:px-6 border-t border-gray-200;
   }
+
+  /* 시안 블루(#007ACC) 스크롤리스 글래스모피즘 디자인 시스템 */
+  
+  /* 스크롤바 완전 숨김 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* 메인 컨테이너 - Deep Glass */
+  .glass-main {
+    @apply backdrop-blur-[15px] border border-blue-500/30 rounded-2xl shadow-2xl;
+    background-color: rgba(0, 122, 204, 0.24);
+  }
+  
+  /* 프로필 카드 - Ultra Deep Glass */
+  .glass-profile {
+    @apply bg-white/50 backdrop-blur-[20px] border border-white/40 rounded-2xl shadow-2xl;
+  }
+
+  /* 미니멀 프로필 카드 */
+  .glass-profile-minimal {
+    @apply bg-white/60 backdrop-blur-md border border-white/30 rounded-3xl shadow-lg;
+  }
+  
+  /* 활동 대시보드 카드 */
+  .glass-dashboard-card {
+    @apply bg-white/60 backdrop-blur-[12px] border border-white/25 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+
+  /* 미니멀 카드 */
+  .glass-card-minimal {
+    @apply bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200;
+  }
+
+  /* 미니멀 메인 컨테이너 */
+  .glass-main-minimal {
+    @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+  }
+
+  /* 활동 아이템 */
+  .glass-activity-item {
+    @apply bg-white/40 backdrop-blur-sm border border-white/10 rounded-xl shadow-sm hover:shadow-md hover:bg-white/50 transition-all duration-200;
+  }
+
+  /* 미니멀 탭 컨테이너 */
+  .glass-tabs-minimal {
+    @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+  }
+
+  /* 미니멀 서브 탭 */
+  .glass-subtab-minimal-active {
+    @apply bg-gray-100 text-gray-900 shadow-sm;
+  }
+
+  .glass-subtab-minimal-inactive {
+    @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900;
+  }
+
+  /* 미니멀 콘텐츠 컨테이너 */
+  .glass-content-minimal {
+    @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+  }
+
+  /* 계정 관리 아이템 */
+  .glass-account-item {
+    @apply bg-white/70 backdrop-blur-sm border border-white/20 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200;
+  }
+
+  .glass-account-item-normal {
+    @apply hover:bg-white/80 hover:border-gray-200/30;
+  }
+
+  .glass-account-item-danger {
+    @apply hover:bg-red-50/50 hover:border-red-200/30;
+  }
+
+  /* 미니멀 뱃지 */
+  .glass-badge-minimal {
+    @apply bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  /* 프로필 헤더 */
+  .glass-profile-header {
+    @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+  }
+
+  /* 아바타 컨테이너 */
+  .glass-avatar-container {
+    @apply bg-white/40 backdrop-blur-sm border border-white/30 rounded-2xl p-2 shadow-sm;
+  }
+
+  /* 평점 뱃지 */
+  .glass-rating-badge {
+    @apply backdrop-blur-sm rounded-xl px-3 py-1 flex items-center space-x-1 shadow-sm;
+    background-color: rgba(59, 130, 246, 0.3);
+  }
+
+
+  /* 정보 섹션 */
+  .glass-info-section {
+    @apply bg-white/50 backdrop-blur-md border border-white/20 rounded-2xl shadow-md;
+  }
+
+  /* 섹션 제목 */
+  .glass-section-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  /* 정보 아이템 */
+  .glass-info-item {
+    @apply flex items-center justify-between py-2 border-b border-white/10 last:border-b-0;
+  }
+
+  /* 정보 라벨 */
+  .glass-info-label {
+    @apply text-sm font-medium text-gray-600 w-20 flex-shrink-0;
+  }
+
+  /* 정보 값 */
+  .glass-info-value {
+    @apply text-sm text-gray-900 font-medium;
+  }
+
+  /* 상태 뱃지 */
+  .glass-status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm border shadow-sm;
+  }
+
+  .glass-status-verified {
+    @apply bg-green-100/80 text-green-800 border-green-200/50;
+  }
+
+  .glass-status-unverified {
+    @apply bg-red-100/80 text-red-800 border-red-200/50;
+  }
+
+  /* 정보 플레이스홀더 */
+  .glass-info-placeholder {
+    @apply text-sm text-gray-500 italic;
+  }
+
+  /* 통계 카드 */
+  .glass-stat-card {
+    @apply bg-white/40 backdrop-blur-sm border border-white/20 rounded-xl p-4 text-center shadow-sm;
+  }
+
+  /* 통계 숫자 */
+  .glass-stat-number {
+    @apply text-2xl font-bold text-gray-900 mb-1;
+  }
+
+  /* 통계 라벨 */
+  .glass-stat-label {
+    @apply text-sm text-gray-600;
+  }
+
+  /* 상품 카드 시스템 */
+  .glass-product-header {
+    @apply bg-white/30 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl;
+    @apply hover:bg-white/40 hover:shadow-2xl transition-all duration-300;
+    @apply min-h-[80px] flex items-center;
+  }
+
+  .glass-section-title {
+    @apply text-2xl font-bold text-black drop-shadow-md;
+  }
+
+  .glass-section-description {
+    @apply text-base text-white/80 mt-2 drop-shadow-md;
+  }
+
+  .glass-product-card {
+    @apply relative bg-white/50 backdrop-blur-sm border border-white/20 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200;
+  }
+
+  .glass-product-actions {
+    @apply absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200;
+  }
+
+  .glass-action-button {
+    @apply p-2 bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl shadow-sm hover:shadow-md transition-all duration-200;
+  }
+
+  .glass-action-edit {
+    @apply text-gray-600 hover:text-gray-900 hover:bg-white/90;
+  }
+
+  .glass-action-delete {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-action-unlike {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-product-status {
+    @apply absolute top-3 left-3;
+  }
+
+  .glass-status-available {
+    @apply bg-green-100/80 text-green-800 border-green-200/50;
+  }
+
+  .glass-status-unavailable {
+    @apply bg-red-100/80 text-red-800 border-red-200/50;
+  }
+
+  .glass-product-stats {
+    @apply absolute bottom-3 left-3 right-3;
+  }
+
+  .glass-stats-container {
+    @apply bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl p-3 shadow-sm;
+  }
+
+  .glass-stat-item {
+    @apply flex flex-col items-center space-y-1;
+  }
+
+  .glass-stat-value {
+    @apply text-sm font-bold text-gray-900;
+  }
+
+  .glass-stat-label {
+    @apply text-xs text-gray-600;
+  }
+
+  .glass-product-date {
+    @apply absolute bottom-3 left-3 right-3;
+  }
+
+  .glass-date-container {
+    @apply bg-white/80 backdrop-blur-sm border border-white/30 rounded-xl p-3 shadow-sm;
+  }
+
+  .glass-date-label {
+    @apply text-xs text-gray-600;
+  }
+
+  /* 버튼 시스템 */
+  .glass-button-primary {
+    @apply backdrop-blur-xl rounded-2xl px-6 py-3 text-white font-semibold hover:shadow-xl transition-all duration-300;
+    @apply drop-shadow-md hover:scale-110;
+    background-color: rgba(0, 122, 204, 0.53);
+  }
+  
+  .glass-button-primary:hover {
+    background-color: rgba(0, 122, 204, 0.7);
+  }
+
+  .glass-button-ghost {
+    @apply bg-white/20 backdrop-blur-xl border border-white/30 rounded-2xl px-6 py-3 text-white/90 font-semibold hover:bg-white/40 hover:text-white transition-all duration-300;
+    @apply drop-shadow-md hover:scale-110;
+  }
+
+  .glass-button-danger {
+    @apply bg-red-500/60 backdrop-blur-xl border border-red-400/70 rounded-2xl px-6 py-3 text-white font-semibold hover:bg-red-500/80 hover:shadow-xl transition-all duration-300;
+    @apply drop-shadow-md hover:scale-110;
+  }
+
+  .glass-button-success {
+    @apply bg-green-500/60 backdrop-blur-xl border border-green-400/70 rounded-2xl px-6 py-3 text-white font-semibold hover:bg-green-500/80 hover:shadow-xl transition-all duration-300;
+    @apply drop-shadow-md hover:scale-110;
+  }
+
+  /* 프로필 이미지 모달 스타일 */
+  .glass-modal-content {
+    @apply bg-gradient-to-br from-white/30 to-white/10 backdrop-blur-2xl border border-white/40 rounded-3xl shadow-2xl;
+    @apply hover:shadow-2xl transition-all duration-300;
+  }
+
+  .glass-modal-title {
+    @apply text-2xl font-bold text-black mb-2 drop-shadow-md;
+  }
+
+  .glass-modal-description {
+    @apply text-base text-gray-600 drop-shadow-sm;
+  }
+
+  .glass-profile-container {
+    @apply bg-gradient-to-br from-white/40 to-white/20 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl;
+    @apply hover:shadow-2xl transition-all duration-300;
+  }
+
+  .glass-profile-image-container {
+    @apply border-[3px] border-white/60 shadow-xl;
+    @apply hover:border-white/80 transition-all duration-300;
+  }
+
+  .glass-profile-placeholder {
+    @apply bg-gray-200;
+  }
+
+  .glass-preview-badge {
+    @apply bg-blue-500/80 backdrop-blur-sm;
+  }
+
+  .glass-form-label {
+    @apply text-gray-700;
+  }
+
+  .glass-form-help {
+    @apply text-gray-500;
+  }
+
+  .glass-guideline-container {
+    @apply bg-blue-50/80 backdrop-blur-md border border-blue-200/60 rounded-xl shadow-lg;
+    @apply hover:shadow-xl transition-all duration-300;
+  }
+
+  .glass-guideline-title {
+    @apply text-blue-800 font-semibold;
+  }
+
+  .glass-guideline-list {
+    @apply text-blue-700;
+  }
+
+  /* 테이블 시스템 */
+  .glass-history-container {
+    @apply bg-white/50 backdrop-blur-md border border-white/20 rounded-2xl shadow-lg overflow-hidden;
+  }
+
+  .glass-table-container {
+    @apply overflow-x-auto;
+  }
+
+  .glass-table-wrapper {
+    @apply min-w-full;
+  }
+
+  .glass-table {
+    @apply min-w-full divide-y divide-white/10;
+  }
+
+  .glass-table-header {
+    @apply bg-white/40 backdrop-blur-sm;
+  }
+
+  .glass-table-th {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider;
+  }
+
+  .glass-table-body {
+    @apply bg-white/30 backdrop-blur-sm divide-y divide-white/10;
+  }
+
+  .glass-table-row {
+    @apply hover:bg-white/40 transition-all duration-200;
+  }
+
+  .glass-table-td {
+    @apply px-6 py-4 whitespace-nowrap;
+  }
+
+  .glass-product-info {
+    @apply flex items-center space-x-3;
+  }
+
+  .glass-product-image {
+    @apply flex-shrink-0;
+  }
+
+  .glass-product-details {
+    @apply flex-1;
+  }
+
+  .glass-product-name {
+    @apply text-sm font-medium text-gray-900;
+  }
+
+  .glass-product-category {
+    @apply text-sm text-gray-500;
+  }
+
+  .glass-user-info {
+    @apply flex flex-col;
+  }
+
+  .glass-user-name {
+    @apply text-sm font-medium text-gray-900;
+  }
+
+  .glass-user-location {
+    @apply text-sm text-gray-500;
+  }
+
+  .glass-date-info {
+    @apply flex flex-col;
+  }
+
+  .glass-date-start {
+    @apply text-sm text-gray-900;
+  }
+
+  .glass-date-end {
+    @apply text-sm text-gray-500;
+  }
+
+  .glass-amount {
+    @apply text-sm font-medium text-gray-900;
+  }
+
+  .glass-action-buttons {
+    @apply flex space-x-2;
+  }
+
+  .glass-action-view {
+    @apply text-blue-600 hover:text-blue-900 hover:bg-blue-50/50;
+  }
+
+  .glass-action-review {
+    @apply text-green-600 hover:text-green-900 hover:bg-green-50/50;
+  }
+
+  /* 페이지네이션 */
+  .glass-pagination {
+    @apply flex justify-center mt-8;
+  }
+
+  .glass-pagination-button {
+    @apply px-3 py-2 text-sm font-medium bg-white/60 backdrop-blur-sm border border-white/30 rounded-xl text-gray-600 hover:bg-white/80 hover:text-gray-900 transition-all duration-200;
+  }
+
+  .glass-pagination-active {
+    @apply bg-white/80 text-gray-900 shadow-md;
+  }
+
+  .glass-pagination-prev,
+  .glass-pagination-next {
+    @apply hover:shadow-md;
+  }
+
+  /* 통일된 상품 카드 - 토스/애플 스타일 */
+  .glass-product-card {
+    @apply relative bg-white/70 backdrop-blur-xl border border-white/30 rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden;
+    @apply hover:scale-[1.02] hover:bg-white/80;
+  }
+
+  /* 상품 이미지 영역 */
+  .glass-product-image-container {
+    @apply relative w-full h-48 overflow-hidden;
+  }
+
+  .glass-product-image {
+    @apply w-full h-full object-cover transition-transform duration-300 group-hover:scale-110;
+  }
+
+  .glass-product-image-placeholder {
+    @apply w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center;
+  }
+
+  /* 상태 뱃지 */
+  .glass-product-status-badge {
+    @apply absolute top-4 left-4;
+  }
+
+  .glass-status-badge {
+    @apply px-3 py-1.5 rounded-2xl text-xs font-semibold backdrop-blur-sm border shadow-sm;
+  }
+
+  .glass-status-available {
+    @apply bg-green-100/90 text-green-800 border-green-200/50;
+  }
+
+  .glass-status-unavailable {
+    @apply bg-red-100/90 text-red-800 border-red-200/50;
+  }
+
+  .glass-status-rented {
+    @apply bg-blue-100/90 text-blue-800 border-blue-200/50;
+  }
+
+  .glass-status-completed {
+    @apply bg-gray-100/90 text-gray-800 border-gray-200/50;
+  }
+
+  .glass-status-pending {
+    @apply bg-yellow-100/90 text-yellow-800 border-yellow-200/50;
+  }
+
+  /* 액션 버튼 */
+  .glass-product-action-button {
+    @apply absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300;
+  }
+
+  .glass-action-button {
+    @apply p-3 bg-white/90 backdrop-blur-sm border border-white/40 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200;
+    @apply hover:scale-110 hover:bg-white;
+  }
+
+  .glass-action-edit {
+    @apply text-gray-600 hover:text-gray-900;
+  }
+
+  .glass-action-delete {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-action-unlike {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-action-view {
+    @apply text-blue-600 hover:text-blue-900 hover:bg-blue-50/50;
+  }
+
+  /* 상품 콘텐츠 */
+  .glass-product-content {
+    @apply p-6 space-y-3;
+  }
+
+  .glass-product-title {
+    @apply text-lg font-bold text-gray-900 leading-tight;
+    @apply line-clamp-2;
+  }
+
+  .glass-product-category {
+    @apply text-sm text-gray-500 font-medium;
+  }
+
+  .glass-product-price {
+    @apply text-xl font-bold text-gray-900;
+  }
+
+  .glass-product-location {
+    @apply text-sm text-gray-600 flex items-center;
+  }
+
+  .glass-product-location::before {
+    content: '📍';
+    @apply mr-1;
+  }
+
+  /* 통계 정보 */
+  .glass-product-stats {
+    @apply px-6 pb-4;
+  }
+
+  .glass-product-stats::before {
+    content: '';
+    @apply block w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-4;
+  }
+
+  .glass-product-stats {
+    @apply flex justify-around;
+  }
+
+  .glass-stat-item {
+    @apply flex flex-col items-center space-y-1;
+  }
+
+  .glass-stat-value {
+    @apply text-lg font-bold text-gray-900;
+  }
+
+  .glass-stat-label {
+    @apply text-xs text-gray-500 font-medium;
+  }
+
+  /* 날짜 정보 */
+  .glass-product-date {
+    @apply px-6 pb-6;
+  }
+
+  .glass-product-date::before {
+    content: '';
+    @apply block w-full h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent mb-3;
+  }
+
+  .glass-date-label {
+    @apply text-xs text-gray-500 font-medium mb-1;
+  }
+
+  .glass-date-value {
+    @apply text-sm text-gray-700 font-medium;
+  }
+
+  /* 반응형 디자인 */
+  @media (max-width: 768px) {
+    .glass-product-card {
+      @apply rounded-2xl;
+    }
+    
+    .glass-product-content {
+      @apply p-4 space-y-2;
+    }
+    
+    .glass-product-title {
+      @apply text-base;
+    }
+    
+    .glass-product-price {
+      @apply text-lg;
+    }
+  }
+
+  /* 접근성 개선 */
+  .glass-product-card:focus {
+    @apply outline-none ring-2 ring-blue-500/50 ring-offset-2;
+  }
+
+  .glass-action-button:focus {
+    @apply outline-none ring-2 ring-blue-500/50 ring-offset-1;
+  }
+
+  /* 새로운 카드 디자인 - 이미지 메인 + 텍스트 오버레이 */
+  .glass-product-card-new {
+    @apply relative w-full h-96 rounded-3xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer;
+    @apply hover:scale-[1.02] hover:shadow-2xl;
+  }
+
+  /* 메인 이미지 컨테이너 */
+  .glass-product-image-main {
+    @apply relative w-full h-full;
+  }
+
+  /* 배경 이미지 */
+  .glass-product-image-bg {
+    @apply w-full h-full object-cover transition-transform duration-300 group-hover:scale-110;
+  }
+
+  /* 이미지 플레이스홀더 */
+  .glass-product-image-placeholder-bg {
+    @apply w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center;
+  }
+
+  /* 그라데이션 오버레이 */
+  .glass-product-gradient-overlay {
+    @apply absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent;
+  }
+
+  /* 상태 뱃지 오버레이 */
+  .glass-product-status-overlay {
+    @apply absolute top-4 left-4 z-10;
+  }
+
+  .glass-status-badge-new {
+    @apply px-3 py-1.5 rounded-2xl text-xs font-semibold backdrop-blur-sm border shadow-lg;
+  }
+
+  .glass-status-available {
+    @apply bg-green-500/90 text-white border-green-400/50;
+  }
+
+  .glass-status-unavailable {
+    @apply bg-red-500/90 text-white border-red-400/50;
+  }
+
+  .glass-status-rented {
+    @apply bg-blue-500/90 text-white border-blue-400/50;
+  }
+
+  .glass-status-completed {
+    @apply bg-gray-500/90 text-white border-gray-400/50;
+  }
+
+  .glass-status-pending {
+    @apply bg-yellow-500/90 text-white border-yellow-400/50;
+  }
+
+  /* 액션 버튼 오버레이 */
+  .glass-product-action-overlay {
+    @apply absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-all duration-300;
+  }
+
+  .glass-action-button-new {
+    @apply p-3 bg-white/90 backdrop-blur-sm border border-white/40 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200;
+    @apply hover:scale-110 hover:bg-white;
+  }
+
+  .glass-action-edit {
+    @apply text-gray-600 hover:text-gray-900;
+  }
+
+  .glass-action-delete {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-action-unlike {
+    @apply text-red-600 hover:text-red-900 hover:bg-red-50/50;
+  }
+
+  .glass-action-view {
+    @apply text-blue-600 hover:text-blue-900 hover:bg-blue-50/50;
+  }
+
+  /* 하단 텍스트 오버레이 */
+  .glass-product-text-overlay {
+    @apply absolute bottom-0 left-0 right-0 p-8 z-10;
+    @apply bg-gradient-to-t from-black/80 via-black/40 to-transparent;
+  }
+
+  .glass-product-title-overlay {
+    @apply text-2xl font-bold text-white mb-3 leading-tight;
+    @apply line-clamp-2 drop-shadow-md;
+  }
+
+
+  .glass-product-price-overlay {
+    @apply text-3xl font-bold text-white mb-3 drop-shadow-md;
+  }
+
+  .glass-product-location-overlay {
+    @apply text-base text-white/80 flex items-center drop-shadow-md;
+  }
+
+  /* 통계 정보 오버레이 */
+  .glass-product-stats-overlay {
+    @apply absolute bottom-32 left-0 right-0 px-6 z-10;
+  }
+
+  .glass-stats-grid {
+    @apply flex justify-around bg-black/40 backdrop-blur-sm rounded-2xl p-4 border border-white/20;
+  }
+
+  .glass-stat-item-overlay {
+    @apply flex flex-col items-center space-y-1;
+  }
+
+  .glass-stat-value-overlay {
+    @apply text-xl font-bold text-white drop-shadow-md;
+  }
+
+  .glass-stat-label-overlay {
+    @apply text-sm text-white/80 font-medium drop-shadow-md;
+  }
+
+  /* 날짜 정보 오버레이 */
+  .glass-product-date-overlay {
+    @apply absolute bottom-32 left-0 right-0 px-6 z-10;
+  }
+
+  .glass-product-date-overlay::before {
+    content: '';
+    @apply block w-full h-px bg-white/30 mb-3;
+  }
+
+  .glass-date-label-overlay {
+    @apply text-sm text-white/70 font-medium mb-2 drop-shadow-md;
+  }
+
+  .glass-date-value-overlay {
+    @apply text-base text-white font-medium drop-shadow-md;
+  }
+
+  /* 반응형 디자인 */
+  @media (max-width: 768px) {
+    .glass-product-card-new {
+      @apply h-80 rounded-2xl;
+    }
+    
+    .glass-product-text-overlay {
+      @apply p-6;
+    }
+    
+    .glass-product-title-overlay {
+      @apply text-xl;
+    }
+    
+    .glass-product-price-overlay {
+      @apply text-2xl;
+    }
+    
+    .glass-product-stats-overlay {
+      @apply bottom-28;
+    }
+    
+    .glass-product-date-overlay {
+      @apply bottom-28;
+    }
+  }
+
+  /* 접근성 개선 */
+  .glass-product-card-new:focus {
+    @apply outline-none ring-2 ring-blue-500/50 ring-offset-2;
+  }
+
+  .glass-action-button-new:focus {
+    @apply outline-none ring-2 ring-blue-500/50 ring-offset-1;
+  }
+  
+  /* 리스트 항목 - Minimal Glass */
+  .glass-list-item {
+    @apply bg-white/30 backdrop-blur-[8px] border border-white/20 rounded-xl shadow-sm hover:shadow-md hover:border-[#007ACC]/30 transition-all duration-200;
+  }
+  
+  /* 입력 필드 */
+  .glass-input {
+    @apply bg-white/20 backdrop-blur-sm border border-white/40 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-[#007ACC]/50 focus:border-[#007ACC]/50 transition-all duration-300;
+  }
+  
+  /* 메인 컬러 버튼 */
+  .glass-button {
+    @apply bg-[#007ACC]/80 backdrop-blur-sm border border-[#007ACC]/50 rounded-lg px-4 py-2 text-white hover:bg-[#007ACC]/95 hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#007ACC]/50;
+  }
+  
+  /* Ghost Glass 버튼 */
+  .glass-button-ghost {
+    @apply bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg px-4 py-2 text-gray-900 hover:bg-white/30 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#007ACC]/50;
+  }
+  
+  /* Danger Glass 버튼 */
+  .glass-button-danger {
+    @apply bg-[#FF4500]/80 backdrop-blur-sm border border-[#FF4500]/50 rounded-lg px-4 py-2 text-white hover:bg-[#FF4500]/95 hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#FF4500]/50;
+  }
+  
+  /* Disabled Glass 버튼 */
+  .glass-button-disabled {
+    @apply bg-gray-500/20 backdrop-blur-sm border border-gray-400/30 rounded-lg px-4 py-2 text-gray-500 cursor-not-allowed;
+  }
+  
+  /* 글래스모피즘 모달 시스템 */
+  .glass-modal-fullscreen {
+    @apply bg-white/80 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl;
+  }
+
+  .glass-modal-overlay {
+    @apply bg-black/20 backdrop-blur-sm;
+  }
+
+  /* Warning Glass Overlay */
+  .glass-warning-overlay {
+    @apply bg-red-500/10 backdrop-blur-sm;
+  }
+
+  /* 모달 헤더 */
+  .glass-modal-header {
+    @apply bg-white/60 backdrop-blur-md border-b border-white/20;
+  }
+
+  .glass-modal-header-warning {
+    @apply bg-red-100/60 backdrop-blur-md border-b border-red-200/20;
+  }
+
+  /* 모달 닫기 버튼 */
+  .glass-modal-close {
+    @apply p-2 rounded-xl bg-white/40 hover:bg-white/60 transition-all duration-300 hover:scale-110;
+  }
+
+  .glass-modal-close-warning {
+    @apply p-2 rounded-xl bg-red-200/40 hover:bg-red-200/60 transition-all duration-300 hover:scale-110;
+  }
+  
+  /* 네비게이션 */
+  .glass-nav {
+    @apply bg-white/80 backdrop-blur-md border-b border-white/20;
+  }
+
+  /* 미니멀 사이드바 */
+  .glass-sidebar-minimal {
+    @apply backdrop-blur-lg border-r border-blue-500/30;
+    background-color: rgba(0, 122, 204, 0.24);
+  }
+
+  /* 미니멀 탭 */
+  .glass-tab-minimal-active {
+    @apply bg-gray-100 text-gray-900 shadow-sm;
+  }
+
+  .glass-tab-minimal-inactive {
+    @apply text-gray-600 hover:bg-gray-50 hover:text-gray-900;
+  }
+  
+  .glass-bottom-nav {
+    @apply bg-white/90 backdrop-blur-md border-t border-white/20;
+  }
+
+  
+  /* 탭 시스템 */
+  .glass-tab-active {
+    @apply bg-white/90 text-black shadow-lg;
+  }
+  
+  .glass-tab-inactive {
+    @apply bg-white/20 text-gray-700 hover:bg-white/30;
+  }
+  
+  /* 뱃지 시스템 */
+  .glass-badge-primary {
+    @apply bg-[#007ACC]/80 text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .glass-badge-warning {
+    @apply bg-yellow-500/80 text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .glass-badge-danger {
+    @apply bg-red-500/80 text-white px-2 py-1 rounded-full text-xs font-medium;
+  }
+  
+  /* 상태 표시 */
+  .glass-status-active {
+    @apply bg-[#007ACC]/20 text-[#007ACC] border border-[#007ACC]/50 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .glass-status-pending {
+    @apply bg-yellow-500/20 text-yellow-700 border border-yellow-300/50 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .glass-status-completed {
+    @apply bg-green-500/20 text-green-700 border border-green-300/50 px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  /* 마이크로 인터랙션 */
+  .glass-hover-lift {
+    @apply hover:shadow-xl transition-all duration-300;
+    transform: scale(1);
+  }
+  
+  .glass-hover-lift:hover {
+    transform: scale(1.02);
+  }
+  
+  .glass-hover-glow {
+    @apply hover:ring-2 hover:ring-[#007ACC]/50 transition-all duration-300;
+  }
+  
+  /* 프로필 이미지 링 효과 */
+  .glass-avatar-ring {
+    @apply ring-4 ring-[#007ACC]/30 hover:ring-[#007ACC]/50 transition-all duration-300;
+  }
+  
+  /* 페이드 효과 */
+  .glass-fade-left {
+    background: linear-gradient(to right, rgba(255,255,255,0.8), transparent);
+  }
+  
+  .glass-fade-right {
+    background: linear-gradient(to left, rgba(255,255,255,0.8), transparent);
+  }
+  
+  /* 맥동 애니메이션 */
+  .glass-pulse {
+    animation: glass-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes glass-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  /* 스크롤리스 컨테이너 */
+  .glass-scroll-container {
+    @apply overflow-y-auto scrollbar-hide;
+  }
+  
+  /* 스크롤리스 뷰포트 */
+  .glass-viewport {
+    @apply h-screen overflow-hidden;
+  }
 }
 
 @layer utilities {
