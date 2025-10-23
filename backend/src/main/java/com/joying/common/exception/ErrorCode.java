@@ -67,7 +67,22 @@ public enum ErrorCode {
 	RENTAL_ALREADY_RETURNED(400, "R002", "이미 반납된 대여 내역입니다"),
 	RENTAL_ALREADY_CANCELLED(400, "R003", "이미 취소된 대여 내역입니다"),
 	RENTAL_PERIOD_INVALID(400, "R004", "대여 기간이 올바르지 않습니다"),
-	RENTAL_NOT_AUTHORIZED(403, "R005", "대여 내역에 대한 권한이 없습니다");
+	RENTAL_NOT_AUTHORIZED(403, "R005", "대여 내역에 대한 권한이 없습니다"),
+
+	// ========================================
+	// Account Domain (AC001~AC099)
+	// ========================================
+	ACCOUNT_NOT_FOUND(404, "AC001", "계좌를 찾을 수 없습니다"),
+	ACCOUNT_ALREADY_REGISTERED(409, "AC002", "이미 등록된 계좌입니다"),
+	ACCOUNT_NOT_VERIFIED(400, "AC003", "인증되지 않은 계좌입니다"),
+	ACCOUNT_NOT_USABLE(400, "AC004", "사용 불가능한 계좌입니다"),
+	ACCOUNT_NOT_AUTHORIZED(403, "AC005", "계좌에 대한 권한이 없습니다"),
+
+	// ========================================
+	// Member Domain (M001~M099)
+	// ========================================
+	MEMBER_NOT_FOUND(404, "M001", "회원을 찾을 수 없습니다"),
+	MEMBER_NOT_OWNER(403, "M002", "해당 회원 정보를 수정/삭제할 권한이 없습니다");
 
 	private final int status;
 	private final String code;
