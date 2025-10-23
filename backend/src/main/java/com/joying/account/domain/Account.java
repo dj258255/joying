@@ -38,9 +38,9 @@ public class Account extends BaseEntity {
     @Column(name = "account_num", nullable = false)
     private String accountNum;
 
-    @Comment("핀테크 이용번호 (금융결제원 오픈뱅킹)")
-    @Column(name = "fintech_use_num", nullable = false, unique = true)
-    private String fintechUseNum;
+    @Comment("계좌일련번호 (금융결제원 오픈뱅킹 1원 인증)")
+    @Column(name = "account_seq", nullable = false, unique = true)
+    private String accountSeq;
 
     @Comment("계좌 예금주명")
     @Column(name = "account_holder_name", nullable = false)
@@ -56,16 +56,16 @@ public class Account extends BaseEntity {
     private AccountState accountState;
 
     /**
-     * Builder 패턴으로 계좌 생성
+     * Builder 패턴으로 계좌 생성 (1원 인증 방식)
      */
     @Builder
     public Account(Member member, String bankName, String bankCodeStd, String accountNum,
-                   String fintechUseNum, String accountHolderName, AccountState accountState) {
+                   String accountSeq, String accountHolderName, AccountState accountState) {
         this.member = member;
         this.bankName = bankName;
         this.bankCodeStd = bankCodeStd;
         this.accountNum = accountNum;
-        this.fintechUseNum = fintechUseNum;
+        this.accountSeq = accountSeq;
         this.accountHolderName = accountHolderName;
         this.verifiedAt = null; // 기본값: 미인증
         this.accountState = accountState != null ? accountState : AccountState.ACTIVE;

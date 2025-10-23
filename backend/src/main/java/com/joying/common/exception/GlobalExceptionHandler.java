@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -160,6 +161,33 @@ public class GlobalExceptionHandler {
 		return ResponseEntity
 			.status(HttpStatus.FORBIDDEN)
 			.body(response);
+	}
+
+	/**
+	 * 정적 리소스를 찾을 수 없음 (404)
+	 * Chrome DevTools, favicon.ico 등의 요청은 로그에서 제외
+	 */
+	@ExceptionHandler(NoResourceFoundException.class)
+	protected ResponseEntity<ErrorResponse> handleNoResourceFoundException(NoResourceFoundException ex) {
+		String resourcePath = ex.getResourcePath();
+
+		// Chrome DevTools, favicon 등 브라우저 자동 요청은 로그 레벨 낮춤
+		if (resourcePath.contains(".well-known") ||
+			resourcePath.contains("favicon.ico") ||
+			resourcePath.contains("apple-touch-icon")) {
+			log.debug("Browser auto-request ignored: {}", resourcePath);
+		} else {
+			log.warn("Resource not found: {}", resourcePath);
+		}
+
+		// 404 응답은 Spring이 자동으로 처리하도록 null 반환
+		return ResponseEntity
+			.status(HttpStatus.NOT_FOUND)
+			.body(ErrorResponse.of(
+				HttpStatus.NOT_FOUND.value(),
+				"NOT_FOUND",
+				"요청한 리소스를 찾을 수 없습니다"
+			));
 	}
 
 	/**

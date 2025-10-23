@@ -23,13 +23,13 @@ import org.springframework.web.bind.annotation.*;
  * 회원 컨트롤러 (RESTful 설계)
  *
  * 회원 리소스에 대한 CRUD API 제공
- * - GET    /api/members/{memberId}    회원 정보 조회
- * - PUT    /api/members/{memberId}    회원 정보 수정 (본인만)
- * - DELETE /api/members/{memberId}    회원 탈퇴 (본인만)
+ * - GET    /api/v1/members/{memberId}    회원 정보 조회
+ * - PUT    /api/v1/members/{memberId}    회원 정보 수정 (본인만)
+ * - DELETE /api/v1/members/{memberId}    회원 탈퇴 (본인만)
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/members")
+@RequestMapping("/api/v1/members")
 @RequiredArgsConstructor
 @Tag(name = "회원", description = "회원 정보 조회, 수정, 탈퇴 API (RESTful)")
 public class MemberController {
@@ -52,8 +52,8 @@ public class MemberController {
 			**인증 필요**: 예
 
 			**예시**:
-			- 본인 조회: `GET /api/members/1` (memberId가 본인 ID인 경우)
-			- 타인 조회: `GET /api/members/2` (memberId가 다른 회원 ID인 경우)
+			- 본인 조회: `GET /api/v1/members/1` (memberId가 본인 ID인 경우)
+			- 타인 조회: `GET /api/v1/members/2` (memberId가 다른 회원 ID인 경우)
 
 			**참고**: 클라이언트는 로그인 시 받은 memberId를 사용하여 본인 정보를 조회할 수 있습니다.
 			"""
@@ -105,7 +105,7 @@ public class MemberController {
 			- URL의 memberId와 토큰의 memberId가 일치해야 함
 
 			**예시**:
-			- `PUT /api/members/1` (토큰의 memberId가 1인 경우만 성공)
+			- `PUT /api/v1/members/1` (토큰의 memberId가 1인 경우만 성공)
 			"""
 	)
 	@ApiResponses({
@@ -157,7 +157,7 @@ public class MemberController {
 			- URL의 memberId와 토큰의 memberId가 일치해야 함
 
 			**예시**:
-			- `DELETE /api/members/1` (토큰의 memberId가 1인 경우만 성공)
+			- `DELETE /api/v1/members/1` (토큰의 memberId가 1인 경우만 성공)
 			"""
 	)
 	@ApiResponses({
