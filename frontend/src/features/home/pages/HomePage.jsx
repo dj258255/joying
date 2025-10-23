@@ -3,23 +3,44 @@
  * 섹션별 카메라 각도 전환 + Sticky 스크롤
  */
 
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, Environment, TransformControls } from '@react-three/drei';
+import { useGLTF, Environment, TransformControls, useProgress, Loader } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '@/shared/constants';
+import LoadingScreen from '../components/LoadingScreen';
 
 gsap.registerPlugin(ScrollTrigger);
+
+// 모델 프리로드
+useGLTF.preload('/models/camera.glb');
+useGLTF.preload('/models/tent.glb');
+useGLTF.preload('/models/gamepad.glb');
+
+/**
+ * Progress Tracker - Canvas 내부에서 useProgress를 호출하고 부모에게 전달
+ */
+const ProgressTracker = ({ onProgressChange }) => {
+  const { progress, active, loaded, total, errors } = useProgress();
+  
+  useEffect(() => {
+    console.log('📊 Progress Update:', { progress, active, loaded, total });
+    onProgressChange({ progress, active, loaded, total, errors });
+  }, [progress, active, loaded, total, errors, onProgressChange]);
+  
+  return null;
+};
 
 /**
  * 3D Model Component with cross-fade transition
  */
 const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel }) => {
-  const cameraModel = useGLTF('/models/camera.glb');
-  const tentModel = useGLTF('/models/tent.glb');
-  const gamepadModel = useGLTF('/models/gamepad.glb');
+  // useGLTF로 모델 로드 (suspense 모드로 로딩 추적)
+  const cameraModel = useGLTF('/models/camera.glb', true); // suspense: true
+  const tentModel = useGLTF('/models/tent.glb', true);
+  const gamepadModel = useGLTF('/models/gamepad.glb', true);
   const groupRef = useRef();
   const cameraGroupRef = useRef();
   const tentGroupRef = useRef();
@@ -28,7 +49,8 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
   const triangleGroupRef = useRef(); // Section 5 삼각형 대형용
 
   // Opacity 애니메이션을 위한 ref
-  const opacityRef = useRef({ camera: 1, tent: 0, gamepad: 0 });
+  // ✨ 초기값을 0.01로 설정하여 모든 모델을 처음부터 로드 (딜레이 방지)
+  const opacityRef = useRef({ camera: 1, tent: 0.01, gamepad: 0.01 });
   
   // 개별 모델 스케일/회전 애니메이션을 위한 ref
   const modelTransformRef = useRef({
@@ -120,8 +142,19 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
       }
     }
 
-    // 일반 모드: 애니메이션 상태로 위치, 회전, 스케일 업데이트
-    if (groupRef.current && animationState.current) {
+    // 애니메이션 상태로 위치, 회전, 스케일 업데이트
+    if (currentModel === 'all' && triangleGroupRef.current && animationState.current) {
+      // Section 5: 삼각형 그룹 전체에 position만 적용 (스크롤 효과)
+      // ⚠️ 중요: JSX에서 설정한 position, rotation, scale은 유지하고
+      // animationState의 position.y만 추가로 적용하여 스크롤 효과
+      const basePosition = [0, 0, 0]; // JSX에서 설정한 기본 position
+      triangleGroupRef.current.position.set(
+        basePosition[0] + animationState.current.position.x,
+        basePosition[1] + animationState.current.position.y,
+        basePosition[2] + animationState.current.position.z
+      );
+    } else if (groupRef.current && animationState.current) {
+      // 일반 모드: groupRef 업데이트
       groupRef.current.rotation.set(
         animationState.current.rotation.x,
         animationState.current.rotation.y,
@@ -140,6 +173,7 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
     }
 
     // Opacity 업데이트 (각 모델의 모든 메시에 적용)
+    // 모든 모델을 항상 렌더링하여 미리 로드 (visible = true 유지)
     if (cameraGroupRef.current) {
       cameraGroupRef.current.traverse((child) => {
         if (child.isMesh && child.material) {
@@ -150,8 +184,8 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
         }
       });
       
-      // visibility는 항상 설정
-      cameraGroupRef.current.visible = opacityRef.current.camera > 0.01;
+      // ✨ 항상 렌더링 (딜레이 방지)
+      cameraGroupRef.current.visible = true;
       
       // 삼각형 모드가 아닐 때만 position.z와 scale 조정
       if (currentModel !== 'all') {
@@ -172,8 +206,8 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
         }
       });
       
-      // visibility는 항상 설정
-      tentGroupRef.current.visible = opacityRef.current.tent > 0.01;
+      // ✨ 항상 렌더링 (딜레이 방지)
+      tentGroupRef.current.visible = true;
       
       // 삼각형 모드가 아닐 때만 position.z, scale, rotation 조정
       if (currentModel !== 'all') {
@@ -195,8 +229,8 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
         }
       });
       
-      // visibility는 항상 설정
-      gamepadGroupRef.current.visible = opacityRef.current.gamepad > 0.01;
+      // ✨ 항상 렌더링 (딜레이 방지)
+      gamepadGroupRef.current.visible = true;
       
       // 삼각형 모드가 아닐 때만 position.z와 scale 조정
       if (currentModel !== 'all') {
@@ -206,24 +240,70 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
         gamepadGroupRef.current.scale.set(gamepadScale, gamepadScale, gamepadScale);
       }
     }
+
+    // Section 5: 각 오브젝트 개별 Y축 회전
+    if (currentModel === 'all') {
+      if (cameraGroupRef.current) {
+        modelRotationsRef.current.camera += 0.002;
+        cameraGroupRef.current.rotation.y = modelRotationsRef.current.camera;
+      }
+      if (tentGroupRef.current) {
+        modelRotationsRef.current.tent += 0.002;
+        tentGroupRef.current.rotation.y = modelRotationsRef.current.tent;
+      }
+      if (gamepadGroupRef.current) {
+        modelRotationsRef.current.gamepad += 0.002;
+        gamepadGroupRef.current.rotation.y = modelRotationsRef.current.gamepad;
+      }
+    } else {
+      // 섹션 5가 아닐 때는 개별 회전 초기화
+      if (cameraGroupRef.current) {
+        cameraGroupRef.current.rotation.y = 0;
+      }
+      if (gamepadGroupRef.current) {
+        gamepadGroupRef.current.rotation.y = 0;
+      }
+    }
   });
 
   // currentModel이 변경되면 opacity 애니메이션 실행
   React.useEffect(() => {
     if (currentModel === 'all') {
-      // Section 5: 모든 모델 표시 (삼각형 대형은 JSX에서 scale 적용)
-      gsap.to(opacityRef.current, {
-        camera: 1,
-        tent: 1,
-        gamepad: 1,
-        duration: 1.0,
-        ease: 'power2.inOut',
-      });
+      // Section 5: 모든 모델 표시 (색상 분리 효과)
+      // 즉시 모든 모델을 투명하게 설정
+      opacityRef.current.camera = 0;
+      opacityRef.current.tent = 0;
+      opacityRef.current.gamepad = 0;
       
       // Section 5 진입 시 회전값 초기화
       modelRotationsRef.current.camera = 0;
       modelRotationsRef.current.tent = 0;
       modelRotationsRef.current.gamepad = 0;
+      
+      // 색상 분리 효과: 각 오브젝트가 시간차로 나타남 (0.5초 딜레이)
+      // 카메라 - 첫 번째 (0.5초 후)
+      gsap.to(opacityRef.current, {
+        camera: 1,
+        duration: 0.8,
+        delay: 0.6,
+        ease: 'power2.out',
+      });
+      
+      // 텐트 - 두 번째 (0.7초 후)
+      gsap.to(opacityRef.current, {
+        tent: 1,
+        duration: 0.8,
+        delay: 0.8,
+        ease: 'power2.out',
+      });
+      
+      // 게임패드 - 세 번째 (0.9초 후)
+      gsap.to(opacityRef.current, {
+        gamepad: 1,
+        duration: 0.8,
+        delay: 1,
+        ease: 'power2.out',
+      });
       
       // modelTransformRef는 삼각형 모드에서는 사용하지 않음 (JSX에서 직접 scale 지정)
       
@@ -320,16 +400,31 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
       {currentModel === 'all' ? (
         // Section 5: 삼각형 대형으로 회전 (전체 크기 축소)
         <group ref={triangleGroupRef} scale={[0.5, 0.5, 0.5]} position={[0, 0, 0]}>
-          {/* 카메라 - 위쪽 꼭짓점 (Section 2 scale: 9) */}
-          <group ref={cameraGroupRef} position={[0, 3, 0]} scale={[9, 9, 9]}>
+          {/* 카메라 - Section 2 scale: 9 유지 */}
+          <group 
+            ref={cameraGroupRef} 
+            position={[-2.10, 1.07, -0.38]} 
+            rotation={[0.00, Math.PI * 12.41, 0.00]}
+            scale={[9, 9, 9]}
+          >
             <primitive object={cameraModel.scene.clone()} />
           </group>
-          {/* 텐트 - 왼쪽 아래 (Section 3 scale: 0.98) */}
-          <group ref={tentGroupRef} position={[-4, -2, 0]} scale={[0.98, 0.98, 0.98]}>
+          {/* 텐트 - Section 3 scale: 0.98 유지 */}
+          <group 
+            ref={tentGroupRef} 
+            position={[-4.09, -1.54, 0.62]} 
+            rotation={[-0.77, Math.PI * 12.41, 0.03]}
+            scale={[0.98, 0.98, 0.98]}
+          >
             <primitive object={tentModel.scene.clone()} />
           </group>
-          {/* 게임패드 - 오른쪽 아래 (Section 4 scale: 15) */}
-          <group ref={gamepadGroupRef} position={[4, -2, 0]} scale={[15, 15, 15]}>
+          {/* 게임패드 - Section 4 scale: 15 유지 */}
+          <group 
+            ref={gamepadGroupRef} 
+            position={[-1.57, 1.37, 2.37]} 
+            rotation={[2.21, Math.PI * 18.92, 2.49]}
+            scale={[15, 15, 15]}
+          >
             <primitive object={gamepadModel.scene.clone()} />
           </group>
         </group>
@@ -429,23 +524,28 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
 /**
  * 3D Canvas Container
  */
-const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel }) => {
+const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, onProgressChange }) => {
   return (
     <div
       id="model-container"
       className={debugMode ? "fixed inset-0" : "fixed inset-0 pointer-events-none"}
       style={{ zIndex: debugMode ? 9998 : 50 }}
     >
-      <Suspense fallback={null}>
-        <Canvas
-          camera={{ position: [0, 0, 3], fov: 75 }}
-          gl={{ alpha: true, antialias: true }}
-          dpr={[1, 2]}
-        >
-          <ambientLight intensity={2} />
-          <directionalLight position={[5, 5, 5]} intensity={1.5} />
-          <pointLight position={[-5, 5, -5]} intensity={0.8} />
-          <Environment preset="city" />
+      <Canvas
+        camera={{ position: [0, 0, 3], fov: 75 }}
+        gl={{ alpha: true, antialias: true }}
+        dpr={[1, 2]}
+      >
+        {/* Progress Tracker - Canvas 내부에서 progress 추적 */}
+        <ProgressTracker onProgressChange={onProgressChange} />
+        
+        <ambientLight intensity={2} />
+        <directionalLight position={[5, 5, 5]} intensity={1.5} />
+        <pointLight position={[-5, 5, -5]} intensity={0.8} />
+        <Environment preset="city" />
+        
+        {/* Suspense로 감싸서 로딩 추적 */}
+        <Suspense fallback={null}>
           <Model3D 
             animationState={animationState} 
             currentModel={currentModel} 
@@ -454,8 +554,8 @@ const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformCha
             controlMode={controlMode}
             selectedTriangleModel={selectedTriangleModel}
           />
-        </Canvas>
-      </Suspense>
+        </Suspense>
+      </Canvas>
     </div>
   );
 };
@@ -475,10 +575,29 @@ const HomePage = () => {
   const [controlMode, setControlMode] = React.useState('translate'); // translate, rotate, scale
   const [forceUpdate, setForceUpdate] = React.useState(0);
   const [selectedTriangleModel, setSelectedTriangleModel] = React.useState('group'); // 'group', 'camera', 'tent', 'gamepad'
+  const [isLoaded, setIsLoaded] = React.useState(false); // 로딩 완료 상태
+  
+  // 로딩 진행률 상태
+  const [loadingProgress, setLoadingProgress] = React.useState({
+    progress: 0,
+    active: true,
+    loaded: 0,
+    total: 0
+  });
   
   // TransformControls에서 변경될 때마다 UI 업데이트
   const handleTransformChange = React.useCallback(() => {
     setForceUpdate(prev => prev + 1);
+  }, []);
+  
+  // Progress 업데이트 핸들러
+  const handleProgressChange = React.useCallback((progressData) => {
+    setLoadingProgress(progressData);
+    
+    // 로딩 완료 시 isLoaded 설정
+    if (!progressData.active && progressData.progress >= 100) {
+      setIsLoaded(true);
+    }
   }, []);
 
   // GSAP 애니메이션 상태 (Section 1과 동일하게 시작)
@@ -529,11 +648,11 @@ const HomePage = () => {
         rotation: { x: 1.15, y: Math.PI * 0.13, z: -0.62 },
         scale: 15.00,
       },
-      // Section 5: Final CTA
+      // Section 5: Final CTA (삼각형 대형 - 중앙 고정)
       {
-        position: { x: -1.78, y: -0.15, z: 0.00 },
-        rotation: { x: 0.42, y: Math.PI * -0.12, z: 0.83 },
-        scale: 0.50,
+        position: { x: 0, y: 0, z: 0 },  // 중앙 고정
+        rotation: { x: 0, y: 0, z: 0 },  // 회전 없음
+        scale: 1,  // JSX에서 이미 0.5 적용됨
       }
     ];
 
@@ -751,13 +870,15 @@ const HomePage = () => {
 
   return (
     <div className="bg-black text-white" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* 디버그 토글 버튼 */}
-      <button
-        onClick={() => setDebugMode(!debugMode)}
-        className="fixed top-4 right-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg z-[9999]"
-      >
-        {debugMode ? '🔧 디버그 OFF' : '🔧 디버그 ON'}
-      </button>
+      {/* 디버그 토글 버튼 - 로딩 완료 후에만 표시 */}
+      {isLoaded && (
+        <button
+          onClick={() => setDebugMode(!debugMode)}
+          className="fixed top-4 right-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold shadow-lg z-[9999]"
+        >
+          {debugMode ? '🔧 디버그 OFF' : '🔧 디버그 ON'}
+        </button>
+      )}
 
       {/* 디버그 패널 */}
       {debugMode && (
@@ -808,9 +929,9 @@ const HomePage = () => {
                   }`}
                 >
                   🎮 게임패드
-                </button>
-              </div>
+              </button>
             </div>
+          </div>
           )}
 
           {/* 컨트롤 모드 전환 */}
@@ -932,6 +1053,15 @@ const HomePage = () => {
         </div>
       )}
 
+      {/* 로딩 화면 */}
+      <LoadingScreen 
+        progress={loadingProgress.progress}
+        active={loadingProgress.active}
+        loaded={loadingProgress.loaded}
+        total={loadingProgress.total}
+        onLoadComplete={() => setIsLoaded(true)}
+      />
+
       {/* 3D Model Canvas */}
       <Scene3DCanvas 
         animationState={animationState} 
@@ -940,14 +1070,18 @@ const HomePage = () => {
         onTransformChange={handleTransformChange}
         controlMode={controlMode}
         selectedTriangleModel={selectedTriangleModel}
+        onProgressChange={handleProgressChange}
       />
 
-      {/* Section 1: Hero */}
-      <section
-        id="section-1"
-        className={`relative min-h-screen flex items-center justify-center ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
-        style={{ zIndex: 60 }}
-      >
+      {/* 로딩 완료 후에만 섹션 표시 */}
+      {isLoaded && (
+        <>
+          {/* Section 1: Hero */}
+          <section
+            id="section-1"
+            className={`relative min-h-screen flex items-center justify-center ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
+            style={{ zIndex: 60 }}
+          >
         <div className="container mx-auto px-8 text-center">
           <h1 className="text-8xl font-bold mb-6 tracking-tight">
             빌려<span className="text-primary-500">joying</span>
@@ -955,12 +1089,18 @@ const HomePage = () => {
           <p className="text-2xl text-gray-300 mb-12 font-light">
             필요한 물건을 빌려주고 빌리는 지역 기반 렌탈 플랫폼
           </p>
-          <button
+              <button
             onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
             className="bg-primary-500 text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-primary-600 transition-all hover:scale-105"
-          >
+              >
             시작하기
-          </button>
+              </button>
+        </div>
+        {/* 스크롤 인디케이터 */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+          <div className="scroll-indicator">
+            <span></span>
+          </div>
         </div>
       </section>
 
@@ -992,6 +1132,12 @@ const HomePage = () => {
             </div>
           </div>
         </div>
+        {/* 스크롤 인디케이터 */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+          <div className="scroll-indicator">
+            <span></span>
+          </div>
+        </div>
       </section>
 
       {/* Section 3: 캠핑용품 */}
@@ -1020,6 +1166,12 @@ const HomePage = () => {
                 캠핑용품 둘러보기
               </button>
             </div>
+                </div>
+              </div>
+        {/* 스크롤 인디케이터 */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+          <div className="scroll-indicator">
+            <span></span>
           </div>
         </div>
       </section>
@@ -1050,8 +1202,14 @@ const HomePage = () => {
                 전자기기 둘러보기
               </button>
             </div>
-                </div>
-              </div>
+          </div>
+        </div>
+        {/* 스크롤 인디케이터 */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
+          <div className="scroll-indicator">
+            <span></span>
+          </div>
+        </div>
       </section>
 
       {/* Section 5: Final CTA */}
@@ -1065,7 +1223,7 @@ const HomePage = () => {
             <h2 className="text-7xl font-bold mb-6">
               지금 바로<br />
               <span className="text-primary-500">시작하세요</span>
-            </h2>
+          </h2>
             <p className="text-xl text-gray-300 mb-12 leading-relaxed">
               안전한 11단계 거래 시스템과 보증금 에스크로로<br />
               믿을 수 있는 렌탈 서비스를 경험하세요
@@ -1170,6 +1328,8 @@ const HomePage = () => {
           </div>
         </footer>
       </div>
+        </>
+      )}
     </div>
   );
 };

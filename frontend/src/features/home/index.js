@@ -8,6 +8,7 @@ export { default as HeroScene } from './components/HeroScene';
 export { default as FloatingObjects } from './components/FloatingObjects';
 export { default as CameraController } from './components/CameraController';
 export { default as LoadingOverlay } from './components/LoadingOverlay';
+export { default as LoadingScreen } from './components/LoadingScreen';
 
 // Hooks
 export { useThreeScene } from './hooks/useThreeScene';
