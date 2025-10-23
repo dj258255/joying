@@ -74,6 +74,11 @@ dependencies {
 	testImplementation("org.springframework.kafka:spring-kafka-test")
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+	// Cloud Flare A2
+	implementation("software.amazon.awssdk:s3:2.28.23")
+	implementation("software.amazon.awssdk:auth:2.28.23")
+	implementation("software.amazon.awssdk:regions:2.28.23")
 }
 
 // Kotlin 컴파일 옵션
