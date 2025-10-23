@@ -1,15 +1,20 @@
 /**
  * HomePage Component
+
  * 섹션별 카메라 각도 전환 + Sticky 스크롤
  */
+
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Environment, TransformControls, useProgress, Loader } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
+import * as THREE from 'three';
+
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '@/shared/constants';
+
 import LoadingScreen from '../components/LoadingScreen';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -522,9 +527,185 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
 };
 
 /**
+ * Starlight Particles - 별빛 파티클 효과 (Section 2 전용)
+ */
+const StarlightParticles = ({ currentSection }) => {
+  const particlesRef = useRef();
+  const particleCount = 200;
+  
+  // 파티클 초기 위치 생성
+  const positions = React.useMemo(() => {
+    const pos = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 20;     // x
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 20; // y
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 10; // z
+    }
+    return pos;
+  }, []);
+  
+  // 파티클 애니메이션
+  useFrame((state) => {
+    if (particlesRef.current && currentSection === 1) { // Section 2
+      const time = state.clock.getElapsedTime();
+      
+      // 반짝이는 효과
+      particlesRef.current.material.opacity = 0.3 + Math.sin(time * 2) * 0.2;
+      
+      // 천천히 회전
+      particlesRef.current.rotation.y = time * 0.05;
+      particlesRef.current.rotation.x = time * 0.02;
+    }
+  });
+  
+  // Section 2일 때만 표시
+  if (currentSection !== 1) return null;
+  
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particleCount}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.05}
+        color="#ffffff"
+        transparent
+        opacity={0.5}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+};
+
+/**
+ * Falling Leaves - 나뭇잎 떨어지는 효과 (Section 3 전용)
+ */
+const FallingLeaves = ({ currentSection }) => {
+  const leavesRef = useRef();
+  const leafCount = 100;
+  
+  // 나뭇잎 초기 위치 및 속성 생성
+  const { positions, speeds, rotations } = React.useMemo(() => {
+    const pos = new Float32Array(leafCount * 3);
+    const spd = new Float32Array(leafCount);
+    const rot = new Float32Array(leafCount);
+    
+    for (let i = 0; i < leafCount; i++) {
+      // 위에서 시작
+      pos[i * 3] = (Math.random() - 0.5) * 15;      // x: 넓게 분포
+      pos[i * 3 + 1] = Math.random() * 15 + 5;      // y: 위쪽에서 시작
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 10;  // z: 깊이감
+      
+      // 각 나뭇잎의 낙하 속도
+      spd[i] = Math.random() * 0.5 + 0.3;
+      
+      // 회전 속도
+      rot[i] = Math.random() * 0.1;
+    }
+    
+    return { positions: pos, speeds: spd, rotations: rot };
+  }, []);
+  
+  // 나뭇잎 애니메이션
+  useFrame((state) => {
+    if (leavesRef.current && currentSection === 2) { // Section 3
+      const time = state.clock.getElapsedTime();
+      const posArray = leavesRef.current.geometry.attributes.position.array;
+      
+      for (let i = 0; i < leafCount; i++) {
+        const idx = i * 3;
+        
+        // 아래로 떨어지기
+        posArray[idx + 1] -= speeds[i] * 0.02;
+        
+        // 좌우로 흔들리기 (바람 효과)
+        posArray[idx] += Math.sin(time + i) * 0.005;
+        
+        // 바닥에 닿으면 다시 위로
+        if (posArray[idx + 1] < -5) {
+          posArray[idx + 1] = 15;
+          posArray[idx] = (Math.random() - 0.5) * 15;
+        }
+      }
+      
+      leavesRef.current.geometry.attributes.position.needsUpdate = true;
+      
+      // 전체적으로 천천히 회전
+      leavesRef.current.rotation.y = time * 0.03;
+    }
+  });
+  
+  // Section 3일 때만 표시
+  if (currentSection !== 2) return null;
+  
+  return (
+    <points ref={leavesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={leafCount}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.15}
+        color="#86efac"
+        transparent
+        opacity={0.7}
+        sizeAttenuation
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
+  );
+};
+
+
+/**
+ * Scene Background Controller - 섹션별 배경색 변경
+ */
+const SceneBackground = ({ currentSection }) => {
+  const { scene } = useThree();
+  
+  // 섹션별 배경색 정의 - 밝고 인터랙티브한 색상
+  const sectionBackgrounds = [
+    '#000000',  // Section 1: 검은색 (Hero)
+    '#000000',  // Section 2: 검은색 (카메라) - Black
+    '#1e4620',  // Section 3: 진한 숲 녹색 (캠핑) - Deep Forest Green
+    '#1e3a8a',  // Section 4: 진한 남색 (전자기기/게임) - Deep Navy Blue
+    '#000000'   // Section 5: 검은색 (Final CTA)
+  ];
+  
+  React.useEffect(() => {
+    if (!scene.background) {
+      scene.background = new THREE.Color('#000000');
+    }
+    
+    const targetColor = new THREE.Color(sectionBackgrounds[currentSection]);
+    
+    // GSAP으로 부드럽게 배경색 전환
+    gsap.to(scene.background, {
+      r: targetColor.r,
+      g: targetColor.g,
+      b: targetColor.b,
+      duration: 0.6,
+      ease: 'power2.out'
+    });
+  }, [currentSection, scene]);
+  
+  return null;
+};
+
+/**
  * 3D Canvas Container
  */
-const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, onProgressChange }) => {
+const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, onProgressChange, currentSection }) => {
   return (
     <div
       id="model-container"
@@ -538,6 +719,15 @@ const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformCha
       >
         {/* Progress Tracker - Canvas 내부에서 progress 추적 */}
         <ProgressTracker onProgressChange={onProgressChange} />
+        
+        {/* Scene Background Controller - 섹션별 배경색 변경 */}
+        <SceneBackground currentSection={currentSection} />
+        
+        {/* Starlight Particles - 별빛 파티클 효과 (Section 2) */}
+        <StarlightParticles currentSection={currentSection} />
+        
+        {/* Falling Leaves - 나뭇잎 떨어지는 효과 (Section 3) */}
+        <FallingLeaves currentSection={currentSection} />
         
         <ambientLight intensity={2} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />
@@ -565,6 +755,7 @@ const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformCha
  */
 const HomePage = () => {
   const navigate = useNavigate();
+
 
   // 현재 모델 상태
   const [currentModel, setCurrentModel] = React.useState('camera');
@@ -869,6 +1060,7 @@ const HomePage = () => {
   }, []);
 
   return (
+
     <div className="bg-black text-white" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* 디버그 토글 버튼 - 로딩 완료 후에만 표시 */}
       {isLoaded && (
@@ -1071,6 +1263,7 @@ const HomePage = () => {
         controlMode={controlMode}
         selectedTriangleModel={selectedTriangleModel}
         onProgressChange={handleProgressChange}
+        currentSection={currentSectionIndex}
       />
 
       {/* 로딩 완료 후에만 섹션 표시 */}
@@ -1104,6 +1297,7 @@ const HomePage = () => {
         </div>
       </section>
 
+
       {/* Section 2: 카메라 */}
       <section
         id="section-2"
@@ -1118,6 +1312,7 @@ const HomePage = () => {
             <h2 className="text-6xl font-bold mb-6">
               전문가용<br />카메라
           </h2>
+          
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               DSLR부터 미러리스까지, 전문가용 카메라를 합리적인 가격에 대여할 수 있습니다.
               완벽한 순간을 담아보세요.
@@ -1131,6 +1326,7 @@ const HomePage = () => {
               </button>
             </div>
           </div>
+
         </div>
         {/* 스크롤 인디케이터 */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
@@ -1160,11 +1356,14 @@ const HomePage = () => {
             </p>
             <div className="flex items-center gap-4">
               <button
+
                 onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=camping`)}
                 className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
               >
+
                 캠핑용품 둘러보기
               </button>
+
             </div>
                 </div>
               </div>
@@ -1175,6 +1374,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
 
       {/* Section 4: 전자기기 */}
       <section
@@ -1190,6 +1390,7 @@ const HomePage = () => {
             <h2 className="text-6xl font-bold mb-6">
               최신<br />전자기기
           </h2>
+          
             <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               노트북, 태블릿, 빔 프로젝터 등 최신 전자기기를 대여하여
               스마트한 생활과 업무를 경험하세요.
@@ -1201,9 +1402,10 @@ const HomePage = () => {
               >
                 전자기기 둘러보기
               </button>
-            </div>
-          </div>
-        </div>
+                </div>
+              </div>
+              </div>
+
         {/* 스크롤 인디케이터 */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
           <div className="scroll-indicator">
@@ -1211,6 +1413,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
 
       {/* Section 5: Final CTA */}
       <section
@@ -1224,6 +1427,7 @@ const HomePage = () => {
               지금 바로<br />
               <span className="text-primary-500">시작하세요</span>
           </h2>
+
             <p className="text-xl text-gray-300 mb-12 leading-relaxed">
               안전한 11단계 거래 시스템과 보증금 에스크로로<br />
               믿을 수 있는 렌탈 서비스를 경험하세요
@@ -1254,9 +1458,11 @@ const HomePage = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-20">
             <div className="text-center">
+
               <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">🛡️</span>
               </div>
+
               <h3 className="text-2xl font-bold mb-4">보증금 에스크로</h3>
               <p className="text-gray-400 leading-relaxed">
                 플랫폼이 보증금을 안전하게 보관하여 분쟁 시 공정한 중재를 제공합니다
@@ -1264,9 +1470,11 @@ const HomePage = () => {
             </div>
 
             <div className="text-center">
+
               <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">📹</span>
               </div>
+
               <h3 className="text-2xl font-bold mb-4">개봉 영상 필수</h3>
               <p className="text-gray-400 leading-relaxed">
                 수령 시와 반납 시 개봉 영상을 촬영하여 물건 상태를 명확히 기록합니다
@@ -1274,15 +1482,18 @@ const HomePage = () => {
             </div>
 
             <div className="text-center">
+
               <div className="w-16 h-16 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl">⭐</span>
               </div>
+
               <h3 className="text-2xl font-bold mb-4">신뢰도 시스템</h3>
               <p className="text-gray-400 leading-relaxed">
                 거래 횟수와 평점을 기반으로 한 뱃지 시스템으로 신뢰할 수 있는 거래를 보장합니다
               </p>
             </div>
           </div>
+
 
           {/* 거래 단계 */}
           <div className="max-w-4xl mx-auto border-t border-gray-800 pt-20">
@@ -1293,12 +1504,12 @@ const HomePage = () => {
               <div className="flex-1 text-center">
                 <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
                   1
-                </div>
+          </div>
                 <h4 className="text-xl font-semibold mb-2">상품 검색 및 선택</h4>
                 <p className="text-gray-400">
                   원하는 물건을 검색하고 대여 기간을 설정하세요
                 </p>
-              </div>
+        </div>
               <div className="flex-1 text-center">
                 <div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
                   2
@@ -1321,6 +1532,7 @@ const HomePage = () => {
           </div>
         </div>
 
+
         {/* Footer */}
         <footer className="py-8 border-t border-gray-800">
           <div className="container mx-auto px-8 text-center text-gray-500">
@@ -1335,3 +1547,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
