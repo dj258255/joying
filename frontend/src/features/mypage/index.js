@@ -7,21 +7,23 @@
 export * from './api/mypageApi';
 
 // Components
-export { default as MyPageMenu } from './components/MyPageMenu';
-export { default as RentHistoryTable } from './components/RentHistoryTable';
-export { default as RegisteredProductList } from './components/RegisteredProductList';
-export { default as LikedProductList } from './components/LikedProductList';
+export { default as BorrowedHistoryList } from './components/BorrowedHistoryList';
+export { default as LentHistoryList } from './components/LentHistoryList';
+export { default as RegisteredProductsList } from './components/RegisteredProductsList';
+export { default as LikedProductsList } from './components/LikedProductsList';
+export { default as MyChatRoomsList } from './components/MyChatRoomsList';
+export { default as UserProfileView } from './components/UserProfileView';
+export { default as UserInfoEditor } from './components/UserInfoEditor';
+export { default as ProfileImageManager } from './components/ProfileImageManager';
+export { default as AccountVerifyForm } from './components/AccountVerifyForm';
+export { default as UserDeletePage } from './components/UserDeletePage';
 
 // Hooks
 export * from './hooks/useRentHistory';
 export * from './hooks/useLikedProducts';
 
 // Pages
-export { default as MyPageDashboard } from './pages/MyPageDashboard';
-export { default as RentHistoryPage } from './pages/RentHistoryPage';
-export { default as LentHistoryPage } from './pages/LentHistoryPage';
-export { default as RegisteredProductsPage } from './pages/RegisteredProductsPage';
-export { default as LikedProductsPage } from './pages/LikedProductsPage';
+export { default as MyPageMain } from './pages/MyPageMain';
 
 // Layouts
 export { default as MyPageLayout } from './layouts/MyPageLayout';

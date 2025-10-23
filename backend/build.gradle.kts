@@ -30,7 +30,7 @@ repositories {
 dependencies {
 	// Spring Boot Starters
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-	// implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // MongoDB 미사용으로 주석 처리
+	implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // 채팅 기능용
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 	implementation("org.springframework.boot:spring-boot-starter-security")
@@ -44,12 +44,17 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib")
 
-	// Swagger/OpenAPI
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
+	// Swagger/OpenAPI (Spring Boot 3.5.x 호환)
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
+
+	// JWT
+	implementation("io.jsonwebtoken:jjwt-api:0.12.3")
+	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")
+	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.3")
 
 	// MapStruct
-	implementation("org.mapstruct:mapstruct:1.5.5.Final")
-	annotationProcessor("org.mapstruct:mapstruct-processor:1.5.5.Final")
+	implementation("org.mapstruct:mapstruct:1.6.3")
+	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
 
 	// Lombok (Java 코드용)
 	compileOnly("org.projectlombok:lombok")
