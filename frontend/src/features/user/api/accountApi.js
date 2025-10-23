@@ -5,19 +5,19 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 계좌 인증 API
+ */
 export const accountApi = {
   /**
-   * 계좌 인증 요청
-   * @param {Object} accountData - 계좌 정보
-   * @returns {Promise} 인증 요청 응답
+   * 계좌 인증
+   * @param {Object} data
+   * @param {string} data.bankCode - 은행 코드
+   * @param {string} data.accountNumber - 계좌번호
+   * @param {string} data.accountHolder - 예금주명
+   * @returns {Promise<{verified: boolean}>}
    */
-  verifyAccount: (accountData) => 
-    axiosInstance.post('/users/account/verify', accountData),
-
-  /**
-   * 계좌 인증 상태 조회
-   * @returns {Promise} 인증 상태
-   */
-  getAccountStatus: () => 
-    axiosInstance.get('/users/account/status')
+  verifyAccount: async (data) => {
+    return await axiosInstance.post('/v1/accounts/verify', data);
+  }
 };

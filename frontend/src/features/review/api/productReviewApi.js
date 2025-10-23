@@ -5,39 +5,47 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+/**
+ * 게시글(상품) 리뷰 API
+ */
 export const productReviewApi = {
   /**
-   * 상품 리뷰 목록 조회
-   * @param {string} productId - 상품 ID
-   * @param {Object} params - 쿼리 파라미터
-   * @returns {Promise} 상품 리뷰 목록
+   * 게시글 리뷰 리스트 조회
+   * @param {string} rentalId - 대여 ID
+   * @param {Object} [params]
+   * @param {number} [params.page=1]
+   * @param {number} [params.size=20]
+   * @returns {Promise<{items: Array, total: number}>}
    */
-  getProductReviews: (productId, params) => 
-    axiosInstance.get(`/products/${productId}/reviews`, { params }),
+  getProductReviews: async (rentalId, params = {}) => {
+    return await axiosInstance.get(`/review/rental/${rentalId}`, {
+      params: {
+        page: params.page || 1,
+        size: params.size || 20
+      }
+    });
+  },
 
   /**
-   * 상품 리뷰 생성
-   * @param {string} productId - 상품 ID
-   * @param {Object} reviewData - 리뷰 데이터
-   * @returns {Promise} 생성된 리뷰
+   * 대여에 작성한 리뷰 조회
+   * @param {string} rentalId - 대여 ID
+   * @param {string} memberId - 회원 ID
+   * @returns {Promise<Object|null>}
    */
-  createProductReview: (productId, reviewData) => 
-    axiosInstance.post(`/products/${productId}/reviews`, reviewData),
+  getMyReviewForRental: async (rentalId, memberId) => {
+    return await axiosInstance.get(`/review/rental/${rentalId}/member/${memberId}`);
+  },
 
   /**
-   * 상품 리뷰 수정
-   * @param {string} reviewId - 리뷰 ID
-   * @param {Object} reviewData - 수정할 리뷰 데이터
-   * @returns {Promise} 수정된 리뷰
+   * 게시글 리뷰 작성
+   * @param {string} rentalId - 대여 ID
+   * @param {Object} data
+   * @param {number} data.rating - 평점 (1-5)
+   * @param {string} data.content - 내용
+   * @param {string} data.type - 리뷰 타입 ('borrower' | 'lender')
+   * @returns {Promise<Object>}
    */
-  updateProductReview: (reviewId, reviewData) => 
-    axiosInstance.put(`/reviews/${reviewId}`, reviewData),
-
-  /**
-   * 상품 리뷰 삭제
-   * @param {string} reviewId - 리뷰 ID
-   * @returns {Promise} 삭제 응답
-   */
-  deleteProductReview: (reviewId) => 
-    axiosInstance.delete(`/reviews/${reviewId}`)
+  createProductReview: async (rentalId, data) => {
+    return await axiosInstance.post(`/review/rental/${rentalId}`, data);
+  }
 };

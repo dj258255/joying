@@ -11,6 +11,7 @@ export const ROUTE_PATHS = {
   // Main
   HOME: '/',
   SEARCH: '/search',
+  SEARCH_RESULTS: '/search/results',
 
   // Product
   PRODUCTS: '/products',

@@ -12,7 +12,15 @@ import java.util.List;
 
 @Getter
 @Entity
-@Table(name="member")
+@Table(
+        name = "member",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_member_email", columnNames = {"email"})
+        },
+        indexes = {
+                @Index(name = "idx_member_email", columnList = "email")
+        }
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "memberId", callSuper=false)
 public class Member extends BaseEntity {
