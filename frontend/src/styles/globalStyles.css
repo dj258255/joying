@@ -10,10 +10,24 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    /* 기본 스크롤바 숨김 */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  html::-webkit-scrollbar {
+    display: none;
   }
   
   body {
     @apply bg-gray-50 text-gray-900;
+    /* 기본 스크롤바 숨김 */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  body::-webkit-scrollbar {
+    display: none;
   }
   
   * {
@@ -71,5 +85,72 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+  
+  /* 커스텀 스크롤바 스타일 (reference 스타일) */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(16, 185, 129, 0.5) transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.5);
+    border-radius: 4px;
+    transition: background 0.3s;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(16, 185, 129, 0.7);
+  }
+  
+  /* 스크롤 인디케이터 애니메이션 */
+  .scroll-indicator {
+    display: inline-block;
+    padding-top: 60px;
+    color: #fff;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    transition: opacity 0.3s;
+  }
+  
+  .scroll-indicator:hover {
+    opacity: 0.5;
+  }
+  
+  .scroll-indicator span {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    border-left: 2px solid #10b981;
+    border-bottom: 2px solid #10b981;
+    transform: translate(-50%, 0) rotate(-45deg);
+    box-sizing: border-box;
+    animation: scroll-down 2s infinite;
+  }
+  
+  @keyframes scroll-down {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, 0) rotate(-45deg);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, 20px) rotate(-45deg);
+    }
   }
 }
