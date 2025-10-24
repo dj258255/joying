@@ -117,7 +117,6 @@ const ProductCard = ({
         {/* 하단 텍스트 오버레이 */}
         <div className="glass-product-text-overlay">
           <div className="glass-product-title-overlay">
-            <h1>-------------------------</h1>
             {product?.title || product?.name || '상품명 없음'}
           </div>
           <div className="glass-product-price-overlay">
@@ -128,25 +127,6 @@ const ProductCard = ({
           </div>
         </div>
 
-        {/* 통계 정보 오버레이 */}
-        {showStats && (
-          <div className="glass-product-stats-overlay">
-            <div className="glass-stats-grid">
-              <div className="glass-stat-item-overlay">
-                <span className="glass-stat-value-overlay">{stats.viewCount || 0}</span>
-                <span className="glass-stat-label-overlay">조회</span>
-              </div>
-              <div className="glass-stat-item-overlay">
-                <span className="glass-stat-value-overlay">{stats.likeCount || 0}</span>
-                <span className="glass-stat-label-overlay">찜</span>
-              </div>
-              <div className="glass-stat-item-overlay">
-                <span className="glass-stat-value-overlay">{stats.rentalCount || 0}</span>
-                <span className="glass-stat-label-overlay">대여</span>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
     </div>

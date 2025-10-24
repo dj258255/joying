@@ -48,6 +48,9 @@ import UserInfoEditor from '../components/UserInfoEditor';
 import AccountVerifyForm from '../components/AccountVerifyForm';
 import UserDeletePage from '../components/UserDeletePage';
 
+// 공통 네비게이션
+import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+
 const MyPageMain = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showModal, setShowModal] = useState(false);
@@ -328,6 +331,7 @@ const MyPageMain = () => {
 
   return (
     <div className="glass-viewport bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+      <SideNavbar />
       {/* 좌측 사이드바 - 미니멀 디자인 */}
       <div className="hidden lg:block fixed left-0 top-0 h-full w-64 z-40">
         <div className="glass-sidebar-minimal h-full p-6">
