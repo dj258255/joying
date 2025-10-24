@@ -21,6 +21,7 @@ import { ROUTE_PATHS } from '@/shared/constants';
 
 import LoadingScreen from '../components/LoadingScreen';
 import ScrollIndicator from '../components/ScrollIndicator';
+import { Section3Tent, Section4Gamepad, Section5Triangle, Section6System } from '../sections';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -46,7 +47,7 @@ const ProgressTracker = ({ onProgressChange }) => {
 /**
  * 3D Model Component with cross-fade transition
  */
-const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, currentSection }) => {
+const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, currentSection, previousSectionRef }) => {
   // useGLTF로 모델 로드 (suspense 모드로 로딩 추적)
   const cameraModel = useGLTF('/models/camera.glb', true); // suspense: true
   const tentModel = useGLTF('/models/tent.glb', true);
@@ -257,19 +258,19 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
       }
     }
 
-    // Section 5: 각 오브젝트 개별 Y축 회전
+    // Section 5: 각 오브젝트 개별 Y축 회전 (기존 rotation에 추가)
     if (currentModel === 'all') {
       if (cameraGroupRef.current) {
-        modelRotationsRef.current.camera += 0.002;
-        cameraGroupRef.current.rotation.y = modelRotationsRef.current.camera;
+        // JSX에 설정된 rotation.y(Math.PI * 0.86)를 유지하면서 추가 회전
+        cameraGroupRef.current.rotation.y += 0.002;
       }
       if (tentGroupRef.current) {
-        modelRotationsRef.current.tent += 0.002;
-        tentGroupRef.current.rotation.y = modelRotationsRef.current.tent;
+        // JSX에 설정된 rotation.y(Math.PI * 0.86)를 유지하면서 추가 회전
+        tentGroupRef.current.rotation.y += 0.002;
       }
       if (gamepadGroupRef.current) {
-        modelRotationsRef.current.gamepad += 0.002;
-        gamepadGroupRef.current.rotation.y = modelRotationsRef.current.gamepad;
+        // JSX에 설정된 rotation.y(Math.PI * 3.70)를 유지하면서 추가 회전
+        gamepadGroupRef.current.rotation.y += 0.002;
       }
     } else {
       // 섹션 5가 아닐 때는 개별 회전 초기화
@@ -290,11 +291,6 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
       opacityRef.current.camera = 0;
       opacityRef.current.tent = 0;
       opacityRef.current.gamepad = 0;
-      
-      // Section 5 진입 시 회전값 초기화
-      modelRotationsRef.current.camera = 0;
-      modelRotationsRef.current.tent = 0;
-      modelRotationsRef.current.gamepad = 0;
       
       // 색상 분리 효과: 각 오브젝트가 시간차로 나타남 (0.5초 딜레이)
       // 카메라 - 첫 번째 (0.5초 후)
@@ -413,37 +409,37 @@ const Model3D = ({ animationState, currentModel, debugMode, onTransformChange, c
 
   return (
     <>
-      {currentModel === 'all' ? (
-        // Section 5: 삼각형 대형으로 회전 (전체 크기 축소)
-        <group ref={triangleGroupRef} scale={[0.5, 0.5, 0.5]} position={[0, 0, 0]}>
-          {/* 카메라 - Section 2 scale: 9 유지 */}
-          <group 
-            ref={cameraGroupRef} 
-            position={[-2.10, 1.07, -0.38]} 
-            rotation={[0.00, Math.PI * 12.41, 0.00]}
-            scale={[9, 9, 9]}
-          >
-            <primitive object={cameraModel.scene.clone()} />
+        {currentModel === 'all' ? (
+          // Section 5: 삼각형 대형
+          <group ref={triangleGroupRef} position={[0, 0, 0]} rotation={[1.15, Math.PI * 0.13, -0.62]} scale={[0.5, 0.5, 0.5]}>
+            {/* 카메라 - Section 5 좌표 */}
+            <group 
+              ref={cameraGroupRef} 
+              position={[-2.10, 1.07, -0.38]} 
+              rotation={[0.00, Math.PI * 0.86, 0.00]}
+              scale={[9, 9, 9]}
+            >
+              <primitive object={cameraModel.scene.clone()} />
+            </group>
+            {/* 텐트 - Section 5 좌표 */}
+            <group 
+              ref={tentGroupRef} 
+              position={[-5.70, -48.43, -14.21]} 
+              rotation={[-0.89, Math.PI * 17.66, -0.14]}
+              scale={[9, 9, 9]}
+            >
+              <primitive object={tentModel.scene.clone()} />
+            </group>
+            {/* 게임패드 - Section 5 좌표 */}
+            <group 
+              ref={gamepadGroupRef} 
+              position={[-3.74, 3.70, 2.25]} 
+              rotation={[-0.81, 19.55, 0.33]}
+              scale={[0.98, 0.98, 0.98]}
+            >
+              <primitive object={gamepadModel.scene.clone()} />
+            </group>
           </group>
-          {/* 텐트 - Section 3 scale: 0.98 유지 */}
-          <group 
-            ref={tentGroupRef} 
-            position={[-4.09, -1.54, 0.62]} 
-            rotation={[-0.77, Math.PI * 12.41, 0.03]}
-            scale={[0.98, 0.98, 0.98]}
-          >
-            <primitive object={tentModel.scene.clone()} />
-          </group>
-          {/* 게임패드 - Section 4 scale: 15 유지 */}
-          <group 
-            ref={gamepadGroupRef} 
-            position={[-1.57, 1.37, 2.37]} 
-            rotation={[2.21, Math.PI * 18.92, 2.49]}
-            scale={[15, 15, 15]}
-          >
-            <primitive object={gamepadModel.scene.clone()} />
-          </group>
-        </group>
       ) : (
         // 일반 모드: 한 모델씩 표시
         <group ref={groupRef}>
@@ -719,7 +715,7 @@ const SceneBackground = ({ currentSection }) => {
 /**
  * 3D Canvas Container
  */
-const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, onProgressChange, currentSection }) => {
+const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformChange, controlMode, selectedTriangleModel, onProgressChange, currentSection, previousSectionRef }) => {
   return (
     <div
       id="model-container"
@@ -758,6 +754,7 @@ const Scene3DCanvas = ({ animationState, currentModel, debugMode, onTransformCha
             controlMode={controlMode}
             selectedTriangleModel={selectedTriangleModel}
             currentSection={currentSection}
+            previousSectionRef={previousSectionRef}
           />
         </Suspense>
       </Canvas>
@@ -775,6 +772,9 @@ const HomePage = () => {
 
   // 현재 모델 상태
   const [currentModel, setCurrentModel] = React.useState('camera');
+  
+  // 이전 섹션 추적용 ref (Section 6→5 전환 감지용)
+  const previousSectionRef = React.useRef(0);
   
   // 디버그 모드 상태
   const [debugMode, setDebugMode] = React.useState(false);
@@ -874,6 +874,7 @@ const HomePage = () => {
       if (index < 0 || index >= totalSections || isScrolling) return;
       isScrolling = true;
       const previousSection = currentSection;
+      previousSectionRef.current = currentSection; // ref에 이전 섹션 저장
       currentSection = index;
       setCurrentSectionIndex(index);  // 디버그용 섹션 인덱스 업데이트
 
@@ -884,8 +885,8 @@ const HomePage = () => {
         setCurrentModel('gamepad');   // Section 4: 게임패드
       } else if (index === 4) {
         // Section 5: 모든 모델 (삼각형 대형)
-        // Section 6→5 전환 시 opacity 효과를 위해 모델을 다시 설정
         if (previousSection === 5) {
+          // Section 6→5 전환: currentModel을 명확히 변경하여 useEffect 트리거
           setCurrentModel('camera');    // 임시로 다른 값 설정
           setTimeout(() => setCurrentModel('all'), 10); // 즉시 'all'로 변경하여 opacity 효과 트리거
         } else {
@@ -1153,12 +1154,12 @@ const HomePage = () => {
               >
                 📏 크기
               </button>
-            </div>
+          </div>
             <p className="text-xs text-gray-400 mt-2">
               💡 3D 오브젝트를 마우스로 드래그하세요!
-            </p>
-          </div>
-          
+              </p>
+            </div>
+
           {/* 현재 상태 표시 */}
           <div className="mb-4 p-4 bg-gray-800 rounded">
             <p className="text-sm text-gray-400 mb-2">현재 섹션: <span className="text-green-400 font-bold">Section {currentSectionIndex + 1}</span></p>
@@ -1173,7 +1174,7 @@ const HomePage = () => {
                 </span>
               </p>
             )}
-          </div>
+            </div>
 
           {/* 실시간 좌표 표시 */}
           <div className="mb-4 p-4 bg-gray-800 rounded">
@@ -1213,7 +1214,7 @@ const HomePage = () => {
   scale: ${animationState.current.scale.toFixed(2)},
 }`}
             </pre>
-            <button
+              <button
               onClick={() => {
                 const code = `{\n  position: { x: ${animationState.current.position.x.toFixed(2)}, y: ${animationState.current.position.y.toFixed(2)}, z: ${animationState.current.position.z.toFixed(2)} },\n  rotation: { x: ${animationState.current.rotation.x.toFixed(2)}, y: Math.PI * ${(animationState.current.rotation.y / Math.PI).toFixed(2)}, z: ${animationState.current.rotation.z.toFixed(2)} },\n  scale: ${animationState.current.scale.toFixed(2)},\n}`;
                 navigator.clipboard.writeText(code);
@@ -1222,7 +1223,7 @@ const HomePage = () => {
               className="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs"
             >
               📋 복사하기
-            </button>
+              </button>
           </div>
 
           {/* 사용 방법 */}
@@ -1257,6 +1258,7 @@ const HomePage = () => {
         selectedTriangleModel={selectedTriangleModel}
         onProgressChange={handleProgressChange}
         currentSection={currentSectionIndex}
+        previousSectionRef={previousSectionRef}
       />
 
       {/* Lottie 스크롤 인디케이터 (왼쪽 고정) */}
@@ -1310,207 +1312,34 @@ const HomePage = () => {
               완벽한 순간을 담아보세요.
             </p>
             <div className="flex items-center gap-4">
-              <button
+            <button
                 onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=camera`)}
                 className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
-              >
+            >
                 카메라 둘러보기
-              </button>
-            </div>
+            </button>
           </div>
+              </div>
 
 
         </div>
       </section>
 
       {/* Section 3: 캠핑용품 */}
-      <section
-        id="section-3"
-        className={`relative min-h-screen flex items-center ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
-        style={{ zIndex: 60 }}
-      >
-        <div className="container mx-auto px-8">
-          <div className="max-w-2xl ml-auto">
-            <span className="text-green-400 text-sm font-semibold uppercase tracking-wider mb-4 block">
-              아웃도어
-            </span>
-            <h2 className="text-6xl font-bold mb-6">
-              자연을<br />만끽하다
-            </h2>
-            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              텐트, 캠핑 의자, 테이블 등 다양한 캠핑용품을 대여하여
-              편안하고 즐거운 아웃도어 경험을 만드세요.
-            </p>
-            <div className="flex items-center gap-4">
-              <button
-
-
-                onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=camping`)}
-                className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
-              >
-
-                캠핑용품 둘러보기
-              </button>
-
-
-            </div>
-          </div>
-        </div>
-      </section>
+      <Section3Tent debugMode={debugMode} />
 
 
 
       {/* Section 4: 전자기기 */}
-      <section
-        id="section-4"
-        className={`relative min-h-screen flex items-center ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
-        style={{ zIndex: 60 }}
-      >
-        <div className="container mx-auto px-8">
-          <div className="max-w-2xl ml-auto">
-            <span className="text-blue-400 text-sm font-semibold uppercase tracking-wider mb-4 block">
-              테크
-            </span>
-            <h2 className="text-6xl font-bold mb-6">
-              최신<br />전자기기
-          </h2>
-          
-
-            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              노트북, 태블릿, 빔 프로젝터 등 최신 전자기기를 대여하여
-              스마트한 생활과 업무를 경험하세요.
-            </p>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=electronics`)}
-                className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
-              >
-                전자기기 둘러보기
-              </button>
-                </div>
-                </div>
-              </div>
-
-
-      </section>
+      <Section4Gamepad debugMode={debugMode} />
 
 
 
       {/* Section 5: Final CTA */}
-      <section
-        id="section-5"
-        className={`relative min-h-screen flex items-center justify-end ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
-        style={{ zIndex: 60 }}
-      >
-        <div className="container mx-auto px-8">
-          <div className="max-w-2xl ml-auto text-right">
-            <h2 className="text-7xl font-bold mb-6">
-              지금 바로<br />
-              <span className="text-primary-500">시작하세요</span>
-          </h2>
-
-
-            <p className="text-xl text-gray-300 mb-12 leading-relaxed">
-              안전한 11단계 거래 시스템과 보증금 에스크로로<br />
-              믿을 수 있는 렌탈 서비스를 경험하세요
-            </p>
-            <div className="flex items-center justify-end gap-4">
-              <button
-                onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-                className="bg-primary-500 text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-primary-600 transition-all hover:scale-105"
-              >
-                회원가입하기
-              </button>
-              <button
-                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
-                className="border-2 border-white text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-black transition-all hover:scale-105"
-              >
-                둘러보기
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Section5Triangle debugMode={debugMode} />
 
       {/* Section 6: 시스템 설명 */}
-      <section
-        id="section-6"
-        className={`relative h-screen flex items-center overflow-hidden ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
-        style={{ zIndex: 60 }}
-      >
-        <div className="container mx-auto px-8">
-          <h2 className="text-4xl font-bold text-center mb-12">
-            안전한 거래를 위한 <span className="text-primary-500">3가지 시스템</span>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <div className="text-center">
-              <div className="w-14 h-14 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🛡️</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">보증금 에스크로</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                플랫폼이 보증금을 안전하게 보관하여<br />분쟁 시 공정한 중재를 제공합니다
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-14 h-14 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">📹</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">개봉 영상 필수</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                수령 시와 반납 시 개봉 영상을 촬영하여<br />물건 상태를 명확히 기록합니다
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-14 h-14 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">⭐</span>
-              </div>
-              <h3 className="text-xl font-bold mb-3">신뢰도 시스템</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                거래 횟수와 평점을 기반으로 한 뱃지 시스템으로<br />신뢰할 수 있는 거래를 보장합니다
-              </p>
-            </div>
-          </div>
-
-          {/* 거래 단계 */}
-          <div className="max-w-4xl mx-auto border-t border-gray-800 pt-12">
-            <h3 className="text-3xl font-bold text-center mb-8">
-              간편한 <span className="text-primary-500">3단계</span> 대여
-            </h3>
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex-1 text-center">
-                <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-3 text-lg font-bold">
-                  1
-                </div>
-                <h4 className="text-lg font-semibold mb-2">상품 검색 및 선택</h4>
-                <p className="text-gray-400 text-sm">
-                  원하는 물건을 검색하고<br />대여 기간을 설정하세요
-                </p>
-              </div>
-              <div className="flex-1 text-center">
-                <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-3 text-lg font-bold">
-                  2
-                </div>
-                <h4 className="text-lg font-semibold mb-2">안전하게 거래</h4>
-                <p className="text-gray-400 text-sm">
-                  보증금 에스크로와 개봉 영상으로<br />안심하고 거래하세요
-                </p>
-              </div>
-              <div className="flex-1 text-center">
-                <div className="w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-3 text-lg font-bold">
-                  3
-                </div>
-                <h4 className="text-lg font-semibold mb-2">즐겁게 사용 후 반납</h4>
-                <p className="text-gray-400 text-sm">
-                  안전하게 받아서 사용하세요
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Section6System debugMode={debugMode} />
         </>
       )}
     </div>
