@@ -1,99 +1,176 @@
 /**
  * ChatSettingsModal Component
- * 채팅방 설정 모달 컴포넌트
+ * 채팅방 설정 모달 컴포넌트 (카카오톡 스타일)
  */
 
 import React, { useState } from 'react';
-import { Modal } from '@/shared/components/Modal';
+import { chatApi } from '../api/chatApi';
+import { useNavigate } from 'react-router-dom';
 
-/**
- * @param {Object} props
- * @param {boolean} props.isOpen - 모달 열림 상태
- * @param {Function} props.onClose - 모달 닫기 핸들러
- * @param {Object} props.chatRoom - 채팅방 데이터
- * @param {Function} props.onUpdate - 채팅방 업데이트 핸들러
- */
-const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdate }) => {
+const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
-    name: chatRoom?.name || '',
-    description: chatRoom?.description || '',
-    isPublic: chatRoom?.isPublic || false
+    isPinned: chatRoom?.isPinned || false,
+    isMuted: chatRoom?.isMuted || false,
+    notifications: chatRoom?.notifications || 'all'
   });
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleSettingChange = (key, value) => {
     setSettings(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [key]: value
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onUpdate?.(settings);
-    onClose();
+  const handleSave = async () => {
+    try {
+      // 채팅방 고정/해제
+      if (settings.isPinned !== chatRoom?.isPinned) {
+        await chatApi.togglePinChatRoom(chatRoom.id);
+      }
+      
+      // 채팅방 알림 설정
+      if (settings.isMuted !== chatRoom?.isMuted) {
+        await chatApi.toggleMuteChatRoom(chatRoom.id);
+      }
+      
+      onUpdateSettings(settings);
+      onClose();
+    } catch (error) {
+      console.error('설정 저장 실패:', error);
+      alert('설정 저장에 실패했습니다.');
+    }
   };
 
+  const handleLeaveChat = async () => {
+    if (window.confirm('정말로 채팅방을 나가시겠습니까?')) {
+      try {
+        await chatApi.leaveChatRoom(chatRoom.id);
+        navigate('/chats');
+        onClose();
+      } catch (error) {
+        console.error('채팅방 나가기 실패:', error);
+        alert('채팅방 나가기에 실패했습니다.');
+      }
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="채팅방 설정">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            채팅방 이름
-          </label>
-          <input
-            type="text"
-            name="name"
-            value={settings.name}
-            onChange={handleInputChange}
-            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            설명
-          </label>
-          <textarea
-            name="description"
-            value={settings.description}
-            onChange={handleInputChange}
-            rows={3}
-            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-          />
-        </div>
-        
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="isPublic"
-            checked={settings.isPublic}
-            onChange={handleInputChange}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label className="ml-2 block text-sm text-gray-900">
-            공개 채팅방
-          </label>
-        </div>
-        
-        <div className="flex justify-end space-x-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* 배경 오버레이 */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* 모달 컨텐츠 */}
+      <div className="relative w-full max-w-md bg-white/90 backdrop-blur-lg border border-white/20 rounded-3xl shadow-2xl animate-in zoom-in-95 duration-300">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200/50">
+          <h2 className="text-xl font-semibold text-gray-900">채팅방 설정</h2>
           <button
-            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="p-2 rounded-xl bg-gray-100/50 hover:bg-gray-100/70 transition-all duration-200 hover:scale-105"
           >
-            취소
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-          >
-            저장
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-      </form>
-    </Modal>
+
+        {/* 설정 옵션 */}
+        <div className="p-6 space-y-6">
+          {/* 채팅방 고정 */}
+          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">채팅방 고정</h3>
+                <p className="text-sm text-gray-600">목록 상단에 고정</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleSettingChange('isPinned', !settings.isPinned)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-200 ${
+                settings.isPinned ? 'bg-blue-500 shadow-lg' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  settings.isPinned ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* 알림 설정 */}
+          <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.5 19.5a2.5 2.5 0 01-2.5-2.5V7a2.5 2.5 0 012.5-2.5h5a2.5 2.5 0 012.5 2.5v10a2.5 2.5 0 01-2.5 2.5h-5z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">알림 끄기</h3>
+                <p className="text-sm text-gray-600">새 메시지 알림 비활성화</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleSettingChange('isMuted', !settings.isMuted)}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-200 ${
+                settings.isMuted ? 'bg-blue-500 shadow-lg' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
+                  settings.isMuted ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* 알림 세부 설정 */}
+          {!settings.isMuted && (
+            <div className="ml-16 space-y-3 p-4 bg-blue-50/50 rounded-2xl">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="notifications"
+                  value="all"
+                  checked={settings.notifications === 'all'}
+                  onChange={(e) => handleSettingChange('notifications', e.target.value)}
+                  className="w-4 h-4 text-blue-500 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700">모든 알림</span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="p-6 border-t border-gray-200/50 space-y-3">
+          <button
+            onClick={handleSave}
+            className="w-full py-4 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-2xl font-semibold hover:from-gray-700 hover:to-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02]"
+          >
+            설정 저장
+          </button>
+          <button
+            onClick={handleLeaveChat}
+            className="w-full py-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02]"
+          >
+            채팅방 나가기
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

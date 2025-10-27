@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { messageApi } from '../api/messageApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
-export const useMessages = (chatRoomId, params = {}) => {
+export const useMessages = (chatRoomId) => {
   const queryClient = useQueryClient();
 
   // 메시지 목록 조회
@@ -16,8 +16,8 @@ export const useMessages = (chatRoomId, params = {}) => {
     isLoading,
     error
   } = useQuery({
-    queryKey: [QUERY_KEYS.CHATS, 'messages', chatRoomId, params],
-    queryFn: () => messageApi.getMessages(chatRoomId, params),
+    queryKey: [QUERY_KEYS.CHATS, 'messages', chatRoomId],
+    queryFn: () => messageApi.getMessages(chatRoomId),
     enabled: !!chatRoomId,
     staleTime: 1000 * 30 // 30초
   });
@@ -27,35 +27,36 @@ export const useMessages = (chatRoomId, params = {}) => {
     mutationFn: (messageData) => messageApi.sendMessage(chatRoomId, messageData),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'messages', chatRoomId]);
+      queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
     }
   });
 
-  // 메시지 수정
-  const updateMessageMutation = useMutation({
-    mutationFn: ({ messageId, messageData }) => 
-      messageApi.updateMessage(messageId, messageData),
+  // 메시지 읽음 처리
+  const markAsReadMutation = useMutation({
+    mutationFn: (messageId) => messageApi.markAsRead(chatRoomId, messageId),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'messages', chatRoomId]);
     }
   });
 
-  // 메시지 삭제
-  const deleteMessageMutation = useMutation({
-    mutationFn: messageApi.deleteMessage,
+  // 모든 메시지 읽음 처리
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => messageApi.markAllAsRead(chatRoomId),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'messages', chatRoomId]);
+      queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
     }
   });
 
   return {
-    messages: messages?.data || [],
+    messages: messages || [],
     isLoading,
     error,
     sendMessage: sendMessageMutation.mutateAsync,
-    updateMessage: updateMessageMutation.mutateAsync,
-    deleteMessage: deleteMessageMutation.mutateAsync,
+    markAsRead: markAsReadMutation.mutateAsync,
+    markAllAsRead: markAllAsReadMutation.mutateAsync,
     isSending: sendMessageMutation.isPending,
-    isUpdating: updateMessageMutation.isPending,
-    isDeleting: deleteMessageMutation.isPending
+    isMarkingAsRead: markAsReadMutation.isPending,
+    isMarkingAllAsRead: markAllAsReadMutation.isPending
   };
 };

@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
+import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -19,39 +21,18 @@ const LentHistoryList = ({
   onReviewClick = () => {}, 
   isLoading = false 
 }) => {
-  // 더미 데이터
-  const dummyLentHistory = [
-    {
-      id: 1,
-      product: {
-        id: 1,
-        title: '다이슨 V15 무선청소기',
-        category: '생활용품',
-        price: 15000,
-        location: '서울시 서초구',
-        image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400'
-      },
-      startDate: '2024-01-12',
-      endDate: '2024-01-18',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      product: {
-        id: 2,
-        title: '아이패드 Pro 12.9인치',
-        category: '전자제품',
-        price: 20000,
-        location: '서울시 강남구',
-        image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400'
-      },
-      startDate: '2024-01-22',
-      endDate: '2024-01-28',
-      status: 'in_progress'
-    }
-  ];
-
-  const displayHistory = lentHistory.length > 0 ? lentHistory : dummyLentHistory;
+  const navigate = useNavigate();
+  
+  // 현재 사용자가 빌려준 상품 (내가 등록한 상품)
+  const lentProducts = DUMMY_PRODUCTS.filter(product => product.sellerId === DUMMY_USERS.currentUser.id);
+  
+  const displayHistory = lentHistory.length > 0 ? lentHistory : lentProducts.map((product, index) => ({
+    id: `lent_${index}`,
+    product: product,
+    startDate: '2024-01-12',
+    endDate: '2024-01-18',
+    status: 'completed'
+  }));
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
@@ -92,8 +73,8 @@ const LentHistoryList = ({
           <ProductCard
             key={rental.id}
             product={rental.product}
-            onClick={() => onProductClick(rental.product?.id)}
-            onAction={() => onProductClick(rental.product?.id)}
+            onClick={() => navigate(`/products/${rental.product?.id}`)}
+            onAction={() => onReviewClick(rental.id)}
             actionType="view"
             status={rental.status === 'completed' ? 'completed' : 
                    rental.status === 'in_progress' ? 'rented' : 

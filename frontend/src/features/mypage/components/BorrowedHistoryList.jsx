@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
+import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -19,39 +21,18 @@ const BorrowedHistoryList = ({
   onReviewClick = () => {}, 
   isLoading = false 
 }) => {
-  // 더미 데이터
-  const dummyBorrowedHistory = [
-    {
-      id: 1,
-      product: {
-        id: 1,
-        title: 'MacBook Pro 16인치',
-        category: '전자제품',
-        price: 50000,
-        location: '서울시 강남구',
-        image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400'
-      },
-      startDate: '2024-01-10',
-      endDate: '2024-01-15',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      product: {
-        id: 2,
-        title: '캐논 EOS R5 카메라',
-        category: '카메라',
-        price: 30000,
-        location: '서울시 마포구',
-        image: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400'
-      },
-      startDate: '2024-01-20',
-      endDate: '2024-01-25',
-      status: 'in_progress'
-    }
-  ];
-
-  const displayHistory = borrowedHistory.length > 0 ? borrowedHistory : dummyBorrowedHistory;
+  const navigate = useNavigate();
+  
+  // 현재 사용자가 빌린 상품 (다른 사용자들의 상품)
+  const borrowedProducts = DUMMY_PRODUCTS.filter(product => product.sellerId !== DUMMY_USERS.currentUser.id);
+  
+  const displayHistory = borrowedHistory.length > 0 ? borrowedHistory : borrowedProducts.map((product, index) => ({
+    id: `borrowed_${index}`,
+    product: product,
+    startDate: '2024-01-10',
+    endDate: '2024-01-15',
+    status: 'completed'
+  }));
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
@@ -92,8 +73,8 @@ const BorrowedHistoryList = ({
           <ProductCard
             key={rental.id}
             product={rental.product}
-            onClick={() => onProductClick(rental.product?.id)}
-            onAction={() => onProductClick(rental.product?.id)}
+            onClick={() => navigate(`/products/${rental.product?.id}`)}
+            onAction={() => onReviewClick(rental.id)}
             actionType="view"
             status={rental.status === 'completed' ? 'completed' : 
                    rental.status === 'in_progress' ? 'rented' : 

@@ -1,9 +1,32 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import ProfileImage from '../ProfileImage';
 
 const SideNavbar = () => {
   const [isVisible, setIsVisible] = useState(false);
   const location = useLocation();
+  
+  // 채팅방 페이지에서 navbar 호버 비활성화 여부 확인
+  const isChatRoom = location.pathname.startsWith('/chats/');
+  
+  // 채팅방에서 특정 영역의 호버를 비활성화하는 함수
+  const handleMouseEnter = (e) => {
+    if (isChatRoom) {
+      // 마우스 위치 확인
+      const mouseY = e.clientY;
+      const windowHeight = window.innerHeight;
+      
+      // 상단 100px 영역 (헤더) 또는 하단 150px 영역 (메시지 입력)에서 호버 비활성화
+      if (mouseY < 100 || mouseY > windowHeight - 150) {
+        return; // 호버 비활성화
+      }
+    }
+    setIsVisible(true);
+  };
+  
+  const handleMouseLeave = () => {
+    setIsVisible(false);
+  };
 
   const navItems = [
     {
@@ -39,7 +62,7 @@ const SideNavbar = () => {
     {
       id: 'chat',
       name: '채팅',
-      path: '/chat',
+      path: '/chats',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -64,8 +87,8 @@ const SideNavbar = () => {
       {/* 호버 감지 영역 */}
       <div 
         className="fixed top-0 right-0 w-8 h-screen z-[9999]"
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       />
 
       {/* 네비게이션 바 */}
@@ -86,9 +109,12 @@ const SideNavbar = () => {
           {/* 프로필 섹션 */}
           <div className="p-6 border-b border-white/20">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                U
-              </div>
+              <ProfileImage 
+                src={null}
+                alt="사용자"
+                size={48}
+                className="w-12 h-12"
+              />
               <div>
                 <h3 className="text-lg font-semibold text-gray-800">사용자</h3>
                 <p className="text-sm text-gray-600">user@example.com</p>

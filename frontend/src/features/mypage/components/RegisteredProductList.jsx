@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
+import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -21,47 +23,12 @@ const RegisteredProductList = ({
   onDeleteProduct = () => {}, 
   isLoading = false 
 }) => {
-  // 더미 데이터
-  const dummyProducts = [
-    {
-      id: 1,
-      title: 'MacBook Pro 16인치',
-      category: '전자제품',
-      price: 50000,
-      location: '서울시 강남구',
-      image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400',
-      isAvailable: true,
-      viewCount: 45,
-      likeCount: 12,
-      rentalCount: 3
-    },
-    {
-      id: 2,
-      title: '캐논 EOS R5 카메라',
-      category: '카메라',
-      price: 30000,
-      location: '서울시 마포구',
-      image: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400',
-      isAvailable: false,
-      viewCount: 23,
-      likeCount: 8,
-      rentalCount: 1
-    },
-    {
-      id: 3,
-      title: '다이슨 V15 무선청소기',
-      category: '생활용품',
-      price: 15000,
-      location: '서울시 서초구',
-      image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400',
-      isAvailable: true,
-      viewCount: 67,
-      likeCount: 15,
-      rentalCount: 5
-    }
-  ];
-
-  const displayProducts = products.length > 0 ? products : dummyProducts;
+  const navigate = useNavigate();
+  
+  // 현재 사용자가 등록한 상품만 필터링
+  const myProducts = DUMMY_PRODUCTS.filter(product => product.sellerId === DUMMY_USERS.currentUser.id);
+  
+  const displayProducts = products.length > 0 ? products : myProducts;
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -101,7 +68,7 @@ const RegisteredProductList = ({
           <ProductCard
             key={product.id}
             product={product}
-            onClick={() => onProductClick(product.id)}
+            onClick={() => navigate(`/products/${product.id}`)}
             onAction={() => onEditProduct(product)}
             actionType="edit"
             status={product.isAvailable ? 'available' : 'unavailable'}
