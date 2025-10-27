@@ -1081,13 +1081,554 @@
     }
   }
 
-  @keyframes scan {
-    0% {
-      transform: translateY(-100%);
+  /* 상품 목록 페이지 전용 스타일 */
+  
+  /* Frosted Glass 필터 컨테이너 */
+  .glass-filter-container {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-lg;
+  }
+  
+  /* 아코디언 섹션 */
+  .glass-accordion-section {
+    @apply bg-white/5 rounded-xl border border-white/10 transition-all duration-200;
+  }
+  
+  .glass-accordion-section:hover {
+    @apply bg-white/10;
+  }
+  
+  /* 아코디언 헤더 */
+  .glass-accordion-header {
+    @apply w-full flex items-center justify-between p-4 text-left hover:bg-white/5 transition-colors cursor-pointer;
+  }
+  
+  /* 아코디언 아이콘 */
+  .glass-accordion-icon {
+    @apply w-5 h-5 text-white/70 transition-transform duration-200;
+  }
+  
+  .glass-accordion-icon.open {
+    @apply rotate-180;
+  }
+  
+  /* 아코디언 콘텐츠 */
+  .glass-accordion-content {
+    @apply px-4 pb-4 space-y-3;
+  }
+  
+  /* 필터 라디오 버튼 */
+  .glass-filter-radio {
+    @apply w-4 h-4 text-[#007AFF] bg-white/10 border-white/20 focus:ring-[#007AFF] focus:ring-2;
+  }
+  
+  /* 필터 체크박스 */
+  .glass-filter-checkbox {
+    @apply w-4 h-4 text-[#007AFF] bg-white/10 border-white/20 rounded focus:ring-[#007AFF] focus:ring-2;
+  }
+  
+  /* 필터 입력 필드 */
+  .glass-filter-input {
+    @apply w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-[#007AFF] focus:outline-none transition-colors;
+  }
+  
+  /* 필터 버튼 그리드 */
+  .glass-filter-button-grid {
+    @apply grid grid-cols-2 gap-2;
+  }
+  
+  /* 필터 버튼 */
+  .glass-filter-button {
+    @apply px-3 py-2 text-sm rounded-lg transition-colors;
+  }
+  
+  .glass-filter-button.active {
+    @apply bg-[#007AFF] text-white;
+  }
+  
+  .glass-filter-button.inactive {
+    @apply bg-white/10 text-white/70 hover:bg-white/20;
+  }
+  
+  /* 해시태그 컨테이너 */
+  .glass-hashtag-container {
+    @apply flex gap-2 overflow-x-auto scrollbar-hide pb-2;
+  }
+  
+  /* 해시태그 버튼 */
+  .glass-hashtag-button {
+    @apply flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200;
+  }
+  
+  .glass-hashtag-button.selected {
+    @apply bg-[#007AFF] text-white shadow-lg shadow-[#007AFF]/25;
+  }
+  
+  .glass-hashtag-button.unselected {
+    @apply bg-white/10 text-white/70 hover:bg-white/20 hover:text-white;
+  }
+  
+  /* 해시태그 페이드 효과 */
+  .glass-hashtag-fade {
+    @apply absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-[#1c1c1e] to-transparent pointer-events-none;
+  }
+  
+  /* 선택된 해시태그 표시 */
+  .glass-selected-hashtags {
+    @apply flex flex-wrap gap-2;
+  }
+  
+  .glass-selected-hashtag {
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-[#007AFF]/20 text-[#007AFF] rounded-full text-xs;
+  }
+  
+  /* 모바일 드로어 */
+  .glass-mobile-drawer {
+    @apply fixed inset-0 z-50 lg:hidden;
+  }
+  
+  .glass-drawer-overlay {
+    @apply absolute inset-0 bg-black/50 backdrop-blur-sm;
+  }
+  
+  .glass-drawer-container {
+    @apply absolute bottom-0 left-0 right-0 bg-[#1c1c1e] rounded-t-3xl border-t border-white/10 max-h-[90vh] flex flex-col;
+  }
+  
+  .glass-drawer-handle {
+    @apply flex justify-center pt-3 pb-2;
+  }
+  
+  .glass-drawer-handle-bar {
+    @apply w-10 h-1 bg-white/30 rounded-full;
+  }
+  
+  .glass-drawer-header {
+    @apply flex items-center justify-between px-6 py-4 border-b border-white/10;
+  }
+  
+  .glass-drawer-close {
+    @apply p-2 hover:bg-white/10 rounded-full transition-colors;
+  }
+  
+  .glass-drawer-title {
+    @apply text-lg font-semibold text-white;
+  }
+  
+  .glass-drawer-reset {
+    @apply text-sm text-[#007AFF] hover:text-[#0056CC] transition-colors;
+  }
+  
+  .glass-drawer-content {
+    @apply flex-1 overflow-y-auto scrollbar-hide;
+  }
+  
+  .glass-drawer-footer {
+    @apply sticky bottom-0 bg-[#1c1c1e]/95 backdrop-blur-md border-t border-white/10 p-4;
+  }
+  
+  .glass-drawer-apply {
+    @apply w-full px-6 py-4 bg-[#007AFF] text-white rounded-xl hover:bg-[#0056CC] transition-colors font-medium text-lg;
+  }
+  
+  /* 가격 슬라이더 */
+  .glass-price-slider {
+    @apply relative;
+  }
+  
+  .glass-slider-track {
+    @apply h-2 bg-white/20 rounded-full;
+  }
+  
+  .glass-slider-active {
+    @apply absolute top-0 h-2 bg-[#007AFF] rounded-full;
+  }
+  
+  .glass-slider-thumb {
+    @apply absolute w-6 h-6 bg-[#007AFF] rounded-full shadow-lg transform -translate-y-2 cursor-pointer hover:scale-110 transition-transform;
+  }
+  
+  /* 날짜 선택 버튼 */
+  .glass-date-button {
+    @apply w-full flex items-center gap-3 px-4 py-3 bg-white/10 border border-[#007AFF]/30 rounded-xl text-white/90 hover:bg-white/15 hover:border-[#007AFF]/50 transition-all duration-200 backdrop-blur-sm;
+  }
+  
+  .glass-date-icon {
+    @apply w-5 h-5 text-[#007AFF];
+  }
+  
+  .glass-date-clear {
+    @apply p-1 hover:bg-white/20 rounded-full transition-colors;
+  }
+  
+  /* 날짜 모달 */
+  .glass-date-modal {
+    @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50;
+  }
+  
+  .glass-date-modal-content {
+    @apply bg-[#1c1c1e] rounded-2xl p-6 w-96 max-w-[90vw] border border-white/10;
+  }
+  
+  .glass-date-modal-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  
+  .glass-date-modal-title {
+    @apply text-lg font-semibold text-white;
+  }
+  
+  .glass-date-modal-close {
+    @apply p-2 hover:bg-white/10 rounded-full transition-colors;
+  }
+  
+  .glass-date-input {
+    @apply w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-[#007AFF] focus:outline-none;
+  }
+  
+  .glass-date-actions {
+    @apply flex gap-3 mt-6;
+  }
+  
+  .glass-date-reset {
+    @apply flex-1 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors;
+  }
+  
+  .glass-date-apply {
+    @apply flex-1 px-4 py-2 bg-[#007AFF] text-white rounded-lg hover:bg-[#0056CC] transition-colors;
+  }
+  
+  /* 로딩 인디케이터 */
+  .glass-loading-container {
+    @apply flex justify-center py-8;
+  }
+  
+  .glass-loading-spinner {
+    @apply w-6 h-6 border-2 border-[#007AFF] border-t-transparent rounded-full animate-spin;
+  }
+  
+  .glass-loading-text {
+    @apply text-white/70;
+  }
+  
+  /* 빈 상태 */
+  .glass-empty-container {
+    @apply flex flex-col items-center justify-center py-16;
+  }
+  
+  .glass-empty-icon {
+    @apply w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mb-4;
+  }
+  
+  .glass-empty-title {
+    @apply text-lg font-medium text-white/90 mb-2;
+  }
+  
+  .glass-empty-description {
+    @apply text-white/60 text-center max-w-sm;
+  }
+  
+  /* 반응형 그리드 */
+  .glass-product-grid {
+    @apply grid gap-6;
+  }
+  
+  .glass-product-grid.desktop {
+    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  .glass-product-grid.mobile {
+    @apply grid-cols-1 sm:grid-cols-2;
+  }
+
+  /* 상품 목록 페이지 전용 스타일 - MyPage 스타일 적용 */
+  
+  /* 메인 컨테이너 */
+  .glass-product-main {
+    @apply bg-gradient-to-br from-gray-50 via-white to-gray-100/50 min-h-screen;
+  }
+  
+  /* 사이드바 */
+  .glass-product-sidebar {
+    @apply w-80 glass-sidebar-minimal p-6;
+  }
+  
+  /* 메인 콘텐츠 영역 */
+  .glass-product-content {
+    @apply flex-1 flex flex-col overflow-hidden;
+  }
+  
+  /* 상품 그리드 */
+  .glass-product-grid-container {
+    @apply grid gap-6;
+  }
+  
+  .glass-product-grid-container.grid-view {
+    @apply grid-cols-1 md:grid-cols-2 xl:grid-cols-3;
+  }
+  
+  .glass-product-grid-container.list-view {
+    @apply grid-cols-1;
+  }
+  
+  /* 모바일 필터 버튼 */
+  .glass-mobile-filter-btn {
+    @apply glass-button flex items-center space-x-2;
+  }
+  
+  /* 모바일 탭 컨테이너 */
+  .glass-mobile-tab-container {
+    @apply glass-main p-3 mx-4 mb-4;
+  }
+  
+  /* 모바일 상품 그리드 */
+  .glass-mobile-product-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 gap-4;
+  }
+  
+  /* 카테고리 버튼 */
+  .glass-category-button {
+    @apply w-full flex items-center space-x-3 p-3 rounded-xl transition-all duration-200;
+  }
+  
+  .glass-category-button.active {
+    @apply glass-button;
+  }
+  
+  .glass-category-button.inactive {
+    @apply glass-button-ghost;
+  }
+  
+  /* 모바일 카테고리 그리드 */
+  .glass-mobile-category-grid {
+    @apply grid grid-cols-2 gap-2;
+  }
+  
+  /* 뷰 모드 토글 */
+  .glass-view-toggle {
+    @apply flex items-center space-x-2;
+  }
+  
+  .glass-view-toggle-btn {
+    @apply p-2 rounded-lg transition-colors;
+  }
+  
+  .glass-view-toggle-btn.active {
+    @apply glass-button;
+  }
+  
+  .glass-view-toggle-btn.inactive {
+    @apply glass-button-ghost;
+  }
+  
+  /* 상품 카운트 뱃지 */
+  .glass-product-count {
+    @apply glass-badge-primary;
+  }
+  
+  /* 필터 섹션 */
+  .glass-filter-section {
+    @apply glass-card-minimal p-4 mb-6;
+  }
+  
+  .glass-filter-section:last-child {
+    @apply mb-0;
+  }
+  
+  /* 필터 제목 */
+  .glass-filter-title {
+    @apply text-lg font-semibold text-gray-900 mb-4;
+  }
+  
+  .glass-filter-title.with-icon {
+    @apply flex items-center;
+  }
+  
+  .glass-filter-icon {
+    @apply w-5 h-5 mr-2 text-[#007ACC];
+  }
+  
+  /* 날짜 입력 */
+  .glass-date-input {
+    @apply glass-input w-full;
+  }
+  
+  /* 가격 입력 */
+  .glass-price-input {
+    @apply glass-input flex-1;
+  }
+  
+  .glass-price-inputs {
+    @apply flex gap-2 items-center;
+  }
+  
+  /* 카테고리 스크롤 컨테이너 */
+  .glass-category-scroll {
+    @apply space-y-2 overflow-y-auto scrollbar-hide;
+  }
+
+  /* MyPage 색감 적용 필터 디자인 - 색감 개선 */
+  .glass-filter-container {
+    @apply bg-gradient-to-br from-white/25 via-blue-50/20 to-indigo-50/15 backdrop-blur-2xl rounded-3xl p-6 border border-[#007ACC]/25 shadow-2xl;
+  }
+
+  .glass-filter-section {
+    @apply bg-gradient-to-br from-white/20 via-blue-50/15 to-indigo-50/10 backdrop-blur-xl rounded-2xl p-5 border border-[#007ACC]/20 shadow-lg mb-4;
+  }
+
+  .glass-filter-title {
+    @apply text-lg font-bold text-gray-800 mb-4;
+  }
+
+  .glass-filter-button {
+    @apply w-full p-4 text-left bg-gradient-to-r from-white/15 to-blue-50/20 backdrop-blur-sm rounded-xl border border-[#007ACC]/25 hover:bg-gradient-to-r hover:from-[#007ACC]/15 hover:to-blue-500/15 transition-all duration-300 shadow-md hover:shadow-lg text-gray-800 font-medium;
+  }
+
+  .glass-filter-button:hover {
+    @apply transform scale-[1.02] border-[#007ACC]/40 shadow-lg;
+  }
+
+  /* 드롭다운 모달 - 선택 버튼 아래쪽 표시 */
+  .glass-dropdown-modal {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin-top: 8px !important;
+    background: linear-gradient(to bottom right, white, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1)) !important;
+    backdrop-filter: blur(24px) !important;
+    border-radius: 16px !important;
+    border: 2px solid rgba(0, 122, 204, 0.4) !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+    z-index: 999999 !important;
+    max-height: 256px !important;
+    overflow-y: auto !important;
+  }
+
+  .glass-dropdown-item {
+    @apply p-4 text-sm hover:bg-gradient-to-r hover:from-[#007ACC]/15 hover:to-blue-500/15 transition-all duration-200 cursor-pointer border-b border-[#007ACC]/20 last:border-b-0 text-gray-800 font-medium;
+  }
+
+  .glass-dropdown-item:hover {
+    @apply bg-gradient-to-r from-[#007ACC]/20 to-blue-500/20 text-[#007ACC] font-semibold shadow-md;
+  }
+
+  /* 선택된 항목 표시 */
+  .glass-selected-item {
+    @apply inline-flex items-center px-3 py-1 bg-[#007ACC]/20 text-[#007ACC] text-sm rounded-full border border-[#007ACC]/30;
+  }
+
+  .glass-selected-remove {
+    @apply ml-2 text-[#007ACC] hover:text-[#007ACC]/70 transition-colors;
+  }
+
+  /* 커스텀 비율 클래스 */
+  .w-2\.5\/10 {
+    width: 25%;
+  }
+
+  .w-6\.5\/10 {
+    width: 65%;
+  }
+
+  /* 필터 Footer */
+  .glass-filter-footer {
+    @apply sticky bottom-0 bg-white/10 backdrop-blur-lg border-t border-white/10 p-4 space-y-2;
+  }
+
+  .glass-filter-apply {
+    @apply w-full bg-[#007ACC]/80 backdrop-blur-sm text-white py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 hover:bg-[#007ACC] border border-white/20;
+  }
+
+  .glass-filter-reset {
+    @apply w-full bg-white/5 backdrop-blur-sm text-gray-600 py-2 px-4 rounded-xl font-medium text-sm transition-all duration-200 hover:bg-white/10 border border-white/10;
+  }
+
+  /* 모달 스타일 */
+  .glass-modal-overlay {
+    @apply fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4;
+  }
+
+  .glass-modal-container {
+    @apply bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col;
+  }
+
+  .glass-modal-header {
+    @apply flex items-center justify-between p-6 border-b border-white/20;
+  }
+
+  .glass-modal-content {
+    @apply flex-1 overflow-y-auto p-6;
+  }
+
+  .glass-modal-footer {
+    @apply p-6 border-t border-white/20;
+  }
+  
+  /* 모바일 필터 모달 */
+  .glass-mobile-filter-modal {
+    @apply fixed inset-0 z-50 lg:hidden;
+  }
+  
+  .glass-mobile-filter-overlay {
+    @apply glass-drawer-overlay;
+  }
+  
+  .glass-mobile-filter-container {
+    @apply glass-drawer-container;
+  }
+  
+  .glass-mobile-filter-header {
+    @apply glass-drawer-header;
+  }
+  
+  .glass-mobile-filter-title {
+    @apply glass-drawer-title;
+  }
+  
+  .glass-mobile-filter-close {
+    @apply glass-drawer-close;
+  }
+  
+  .glass-mobile-filter-content {
+    @apply glass-drawer-content p-6;
+  }
+  
+  .glass-mobile-filter-footer {
+    @apply glass-drawer-footer;
+  }
+  
+  .glass-mobile-filter-apply {
+    @apply glass-drawer-apply;
+  }
+  
+  /* 반응형 최적화 */
+  @media (max-width: 1024px) {
+    .glass-product-sidebar {
+      @apply hidden;
     }
-    100% {
-      transform: translateY(100%);
+    
+    .glass-product-content {
+      @apply w-full;
     }
   }
   
+  @media (max-width: 768px) {
+    .glass-product-grid-container.grid-view {
+      @apply grid-cols-1 sm:grid-cols-2;
+    }
+    
+    .glass-mobile-product-grid {
+      @apply grid-cols-1;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .glass-mobile-product-grid {
+      @apply grid-cols-1;
+    }
+    
+    .glass-mobile-category-grid {
+      @apply grid-cols-1;
+    }
+  }
 }

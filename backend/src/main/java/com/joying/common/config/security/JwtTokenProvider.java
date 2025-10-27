@@ -1,7 +1,13 @@
 package com.joying.common.config.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,6 +120,8 @@ public class JwtTokenProvider {
 		try {
 			getClaims(token);
 			return true;
+		} catch (SignatureException e) {
+			log.error("JWT 서명 검증에 실패했습니다: {}", e.getMessage());
 		} catch (ExpiredJwtException e) {
 			log.error("만료된 JWT 토큰입니다: {}", e.getMessage());
 		} catch (UnsupportedJwtException e) {
@@ -121,9 +129,11 @@ public class JwtTokenProvider {
 		} catch (MalformedJwtException e) {
 			log.error("잘못된 형식의 JWT 토큰입니다: {}", e.getMessage());
 		} catch (SecurityException e) {
-			log.error("JWT 서명 검증에 실패했습니다: {}", e.getMessage());
+			log.error("JWT 보안 오류: {}", e.getMessage());
 		} catch (IllegalArgumentException e) {
 			log.error("JWT 토큰이 비어있습니다: {}", e.getMessage());
+		} catch (Exception e) {
+			log.error("JWT 토큰 검증 중 오류 발생: {}", e.getMessage());
 		}
 		return false;
 	}
