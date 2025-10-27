@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { DUMMY_PRODUCTS } from '../../../shared/constants/dummyData';
 
 const CATEGORIES = [
   { id: 1, name: "게임 / 오락", children: ["콘솔 (닌텐도 스위치, PS5, Xbox)", "보드게임", "오락기 / 아케이드 머신", "VR 기기 (Meta Quest, PS VR)", "게임 컨트롤러 / 조이스틱", "게임 타이틀 (소프트웨어)"] },
@@ -49,6 +51,7 @@ const SEOUL_DISTRICTS = [
 ];
 
 const ProductListMain = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('lend');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,24 +67,8 @@ const ProductListMain = () => {
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
 
-  // 모의 상품 데이터
-  const lendProducts = [
-    { id: 1, name: '닌텐도 스위치', price: 5000, location: '강남구', status: 'available' },
-    { id: 2, name: 'DSLR 카메라', price: 15000, location: '홍대', status: 'available' },
-    { id: 3, name: '전기기타', price: 8000, location: '강남구', status: 'available' },
-    { id: 4, name: '캠핑 텐트', price: 12000, location: '서초구', status: 'available' },
-    { id: 5, name: '요가 매트', price: 3000, location: '마포구', status: 'available' }
-  ];
-
-  const borrowProducts = [
-    { id: 6, name: 'PS5 게임기', price: 10000, location: '강남구', status: 'needed' },
-    { id: 7, name: '드론', price: 20000, location: '홍대', status: 'needed' },
-    { id: 8, name: '전자드럼', price: 15000, location: '강남구', status: 'needed' },
-    { id: 9, name: '캠핑 의자', price: 5000, location: '서초구', status: 'needed' },
-    { id: 10, name: '헬스 기구', price: 25000, location: '마포구', status: 'needed' }
-  ];
-
-  const products = activeTab === 'lend' ? lendProducts : borrowProducts;
+  // 더미 데이터 사용
+  const products = DUMMY_PRODUCTS;
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -824,7 +811,7 @@ const ProductListMain = () => {
              <ProductCard
                key={product.id}
                product={product}
-               onClick={() => console.log('상품 클릭:', product.id)}
+               onClick={() => navigate(`/products/${product.id}`)}
                actionType="view"
                status={product.status}
                showStats={false}

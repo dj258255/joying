@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import ProfileImage from '../../../shared/components/ProfileImage';
 
 const UserProfileView = () => {
   // 더미 데이터
@@ -12,7 +13,7 @@ const UserProfileView = () => {
     nickname: '김대여',
     email: 'kim@example.com',
     phone: '010-1234-5678',
-    profileImage: 'https://via.placeholder.com/150x150/4F46E5/FFFFFF?text=김대여',
+    profileImage: null,
     joinDate: '2024-01-01',
     accountVerified: true,
     bankName: '국민은행',
@@ -28,13 +29,12 @@ const UserProfileView = () => {
       {/* 헤더 섹션 */}
       <div className="glass-profile-header p-6 mb-6">
         <div className="flex items-center space-x-4">
-          <div className="glass-avatar-container">
-            <img
-              src={userProfile.profileImage}
-              alt="프로필 이미지"
-              className="w-16 h-16 rounded-2xl object-cover"
-            />
-          </div>
+          <ProfileImage 
+            src={userProfile.profileImage}
+            alt={userProfile.nickname}
+            size={64}
+            className="w-16 h-16"
+          />
           <div className="flex-1">
             <h3 className="text-2xl font-bold text-gray-900 mb-1">{userProfile.nickname}</h3>
             <div className="flex items-center space-x-4">

@@ -91,13 +91,6 @@ const ProductCard = ({
         {/* 그라데이션 오버레이 */}
         <div className="glass-product-gradient-overlay"></div>
         
-        {/* 상태 뱃지 */}
-        <div className="glass-product-status-overlay">
-          <span className={`glass-status-badge-new ${statusConfig.className}`}>
-            {statusConfig.text}
-          </span>
-        </div>
-
         {/* 액션 버튼 */}
         {onAction && (
           <div className="glass-product-action-overlay">
