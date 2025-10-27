@@ -7,13 +7,13 @@ import { ROUTE_PATHS } from '@/shared/constants';
  * - 3D 모델들이 삼각형 대형으로 배치되는 섹션
  * - 회원가입 및 둘러보기 CTA 버튼
  */
-const Section5Triangle = ({ debugMode = false }) => {
+const Section5Triangle = () => {
   const navigate = useNavigate();
 
   return (
     <section
       id="section-5"
-      className={`relative min-h-screen flex items-center justify-end ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
+      className="relative min-h-screen flex items-center justify-end"
       style={{ zIndex: 60 }}
     >
       <div className="container mx-auto px-8">
@@ -48,4 +48,5 @@ const Section5Triangle = ({ debugMode = false }) => {
 };
 
 export default Section5Triangle;
+
 

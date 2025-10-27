@@ -7,13 +7,13 @@ import { ROUTE_PATHS } from '@/shared/constants';
  * - 보증금 에스크로, 개봉 영상, 신뢰도 시스템 소개
  * - 3단계 대여 프로세스 안내
  */
-const Section6System = ({ debugMode = false }) => {
+const Section6System = () => {
   const navigate = useNavigate();
 
   return (
     <section
       id="section-6"
-      className={`relative h-screen flex items-center overflow-hidden ${debugMode ? 'pointer-events-none opacity-30' : ''}`}
+      className="relative h-screen flex items-center overflow-hidden"
       style={{ zIndex: 60 }}
     >
       <div className="container mx-auto px-8">
@@ -93,4 +93,5 @@ const Section6System = ({ debugMode = false }) => {
 };
 
 export default Section6System;
+
 

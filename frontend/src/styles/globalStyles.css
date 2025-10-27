@@ -1070,5 +1070,24 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(16, 185, 129, 0.7);
   }
+
+  /* 홀로그램 애니메이션 */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes scan {
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(100%);
+    }
+  }
   
 }
