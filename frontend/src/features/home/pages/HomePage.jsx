@@ -232,6 +232,7 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
         gamepadGroupRef.current.rotation.y = 0;
       }
     }
+
   });
 
   // currentModel이 변경되면 opacity 애니메이션 실행
@@ -358,6 +359,7 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
     }
   }, [currentModel]);
 
+
   return (
     <>
         {currentModel === 'all' ? (
@@ -408,6 +410,7 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
           </group>
         </group>
       )}
+
     </>
   );
 };
@@ -678,6 +681,7 @@ const HomePage = () => {
     loaded: 0,
     total: 0
   });
+
   
   // Progress 업데이트 핸들러
   const handleProgressChange = React.useCallback((progressData) => {
@@ -688,6 +692,7 @@ const HomePage = () => {
       setIsLoaded(true);
     }
   }, []);
+
 
   // GSAP 애니메이션 상태 (Section 1과 동일하게 시작)
   const animationState = useRef({
@@ -702,6 +707,9 @@ const HomePage = () => {
     let currentSection = 0;
     const totalSections = 6;  // 6개 섹션
 
+    // 모바일 여부 확인
+    const isMobile = window.innerWidth <= 768;
+
     // 각 섹션의 애니메이션 상태
     const sectionStates = [
       // Section 1: Hero (Section 2와 비슷한 크기로 시작)
@@ -710,28 +718,32 @@ const HomePage = () => {
         rotation: { x: 0, y: Math.PI * 2, z: 0 },
         scale: 6,  // 3 → 6으로 증가 (Section 2와 차이 줄임)
       },
-      // Section 2: 카메라
-      {
+      // Section 2: 카메라 (모바일/PC 반응형)
+      isMobile ? {
+        position: { x: 0.65, y: 0.65, z: 0 },
+        rotation: { x: 0.3, y: Math.PI * 2.2, z: 0.2 },
+        scale: 3,
+      } : {
         position: { x: -1.5, y: -0.5, z: 0 },
         rotation: { x: 0.3, y: Math.PI * 2.5, z: 0.2 },
         scale: 9,
       },
-      // Section 3: 캠핑
-      {
-        position: { 
-          x: -1.96, 
-          y: -1.00, 
-          z: 0.00 
-        },
-        rotation: { 
-          x: -0.32, 
-          y: Math.PI * 0.46, 
-          z: 0.13 
-        },
+      // Section 3: 캠핑 (모바일/PC 반응형)
+      isMobile ? {
+        position: { x: 0.5, y: 0.7, z: 0.00 },
+        rotation: { x: -0.32, y: Math.PI * 0.5, z: 0.6 },
+        scale: 0.3,
+      } : {
+        position: { x: -1.96, y: -1.00, z: 0.00 },
+        rotation: { x: -0.32, y: Math.PI * 0.46, z: 0.13 },
         scale: 0.98,
       },
-      // Section 4: 전자기기 (게임패드를 90도로 세움)
-      {
+      // Section 4: 전자기기 (게임패드) (모바일/PC 반응형)
+      isMobile ? {
+        position: { x: 0.9, y: 1.3, z: 0.00 },
+        rotation: { x: 1.7, y: Math.PI * -0.17, z: 0.72 },
+        scale: 5.00,
+      } : {
         position: { x: -2.39, y: 0.94, z: 0.00 },
         rotation: { x: 1.15, y: Math.PI * 0.13, z: -0.62 },
         scale: 15.00,
@@ -933,6 +945,26 @@ const HomePage = () => {
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
   }, []);
+
+  // 화면 크기 변경 감지 (모바일/PC 전환 시 재렌더링)
+  useEffect(() => {
+    let resizeTimeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // 현재 섹션으로 다시 이동하여 좌표 재적용
+        const currentSection = currentSectionIndex;
+        setCurrentSectionIndex(-1); // 강제 리렌더링
+        setTimeout(() => setCurrentSectionIndex(currentSection), 50);
+      }, 300); // 300ms 디바운스
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [currentSectionIndex]);
 
   return (
 
