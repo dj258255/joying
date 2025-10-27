@@ -44,7 +44,7 @@ const Section2Camera = ({ products = [] }) => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=camera`)}
+              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=camera`)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               카메라 둘러보기

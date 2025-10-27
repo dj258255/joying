@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
 /**
@@ -9,12 +8,9 @@ import PropTypes from 'prop-types';
  * - 호버 시 빛나는 그라데이션 효과
  */
 const GlassmorphismCard = ({ product }) => {
-  const navigate = useNavigate();
-
   return (
     <div
       className="group relative backdrop-blur-xl bg-white/10 rounded-2xl p-4 border border-white/20 hover:bg-white/20 transition-all duration-300 hover:scale-105 hover:border-white/40 cursor-pointer"
-      onClick={() => navigate(`/products/${product.id}`)}
     >
       {/* 이미지 */}
       <div className="relative overflow-hidden rounded-xl mb-3 aspect-square">

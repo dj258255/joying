@@ -43,7 +43,7 @@ const Section4Gamepad = ({ products = [] }) => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=electronics`)}
+              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=electronics`)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               전자기기 둘러보기

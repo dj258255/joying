@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
 /**
@@ -9,12 +8,9 @@ import PropTypes from 'prop-types';
  * - 평점 및 리뷰 수 표시
  */
 const NeonBorderCard = ({ product }) => {
-  const navigate = useNavigate();
-
   return (
     <div
       className="group relative bg-gray-900/80 rounded-xl p-4 border-2 border-green-500/30 hover:border-green-400 transition-all duration-300 hover:shadow-[0_0_30px_rgba(34,197,94,0.3)] cursor-pointer overflow-hidden"
-      onClick={() => navigate(`/products/${product.id}`)}
     >
       {/* 네온 글로우 효과 */}
       <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 via-transparent to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
