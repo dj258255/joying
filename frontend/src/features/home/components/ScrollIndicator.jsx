@@ -10,13 +10,27 @@ import scrollAnimation from '../assets/scroll.json';
 const ScrollIndicator = React.memo(({ currentSection, totalSections }) => {
   const lottieRef = useRef();
   const [isVisible, setIsVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 화면 크기 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 마지막 섹션(Section 6)에서는 숨김
   useEffect(() => {
     setIsVisible(currentSection < totalSections - 1);
   }, [currentSection, totalSections]);
 
-  if (!isVisible) return null;
+  // 모바일이거나 마지막 섹션이면 숨김
+  if (!isVisible || isMobile) return null;
 
   return (
     <div 
