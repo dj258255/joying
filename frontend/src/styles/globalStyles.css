@@ -7,6 +7,15 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
