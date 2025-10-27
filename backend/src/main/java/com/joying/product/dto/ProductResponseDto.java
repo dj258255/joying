@@ -36,9 +36,8 @@ public class ProductResponseDto {
         private List<String> hashtags;
         private List<RentalRefuseDto> rentalRefuses;
 
-        private List<ReviewSummaryDto> topReviews;
+        private List<ReviewSummaryDto> Reviews;
         private Integer totalReviewCount;
-        private Double reviewAverage;
     }
 
     @Getter @Builder @AllArgsConstructor
@@ -73,8 +72,8 @@ public class ProductResponseDto {
 
     @Getter @Builder @AllArgsConstructor
     public static class RentalRefuseDto {
-        private Instant startRef;
-        private Instant endRef;
+        private Timestamp startRef;
+        private Timestamp endRef;
     }
 
     @Getter @Builder @AllArgsConstructor

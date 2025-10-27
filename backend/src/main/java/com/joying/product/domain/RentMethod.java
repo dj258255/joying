@@ -7,9 +7,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum RentMethod {
 
-    both("둘 다 가능"),
-    only_offline("직거래"),
-    only_online("택배거래");
+    BOTH("둘 다 가능"),
+    ONLY_OFFLINE("직거래"),
+    ONLY_ONLINE("택배거래");
 
     private final String description;
 }

@@ -7,8 +7,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum UploadType {
 
-    borrow("구해요"),
-    rent("빌려줘요");
+    BORROW("구해요"),
+    RENT("빌려줘요");
 
     private final String description;
 }
