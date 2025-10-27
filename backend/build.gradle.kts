@@ -75,10 +75,16 @@ dependencies {
 	testImplementation("org.springframework.security:spring-security-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
-	// Cloud Flare A2
+	// Testcontainers (Spring Boot 3.1+ 공식 지원)
+	testImplementation("org.springframework.boot:spring-boot-testcontainers")
+	testImplementation("org.testcontainers:junit-jupiter")
+	testImplementation("org.testcontainers:testcontainers")  // Testcontainers BOM 관리
+	// Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
+
 	implementation("software.amazon.awssdk:s3:2.28.23")
 	implementation("software.amazon.awssdk:auth:2.28.23")
 	implementation("software.amazon.awssdk:regions:2.28.23")
+
 }
 
 // Kotlin 컴파일 옵션

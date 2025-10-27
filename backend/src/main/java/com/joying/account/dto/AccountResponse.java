@@ -32,8 +32,8 @@ public class AccountResponse {
 	@Schema(description = "계좌 번호", example = "123-456-7890")
 	private String accountNum;
 
-	@Schema(description = "핀테크 이용번호")
-	private String fintechUseNum;
+	@Schema(description = "계좌일련번호 (1원 인증 식별자)")
+	private String accountSeq;
 
 	@Schema(description = "예금주명", example = "홍길동")
 	private String accountHolderName;
@@ -71,7 +71,7 @@ public class AccountResponse {
 			.bankName(account.getBankName())
 			.bankCodeStd(account.getBankCodeStd())
 			.accountNum(account.getAccountNum())
-			.fintechUseNum(account.getFintechUseNum())
+			.accountSeq(account.getAccountSeq())
 			.accountHolderName(account.getAccountHolderName())
 			.isVerified(account.isVerified())
 			.verifiedAt(account.getVerifiedAt())

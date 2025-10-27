@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
-import { ProductCard } from '@/features/product';
+import { useNavigate } from 'react-router-dom';
+import ProductCard from './ProductCard';
+import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -15,12 +17,18 @@ import { ProductCard } from '@/features/product';
  * @param {boolean} props.isLoading - 로딩 상태
  */
 const RegisteredProductList = ({ 
-  products, 
-  onProductClick, 
-  onEditProduct, 
-  onDeleteProduct, 
+  products = [], 
+  onProductClick = () => {}, 
+  onEditProduct = () => {}, 
+  onDeleteProduct = () => {}, 
   isLoading = false 
 }) => {
+  const navigate = useNavigate();
+  
+  // 현재 사용자가 등록한 상품만 필터링
+  const myProducts = DUMMY_PRODUCTS.filter(product => product.sellerId === DUMMY_USERS.currentUser.id);
+  
+  const displayProducts = products.length > 0 ? products : myProducts;
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -29,7 +37,7 @@ const RegisteredProductList = ({
     );
   }
 
-  if (products.length === 0) {
+  if (displayProducts.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
@@ -42,89 +50,45 @@ const RegisteredProductList = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">
-          내가 등록한 상품 ({products.length}개)
+      {/* 헤더 섹션 */}
+      <div className="glass-product-header p-4">
+        <div className="flex items-center justify-between w-full">
+        <h3 className="glass-section-title text-lg lg:text-2xl">
+          내가 등록한 상품
         </h3>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          새 상품 등록
-        </button>
+          <button className="glass-button-primary text-sm lg:text-base px-3 py-2 lg:px-6 lg:py-3">
+            새 상품 등록
+          </button>
+        </div>
       </div>
 
+      {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product) => (
-          <div key={product.id} className="relative group">
-            <ProductCard
-              product={product}
-              onClick={() => onProductClick(product.id)}
-            />
-            
-            {/* 관리 버튼 */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex space-x-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditProduct(product);
-                  }}
-                  className="p-2 bg-white rounded-full shadow hover:bg-gray-50"
-                  title="수정"
-                >
-                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteProduct(product.id);
-                  }}
-                  className="p-2 bg-white rounded-full shadow hover:bg-gray-50"
-                  title="삭제"
-                >
-                  <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* 상품 상태 */}
-            <div className="absolute top-2 left-2">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                product.isAvailable 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {product.isAvailable ? '대여 가능' : '대여 불가'}
-              </span>
-            </div>
-
-            {/* 통계 정보 */}
-            <div className="absolute bottom-2 left-2 right-2">
-              <div className="bg-white bg-opacity-90 rounded-lg p-2">
-                <div className="flex justify-between text-xs text-gray-600">
-                  <span>조회 {product.viewCount || 0}</span>
-                  <span>찜 {product.likeCount || 0}</span>
-                  <span>대여 {product.rentalCount || 0}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {displayProducts.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            onClick={() => navigate(`/products/${product.id}`)}
+            onAction={() => onEditProduct(product)}
+            actionType="edit"
+            status={product.isAvailable ? 'available' : 'unavailable'}
+            showStats={false}
+            showDate={false}
+          />
         ))}
       </div>
 
       {/* 페이지네이션 */}
-      {products.length > 0 && (
-        <div className="flex justify-center mt-8">
+      {displayProducts.length > 0 && (
+        <div className="glass-pagination">
           <nav className="flex space-x-2">
-            <button className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+            <button className="glass-pagination-button glass-pagination-prev">
               이전
             </button>
-            <button className="px-3 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md">
+            <button className="glass-pagination-button glass-pagination-active">
               1
             </button>
-            <button className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+            <button className="glass-pagination-button glass-pagination-next">
               다음
             </button>
           </nav>

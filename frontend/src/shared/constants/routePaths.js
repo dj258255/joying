@@ -43,7 +43,7 @@ export const ROUTE_PATHS = {
   MYPAGE_ACCOUNT_VERIFY: '/mypage/account-verify',
 
   // User
-  USER_PROFILE: (id) => `/users/${id}`,
+  USER_PROFILE: (id) => `/members/${id}`,
 
   // Error
   NOT_FOUND: '/404',

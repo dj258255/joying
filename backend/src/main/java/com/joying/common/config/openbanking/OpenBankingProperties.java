@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 금융결제원 오픈뱅킹 API 설정
+ * 금융결제원 오픈뱅킹 API 설정 (1원 인증 방식)
  */
 @Getter
 @Setter
@@ -30,21 +30,6 @@ public class OpenBankingProperties {
 	 * Client Secret (오픈뱅킹에서 발급)
 	 */
 	private String clientSecret;
-
-	/**
-	 * OAuth 콜백 URI
-	 */
-	private String redirectUri;
-
-	/**
-	 * OAuth 인증 엔드포인트
-	 */
-	private String authUri;
-
-	/**
-	 * OAuth 토큰 발급 엔드포인트
-	 */
-	private String tokenUri;
 
 	/**
 	 * 이용기관코드 (오픈뱅킹에서 발급)

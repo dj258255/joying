@@ -5,11 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 오픈뱅킹 토큰 발급 응답
+ * 이용기관 인증 토큰 응답 DTO (2-legged)
  */
 @Getter
 @NoArgsConstructor
-public class OpenBankingTokenResponse {
+public class ClientTokenResponse {
 
 	@JsonProperty("access_token")
 	private String accessToken;
@@ -20,12 +20,9 @@ public class OpenBankingTokenResponse {
 	@JsonProperty("expires_in")
 	private Integer expiresIn;
 
-	@JsonProperty("refresh_token")
-	private String refreshToken;
-
 	@JsonProperty("scope")
 	private String scope;
 
-	@JsonProperty("user_seq_no")
-	private String userSeqNo;
+	@JsonProperty("client_use_code")
+	private String clientUseCode;
 }
