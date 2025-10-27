@@ -66,7 +66,8 @@ public class SecurityConfig {
 					"/v3/api-docs/**",
 					"/swagger-resources/**",
 					"/webjars/**",
-					"/api-docs/**"
+					"/api-docs/**",
+					"/api/v1/products/**"
 				).permitAll()
 				// OAuth2 로그인 엔드포인트
 				.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
