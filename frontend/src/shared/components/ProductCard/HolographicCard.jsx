@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
 /**
@@ -9,12 +8,9 @@ import PropTypes from 'prop-types';
  * - 평점 및 리뷰 수 표시
  */
 const HolographicCard = ({ product }) => {
-  const navigate = useNavigate();
-
   return (
     <div
       className="group relative bg-gradient-to-br from-gray-900 via-blue-900/20 to-purple-900/20 rounded-2xl p-4 border border-blue-500/30 hover:border-blue-400/60 transition-all duration-500 cursor-pointer overflow-hidden"
-      onClick={() => navigate(`/products/${product.id}`)}
       style={{
         boxShadow: '0 0 20px rgba(59, 130, 246, 0.1)',
       }}

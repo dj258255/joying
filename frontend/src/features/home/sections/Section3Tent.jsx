@@ -43,7 +43,7 @@ const Section3Tent = ({ products = [] }) => {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.SEARCH}?category=camping`)}
+              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=camping`)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               캠핑용품 둘러보기

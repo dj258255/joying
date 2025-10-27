@@ -706,7 +706,7 @@ const HomePage = () => {
     const sectionStates = [
       // Section 1: Hero (Section 2와 비슷한 크기로 시작)
       {
-        position: { x: 0, y: 0.05, z: 0 },
+        position: { x: 0.02, y: 0.24, z: 0 },
         rotation: { x: 0, y: Math.PI * 2, z: 0 },
         scale: 6,  // 3 → 6으로 증가 (Section 2와 차이 줄임)
       },
