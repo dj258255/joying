@@ -8,7 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
 import SellerProfile from '../../../features/seller/components/SellerProfile';
-import ReviewList from '../../../features/review/components/ReviewList';
+import ReviewCard from '../../../features/review/components/ReviewCard';
 import DateRangeCalendar from '../../../features/checkout/components/DateRangeCalendar';
 import PriceCalculation from '../../../features/checkout/components/PriceCalculation';
 import RentButton from '../../../features/checkout/components/RentButton';
@@ -327,7 +327,22 @@ const ProductDetailPage = () => {
 
               {/* 리뷰 목록 */}
               <div className="glass-section">
-                <ReviewList reviews={productReviews} />
+                <h3 className="text-lg font-bold text-gray-900 mb-4">리뷰</h3>
+                <div className="space-y-4">
+                  {productReviews.map((review, index) => (
+                    <ReviewCard
+                      key={review.id || index}
+                      review={review}
+                      showProductInfo={false}
+                      showRating={true}
+                    />
+                  ))}
+                  {productReviews.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      등록된 리뷰가 없습니다.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

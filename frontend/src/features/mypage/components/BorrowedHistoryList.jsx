@@ -6,7 +6,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
-import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { DUMMY_RENTAL_HISTORY, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -23,16 +23,8 @@ const BorrowedHistoryList = ({
 }) => {
   const navigate = useNavigate();
   
-  // 현재 사용자가 빌린 상품 (다른 사용자들의 상품)
-  const borrowedProducts = DUMMY_PRODUCTS.filter(product => product.sellerId !== DUMMY_USERS.currentUser.id);
-  
-  const displayHistory = borrowedHistory.length > 0 ? borrowedHistory : borrowedProducts.map((product, index) => ({
-    id: `borrowed_${index}`,
-    product: product,
-    startDate: '2024-01-10',
-    endDate: '2024-01-15',
-    status: 'completed'
-  }));
+  // 현재 사용자가 빌린 내역
+  const displayHistory = borrowedHistory.length > 0 ? borrowedHistory : DUMMY_RENTAL_HISTORY.borrowed;
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
@@ -73,7 +65,7 @@ const BorrowedHistoryList = ({
           <ProductCard
             key={rental.id}
             product={rental.product}
-            onClick={() => navigate(`/products/${rental.product?.id}`)}
+            onClick={() => navigate(`/mypage/borrowed/${rental.id}`)}
             onAction={() => onReviewClick(rental.id)}
             actionType="view"
             status={rental.status === 'completed' ? 'completed' : 

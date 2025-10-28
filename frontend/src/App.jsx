@@ -19,6 +19,8 @@ const ChatRoomPage = React.lazy(() => import('@/features/chat/pages/ChatRoomPage
 const PaymentCheckoutPage = React.lazy(() => import('@/features/payment/pages/PaymentCheckoutPage'))
 const MyPageMain = React.lazy(() => import('@/features/mypage/pages/MyPageMain'))
 const UserProfilePage = React.lazy(() => import('@/features/mypage/pages/UserProfilePage'))
+const BorrowedHistoryPage = React.lazy(() => import('@/features/mypage/pages/BorrowedHistoryPage'))
+const LentHistoryPage = React.lazy(() => import('@/features/mypage/pages/LentHistoryPage'))
 
 function App() {
   return (
@@ -40,6 +42,8 @@ function App() {
           <Route path={ROUTE_PATHS.PAYMENT_CHECKOUT} element={<PaymentCheckoutPage />} />
           <Route path={ROUTE_PATHS.MYPAGE} element={<MyPageMain />} />
           <Route path="/members/:memberId" element={<UserProfilePage />} />
+          <Route path="/mypage/borrowed/:rentalId" element={<BorrowedHistoryPage />} />
+          <Route path="/mypage/lent/:rentalId" element={<LentHistoryPage />} />
           <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
         </Routes>
       </React.Suspense>

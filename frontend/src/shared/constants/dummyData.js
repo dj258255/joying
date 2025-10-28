@@ -545,3 +545,97 @@ export const DUMMY_RESERVATIONS = [
   },
 
 ];
+
+// 대여 내역 더미 데이터 (빌린 내역, 빌려준 내역)
+export const DUMMY_RENTAL_HISTORY = {
+  // 내가 빌린 내역
+  borrowed: [
+    {
+      id: 'rental_001',
+      productId: 'product_001',
+      product: DUMMY_PRODUCTS[0], // 닌텐도 스위치 OLED
+      ownerId: 102,
+      owner: DUMMY_USERS.others[0],
+      startDate: '2024-01-25',
+      endDate: '2024-01-27',
+      status: 'completed',
+      totalPrice: 15000,
+      createdAt: '2024-01-20T10:00:00Z',
+      completedAt: '2024-01-27T18:00:00Z',
+      review: DUMMY_REVIEWS.find(r => r.productId === 'product_001' && r.reviewerId === 101)
+    },
+    {
+      id: 'rental_002',
+      productId: 'product_003',
+      product: DUMMY_PRODUCTS[2], // 아이패드 프로 12.9인치
+      ownerId: 103,
+      owner: DUMMY_USERS.others[1],
+      startDate: '2024-01-15',
+      endDate: '2024-01-17',
+      status: 'completed',
+      totalPrice: 20000,
+      createdAt: '2024-01-10T14:30:00Z',
+      completedAt: '2024-01-17T16:00:00Z',
+      review: DUMMY_REVIEWS.find(r => r.productId === 'product_003' && r.reviewerId === 101)
+    },
+    {
+      id: 'rental_003',
+      productId: 'product_001',
+      product: DUMMY_PRODUCTS[0], // 닌텐도 스위치 OLED
+      ownerId: 102,
+      owner: DUMMY_USERS.others[0],
+      startDate: '2024-02-05',
+      endDate: '2024-02-07',
+      status: 'pending',
+      totalPrice: 15000,
+      createdAt: '2024-01-25T09:15:00Z',
+      completedAt: null,
+      review: null
+    }
+  ],
+  // 내가 빌려준 내역
+  lent: [
+    {
+      id: 'rental_004',
+      productId: 'product_004',
+      product: DUMMY_PRODUCTS[3], // 캐논 EOS R5 카메라
+      renterId: 102,
+      renter: DUMMY_USERS.others[0],
+      startDate: '2024-01-20',
+      endDate: '2024-01-22',
+      status: 'completed',
+      totalPrice: 30000,
+      createdAt: '2024-01-15T11:00:00Z',
+      completedAt: '2024-01-22T17:00:00Z',
+      review: DUMMY_REVIEWS.find(r => r.productId === 'product_004' && r.revieweeId === 101)
+    },
+    {
+      id: 'rental_005',
+      productId: 'product_005',
+      product: DUMMY_PRODUCTS[4], // 소니 WH-1000XM4 헤드폰
+      renterId: 103,
+      renter: DUMMY_USERS.others[1],
+      startDate: '2024-01-30',
+      endDate: '2024-02-01',
+      status: 'completed',
+      totalPrice: 10000,
+      createdAt: '2024-01-25T16:20:00Z',
+      completedAt: '2024-02-01T14:00:00Z',
+      review: DUMMY_REVIEWS.find(r => r.productId === 'product_005' && r.revieweeId === 101)
+    },
+    {
+      id: 'rental_006',
+      productId: 'product_006',
+      product: DUMMY_PRODUCTS[5], // 삼성 갤럭시 탭 S8
+      renterId: 102,
+      renter: DUMMY_USERS.others[0],
+      startDate: '2024-02-10',
+      endDate: '2024-02-12',
+      status: 'pending',
+      totalPrice: 18000,
+      createdAt: '2024-02-05T13:45:00Z',
+      completedAt: null,
+      review: null
+    }
+  ]
+};
