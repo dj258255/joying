@@ -26,23 +26,19 @@ public class Account extends BaseEntity {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Comment("은행 이름")
+    @Comment("은행 이름 (SSAFY 금융망)")
     @Column(name = "bank_name", nullable = false)
     private String bankName;
 
-    @Comment("표준 은행 코드 (금융결제원 오픈뱅킹)")
-    @Column(name = "bank_code_std", nullable = false, length = 3)
-    private String bankCodeStd;
+    @Comment("은행 코드 (SSAFY 금융망)")
+    @Column(name = "bank_code", nullable = false, length = 3)
+    private String bankCode;
 
-    @Comment("계좌 번호")
-    @Column(name = "account_num", nullable = false)
-    private String accountNum;
+    @Comment("계좌 번호 (16자리)")
+    @Column(name = "account_no", nullable = false, length = 16, unique = true)
+    private String accountNo;
 
-    @Comment("계좌일련번호 (금융결제원 오픈뱅킹 1원 인증)")
-    @Column(name = "account_seq", nullable = false, unique = true)
-    private String accountSeq;
-
-    @Comment("계좌 예금주명")
+    @Comment("계좌 예금주명 (1원 인증으로 확인된 실명)")
     @Column(name = "account_holder_name", nullable = false)
     private String accountHolderName;
 
@@ -50,25 +46,29 @@ public class Account extends BaseEntity {
     @Column(name = "verified_at")
     private Instant verifiedAt;
 
-    @Comment("계좌 상태 (01:정상, 02:휴면, 03:해지, 04:정지)")
+    @Comment("계좌 상태")
     @Enumerated(EnumType.STRING)
     @Column(name = "account_state", nullable = false, length = 20)
     private AccountState accountState;
 
+    @Comment("계좌 잔액")
+    @Column(name = "balance")
+    private Long balance;
+
     /**
-     * Builder 패턴으로 계좌 생성 (1원 인증 방식)
+     * Builder 패턴으로 계좌 생성 (SSAFY 금융망 1원 인증 방식)
      */
     @Builder
-    public Account(Member member, String bankName, String bankCodeStd, String accountNum,
-                   String accountSeq, String accountHolderName, AccountState accountState) {
+    public Account(Member member, String bankName, String bankCode, String accountNo,
+                   String accountHolderName, AccountState accountState, Long balance) {
         this.member = member;
         this.bankName = bankName;
-        this.bankCodeStd = bankCodeStd;
-        this.accountNum = accountNum;
-        this.accountSeq = accountSeq;
+        this.bankCode = bankCode;
+        this.accountNo = accountNo;
         this.accountHolderName = accountHolderName;
-        this.verifiedAt = null; // 기본값: 미인증
+        this.verifiedAt = null; // 기본값: 미인증 (1원 인증 완료 시 설정)
         this.accountState = accountState != null ? accountState : AccountState.ACTIVE;
+        this.balance = balance != null ? balance : 0L;
     }
 
     /**

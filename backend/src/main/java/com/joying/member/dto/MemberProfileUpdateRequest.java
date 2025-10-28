@@ -15,7 +15,9 @@ import lombok.NoArgsConstructor;
 @Schema(description = "회원 프로필 수정 요청")
 public class MemberProfileUpdateRequest {
 
-	@NotBlank(message = "이름은 필수입니다.")
-	@Schema(description = "이름", example = "홍길동")
-	private String name;
+	@Schema(description = "닉네임 (변경 시에만 입력)", example = "길동이", nullable = true)
+	private String nickname;
+
+	@Schema(description = "프로필 이미지 ID (변경 시에만 입력)", example = "1", nullable = true)
+	private Long profileImageId;
 }

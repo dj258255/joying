@@ -77,6 +77,8 @@ public enum ErrorCode {
 	ACCOUNT_NOT_VERIFIED(400, "AC003", "인증되지 않은 계좌입니다"),
 	ACCOUNT_NOT_USABLE(400, "AC004", "사용 불가능한 계좌입니다"),
 	ACCOUNT_NOT_AUTHORIZED(403, "AC005", "계좌에 대한 권한이 없습니다"),
+	ACCOUNT_VERIFICATION_FAILED(400, "AC006", "계좌 인증에 실패했습니다"),
+	INVALID_AUTH_CODE(400, "AC007", "인증 코드가 일치하지 않습니다"),
 
 	// ========================================
 	// Member Domain (M001~M099)

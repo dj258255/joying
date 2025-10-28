@@ -38,11 +38,17 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.kafka:spring-kafka")
+	implementation("org.springframework.boot:spring-boot-starter-websocket") // WebSocket STOMP
 
 	// Kotlin
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib")
+
+	// Kotlin Coroutines (비동기 처리 - 채팅 기능용)
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
+	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
 	// Swagger/OpenAPI (Spring Boot 3.5.x 호환)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")

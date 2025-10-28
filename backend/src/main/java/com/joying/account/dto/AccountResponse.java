@@ -26,14 +26,11 @@ public class AccountResponse {
 	@Schema(description = "은행 이름", example = "국민은행")
 	private String bankName;
 
-	@Schema(description = "표준 은행 코드", example = "004")
-	private String bankCodeStd;
+	@Schema(description = "은행 코드", example = "004")
+	private String bankCode;
 
-	@Schema(description = "계좌 번호", example = "123-456-7890")
-	private String accountNum;
-
-	@Schema(description = "계좌일련번호 (1원 인증 식별자)")
-	private String accountSeq;
+	@Schema(description = "계좌 번호 (16자리)", example = "0041234567890123")
+	private String accountNo;
 
 	@Schema(description = "예금주명", example = "홍길동")
 	private String accountHolderName;
@@ -69,9 +66,8 @@ public class AccountResponse {
 		return AccountResponse.builder()
 			.accountId(account.getAccountId())
 			.bankName(account.getBankName())
-			.bankCodeStd(account.getBankCodeStd())
-			.accountNum(account.getAccountNum())
-			.accountSeq(account.getAccountSeq())
+			.bankCode(account.getBankCode())
+			.accountNo(account.getAccountNo())
 			.accountHolderName(account.getAccountHolderName())
 			.isVerified(account.isVerified())
 			.verifiedAt(account.getVerifiedAt())
