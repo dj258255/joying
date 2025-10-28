@@ -171,14 +171,19 @@ const ChatRoomPage = () => {
             </button>
             <div className="flex items-center gap-3">
               <ProfileImage 
-                src={currentChatRoom.participants?.find(p => p.id !== DUMMY_USERS.currentUser.id)?.profileImage}
+                src={currentChatRoom.participants?.find(p => p.id !== 101)?.profileImage}
                 alt={currentChatRoom.name}
                 size={40}
                 className="w-10 h-10 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={() => {
-                  const opponent = currentChatRoom.participants?.find(p => p.id !== DUMMY_USERS.currentUser.id);
+                  const opponent = currentChatRoom.participants?.find(p => p.id !== 101);
+                  console.log('ChatRoomPage - participants:', currentChatRoom.participants);
+                  console.log('ChatRoomPage - opponent:', opponent);
                   if (opponent?.id) {
+                    console.log('ChatRoomPage - navigating to:', `/members/${opponent.id}`);
                     navigate(`/members/${opponent.id}`);
+                  } else {
+                    console.log('ChatRoomPage - opponent not found');
                   }
                 }}
               />
@@ -227,7 +232,7 @@ const ChatRoomPage = () => {
             <MessageBubble
               key={message.id}
               message={message}
-              isOwn={message.sender?.id === DUMMY_USERS.currentUser.id}
+              isOwn={message.sender?.id === 101}
               onReply={handleReply}
             />
           ))

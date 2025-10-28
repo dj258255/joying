@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { DUMMY_USERS, DUMMY_PRODUCTS, DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { 
   FiPackage, 
   FiUsers, 
@@ -114,87 +115,113 @@ const MyPageMain = () => {
   };
 
   // Tier 1: 대시보드 뷰 컴포넌트 - 미니멀리즘 디자인
-  const DashboardView = () => (
-    <div className="glass-scroll-container h-full p-6 space-y-6">
-      {/* 프로필 섹션 - 미니멀 글래스 */}
-      <div className="glass-profile-minimal p-6">
-        <UserProfileView />
-      </div>
+  const DashboardView = () => {
+    // 더미데이터 기반 통계 계산
+    const currentUserId = DUMMY_USERS.currentUser.userId;
+    
+    // 등록한 상품 수
+    const registeredProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId).length;
+    
+    // 빌린 상품 수 (다른 사용자의 상품)
+    const borrowedProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId).length;
+    
+    // 채팅방 수
+    const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
+    
+    // 읽지 않은 메시지 수
+    const unreadMessagesCount = DUMMY_CHAT_ROOMS.reduce((total, room) => total + room.unreadCount, 0);
 
-      {/* 활동 대시보드 - 통일된 색상 톤 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-card-minimal p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium mb-1">진행 중인 대여</p>
-              <p className="text-2xl font-bold text-gray-900">3</p>
-            </div>
-            <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-              <FiPackage className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
+    return (
+      <div className="glass-scroll-container h-full p-6 space-y-6">
+        {/* 프로필 섹션 - 미니멀 글래스 */}
+        <div className="glass-profile-minimal p-6">
+          <UserProfileView />
         </div>
-        
-        <div className="glass-card-minimal p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium mb-1">빌려준 상품</p>
-              <p className="text-2xl font-bold text-gray-900">7</p>
-            </div>
-            <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center">
-              <FiUsers className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="glass-card-minimal p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium mb-1">등록한 상품</p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
-            </div>
-            <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
-              <FiEdit3 className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="glass-card-minimal p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium mb-1">채팅방</p>
-              <p className="text-2xl font-bold text-gray-900">5</p>
-              <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">3</span>
-            </div>
-            <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-              <FiMessageCircle className="w-6 h-6 text-indigo-600" />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* 최근 활동 - 미니멀 디자인 */}
-      <div className="glass-main-minimal p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 활동</h3>
-        <div className="space-y-3">
-          <div className="glass-activity-item p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm text-gray-700">새로운 대여 요청이 도착했습니다</span>
-              <span className="text-xs text-gray-500 ml-auto">2분 전</span>
+        {/* 활동 대시보드 - 통일된 색상 톤 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="glass-card-minimal p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium mb-1">빌린 상품</p>
+                <p className="text-2xl font-bold text-gray-900">{borrowedProductsCount}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                <FiPackage className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
           </div>
-          <div className="glass-activity-item p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-700">대여가 완료되었습니다</span>
-              <span className="text-xs text-gray-500 ml-auto">1시간 전</span>
+          
+          <div className="glass-card-minimal p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium mb-1">등록한 상품</p>
+                <p className="text-2xl font-bold text-gray-900">{registeredProductsCount}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center">
+                <FiEdit3 className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="glass-card-minimal p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium mb-1">받은 리뷰</p>
+                <p className="text-2xl font-bold text-gray-900">{DUMMY_USERS.currentUser.reviewCount}</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
+                <FiUsers className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="glass-card-minimal p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium mb-1">채팅방</p>
+                <p className="text-2xl font-bold text-gray-900">{chatRoomsCount}</p>
+                {unreadMessagesCount > 0 && (
+                  <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
+                    {unreadMessagesCount}
+                  </span>
+                )}
+              </div>
+              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <FiMessageCircle className="w-6 h-6 text-indigo-600" />
+              </div>
             </div>
           </div>
         </div>
+
+        {/* 최근 활동 - 미니멀 디자인 */}
+        <div className="glass-main-minimal p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 활동</h3>
+          <div className="space-y-3">
+            {DUMMY_CHAT_ROOMS.slice(0, 3).map((room, index) => (
+              <div key={room.id} className="glass-activity-item p-4">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-2 h-2 rounded-full ${
+                    index === 0 ? 'bg-blue-500' : 
+                    index === 1 ? 'bg-green-500' : 'bg-purple-500'
+                  }`}></div>
+                  <span className="text-sm text-gray-700">
+                    {room.name}님과의 채팅방에서 새로운 메시지
+                  </span>
+                  <span className="text-xs text-gray-500 ml-auto">
+                    {room.lastMessage?.timestamp ? 
+                      new Date(room.lastMessage.timestamp).toLocaleDateString('ko-KR') : 
+                      '방금 전'
+                    }
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Tier 2: 상품 관리 뷰 - 미니멀리즘 디자인
   const ProductsView = () => {
