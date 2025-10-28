@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface HashtagHistoryRepository extends JpaRepository<HashtagHistory,String> {
     List<HashtagHistory> findByProduct_ProductId(Long productId);
+    void deleteByProduct_ProductId(Long productId);
 }

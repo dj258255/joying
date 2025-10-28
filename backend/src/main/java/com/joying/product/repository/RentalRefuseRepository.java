@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface RentalRefuseRepository extends JpaRepository<RentalRefuse,String> {
     List<RentalRefuse> findByProduct_ProductId(Long productId);
+    void deleteByProduct_ProductId(Long productId);
 }

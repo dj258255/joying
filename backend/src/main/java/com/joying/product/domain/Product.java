@@ -124,4 +124,25 @@ public class Product extends BaseEntity {
         this.endRent = endRent;
         this.rating = (rating != null) ? rating : 0.0;
     }
+
+    public void updateProductInfo(String title, String content, Integer deposit, Integer rentalFee,
+                                  UploadType uploadType, RentMethod rentMethod, Boolean videoNecessary,
+                                  Category category, Sido sido, Gungu gungu, Dong dong,
+                                  Timestamp startRent, Timestamp endRent) {
+
+        if (title != null) this.title = title;
+        if (content != null) this.content = content;
+        if (deposit != null) this.deposit = deposit;
+        if (rentalFee != null) this.rentalFee = rentalFee;
+        if (uploadType != null) this.uploadType = uploadType;
+        if (rentMethod != null) this.rentMethod = rentMethod;
+        if (videoNecessary != null) this.videoNecessary = videoNecessary;
+        if (category != null) this.category = category;
+        if (sido != null) this.sido = sido;
+        if (gungu != null) this.gungu = gungu;
+        if (dong != null) this.dong = dong;
+        if (startRent != null) this.startRent = startRent;
+        if (endRent != null) this.endRent = endRent;
+    }
+
 }
