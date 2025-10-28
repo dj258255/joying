@@ -38,7 +38,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.kafka:spring-kafka")
-
+	implementation("org.springframework.boot:spring-boot-starter-web")       // 기존 REST
+	implementation("org.springframework.boot:spring-boot-starter-webflux")   // WebClient 포함
 	// Kotlin
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -68,6 +69,7 @@ dependencies {
 	// Development Tools
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	// developmentOnly("org.springframework.boot:spring-boot-docker-compose") // Docker Compose 미사용으로 주석 처리
+
 
 	// Test Dependencies
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
