@@ -287,14 +287,17 @@ public class ProductServiceImpl implements ProductService {
             for (String tagName : req.getHashtags()) {
                 if (tagName == null || tagName.isBlank()) continue;
 
-                // 없으면 새로 만들기
                 Hashtag tag = hashtagRepository.findByHashtagName(tagName)
-                        .orElseGet(() -> {
-                            Hashtag newTag = Hashtag.builder()
-                                    .hashtagName(tagName)
-                                    .build();
-                            return hashtagRepository.save(newTag);
-                        });
+                        .orElse(null);
+
+                if (tag == null) {
+                    Hashtag newTag = Hashtag.builder()
+                            .hashtagName(tagName)
+                            .category(category)
+                            .build();
+
+                    tag = hashtagRepository.save(newTag);
+                }
 
                 // HashtagHistory 로 product와 연결
                 HashtagHistory history = HashtagHistory.builder()

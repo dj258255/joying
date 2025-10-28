@@ -1,8 +1,8 @@
 package com.joying.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
@@ -27,8 +27,8 @@ public class ProductResponseDto {
         private CategoryDto category;
         private Double rating;
 
-        private Timestamp startRent;
-        private Timestamp endRent;
+        private Instant startRent;
+        private Instant endRent;
 
         private Boolean liked;
 
@@ -72,8 +72,8 @@ public class ProductResponseDto {
 
     @Getter @Builder @AllArgsConstructor
     public static class RentalRefuseDto {
-        private Timestamp startRef;
-        private Timestamp endRef;
+        private Instant startRef;
+        private Instant endRef;
     }
 
     @Getter @Builder @AllArgsConstructor

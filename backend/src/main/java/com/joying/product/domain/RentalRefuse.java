@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.Comment;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 
 @Getter
 @Entity
@@ -30,14 +31,14 @@ public class RentalRefuse {
 
     @Comment("대여불가 시작 날짜")
     @Column(name = "start_ref")
-    private Timestamp startRef;
+    private Instant startRef;
 
     @Comment("대여불가 종료 날짜")
     @Column(name = "end_ref")
-    private Timestamp endRef;
+    private Instant endRef;
 
     @Builder
-    private RentalRefuse(Product product, Timestamp startRef, Timestamp endRef) {
+    private RentalRefuse(Product product, Instant startRef, Instant endRef) {
         this.product = product;
         this.startRef = startRef;
         this.endRef = endRef;
