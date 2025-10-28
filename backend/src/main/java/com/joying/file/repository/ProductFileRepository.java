@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface ProductFileRepository extends JpaRepository<ProductFile,Long> {
     List<ProductFile> findByProduct_ProductId(Long productId);
+    void deleteByProduct_ProductId(Long productId);
 
 }

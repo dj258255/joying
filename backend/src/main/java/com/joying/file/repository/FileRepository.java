@@ -10,15 +10,24 @@ import java.util.List;
 
 public interface FileRepository extends JpaRepository<File, Long> {
 
+//    @Query("""
+//        SELECT f
+//        FROM File f
+//        WHERE f.createdAt < :cutoff
+//        AND NOT EXISTS (SELECT 1 FROM ProductFile pf WHERE pf.file = f)
+//        AND NOT EXISTS (SELECT 1 FROM ReviewFile rf WHERE rf.file = f)
+//        AND NOT EXISTS (SELECT 1 FROM RentalVideo rv WHERE rv.file = f)
+//        AND NOT EXISTS (SELECT 1 FROM Member m WHERE m.profileImage = f)
+//        """)
+
     @Query("""
-    SELECT f
-    FROM File f
-    WHERE f.createdAt < :cutoff
-      AND NOT EXISTS (
-          SELECT pf
-          FROM ProductFile pf
-          WHERE pf.file = f
-      )
-""")
+        SELECT f
+        FROM File f
+        WHERE f.createdAt < :cutoff
+        AND NOT EXISTS (SELECT 1 FROM ProductFile pf WHERE pf.file = f)
+        AND NOT EXISTS (SELECT 1 FROM ReviewFile rf WHERE rf.file = f)
+        AND NOT EXISTS (SELECT 1 FROM Member m WHERE m.profileImage = f)
+        """)
     List<File> findOrphanFilesBefore(@Param("cutoff") Instant cutoff);
+
 }
