@@ -50,17 +50,6 @@ const RegisteredProductList = ({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 섹션 */}
-      <div className="glass-product-header p-4">
-        <div className="flex items-center justify-between w-full">
-        <h3 className="glass-section-title text-lg lg:text-2xl">
-          내가 등록한 상품
-        </h3>
-          <button className="glass-button-primary text-sm lg:text-base px-3 py-2 lg:px-6 lg:py-3">
-            새 상품 등록
-          </button>
-        </div>
-      </div>
 
       {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
