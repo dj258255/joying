@@ -48,22 +48,6 @@ const LikedProductList = ({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 섹션 */}
-      <div className="glass-product-header p-4">
-        <div className="flex items-center justify-between w-full">
-        <h3 className="glass-section-title text-lg lg:text-2xl">
-          찜한 상품
-        </h3>
-          <div className="flex space-x-1 lg:space-x-2">
-            <button className="glass-button-ghost text-xs lg:text-base px-2 py-1 lg:px-6 lg:py-3">
-              전체 선택
-            </button>
-            <button className="glass-button-danger text-xs lg:text-base px-2 py-1 lg:px-6 lg:py-3">
-              선택 삭제
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

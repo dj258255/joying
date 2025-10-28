@@ -21,7 +21,6 @@ const LentHistoryPage = () => {
   // 모달 상태들
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
 
@@ -183,7 +182,9 @@ const LentHistoryPage = () => {
 
     const isInRange = (date) => {
       if (!date) return false;
-      return date >= startDate && date <= endDate;
+      return (date >= startDate && date <= endDate) || 
+             (date.toDateString() === startDate.toDateString()) || 
+             (date.toDateString() === endDate.toDateString());
     };
 
     const days = getDaysInMonth(new Date(displayYear, displayMonth));
@@ -325,9 +326,31 @@ const LentHistoryPage = () => {
               </div>
             </div>
 
+            {/* 추가 정보 */}
+            <div className="space-y-3 mb-4">
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-600">이메일</span>
+                <span className="text-sm font-medium text-gray-900">{rental.renter.email}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-600">성별</span>
+                <span className="text-sm font-medium text-gray-900">{rental.renter.gender === 'M' ? '남성' : '여성'}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-600">나이</span>
+                <span className="text-sm font-medium text-gray-900">{new Date().getFullYear() - new Date(rental.renter.birth).getFullYear()}세</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-sm text-gray-600">활동 기간</span>
+                <span className="text-sm font-medium text-blue-600">
+                  {Math.ceil((new Date() - new Date(rental.renter.createdAt)) / (1000 * 60 * 60 * 24))}일째 활동중
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <button
-                onClick={() => setShowProfileModal(true)}
+                onClick={() => navigate(`/members/${rental.renterId}`)}
                 className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
               >
                 프로필 보기
@@ -427,20 +450,6 @@ const LentHistoryPage = () => {
               } else {
                 return (
                   <div className="text-center py-8">
-                    <div className="flex justify-center mb-3">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className="w-6 h-6 text-gray-300"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <p className="text-gray-600 mb-4">아직 리뷰를 작성하지 않았습니다.<br />리뷰를 남겨주세요!</p>
                     <button 
                       onClick={() => setShowReviewModal(true)}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -477,7 +486,7 @@ const LentHistoryPage = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 ID</span>
-                    <span className="font-medium">{rental.id}</span>
+                    <span className="font-medium text-gray-900">{rental.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 상태</span>
@@ -492,12 +501,12 @@ const LentHistoryPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">신청일</span>
-                    <span className="font-medium">{formatDate(rental.createdAt)}</span>
+                    <span className="font-medium text-gray-900">{formatDate(rental.createdAt)}</span>
                   </div>
                   {rental.completedAt && (
                     <div className="flex justify-between">
                       <span className="text-gray-600">완료일</span>
-                      <span className="font-medium">{formatDate(rental.completedAt)}</span>
+                      <span className="font-medium text-gray-900">{formatDate(rental.completedAt)}</span>
                     </div>
                   )}
                 </div>
@@ -508,21 +517,21 @@ const LentHistoryPage = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">일일 대여료</span>
-                    <span className="font-medium">{rental.product.price.toLocaleString()}원</span>
+                    <span className="font-medium text-gray-900">{rental.product.price.toLocaleString()}원</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">대여 일수</span>
-                    <span className="font-medium">
+                    <span className="font-medium text-gray-900">
                       {Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))}일
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">총 대여료</span>
-                    <span className="font-medium">{rental.totalPrice.toLocaleString()}원</span>
+                    <span className="font-medium text-gray-900">{rental.totalPrice.toLocaleString()}원</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">보증금</span>
-                    <span className="font-medium">5,000원</span>
+                    <span className="font-medium text-gray-900">5,000원</span>
                   </div>
                   <hr className="my-2" />
                   <div className="flex justify-between font-bold text-lg text-gray-900">
@@ -537,11 +546,11 @@ const LentHistoryPage = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">결제 수단</span>
-                    <span className="font-medium">카드 결제</span>
+                    <span className="font-medium text-gray-900">카드 결제</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">카드 번호</span>
-                    <span className="font-medium">****-****-****-1234</span>
+                    <span className="font-medium text-gray-900">****-****-****-1234</span>
                   </div>
                 </div>
               </div>
@@ -617,7 +626,7 @@ const LentHistoryPage = () => {
                 <textarea
                   value={reviewContent}
                   onChange={(e) => setReviewContent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                   rows={4}
                   placeholder="리뷰를 작성해주세요..."
                 />
@@ -648,177 +657,6 @@ const LentHistoryPage = () => {
         </div>
       )}
 
-      {/* 프로필 보기 모달 */}
-      {showProfileModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto scrollbar-hide">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">프로필 보기</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowProfileModal(false);
-                    navigate(`/members/${rental.renterId}`);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  화면 키우기
-                </button>
-                <button
-                  onClick={() => setShowProfileModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 왼쪽: 프로필 정보 */}
-              <div className="lg:col-span-1">
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-                  <div className="text-center mb-6">
-                    <ProfileImage 
-                      src={rental.renter.profileImageUrl}
-                      alt={rental.renter.username}
-                      size={80}
-                      className="w-20 h-20 mx-auto mb-4"
-                    />
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">{rental.renter.username}</h2>
-                    <p className="text-gray-500 text-sm mb-2">{rental.renter.bio || '소개가 없습니다.'}</p>
-                    
-                    {/* 정확한 별점 표시 */}
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <div className="flex gap-1">
-                        {(() => {
-                          const calcStarRates = () => {
-                            let tempStarRatesArr = [0, 0, 0, 0, 0];
-                            let starScore = rental.renter.rating;
-
-                            for (let i = 0; i < 5; i++) {
-                              if (starScore >= 1) {
-                                tempStarRatesArr[i] = 14;
-                                starScore -= 1;
-                              } else {
-                                tempStarRatesArr[i] = starScore * 14;
-                                break;
-                              }
-                            }
-                            return tempStarRatesArr;
-                          };
-
-                          const ratesResArr = calcStarRates();
-                          const STAR_IDX_ARR = ['first', 'second', 'third', 'fourth', 'last'];
-
-                          return STAR_IDX_ARR.map((item, idx) => {
-                            const clipId = `clip-${idx}-${rental.renter.rating}`;
-                            const pathId = `path-${idx}-${rental.renter.rating}`;
-
-                            return (
-                              <span key={`${item}_${idx}`}>
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width={24}
-                                  height={24}
-                                  viewBox="0 0 14 13"
-                                  fill="#cacaca"
-                                >
-                                  <clipPath id={clipId}>
-                                    <rect width={ratesResArr[idx]} height={24} />
-                                  </clipPath>
-                                  <path
-                                    id={pathId}
-                                    d="M9,2l2.163,4.279L16,6.969,12.5,10.3l.826,4.7L9,12.779,4.674,15,5.5,10.3,2,6.969l4.837-.69Z"
-                                    transform="translate(-2 -2)"
-                                  />
-                                  <use
-                                    clipPath={`url(#${clipId})`}
-                                    href={`#${pathId}`}
-                                    fill="#FFBF0F"
-                                  />
-                                </svg>
-                              </span>
-                            );
-                          });
-                        })()}
-                      </div>
-                      <span className="text-sm font-medium text-gray-600">{rental.renter.rating}</span>
-                    </div>
-                  </div>
-
-                  {/* 기본 정보 */}
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">이메일</span>
-                      <span className="text-gray-900">{rental.renter.email}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">성별</span>
-                      <span className="text-gray-900">{rental.renter.gender === 'M' ? '남성' : '여성'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">나이</span>
-                      <span className="text-gray-900">{new Date().getFullYear() - new Date(rental.renter.birth).getFullYear()}세</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">활동 기간</span>
-                      <span className="text-gray-900">
-                        {Math.ceil((new Date() - new Date(rental.renter.createdAt)) / (1000 * 60 * 60 * 24))}일째 활동중
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setShowProfileModal(false);
-                      navigate(`/chats/${rental.renterId}`);
-                    }}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    메시지 보내기
-                  </button>
-                </div>
-              </div>
-
-              {/* 오른쪽: 등록 상품 및 리뷰 */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* 등록 상품 */}
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">등록 상품</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {DUMMY_PRODUCTS.filter(p => p.sellerId === rental.renterId).slice(0, 4).map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        actionType="view"
-                        status="available"
-                        onClick={() => navigate(`/products/${product.id}`)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* 리뷰 섹션 */}
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">리뷰</h3>
-                  <div className="space-y-4">
-                    {DUMMY_REVIEWS.filter(r => r.revieweeId === rental.renterId).slice(0, 3).map((review) => (
-                      <ReviewCard
-                        key={review.id}
-                        review={review}
-                        showProductInfo={true}
-                        showRating={true}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
