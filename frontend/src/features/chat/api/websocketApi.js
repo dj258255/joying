@@ -7,13 +7,15 @@ export const websocketConfig = {
   heartbeatInterval: 30000
 };
 
+let ws = null;
+
 /**
  * 채팅 WebSocket 생성
  * @param {string} token - 액세스 토큰
  * @returns {WebSocket}
  */
 export const createChatWebSocket = (token) => {
-  const ws = new WebSocket(`${websocketConfig.url}?token=${token}`);
+  ws = new WebSocket(`${websocketConfig.url}?token=${token}`);
   
   ws.onopen = () => {
     console.log('✅ WebSocket Connected');
@@ -28,4 +30,52 @@ export const createChatWebSocket = (token) => {
   };
   
   return ws;
+};
+
+/**
+ * WebSocket API 객체
+ */
+export const websocketApi = {
+  connect(chatRoomId, onMessage, onError) {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      throw new Error('인증 토큰이 없습니다.');
+    }
+    
+    ws = createChatWebSocket(token);
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        onMessage?.(data);
+      } catch (error) {
+        console.error('메시지 파싱 오류:', error);
+        onError?.(error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket 오류:', error);
+      onError?.(error);
+    };
+  },
+  
+  disconnect() {
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+  },
+  
+  sendMessage(message) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+    } else {
+      throw new Error('WebSocket이 연결되지 않았습니다.');
+    }
+  },
+  
+  isConnected() {
+    return ws && ws.readyState === WebSocket.OPEN;
+  }
 };

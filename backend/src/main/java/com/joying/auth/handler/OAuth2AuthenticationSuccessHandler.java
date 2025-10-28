@@ -71,7 +71,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
 		refreshTokenRepository.save(refreshToken);
 
-		// 4. Access Token을 Cookie에 저장
+		// 4. Access Token을 Cookie에 저장 (SameSite=Lax)
 		CookieUtil.addCookie(
 			response,
 			jwtProperties.getAccessTokenCookieName(),
@@ -79,8 +79,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 			(int) jwtTokenProvider.getAccessTokenExpirationInSeconds()
 		);
 
-		// 5. Refresh Token을 Cookie에 저장 (HttpOnly, Secure)
-		CookieUtil.addCookie(
+		// 5. Refresh Token을 Cookie에 저장 (SameSite=Strict, HttpOnly, Secure)
+		CookieUtil.addStrictCookie(
 			response,
 			jwtProperties.getRefreshTokenCookieName(),
 			refreshTokenValue,

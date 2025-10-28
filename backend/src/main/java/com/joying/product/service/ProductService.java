@@ -1,7 +1,9 @@
 package com.joying.product.service;
 
+import com.joying.product.dto.ProductRequestDto;
 import com.joying.product.dto.ProductResponseDto;
 
 public interface ProductService {
-    ProductResponseDto.ProductInfo getProductInfo(Long productId);
+    ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId);
+    Long createProduct(Long memberId, ProductRequestDto.CreateProduct req);
 }

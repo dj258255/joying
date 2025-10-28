@@ -118,7 +118,7 @@ public class Product extends BaseEntity {
         this.gungu = gungu;
         this.dong = dong;
         this.rentMethod = rentMethod;
-        this.videoNecessary = (videoNecessary != null) ? videoNecessary : false;
+        this.videoNecessary = videoNecessary;
         this.category = category;
         this.startRent = startRent;
         this.endRent = endRent;

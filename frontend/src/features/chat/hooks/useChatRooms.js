@@ -14,7 +14,8 @@ export const useChatRooms = (params = {}) => {
   const {
     data: chatRooms,
     isLoading,
-    error
+    error,
+    refetch
   } = useQuery({
     queryKey: [QUERY_KEYS.CHATS, 'rooms', params],
     queryFn: () => chatApi.getChatRooms(params),
@@ -29,21 +30,42 @@ export const useChatRooms = (params = {}) => {
     }
   });
 
-  // 채팅방 삭제
-  const deleteChatRoomMutation = useMutation({
-    mutationFn: chatApi.deleteChatRoom,
+  // 채팅방 나가기
+  const leaveChatRoomMutation = useMutation({
+    mutationFn: chatApi.leaveChatRoom,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
+    }
+  });
+
+  // 채팅방 고정/해제
+  const togglePinMutation = useMutation({
+    mutationFn: chatApi.togglePinChatRoom,
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
+    }
+  });
+
+  // 채팅방 알림 설정
+  const toggleMuteMutation = useMutation({
+    mutationFn: chatApi.toggleMuteChatRoom,
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
     }
   });
 
   return {
-    chatRooms: chatRooms?.data || [],
+    chatRooms: chatRooms || [],
     isLoading,
     error,
+    refetch,
     createChatRoom: createChatRoomMutation.mutateAsync,
-    deleteChatRoom: deleteChatRoomMutation.mutateAsync,
+    leaveChatRoom: leaveChatRoomMutation.mutateAsync,
+    togglePin: togglePinMutation.mutateAsync,
+    toggleMute: toggleMuteMutation.mutateAsync,
     isCreating: createChatRoomMutation.isPending,
-    isDeleting: deleteChatRoomMutation.isPending
+    isLeaving: leaveChatRoomMutation.isPending,
+    isTogglingPin: togglePinMutation.isPending,
+    isTogglingMute: toggleMuteMutation.isPending
   };
 };
