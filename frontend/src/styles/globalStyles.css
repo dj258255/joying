@@ -95,7 +95,7 @@
    
    /* 메인 컨테이너 - Deep Glass */
    .glass-main {
-     @apply backdrop-blur-[15px] border border-blue-500/30 rounded-2xl shadow-2xl;
+     @apply backdrop-blur-[15px] border border-blue-500/30 rounded-2xl;
      background-color: rgba(0, 122, 204, 0.24);
    }
    
@@ -121,7 +121,7 @@
  
    /* 미니멀 메인 컨테이너 */
    .glass-main-minimal {
-     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl;
    }
  
    /* 활동 아이템 */
@@ -131,7 +131,7 @@
  
    /* 미니멀 탭 컨테이너 */
    .glass-tabs-minimal {
-     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl;
    }
  
    /* 미니멀 서브 탭 */
@@ -145,7 +145,7 @@
  
    /* 미니멀 콘텐츠 컨테이너 */
    .glass-content-minimal {
-     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl;
    }
  
    /* 계정 관리 아이템 */
@@ -168,7 +168,7 @@
  
    /* 프로필 헤더 */
    .glass-profile-header {
-     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl shadow-lg;
+     @apply bg-white/60 backdrop-blur-md border border-white/20 rounded-3xl;
    }
  
    /* 아바타 컨테이너 */
@@ -752,7 +752,7 @@
    }
  
    .glass-action-button-new {
-     @apply p-3 bg-white/90 backdrop-blur-sm border border-white/40 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200;
+     @apply p-3 bg-white/90 backdrop-blur-sm border border-white/40 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 text-gray-600;
      @apply hover:scale-110 hover:bg-white;
    }
  

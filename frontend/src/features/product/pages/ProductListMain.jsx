@@ -504,7 +504,7 @@ const ProductListMain = () => {
                       className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
                         selectedSubcategories.includes(sub)
                           ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                          : 'hover:bg-gray-50'
+                          : 'hover:bg-gray-50 text-gray-800'
                       }`}
                     >
                       <span className="text-xs leading-tight">{sub}</span>
@@ -572,7 +572,7 @@ const ProductListMain = () => {
                  className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
                    selectedDistricts.includes(district.id)
                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                     : 'hover:bg-white/60'
+                     : 'hover:bg-white/60 text-gray-800'
                  }`}
                >
                  <span className="text-sm">{district.name}</span>
@@ -603,7 +603,7 @@ const ProductListMain = () => {
                              className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
                                selectedAreas.includes(area)
                                  ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                 : 'hover:bg-white/50'
+                                 : 'hover:bg-white/50 text-gray-800'
                              }`}
                            >
                              <span className="text-xs">{area}</span>
@@ -1018,7 +1018,7 @@ const ProductListMain = () => {
                            } ${
                              isInRange && !isSelected ? 'bg-[#007ACC]/30 text-[#007ACC]' : ''
                            } ${
-                             !isToday && !isSelected && !isInRange ? 'hover:bg-white/50' : ''
+                             !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
                            }`}
                          >
                            {i}
@@ -1177,7 +1177,7 @@ const ProductListMain = () => {
                      className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
                        selectedDistricts.includes(district.id)
                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                         : 'hover:bg-white/60'
+                         : 'hover:bg-white/60 text-gray-800'
                      }`}
                    >
                      <span className="text-sm text-gray-800">{district.name}</span>
@@ -1208,7 +1208,7 @@ const ProductListMain = () => {
                                  className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
                                    selectedAreas.includes(area)
                                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                     : 'hover:bg-white/50'
+                                     : 'hover:bg-white/50 text-gray-800'
                                  }`}
                                >
                                  <span className="text-xs text-gray-800">{area}</span>

@@ -181,11 +181,6 @@ const MyPageMain = () => {
               <div>
                 <p className="text-gray-600 text-sm font-medium mb-1">채팅방</p>
                 <p className="text-2xl font-bold text-gray-900">{chatRoomsCount}</p>
-                {unreadMessagesCount > 0 && (
-                  <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
-                    {unreadMessagesCount}
-                  </span>
-                )}
               </div>
               <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
                 <FiMessageCircle className="w-6 h-6 text-indigo-600" />
@@ -357,7 +352,7 @@ const MyPageMain = () => {
   };
 
   return (
-    <div className="glass-viewport bg-gradient-to-br from-gray-50 via-white to-gray-100/50">
+    <div className="glass-viewport bg-white min-h-screen">
       <SideNavbar />
       {/* 좌측 사이드바 - 미니멀 디자인 */}
       <div className="hidden lg:block fixed left-0 top-0 h-full w-64 z-40">
