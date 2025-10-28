@@ -58,10 +58,9 @@ export const DUMMY_PRODUCTS = [
     deposit: 100000,
     location: '서울시 강남구',
     images: [
-      '/src/assets/images/nintendo-switch.jpg',
-      '/src/assets/images/controller-1.jpg',
-      '/src/assets/images/controller-2.jpg',
-      '/src/assets/images/games.jpg'
+      '/public/models/tent.glb', // fallback to existing public asset placeholder
+      '/public/models/gamepad.glb',
+      '/public/models/camera.glb'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
@@ -79,9 +78,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 500000,
     location: '서울시 서초구',
     images: [
-      '/src/assets/images/macbook-pro.jpg',
-      '/src/assets/images/macbook-side.jpg',
-      '/src/assets/images/macbook-keyboard.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
@@ -99,9 +96,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 200000,
     location: '서울시 마포구',
     images: [
-      '/src/assets/images/sony-headphone.jpg',
-      '/src/assets/images/sony-headphone-side.jpg',
-      '/src/assets/images/sony-headphone-case.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
@@ -119,9 +114,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 300000,
     location: '서울시 송파구',
     images: [
-      '/src/assets/images/ipad-pro.jpg',
-      '/src/assets/images/ipad-pencil.jpg',
-      '/src/assets/images/ipad-keyboard.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
@@ -139,9 +132,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 150000,
     location: '서울시 강남구',
     images: [
-      '/src/assets/images/ps5.jpg',
-      '/src/assets/images/ps5-controller.jpg',
-      '/src/assets/images/ps5-games.jpg'
+      '/public/models/gamepad.glb'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
@@ -160,9 +151,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 400000,
     location: '서울시 강남구',
     images: [
-      '/src/assets/images/iphone15-pro.jpg',
-      '/src/assets/images/iphone15-pro-back.jpg',
-      '/src/assets/images/iphone15-pro-case.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
@@ -180,9 +169,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 150000,
     location: '서울시 강남구',
     images: [
-      '/src/assets/images/airpods-pro2.jpg',
-      '/src/assets/images/airpods-pro2-case.jpg',
-      '/src/assets/images/airpods-pro2-ear.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
@@ -200,9 +187,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 80000,
     location: '서울시 강남구',
     images: [
-      '/src/assets/images/switch-lite.jpg',
-      '/src/assets/images/switch-lite-side.jpg',
-      '/src/assets/images/switch-lite-games.jpg'
+      '/public/models/gamepad.glb'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
@@ -221,9 +206,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 140000,
     location: '서울시 서초구',
     images: [
-      '/src/assets/images/xbox-series-x.jpg',
-      '/src/assets/images/xbox-controller.jpg',
-      '/src/assets/images/xbox-games.jpg'
+      '/public/models/gamepad.glb'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
@@ -241,9 +224,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 120000,
     location: '서울시 서초구',
     images: [
-      '/src/assets/images/galaxy-buds2-pro.jpg',
-      '/src/assets/images/galaxy-buds2-pro-case.jpg',
-      '/src/assets/images/galaxy-buds2-pro-ear.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
@@ -261,9 +242,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 200000,
     location: '서울시 서초구',
     images: [
-      '/src/assets/images/steam-deck.jpg',
-      '/src/assets/images/steam-deck-back.jpg',
-      '/src/assets/images/steam-deck-games.jpg'
+      '/public/models/gamepad.glb'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
@@ -282,9 +261,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 350000,
     location: '서울시 송파구',
     images: [
-      '/src/assets/images/surface-pro9.jpg',
-      '/src/assets/images/surface-pro9-keyboard.jpg',
-      '/src/assets/images/surface-pro9-pen.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
@@ -302,9 +279,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 450000,
     location: '서울시 송파구',
     images: [
-      '/src/assets/images/dell-xps13.jpg',
-      '/src/assets/images/dell-xps13-keyboard.jpg',
-      '/src/assets/images/dell-xps13-side.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
@@ -322,9 +297,7 @@ export const DUMMY_PRODUCTS = [
     deposit: 180000,
     location: '서울시 송파구',
     images: [
-      '/src/assets/images/apple-watch-series9.jpg',
-      '/src/assets/images/apple-watch-band.jpg',
-      '/src/assets/images/apple-watch-charger.jpg'
+      '/public/models/camera.glb'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
@@ -348,7 +321,7 @@ export const DUMMY_REVIEWS = [
     reviewee: DUMMY_USERS.others[0],
     rating: 5,
     content: '정말 좋은 상태로 받았습니다! 게임도 잘 되고 화질도 정말 좋아요.',
-    images: ['/src/assets/images/review-1.jpg'],
+    images: [],
     createdAt: '2024-01-16T10:30:00Z'
   },
   {
@@ -361,7 +334,7 @@ export const DUMMY_REVIEWS = [
     reviewee: DUMMY_USERS.others[1],
     rating: 4,
     content: '개발 작업에 정말 최적화되어 있네요. 배터리도 오래 가고 성능도 훌륭합니다.',
-    images: ['/src/assets/images/review-2.jpg'],
+    images: [],
     createdAt: '2024-01-11T09:15:00Z'
   },
   {
