@@ -52,4 +52,4 @@ const RentButton = ({ isEnabled = false, onClick }) => {
   );
 };
 
-export default RentButton; 
+export default RentButton;  
