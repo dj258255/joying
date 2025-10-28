@@ -14,6 +14,7 @@ const HomePage = React.lazy(() => import('@/features/home/pages/HomePage'))
 const LoginPage = React.lazy(() => import('@/features/auth/pages/LoginPage'))
 const ProductListPage = React.lazy(() => import('@/features/product/pages/ProductListPage'))
 const ProductDetailPage = React.lazy(() => import('@/features/product/pages/ProductDetailPage'))
+const ProductCreatePage = React.lazy(() => import('@/features/product/pages/ProductCreatePage'))
 const ChatListPage = React.lazy(() => import('@/features/chat/pages/ChatListPage'))
 const ChatRoomPage = React.lazy(() => import('@/features/chat/pages/ChatRoomPage'))
 const PaymentCheckoutPage = React.lazy(() => import('@/features/payment/pages/PaymentCheckoutPage'))
@@ -32,6 +33,7 @@ function App() {
           <Route path={ROUTE_PATHS.HOME} element={<HomePage />} />
           <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
           <Route path={ROUTE_PATHS.PRODUCTS} element={<ProductListPage />} />
+          <Route path={ROUTE_PATHS.PRODUCT_CREATE} element={<ProductCreatePage />} />
           <Route path="/products/:id" element={<ProductDetailPage />} />
           <Route path={ROUTE_PATHS.CHAT_LIST} element={<ChatListPage />} />
           <Route path="/chats/:chatRoomId" element={

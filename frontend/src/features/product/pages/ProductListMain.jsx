@@ -4,6 +4,7 @@ import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { DUMMY_PRODUCTS } from '../../../shared/constants/dummyData';
+import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 
 const CATEGORIES = [
   { id: 1, name: "게임 / 오락", children: ["콘솔 (닌텐도 스위치, PS5, Xbox)", "보드게임", "오락기 / 아케이드 머신", "VR 기기 (Meta Quest, PS VR)", "게임 컨트롤러 / 조이스틱", "게임 타이틀 (소프트웨어)"] },
@@ -66,6 +67,7 @@ const ProductListMain = () => {
   const [rating, setRating] = useState(0);
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // 더미 데이터 사용
   const products = DUMMY_PRODUCTS;
@@ -222,6 +224,10 @@ const ProductListMain = () => {
       sameDayRental,
       hashtags: selectedHashtags
     });
+  };
+
+  const handleCreateProduct = () => {
+    navigate(ROUTE_PATHS.PRODUCT_CREATE);
   };
 
   return (
@@ -1348,6 +1354,76 @@ const ProductListMain = () => {
                  }}
                >
                  필터 적용
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+     )}
+
+     {/* 플로팅 상품 등록 버튼 */}
+     <button
+       onClick={() => setShowCreateModal(true)}
+       className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+       style={{
+         background: 'linear-gradient(135deg, #007ACC, #0056CC)',
+         boxShadow: '0 8px 32px rgba(0, 122, 204, 0.4)',
+         backdropFilter: 'blur(20px)',
+         border: '2px solid rgba(255, 255, 255, 0.2)'
+       }}
+     >
+       <svg className="w-6 h-6 text-white mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+       </svg>
+     </button>
+
+     {/* 상품 등록 확인 모달 */}
+     {showCreateModal && (
+       <div className="fixed inset-0 z-50 flex items-center justify-center">
+         <div 
+           className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+           onClick={() => setShowCreateModal(false)}
+         />
+         <div 
+           className="relative bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl"
+           style={{
+             background: 'rgba(255, 255, 255, 0.95)',
+             backdropFilter: 'blur(40px)',
+             border: '1px solid rgba(255, 255, 255, 0.2)',
+             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)'
+           }}
+         >
+           <div className="text-center">
+             <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+               style={{
+                 background: 'linear-gradient(135deg, #007ACC, #0056CC)',
+                 boxShadow: '0 8px 24px rgba(0, 122, 204, 0.3)'
+               }}
+             >
+               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+               </svg>
+             </div>
+             
+             <h3 className="text-xl font-bold text-gray-900 mb-2">새로 등록하시겠습니까?</h3>
+             <p className="text-gray-600 mb-6">새로운 상품을 등록하여 다른 사용자들과 공유해보세요.</p>
+             
+             <div className="flex gap-3">
+               <button
+                 onClick={() => setShowCreateModal(false)}
+                 className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+               >
+                 취소
+               </button>
+               <button
+                 onClick={handleCreateProduct}
+                 className="flex-1 px-4 py-3 text-white rounded-lg hover:shadow-lg transition-all duration-300 font-medium"
+                 style={{
+                   background: 'linear-gradient(135deg, #007ACC, #0056CC)',
+                   boxShadow: '0 4px 16px rgba(0, 122, 204, 0.3)'
+                 }}
+               >
+                 새로 등록
                </button>
              </div>
            </div>

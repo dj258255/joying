@@ -28,15 +28,10 @@ const ChatListPage = () => {
     navigate(`/chats/${chatRoomId}`);
   };
 
-  const handleDoubleClick = (e, chatRoom) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      chatRoom: chatRoom
-    });
+  const handleOpenContextById = (chatRoomId, x, y) => {
+    const room = chatRooms.find(r => r.id === chatRoomId);
+    if (!room) return;
+    setContextMenu({ x: x ?? window.innerWidth / 2, y: y ?? window.innerHeight / 2, chatRoom: room });
   };
 
 
@@ -139,13 +134,11 @@ const ChatListPage = () => {
         {chatRooms.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {chatRooms.map((chatRoom) => (
-              <div
-                key={chatRoom.id}
-                onDoubleClick={(e) => handleDoubleClick(e, chatRoom)}
-              >
+              <div key={chatRoom.id}>
                 <ChatRoomListItem
                   chatRoom={chatRoom}
                   onClick={() => handleChatRoomClick(chatRoom.id)}
+                  onContextMenuOpen={handleOpenContextById}
                 />
               </div>
             ))}

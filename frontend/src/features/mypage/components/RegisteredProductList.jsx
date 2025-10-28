@@ -7,6 +7,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 
 /**
  * @param {Object} props
@@ -41,7 +42,10 @@ const RegisteredProductList = ({
     return (
       <div className="text-center py-12">
         <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button 
+          onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
           첫 상품 등록하기
         </button>
       </div>
