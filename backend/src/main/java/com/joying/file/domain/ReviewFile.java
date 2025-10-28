@@ -62,4 +62,8 @@ public class ReviewFile extends BaseEntity {
 		this.file = file;
 		this.sortOrder = sortOrder;
 	}
+
+	public void addReview(Review review) {
+		this.review = review;
+	}
 }
