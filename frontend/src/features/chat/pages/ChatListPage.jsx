@@ -12,26 +12,31 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 
 const ChatListPage = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
-  const { chatRooms, isLoading, error, refetch } = useChatRooms({
-    search: searchTerm
-  });
+  const { chatRooms, isLoading, error, refetch } = useChatRooms();
 
-  // 새로고침 기능
+  // 실시간 업데이트를 위한 주기적 새로고침
   useEffect(() => {
-    const handleRefresh = () => {
+    const interval = setInterval(() => {
       refetch();
-    };
+    }, 5000); // 5초마다 새로고침
 
-    // 주기적으로 채팅방 목록 새로고침 (30초마다)
-    const interval = setInterval(handleRefresh, 30000);
     return () => clearInterval(interval);
   }, [refetch]);
 
   const handleChatRoomClick = (chatRoomId) => {
     navigate(`/chats/${chatRoomId}`);
+  };
+
+  const handleDoubleClick = (e, chatRoom) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      chatRoom: chatRoom
+    });
   };
 
 
@@ -74,12 +79,6 @@ const ChatListPage = () => {
     }
   };
 
-  const handleSearchToggle = () => {
-    setShowSearch(!showSearch);
-    if (showSearch) {
-      setSearchTerm('');
-    }
-  };
 
   if (isLoading) {
     return (
@@ -131,44 +130,8 @@ const ChatListPage = () => {
               </button>
               <h1 className="text-lg font-semibold text-gray-900">채팅</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSearchToggle}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => refetch()}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
           </div>
 
-          {/* 검색 바 */}
-        {showSearch && (
-          <div className="mt-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="채팅방 검색..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                autoFocus
-              />
-              <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-        )}
         </div>
 
         {/* 채팅방 목록 */}
@@ -176,11 +139,15 @@ const ChatListPage = () => {
         {chatRooms.length > 0 ? (
           <div className="divide-y divide-gray-100">
             {chatRooms.map((chatRoom) => (
-              <ChatRoomListItem
+              <div
                 key={chatRoom.id}
-                chatRoom={chatRoom}
-                onClick={() => handleChatRoomClick(chatRoom.id)}
-              />
+                onDoubleClick={(e) => handleDoubleClick(e, chatRoom)}
+              >
+                <ChatRoomListItem
+                  chatRoom={chatRoom}
+                  onClick={() => handleChatRoomClick(chatRoom.id)}
+                />
+              </div>
             ))}
           </div>
         ) : (
@@ -192,16 +159,14 @@ const ChatListPage = () => {
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">채팅방이 없습니다</h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm ? '검색 결과가 없습니다.' : '아직 대화한 채팅방이 없습니다.'}
+              아직 대화한 채팅방이 없습니다.
             </p>
-            {!searchTerm && (
-              <button
-                onClick={() => navigate('/products')}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                상품 둘러보기
-              </button>
-            )}
+            <button
+              onClick={() => navigate('/products')}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              상품 둘러보기
+            </button>
           </div>
         )}
         </div>

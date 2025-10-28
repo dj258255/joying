@@ -74,15 +74,20 @@ const ChatRoomListItem = ({ chatRoom, onClick, isActive = false }) => {
         {/* 프로필 이미지 */}
         <div className="flex-shrink-0 relative">
           <ProfileImage 
-            src={participants?.find(p => p.id !== DUMMY_USERS.currentUser.id)?.profileImage}
+            src={participants?.find(p => p.id !== 101)?.profileImage}
             alt={name}
             size={48}
             className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
-              const opponent = participants?.find(p => p.id !== DUMMY_USERS.currentUser.id);
+              const opponent = participants?.find(p => p.id !== 101);
+              console.log('ChatRoomListItem - participants:', participants);
+              console.log('ChatRoomListItem - opponent:', opponent);
               if (opponent?.id) {
+                console.log('ChatRoomListItem - navigating to:', `/members/${opponent.id}`);
                 navigate(`/members/${opponent.id}`);
+              } else {
+                console.log('ChatRoomListItem - opponent not found');
               }
             }}
           />

@@ -72,8 +72,8 @@ const ProductDetailPage = () => {
         dailyPrice: product.price,
         deposit: product.deposit,
         totalPrice: (product.price * calculateDays()) + product.deposit,
-        requesterName: DUMMY_USERS.currentUser.nickname,
-        requesterProfile: DUMMY_USERS.currentUser.profileImage
+        requesterName: DUMMY_USERS.currentUser.username,
+        requesterProfile: DUMMY_USERS.currentUser.profileImageUrl
       };
 
       // 채팅방 생성
