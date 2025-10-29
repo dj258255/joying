@@ -5,7 +5,7 @@ import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
-import { useAuth } from '@/features/auth';
+import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
 
 const CATEGORIES = [
@@ -56,10 +56,6 @@ const SEOUL_DISTRICTS = [
 const ProductListMain = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  
-  // 임시: 로그인 상태 시뮬레이션 (개발용)
-  const mockIsAuthenticated = true;
-  const mockUser = { name: '김철수' };
   
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
@@ -282,31 +278,24 @@ const ProductListMain = () => {
     <div className="flex h-screen bg-white">
       {/* 우측 상단 프로필/로그인 버튼 - 데스크톱 */}
       <div className="hidden lg:flex fixed top-4 right-4 z-[100] items-center gap-4">
-        {mockIsAuthenticated ? (
+        {isAuthenticated ? (
           // 로그인 상태: 원형 프로필 버튼
           <button
             onClick={() => setIsSideNavOpen(!isSideNavOpen)}
             className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
-            title={mockUser?.name || '프로필'}
+            title={user?.nickname || '프로필'}
           >
-            {mockUser?.name?.charAt(0) || '👤'}
+            {user?.nickname?.charAt(0) || '👤'}
           </button>
         ) : (
-          // 미로그인 상태: 로그인/회원가입 버튼
-          <>
-            <button
-              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
-            >
-              로그인
-            </button>
-            <button
-              onClick={() => navigate('/register')}
-              className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
-            >
-              회원가입
-            </button>
-          </>
+          // 미로그인 상태: 로그인하기 버튼 노출
+          <button
+            onClick={() => kakaoLogin()}
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm hover:shadow"
+            title="로그인하기"
+          >
+            로그인하기
+          </button>
         )}
       </div>
       
@@ -833,23 +822,24 @@ const ProductListMain = () => {
                </svg>
              </button>
              
-             {/* 프로필/로그인 버튼 */}
-             {mockIsAuthenticated ? (
-               <button
-                 onClick={() => setIsSideNavOpen(!isSideNavOpen)}
-                 className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30"
-                 title={mockUser?.name || '프로필'}
-               >
-                 {mockUser?.name?.charAt(0) || '👤'}
-               </button>
-             ) : (
-               <button
-                 onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-                 className="px-3 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors duration-200 shadow-sm"
-               >
-                 로그인
-               </button>
-             )}
+            {/* 프로필 또는 로그인 버튼 */}
+            {isAuthenticated ? (
+              <button
+                onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30"
+                title={user?.nickname || '프로필'}
+              >
+                {user?.nickname?.charAt(0) || '👤'}
+              </button>
+            ) : (
+              <button
+                onClick={() => kakaoLogin()}
+                className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
+                title="로그인하기"
+              >
+                로그인하기
+              </button>
+            )}
            </div>
          </div>
        </div>
