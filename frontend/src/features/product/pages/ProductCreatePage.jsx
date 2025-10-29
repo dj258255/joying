@@ -27,7 +27,7 @@ const enumRentMethods = [
 
 function ProductCreatePage() {
   const navigate = useNavigate();
-  const USE_FAKE_API = true; // 개발 환경: 프론트 전용 동작
+  const USE_FAKE_API = false; // 실제 백엔드 연동
 
   // 폼 상태
   const [form, setForm] = useState({
@@ -51,9 +51,9 @@ function ProductCreatePage() {
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtags, setHashtags] = useState([]);
 
-  // 파일 업로드 (더미)
-  const [fileIds, setFileIds] = useState([]);
-  const [filePreviews, setFilePreviews] = useState([]);
+  // 파일 업로드 상태
+  const [fileIds, setFileIds] = useState([]); // 서버에서 받은 fileId 목록
+  const [filePreviews, setFilePreviews] = useState([]); // 로컬 미리보기 URL 목록
   const dndZoneRef = useRef(null);
   const fileInputRef = useRef(null);
   const dragItemIndex = useRef(null);
@@ -115,29 +115,39 @@ function ProductCreatePage() {
     const fileArr = Array.from(files || []);
     if (fileArr.length === 0) return;
     setErrorMessage('');
+
+    // 1) 즉시 로컬 미리보기 추가 (업로드 성공/실패와 무관하게 미리보기는 보이도록)
+    const localUrls = fileArr.map((f) => URL.createObjectURL(f));
+    setFilePreviews((prev) => [...prev, ...localUrls]);
+
+    // 2) 업로드 모드에 따라 파일 업로드 처리
     if (USE_FAKE_API) {
-      // 프론트 전용: 로컬 미리보기 + 임시 ID 부여
-      const newPreviews = fileArr.map((f) => URL.createObjectURL(f));
-      const newIds = fileArr.map((_, i) => `tmp_${Date.now()}_${i}`);
-      setFilePreviews((prev) => [...prev, ...newPreviews]);
-      setFileIds((prev) => [...prev, ...newIds]);
+      const tmpIds = fileArr.map((_, i) => `tmp_${Date.now()}_${i}`);
+      setFileIds((prev) => [...prev, ...tmpIds]);
       return;
     }
+
     setUploading(true);
     try {
       const results = await Promise.all(
         fileArr.map(async (file) => {
           const formData = new FormData();
           formData.append('file', file);
-          const res = await axiosInstance.post('/api/v1/files', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+          const res = await axiosInstance.post('/api/v1/files', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
           return res.data; // { fileId, url }
         })
       );
-      setFileIds((prev) => [...prev, ...results.map((r) => r.fileId)]);
-      setFilePreviews((prev) => [...prev, ...results.map((r) => r.url)]);
+
+      // 서버에서 받은 fileId만 저장 (미리보기는 기존 로컬 URL 유지)
+      const uploadedIds = results.map((r) => r.fileId).filter((id) => id !== undefined && id !== null);
+      if (uploadedIds.length > 0) {
+        setFileIds((prev) => [...prev, ...uploadedIds]);
+      }
     } catch (err) {
       console.error(err);
-      setErrorMessage('이미지 업로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setErrorMessage(err?.response?.data?.message || '이미지 업로드 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setUploading(false);
     }
@@ -153,7 +163,13 @@ function ProductCreatePage() {
 
   const removeImageAt = (idx) => {
     setFileIds((prev) => prev.filter((_, i) => i !== idx));
-    setFilePreviews((prev) => prev.filter((_, i) => i !== idx));
+    setFilePreviews((prev) => {
+      const toRemove = prev[idx];
+      if (toRemove?.startsWith('blob:')) {
+        try { URL.revokeObjectURL(toRemove); } catch {}
+      }
+      return prev.filter((_, i) => i !== idx);
+    });
   };
 
   // 썸네일 정렬 (간단 DnD)
@@ -330,7 +346,11 @@ function ProductCreatePage() {
       navigate(productId ? ROUTE_PATHS.PRODUCT_DETAIL(productId) : ROUTE_PATHS.PRODUCTS);
     } catch (err) {
       console.error(err);
-      setErrorMessage('상품 등록 중 오류가 발생했습니다. 입력값을 확인 후 다시 시도해주세요.');
+      setErrorMessage(
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        '상품 등록 중 오류가 발생했습니다. 입력값을 확인 후 다시 시도해주세요.'
+      );
     } finally {
       setSubmitting(false);
     }
