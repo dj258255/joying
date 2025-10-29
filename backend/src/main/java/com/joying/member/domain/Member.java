@@ -59,15 +59,20 @@ public class Member extends BaseEntity {
     @Column(name = "ssafy_user_key", unique = true)
     private String ssafyUserKey;
 
+    @Comment("카카오 프로필 이미지 URL (카카오 로그인 시 저장, 사용자 업로드 이미지가 없을 때 사용)")
+    @Column(name = "kakao_profile_image_url", length = 512)
+    private String kakaoProfileImageUrl;
+
     /**
      * Kakao OAuth 회원 생성 (Builder 패턴)
      */
     @Builder
-    public Member(String nickname, String name, String email, File profileImage) {
+    public Member(String nickname, String name, String email, File profileImage, String kakaoProfileImageUrl) {
         this.nickname = nickname;
         this.name = name;
         this.email = email;
         this.profileImage = profileImage;
+        this.kakaoProfileImageUrl = kakaoProfileImageUrl;
         this.rating = 0.0;
     }
 
@@ -81,6 +86,17 @@ public class Member extends BaseEntity {
         if (profileImage != null) {
             this.profileImage = profileImage;
         }
+    }
+
+    /**
+     * 프로필 이미지 완전 삭제
+     * - 사용자 업로드 이미지 삭제
+     * - 카카오 프로필 이미지 URL 삭제
+     * → 기본 이미지로 완전 복원
+     */
+    public void deleteProfileImage() {
+        this.profileImage = null;
+        this.kakaoProfileImageUrl = null;
     }
 
     /**

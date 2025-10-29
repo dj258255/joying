@@ -189,4 +189,141 @@ public class MemberController {
 
 		return ResponseEntity.ok("회원 탈퇴가 완료되었습니다.");
 	}
+
+	/**
+	 * 프로필 이미지 업로드 (본인만 가능)
+	 *
+	 * @param memberId       회원 ID
+	 * @param authentication Spring Security Authentication (현재 로그인한 사용자)
+	 * @param file           업로드할 이미지 파일
+	 * @return 수정된 회원 정보
+	 */
+	@PutMapping(value = "/{memberId}/profile-image", consumes = "multipart/form-data")
+	@Operation(
+		summary = "프로필 이미지 업로드/변경",
+		description = """
+			프로필 이미지를 업로드하거나 변경합니다.
+
+			**권한**: 본인만 수정 가능
+			- URL의 memberId와 토큰의 memberId가 일치해야 함
+
+			**허용 파일 형식**:
+			- image/png
+			- image/jpeg
+			- image/jpg
+			- image/gif
+
+			**최대 파일 크기**: 10MB
+
+			**처리 과정**:
+			1. 이미지 파일을 Cloudflare R2에 업로드
+			2. File 엔티티 생성 및 저장
+			3. 회원의 프로필 이미지 변경
+			4. Public URL과 함께 회원 정보 반환
+
+			**예시**:
+			- `PUT /api/v1/members/1/profile-image` (토큰의 memberId가 1인 경우만 성공)
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(
+			responseCode = "200",
+			description = "업로드 성공",
+			content = @Content(schema = @Schema(implementation = MemberResponse.class))
+		),
+		@ApiResponse(
+			responseCode = "400",
+			description = "잘못된 파일 형식 또는 파일 크기 초과"
+		),
+		@ApiResponse(
+			responseCode = "401",
+			description = "인증 실패 (로그인 필요)"
+		),
+		@ApiResponse(
+			responseCode = "403",
+			description = "권한 없음 (본인만 수정 가능)"
+		),
+		@ApiResponse(
+			responseCode = "404",
+			description = "회원을 찾을 수 없음"
+		)
+	})
+	public ResponseEntity<MemberResponse> uploadProfileImage(
+		@Parameter(description = "회원 ID", required = true, example = "1")
+		@PathVariable Long memberId,
+		Authentication authentication,
+		@Parameter(description = "업로드할 이미지 파일", required = true)
+		@RequestPart("file") org.springframework.web.multipart.MultipartFile file
+	) {
+		Long currentMemberId = Long.parseLong(authentication.getName());
+		log.debug("프로필 이미지 업로드 요청: memberId={}, currentMemberId={}, fileName={}",
+			memberId, currentMemberId, file.getOriginalFilename());
+
+		MemberResponse response = memberService.uploadProfileImage(memberId, currentMemberId, file);
+
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * 프로필 이미지 완전 삭제 (본인만 가능)
+	 *
+	 * @param memberId       회원 ID
+	 * @param authentication Spring Security Authentication (현재 로그인한 사용자)
+	 * @return 수정된 회원 정보 (기본 이미지로 완전 복원됨)
+	 */
+	@DeleteMapping("/{memberId}/profile-image")
+	@Operation(
+		summary = "프로필 이미지 완전 삭제",
+		description = """
+			프로필 이미지를 완전히 삭제하고 기본 이미지로 복원합니다.
+
+			**권한**: 본인만 삭제 가능
+			- URL의 memberId와 토큰의 memberId가 일치해야 함
+
+			**처리 과정**:
+			1. 사용자 업로드 이미지(profileImage) → null
+			2. 카카오 프로필 이미지 URL(kakaoProfileImageUrl) → null
+			3. 기본 이미지 URL(`/images/default_profile_image.png`)로 완전 복원
+			4. 회원 정보 반환
+
+			**참고**:
+			- Cloudflare R2에 업로드된 파일은 삭제되지 않음 (추후 정리 작업으로 처리)
+			- 회원 정보에서만 연결이 해제됨
+			- 카카오 프로필 이미지 URL도 함께 삭제되어 기본 이미지만 사용
+
+			**예시**:
+			- `DELETE /api/v1/members/1/profile-image` (토큰의 memberId가 1인 경우만 성공)
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(
+			responseCode = "200",
+			description = "삭제 성공 (기본 이미지로 복원)",
+			content = @Content(schema = @Schema(implementation = MemberResponse.class))
+		),
+		@ApiResponse(
+			responseCode = "401",
+			description = "인증 실패 (로그인 필요)"
+		),
+		@ApiResponse(
+			responseCode = "403",
+			description = "권한 없음 (본인만 삭제 가능)"
+		),
+		@ApiResponse(
+			responseCode = "404",
+			description = "회원을 찾을 수 없음"
+		)
+	})
+	public ResponseEntity<MemberResponse> deleteProfileImage(
+		@Parameter(description = "회원 ID", required = true, example = "1")
+		@PathVariable Long memberId,
+		Authentication authentication
+	) {
+		Long currentMemberId = Long.parseLong(authentication.getName());
+		log.debug("프로필 이미지 삭제 요청: memberId={}, currentMemberId={}", memberId, currentMemberId);
+
+		MemberResponse response = memberService.deleteProfileImage(memberId, currentMemberId);
+
+		return ResponseEntity.ok(response);
+	}
 }

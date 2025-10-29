@@ -85,6 +85,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 			.name(null) // 실명은 1원 인증 후 저장
 			.email(kakaoUserInfo.getEmail())
 			.profileImage(null)
+			.kakaoProfileImageUrl(kakaoUserInfo.getProfileImageUrl()) // Kakao 프로필 이미지 URL 저장
 			.build();
 
 		return memberRepository.save(newMember);
