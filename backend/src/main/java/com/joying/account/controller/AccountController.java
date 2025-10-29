@@ -5,8 +5,8 @@ import com.joying.account.dto.AccountVerificationRequest;
 import com.joying.account.dto.AccountVerificationResponse;
 import com.joying.account.dto.AccountVerificationStartRequest;
 import com.joying.account.dto.AccountVerificationStartResponse;
-import com.joying.account.dto.CreateAccountRequest;
 import com.joying.account.dto.DemandDepositProductResponse;
+import com.joying.account.dto.SsafyTransactionResponse;
 import com.joying.account.service.AccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,79 +33,28 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @Tag(
-	name = "계좌",
+	name = "계좌 인증",
 	description = """
-		## 계좌 등록, 조회, 삭제 API (RESTful)
+		1원 인증이 완료된 계좌를 조회하고 관리합니다.
 
-		---
+		## 전체 흐름
 
-		## 🔐 SSAFY 1원 인증 전체 흐름 (실제 계좌)
+		1. 상품 목록 조회: GET /api/v1/accounts/products
+		2. SSAFY 테스트 계좌 생성: POST /api/v1/ssafy-accounts
+		3. 1원 인증 시작: POST /api/v1/accounts/verify/start
+		4. 거래내역 조회 (인증코드 확인): GET /api/v1/accounts/transactions
+		5. 1원 인증 완료: POST /api/v1/accounts/verify/complete
 
-		실제 은행 계좌를 1원 인증으로 등록하는 방법입니다.
+		## 계좌 테이블 분리
 
-		### 🚀 1원 인증 순서
+		- ssafy_account: SSAFY API로 생성한 테스트 계좌 (1원 인증 전)
+		- account: 1원 인증 완료 계좌 (송금/결제 사용)
 
-		#### 1단계: 1원 송금 시작
-		```
-		POST /api/v1/accounts/verify/start
-		Authorization: Bearer {JWT_TOKEN}
+		## 주의사항
 
-		{
-		  "accountNo": "0021234567890123"  // 실제 은행 계좌번호 (16자리)
-		}
-		```
-
-		✅ **결과**: 해당 계좌로 1원이 송금되며, 입금자명에 **6자리 인증코드** 표시
-
-		#### 2단계: 인증 코드 확인 및 완료
-		```
-		POST /api/v1/accounts/verify/complete
-		Authorization: Bearer {JWT_TOKEN}
-
-		{
-		  "accountNo": "0021234567890123",
-		  "authCode": "123456"  // 입금자명에서 확인한 6자리 코드
-		}
-		```
-
-		✅ **결과**: 계좌 인증 완료 + 자동 등록 + 실명 업데이트
-
-		---
-
-		## 🧪 SSAFY 테스트 계좌 생성 흐름 (개발/테스트용)
-
-		실제 계좌가 없을 때, SSAFY 가상 계좌를 만들어 테스트할 수 있습니다.
-
-		#### 1단계: 상품 목록 조회
-		```
-		GET /api/v1/accounts/products
-		```
-
-		✅ **결과**: 수시입출금 상품 목록 조회
-
-		#### 2단계: SSAFY 테스트 계좌 생성
-		```
-		POST /api/v1/accounts
-		Authorization: Bearer {JWT_TOKEN}
-
-		{
-		  "accountTypeUniqueNo": "004-1-001"  // 1단계에서 조회한 상품번호
-		}
-		```
-
-		✅ **결과**: SSAFY 가상 계좌 생성 (16자리 계좌번호 발급)
-
-		#### 3단계: 생성된 계좌로 1원 인증 진행
-		- 위의 "1원 인증 순서" 1단계, 2단계와 동일하게 진행
-
-		---
-
-		## ⚠️ 주의사항
-
-		- **API 키 필수**: 환경변수에 `SSAFY_FINANCE_API_KEY` 설정 필요
-		- **JWT 필수**: 모든 API는 로그인 후 사용 가능 (상품 조회 제외)
-		- **5분 제한**: 1원 송금 후 5분 이내에 인증 코드 입력 필요
-		- **중복 방지**: 이미 등록된 계좌는 재등록 불가
+		- SSAFY에서 생성한 테스트 계좌로만 1원 인증 가능
+		- 1원 송금 후 5분 이내 인증 코드 입력 필요
+		- JWT 인증 필수 (상품 조회 제외)
 		"""
 )
 public class AccountController {
@@ -191,7 +140,7 @@ public class AccountController {
 		return ResponseEntity.ok("계좌가 삭제되었습니다.");
 	}
 
-	// ========== SSAFY 금융망 상품 및 계좌 생성 API ==========
+	// ========== SSAFY 금융망 상품 조회 API ==========
 
 	/**
 	 * 수시입출금 상품 목록 조회
@@ -202,32 +151,9 @@ public class AccountController {
 	@Operation(
 		summary = "수시입출금 상품 목록 조회",
 		description = """
-			**SSAFY 금융망 수시입출금 상품 목록 조회**
+			SSAFY 테스트 계좌 생성을 위한 수시입출금 상품 목록을 조회합니다.
 
-			SSAFY 계좌를 생성하기 위해 먼저 상품 목록을 조회합니다.
-
-			---
-
-			## 응답 예시
-
-			```json
-			[
-			  {
-			    "bankCode": "004",
-			    "bankName": "국민은행",
-			    "accountTypeUniqueNo": "004-1-001",
-			    "accountTypeName": "KB자유입출금",
-			    "accountDescription": "자유롭게 입출금 가능한 통장"
-			  }
-			]
-			```
-
-			---
-
-			## 주의사항
-
-			- 로그인 불필요 (공개 API)
-			- SSAFY 테스트 계좌 생성용 상품 목록
+			로그인 불필요 (공개 API)
 			"""
 	)
 	@ApiResponses({
@@ -244,92 +170,6 @@ public class AccountController {
 		return ResponseEntity.ok(products);
 	}
 
-	/**
-	 * SSAFY 수시입출금 계좌 생성
-	 *
-	 * @param authentication 인증 정보
-	 * @param request        계좌 생성 요청
-	 * @return 생성된 계좌 정보
-	 */
-	@PostMapping("/api/v1/accounts")
-	@Operation(
-		summary = "SSAFY 수시입출금 계좌 생성",
-		description = """
-			**SSAFY 금융망에서 테스트 계좌 생성**
-
-			수시입출금 상품을 선택하여 SSAFY 테스트 계좌를 생성합니다.
-			생성된 계좌로 1원 인증을 진행할 수 있습니다.
-
-			---
-
-			## 요청 본문
-
-			```json
-			{
-			  "accountTypeUniqueNo": "004-1-001"
-			}
-			```
-
-			---
-
-			## 처리 과정
-
-			### 1️⃣ SSAFY 회원 확인
-			- SSAFY userKey가 없으면 자동으로 회원 등록 및 userKey 발급
-
-			### 2️⃣ 계좌 생성 (createDemandDepositAccount)
-			```http
-			POST https://finopenapi.ssafy.io/createDemandDepositAccount
-			Content-Type: application/json
-
-			{
-			  "Header": {
-			    "apiName": "createDemandDepositAccount",
-			    "userKey": "f1a2b3c4-d5e6-7f8g-9h0i-j1k2l3m4n5o6",
-			    ...
-			  },
-			  "accountTypeUniqueNo": "004-1-001"
-			}
-			```
-
-			### 3️⃣ 계좌 저장
-			- 생성된 SSAFY 계좌를 DB에 저장
-			- 이후 1원 인증 가능
-
-			---
-
-			## 주의사항
-
-			- **JWT 인증 필요**: Authorization 헤더에 JWT 토큰 필요
-			- **SSAFY 테스트 계좌**: 교육용 가상 계좌 (실제 은행 계좌 아님)
-			- **1원 인증 필수**: 생성 후 1원 인증을 통해 실명 확인 필요
-			"""
-	)
-	@ApiResponses({
-		@ApiResponse(responseCode = "200", description = "계좌 생성 성공"),
-		@ApiResponse(responseCode = "400", description = "잘못된 상품 번호"),
-		@ApiResponse(responseCode = "401", description = "인증 실패 (로그인 필요)"),
-		@ApiResponse(responseCode = "500", description = "SSAFY 금융망 오류")
-	})
-	public ResponseEntity<AccountResponse> createAccount(
-		Authentication authentication,
-		@Valid @RequestBody CreateAccountRequest request
-	) {
-		Long memberId = Long.parseLong(authentication.getName());
-		log.info("SSAFY 계좌 생성 요청: memberId={}, accountTypeUniqueNo={}",
-			memberId, request.getAccountTypeUniqueNo());
-
-		AccountResponse response = accountService.createDemandDepositAccount(
-			memberId,
-			request.getAccountTypeUniqueNo()
-		);
-
-		log.info("SSAFY 계좌 생성 성공: accountId={}, accountNo={}",
-			response.getAccountId(), response.getAccountNo());
-
-		return ResponseEntity.ok(response);
-	}
-
 	// ========== SSAFY 금융망 계좌 인증 API (1원 인증) ==========
 
 	/**
@@ -343,61 +183,25 @@ public class AccountController {
 	@Operation(
 		summary = "1원 인증 시작",
 		description = """
-			**SSAFY 금융망 1원 인증 - 1단계: 1원 송금**
-
-			사용자가 입력한 계좌번호로 1원을 송금하여 인증을 시작합니다.
-			입금자명에 표시된 6자리 인증 코드를 확인해야 합니다.
-
-			---
-
-			## 요청 본문
-
-			```json
-			{
-			  "accountNo": "0021234567890123"
-			}
-			```
-
-			---
+			계좌번호로 1원을 송금하여 인증을 시작합니다.
 
 			## 처리 과정
 
-			### 1️⃣ SSAFY 회원 확인
-			- SSAFY userKey가 없으면 자동으로 회원 등록 및 userKey 발급
-			- 이미 userKey가 있으면 바로 1원 송금 진행
+			1. SSAFY userKey 확인 (없으면 자동 등록)
+			2. 계좌로 1원 송금
+			3. transactionUniqueNo 반환 (거래내역 조회 시 사용)
 
-			### 2️⃣ 1원 송금 (openAccountAuth)
-			```http
-			POST https://finopenapi.ssafy.io/openAccountAuth
-			Content-Type: application/json
+			## 응답 데이터
 
-			{
-			  "Header": {
-			    "apiName": "openAccountAuth",
-			    "userKey": "f1a2b3c4-d5e6-7f8g-9h0i-j1k2l3m4n5o6",
-			    ...
-			  },
-			  "accountNo": "0021234567890123",
-			  "authText": "JOYING"
-			}
-			```
-
-			### 3️⃣ 응답
-			```json
-			{
-			  "accountNo": "0021234567890123",
-			  "message": "1원이 송금되었습니다. 입금자명에 표시된 6자리 인증 코드를 입력해주세요."
-			}
-			```
-
-			---
+			- accountNo: 계좌번호
+			- transactionUniqueNo: 거래 고유번호 (거래내역 조회 API에 사용)
+			- message: 안내 메시지
 
 			## 주의사항
 
-			- **JWT 인증 필요**: Authorization 헤더에 JWT 토큰 필요
-			- **계좌번호 형식**: 16자리 숫자 (은행코드 포함)
-			- **인증 코드 확인**: 계좌 거래 내역에서 "JOYING" 입금자명으로 확인
-			- **5분 이내**: 인증 코드는 5분 이내에 입력해야 함
+			- SSAFY 테스트 계좌만 가능
+			- JWT 인증 필수
+			- 5분 이내 인증 코드 입력 필요
 			"""
 	)
 	@ApiResponses({
@@ -434,68 +238,19 @@ public class AccountController {
 	@Operation(
 		summary = "1원 인증 완료",
 		description = """
-			**SSAFY 금융망 1원 인증 - 2단계: 인증 코드 확인**
-
-			사용자가 입력한 인증 코드를 검증하고, 계좌를 등록합니다.
-
-			---
-
-			## 요청 본문
-
-			```json
-			{
-			  "accountNo": "0021234567890123",
-			  "authCode": "123456"
-			}
-			```
-
-			---
+			인증 코드를 검증하고 계좌를 등록합니다.
 
 			## 처리 과정
 
-			### 1️⃣ 인증 코드 검증 (checkAuthCode)
-			```http
-			POST https://finopenapi.ssafy.io/checkAuthCode
-			Content-Type: application/json
-
-			{
-			  "Header": {
-			    "apiName": "checkAuthCode",
-			    "userKey": "f1a2b3c4-d5e6-7f8g-9h0i-j1k2l3m4n5o6",
-			    ...
-			  },
-			  "accountNo": "0021234567890123",
-			  "authText": "JOYING",
-			  "authCode": "123456"
-			}
-			```
-
-			### 2️⃣ 응답 검증
-			```json
-			{
-			  "REC": {
-			    "accountNo": "0021234567890123",
-			    "userName": "홍길동",
-			    "bankCode": "002",
-			    "bankName": "산업은행",
-			    "authStatus": "SUCCESS"
-			  }
-			}
-			```
-
-			### 3️⃣ 계좌 등록
-			- 인증 성공 시 자동으로 계좌 등록
-			- 회원 실명 업데이트 (최초 1회)
-			- verifiedAt에 현재 시각 저장
-
-			---
+			1. 인증 코드 검증
+			2. 계좌 자동 등록
+			3. 회원 실명 업데이트 (최초 1회)
 
 			## 주의사항
 
-			- **JWT 인증 필요**: Authorization 헤더에 JWT 토큰 필요
-			- **중복 방지**: 이미 등록된 계좌는 등록 불가
-			- **정확한 코드**: 인증 코드가 일치해야 성공
-			- **3회 제한**: 3회 이상 실패 시 일시적으로 인증 제한
+			- JWT 인증 필수
+			- 중복 계좌 등록 불가
+			- 인증 코드 일치 필수
 			"""
 	)
 	@ApiResponses({
@@ -515,11 +270,66 @@ public class AccountController {
 		AccountVerificationResponse response = accountService.completeAccountVerification(
 			memberId,
 			request.getAccountNo(),
-			request.getAuthCode()
+			request.getAuthCode(),
+			request.getAccountHolderName()
 		);
 
 		log.info("1원 인증 완료 성공: memberId={}, accountNo={}, realName={}",
 			memberId, response.getAccountNo(), response.getRealName());
+
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * SSAFY 계좌 거래 내역 조회 (1원 인증 코드 확인용)
+	 *
+	 * @param authentication      인증 정보
+	 * @param accountNo           계좌번호
+	 * @param transactionUniqueNo 거래 고유번호
+	 * @return 거래 내역 (인증 코드 포함)
+	 */
+	@GetMapping("/api/v1/accounts/transactions")
+	@Operation(
+		summary = "SSAFY 계좌 거래 내역 조회",
+		description = """
+			거래 내역을 조회하여 1원 인증 코드를 확인합니다.
+
+			## 응답 데이터
+
+			- transactionSummary: 입금자명 (예: "JOYING 8212")
+			- authCode: 자동 추출된 인증 코드 (예: "8212")
+
+			## 주의사항
+
+			- JWT 인증 필수
+			- SSAFY 테스트 계좌만 가능
+			- transactionUniqueNo는 1원 송금 시 응답으로 받음
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공"),
+		@ApiResponse(responseCode = "401", description = "인증 실패 (로그인 필요)"),
+		@ApiResponse(responseCode = "404", description = "거래 내역을 찾을 수 없음"),
+		@ApiResponse(responseCode = "500", description = "SSAFY 금융망 오류")
+	})
+	public ResponseEntity<SsafyTransactionResponse> getTransactionHistory(
+		Authentication authentication,
+		@Parameter(description = "계좌번호 (16자리)", required = true, example = "0041234567890123")
+		@RequestParam String accountNo,
+		@Parameter(description = "거래 고유번호", required = true, example = "7")
+		@RequestParam String transactionUniqueNo
+	) {
+		Long memberId = Long.parseLong(authentication.getName());
+		log.info("거래 내역 조회 요청: memberId={}, accountNo={}, transactionUniqueNo={}",
+			memberId, accountNo, transactionUniqueNo);
+
+		SsafyTransactionResponse response = accountService.getTransactionHistory(
+			memberId,
+			accountNo,
+			transactionUniqueNo
+		);
+
+		log.info("거래 내역 조회 성공: memberId={}, authCode={}", memberId, response.getAuthCode());
 
 		return ResponseEntity.ok(response);
 	}

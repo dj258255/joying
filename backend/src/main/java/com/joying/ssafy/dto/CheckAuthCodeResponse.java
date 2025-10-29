@@ -32,14 +32,5 @@ public class CheckAuthCodeResponse {
 
 		@JsonProperty("accountNo")
 		private String accountNo;
-
-		@JsonProperty("userName")
-		private String userName;
-
-		@JsonProperty("bankCode")
-		private String bankCode;
-
-		@JsonProperty("bankName")
-		private String bankName;
 	}
 }

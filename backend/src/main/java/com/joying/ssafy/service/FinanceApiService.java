@@ -31,7 +31,7 @@ public class FinanceApiService {
 	 * @return 사용자 정보 (userKey 포함)
 	 */
 	public MemberRegisterResponse searchMember(String userId) {
-		String url = financeApiProperties.getBaseUrl() + "/member/search";
+		String url = financeApiProperties.getBaseUrl() + "/ssafy/api/v1/member/search";
 
 		// Request 생성
 		MemberSearchRequest request = MemberSearchRequest.builder()
@@ -76,10 +76,10 @@ public class FinanceApiService {
 	 * SSAFY 금융망 회원 등록 (USER KEY 자동 발급)
 	 *
 	 * @param userId 사용자 ID (이메일 형식)
-	 * @return USER KEY
+	 * @return 회원 정보 (userKey, userName 포함)
 	 */
-	public String registerMember(String userId) {
-		String url = financeApiProperties.getBaseUrl() + "/member";
+	public MemberRegisterResponse registerMember(String userId) {
+		String url = financeApiProperties.getBaseUrl() + "/ssafy/api/v1/member";
 
 		// Request 생성
 		MemberRegisterRequest request = MemberRegisterRequest.builder()
@@ -112,8 +112,8 @@ public class FinanceApiService {
 			log.info("SSAFY 회원 등록 성공: userId={}, userName={}, userKey={}",
 				responseBody.getUserId(), responseBody.getUserName(), userKey);
 
-			// userKey 반환 (응답에 이미 포함되어 있음)
-			return userKey;
+			// 전체 응답 반환 (userKey, userName 포함)
+			return responseBody;
 
 		} catch (Exception e) {
 			log.error("SSAFY 회원 등록 API 호출 중 오류 발생", e);
@@ -161,7 +161,7 @@ public class FinanceApiService {
 			HttpEntity<OpenAccountAuthRequest> entity = new HttpEntity<>(request, headers);
 
 			ResponseEntity<OpenAccountAuthResponse> response = restTemplate.postForEntity(
-				financeApiProperties.getBaseUrl() + "/" + apiName,
+				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/accountAuth/" + apiName,
 				entity,
 				OpenAccountAuthResponse.class
 			);
@@ -196,9 +196,9 @@ public class FinanceApiService {
 	 * 1원 인증 확인
 	 *
 	 * @param accountNo 계좌번호 (16자리)
-	 * @param authCode  인증 코드 (6자리)
+	 * @param authCode  인증 코드 (4자리)
 	 * @param userKey   사용자 KEY
-	 * @return 인증 결과 (실명, 은행 정보 포함)
+	 * @return 인증 결과 (status, transactionUniqueNo, accountNo)
 	 */
 	public CheckAuthCodeResponse.CheckAuthCodeRec checkAuthCode(String accountNo, String authCode, String userKey) {
 		String apiName = "checkAuthCode";
@@ -231,7 +231,7 @@ public class FinanceApiService {
 			HttpEntity<CheckAuthCodeRequest> entity = new HttpEntity<>(request, headers);
 
 			ResponseEntity<CheckAuthCodeResponse> response = restTemplate.postForEntity(
-				financeApiProperties.getBaseUrl() + "/" + apiName,
+				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/accountAuth/" + apiName,
 				entity,
 				CheckAuthCodeResponse.class
 			);
@@ -259,10 +259,10 @@ public class FinanceApiService {
 				throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
 			}
 
-			log.info("1원 인증 성공: accountNo={}, userName={}, bankName={}",
-				accountNo, rec.getUserName(), rec.getBankName());
+			log.info("1원 인증 성공: accountNo={}, status={}, transactionUniqueNo={}",
+				accountNo, rec.getStatus(), rec.getTransactionUniqueNo());
 
-			return rec; // 전체 결과 반환 (실명, 은행코드, 은행명 포함)
+			return rec; // 전체 결과 반환 (status, transactionUniqueNo, accountNo)
 
 		} catch (BusinessException e) {
 			throw e;
@@ -294,7 +294,10 @@ public class FinanceApiService {
 			.header(header)
 			.build();
 
-		log.info("수시입출금 상품 목록 조회 요청");
+		String requestUrl = financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName;
+		log.info("수시입출금 상품 목록 조회 요청 - URL: {}", requestUrl);
+		log.info("수시입출금 상품 목록 조회 요청 - API Key: {}", financeApiProperties.getApiKey());
+		log.info("수시입출금 상품 목록 조회 요청 - Header: {}", header);
 
 		try {
 			// API 호출
@@ -303,7 +306,7 @@ public class FinanceApiService {
 			HttpEntity<InquireDemandDepositListRequest> entity = new HttpEntity<>(request, headers);
 
 			ResponseEntity<InquireDemandDepositListResponse> response = restTemplate.postForEntity(
-				financeApiProperties.getBaseUrl() + "/" + apiName,
+				requestUrl,
 				entity,
 				InquireDemandDepositListResponse.class
 			);
@@ -332,6 +335,79 @@ public class FinanceApiService {
 			throw e;
 		} catch (Exception e) {
 			log.error("수시입출금 상품 목록 조회 API 호출 중 오류 발생", e);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
+	 * 계좌 거래내역 조회 (단건)
+	 *
+	 * @param accountNo            계좌번호 (16자리)
+	 * @param transactionUniqueNo  거래고유번호
+	 * @param userKey              사용자 KEY
+	 * @return 거래 내역
+	 */
+	public InquireTransactionHistoryResponse.TransactionRec inquireTransactionHistory(
+		String accountNo, String transactionUniqueNo, String userKey) {
+
+		String apiName = "inquireTransactionHistory";
+
+		// Header 생성
+		SsafyApiHeader header = SsafyApiHeader.createRequestHeaderWithUserKey(
+			apiName,
+			apiName,
+			financeApiProperties.getApiKey(),
+			userKey,
+			financeApiProperties.getInstitutionCode(),
+			financeApiProperties.getFintechAppNo()
+		);
+
+		// Request 생성
+		InquireTransactionHistoryRequest request = InquireTransactionHistoryRequest.builder()
+			.header(header)
+			.accountNo(accountNo)
+			.transactionUniqueNo(transactionUniqueNo)
+			.build();
+
+		log.info("계좌 거래내역 조회(단건) 요청: accountNo={}, transactionUniqueNo={}", accountNo, transactionUniqueNo);
+
+		try {
+			// API 호출
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<InquireTransactionHistoryRequest> entity = new HttpEntity<>(request, headers);
+
+			ResponseEntity<InquireTransactionHistoryResponse> response = restTemplate.postForEntity(
+				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
+				entity,
+				InquireTransactionHistoryResponse.class
+			);
+
+			InquireTransactionHistoryResponse responseBody = response.getBody();
+
+			if (responseBody == null || responseBody.getHeader() == null) {
+				log.error("계좌 거래내역 조회 응답이 null입니다");
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+			// 응답 코드 확인
+			if (!"H0000".equals(responseBody.getHeader().getResponseCode())) {
+				log.error("계좌 거래내역 조회 실패: responseCode={}, responseMessage={}",
+					responseBody.getHeader().getResponseCode(),
+					responseBody.getHeader().getResponseMessage());
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+			InquireTransactionHistoryResponse.TransactionRec rec = responseBody.getRec();
+
+			log.info("계좌 거래내역 조회 성공: transactionSummary={}", rec.getTransactionSummary());
+
+			return rec;
+
+		} catch (BusinessException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("계좌 거래내역 조회 API 호출 중 오류 발생", e);
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 	}
@@ -373,7 +449,7 @@ public class FinanceApiService {
 			HttpEntity<CreateDemandDepositAccountRequest> entity = new HttpEntity<>(request, headers);
 
 			ResponseEntity<CreateDemandDepositAccountResponse> response = restTemplate.postForEntity(
-				financeApiProperties.getBaseUrl() + "/" + apiName,
+				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 				entity,
 				CreateDemandDepositAccountResponse.class
 			);

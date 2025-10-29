@@ -7,13 +7,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * 계좌 생성 요청 DTO
+ * SSAFY 테스트 계좌 생성 요청 DTO
  */
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "계좌 생성 요청")
-public class CreateAccountRequest {
+@Schema(description = "SSAFY 테스트 계좌 생성 요청")
+public class CreateSsafyAccountRequest {
 
 	@NotBlank(message = "상품 고유번호는 필수입니다")
 	@Schema(

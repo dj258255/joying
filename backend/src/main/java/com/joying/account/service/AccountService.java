@@ -6,14 +6,16 @@ import com.joying.account.dto.AccountResponse;
 import com.joying.account.dto.AccountVerificationResponse;
 import com.joying.account.dto.AccountVerificationStartResponse;
 import com.joying.account.dto.DemandDepositProductResponse;
+import com.joying.account.dto.SsafyTransactionResponse;
 import com.joying.account.repository.AccountRepository;
 import com.joying.common.exception.BusinessException;
 import com.joying.common.exception.ErrorCode;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.ssafy.dto.CheckAuthCodeResponse;
-import com.joying.ssafy.dto.CreateDemandDepositAccountResponse;
 import com.joying.ssafy.dto.InquireDemandDepositListResponse;
+import com.joying.ssafy.dto.InquireTransactionHistoryResponse;
+import com.joying.ssafy.dto.MemberRegisterResponse;
 import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,35 +82,40 @@ public class AccountService {
 				memberId, member.getEmail());
 
 			// SSAFY 회원 등록 (userKey 자동 발급)
-			String userKey = financeApiService.registerMember(member.getEmail());
+			MemberRegisterResponse registerResponse = financeApiService.registerMember(member.getEmail());
 
-			// Member에 userKey 저장
-			member.updateSsafyUserKey(userKey);
+			// Member에 userKey와 실명 저장
+			member.updateSsafyUserKey(registerResponse.getUserKey());
+			member.updateRealName(registerResponse.getUserName());
 
-			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}", memberId, userKey);
+			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}, userName={}",
+				memberId, registerResponse.getUserKey(), registerResponse.getUserName());
 		}
 
 		// 1원 송금 (계좌 인증 시작)
-		financeApiService.openAccountAuth(accountNo, member.getSsafyUserKey());
+		String transactionUniqueNo = financeApiService.openAccountAuth(accountNo, member.getSsafyUserKey());
 
-		log.info("1원 인증 시작 성공: memberId={}, accountNo={}", memberId, accountNo);
+		log.info("1원 인증 시작 성공: memberId={}, accountNo={}, transactionUniqueNo={}",
+			memberId, accountNo, transactionUniqueNo);
 
 		return AccountVerificationStartResponse.builder()
 			.accountNo(accountNo)
-			.message("1원이 송금되었습니다. 입금자명에 표시된 6자리 인증 코드를 입력해주세요.")
+			.transactionUniqueNo(transactionUniqueNo)
+			.message("1원이 송금되었습니다. 입금자명에 표시된 4자리 인증 코드를 5분 이내에 입력해주세요.")
 			.build();
 	}
 
 	/**
 	 * 1원 인증 완료 (authCode 검증, 실명 저장, 계좌 생성)
 	 *
-	 * @param memberId  회원 ID
-	 * @param accountNo 계좌번호
-	 * @param authCode  인증 코드
+	 * @param memberId          회원 ID
+	 * @param accountNo         계좌번호
+	 * @param authCode          인증 코드
+	 * @param accountHolderName 예금주명 (사용자 입력)
 	 * @return 인증 결과 (실명 포함)
 	 */
 	@Transactional
-	public AccountVerificationResponse completeAccountVerification(Long memberId, String accountNo, String authCode) {
+	public AccountVerificationResponse completeAccountVerification(Long memberId, String accountNo, String authCode, String accountHolderName) {
 		Member member = findMemberById(memberId);
 
 		if (member.getSsafyUserKey() == null) {
@@ -122,34 +129,38 @@ public class AccountService {
 			throw new BusinessException(ErrorCode.ACCOUNT_ALREADY_REGISTERED);
 		}
 
-		// 1원 인증 확인 (authCode 검증 및 계좌 정보 반환)
+		// 1원 인증 확인 (authCode 검증)
 		CheckAuthCodeResponse.CheckAuthCodeRec authResult = financeApiService.checkAuthCode(
 			accountNo,
 			authCode,
 			member.getSsafyUserKey()
 		);
 
-		String realName = authResult.getUserName();
+		// 인증 실패 시 예외 처리
+		if (!"SUCCESS".equals(authResult.getStatus())) {
+			log.error("1원 인증 실패: memberId={}, accountNo={}, status={}", memberId, accountNo, authResult.getStatus());
+			throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
+		}
+
+		// 계좌번호에서 은행코드 추출 (앞 3자리)
+		String bankCode = accountNo.substring(0, 3);
+		String bankName = getBankNameByCode(bankCode);
 
 		// 회원의 실명 업데이트 (최초 1회만)
 		if (member.getName() == null) {
-			member.updateRealName(realName);
-			log.info("회원 실명 최초 저장: memberId={}, realName={}", memberId, realName);
+			member.updateRealName(accountHolderName);
+			log.info("회원 실명 최초 저장: memberId={}, realName={}", memberId, accountHolderName);
 		}
 
 		// Account 엔티티 생성 (1원 인증 완료된 계좌)
 		Account account = Account.builder()
 			.member(member)
-			.bankName(authResult.getBankName())
-			.bankCode(authResult.getBankCode())
+			.bankName(bankName)
+			.bankCode(bankCode)
 			.accountNo(authResult.getAccountNo())
-			.accountHolderName(realName)
+			.accountHolderName(accountHolderName)
 			.accountState(AccountState.ACTIVE)
-			.balance(0L) // 초기 잔액 0원
 			.build();
-
-		// 계좌 인증 완료 처리
-		account.verifyAccount();
 
 		// Member와 Account 연관관계 설정
 		member.addAccount(account);
@@ -158,14 +169,54 @@ public class AccountService {
 		accountRepository.save(account);
 
 		log.info("1원 인증 완료 및 계좌 등록: memberId={}, accountNo={}, realName={}, bankName={}",
-			memberId, authResult.getAccountNo(), realName, authResult.getBankName());
+			memberId, authResult.getAccountNo(), accountHolderName, bankName);
 
 		return AccountVerificationResponse.builder()
 			.accountNo(authResult.getAccountNo())
-			.realName(realName)
+			.realName(accountHolderName)
 			.verified(true)
 			.message("계좌 인증이 완료되었습니다.")
 			.build();
+	}
+
+	/**
+	 * 은행코드로 은행명 조회
+	 *
+	 * @param bankCode 은행코드 (3자리)
+	 * @return 은행명
+	 */
+	private String getBankNameByCode(String bankCode) {
+		return switch (bankCode) {
+			case "001" -> "한국은행";
+			case "002" -> "산업은행";
+			case "003" -> "기업은행";
+			case "004" -> "국민은행";
+			case "005" -> "외환은행";
+			case "007" -> "수협은행";
+			case "008" -> "수출입은행";
+			case "011" -> "농협은행";
+			case "012" -> "농협회원조합";
+			case "020" -> "우리은행";
+			case "023" -> "SC제일은행";
+			case "027" -> "한국씨티은행";
+			case "031" -> "대구은행";
+			case "032" -> "부산은행";
+			case "034" -> "광주은행";
+			case "035" -> "제주은행";
+			case "037" -> "전북은행";
+			case "039" -> "경남은행";
+			case "045" -> "새마을금고";
+			case "048" -> "신협";
+			case "050" -> "상호저축은행";
+			case "064" -> "산림조합";
+			case "071" -> "우체국";
+			case "081" -> "하나은행";
+			case "088" -> "신한은행";
+			case "089" -> "케이뱅크";
+			case "090" -> "카카오뱅크";
+			case "092" -> "토스뱅크";
+			default -> "기타은행";
+		};
 	}
 
 	/**
@@ -223,55 +274,34 @@ public class AccountService {
 	}
 
 	/**
-	 * SSAFY 수시입출금 계좌 생성
+	 * SSAFY 계좌의 특정 거래 내역 조회 (1원 인증 코드 확인용)
 	 *
-	 * @param memberId            회원 ID
-	 * @param accountTypeUniqueNo 상품 고유번호
-	 * @return 생성된 계좌 정보
+	 * @param memberId             회원 ID
+	 * @param accountNo            계좌번호
+	 * @param transactionUniqueNo  거래 고유번호
+	 * @return 거래 내역 (인증 코드 포함)
 	 */
-	@Transactional
-	public AccountResponse createDemandDepositAccount(Long memberId, String accountTypeUniqueNo) {
+	public SsafyTransactionResponse getTransactionHistory(Long memberId, String accountNo, String transactionUniqueNo) {
 		Member member = findMemberById(memberId);
 
-		// SSAFY userKey가 없으면 먼저 등록
 		if (member.getSsafyUserKey() == null) {
-			log.info("SSAFY userKey가 없음. 회원 등록 시작: memberId={}, email={}",
-				memberId, member.getEmail());
-
-			// SSAFY 회원 등록 (userKey 자동 발급)
-			String userKey = financeApiService.registerMember(member.getEmail());
-
-			// Member에 userKey 저장
-			member.updateSsafyUserKey(userKey);
-
-			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}", memberId, userKey);
+			log.error("SSAFY userKey가 없음: memberId={}", memberId);
+			throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
 		}
 
-		// SSAFY 계좌 생성
-		CreateDemandDepositAccountResponse.CreateDemandDepositAccountRec accountRec =
-			financeApiService.createDemandDepositAccount(accountTypeUniqueNo, member.getSsafyUserKey());
+		// SSAFY API 호출: 거래 내역 단건 조회
+		InquireTransactionHistoryResponse.TransactionRec transactionRec = financeApiService.inquireTransactionHistory(
+			accountNo,
+			transactionUniqueNo,
+			member.getSsafyUserKey()
+		);
 
-		// Account 엔티티 생성 (SSAFY 테스트 계좌)
-		Account account = Account.builder()
-			.member(member)
-			.bankName("SSAFY은행") // SSAFY 테스트 계좌
-			.bankCode(accountRec.getBankCode())
-			.accountNo(accountRec.getAccountNo())
-			.accountHolderName(member.getName() != null ? member.getName() : "미인증")
-			.accountState(AccountState.ACTIVE)
-			.balance(0L)
-			.build();
+		log.info("거래 내역 조회 성공: memberId={}, accountNo={}, transactionUniqueNo={}, summary={}",
+			memberId, accountNo, transactionUniqueNo, transactionRec.getTransactionSummary());
 
-		// 연관관계 설정
-		member.addAccount(account);
-
-		Account savedAccount = accountRepository.save(account);
-
-		log.info("SSAFY 계좌 생성 완료: memberId={}, accountId={}, accountNo={}",
-			memberId, savedAccount.getAccountId(), accountRec.getAccountNo());
-
-		return AccountResponse.from(savedAccount);
+		return SsafyTransactionResponse.from(transactionRec);
 	}
+
 
 	/**
 	 * 회원 ID로 회원 조회 (내부 메서드)

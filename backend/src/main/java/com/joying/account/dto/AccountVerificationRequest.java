@@ -26,11 +26,19 @@ public class AccountVerificationRequest {
 	private String accountNo;
 
 	@NotBlank(message = "인증 코드는 필수입니다")
-	@Pattern(regexp = "^\\d{6}$", message = "인증 코드는 6자리 숫자여야 합니다")
+	@Pattern(regexp = "^\\d{4}$", message = "인증 코드는 4자리 숫자여야 합니다")
 	@Schema(
-		description = "1원 송금 시 받은 인증 코드 (6자리 숫자)",
-		example = "123456",
+		description = "1원 송금 시 받은 인증 코드 (4자리 숫자)",
+		example = "8212",
 		required = true
 	)
 	private String authCode;
+
+	@NotBlank(message = "예금주명은 필수입니다")
+	@Schema(
+		description = "계좌 예금주명 (실명)",
+		example = "홍길동",
+		required = true
+	)
+	private String accountHolderName;
 }
