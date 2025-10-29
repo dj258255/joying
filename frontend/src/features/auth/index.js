@@ -11,6 +11,7 @@ export { default as KakaoLoginButton } from './components/KakaoLoginButton';
 
 // Hooks
 export * from './hooks/useKakaoLogin';
+export { useAuth } from './contexts/AuthContext';
 
 // Pages
 export { default as LoginPage } from './pages/LoginPage';
