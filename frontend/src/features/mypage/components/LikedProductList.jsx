@@ -4,7 +4,9 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
+import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
@@ -19,38 +21,12 @@ const LikedProductList = ({
   onUnlikeProduct = () => {}, 
   isLoading = false 
 }) => {
-  // 더미 데이터
-  const dummyLikedProducts = [
-    {
-      id: 1,
-      title: '아이폰 15 Pro',
-      category: '전자제품',
-      price: 25000,
-      location: '서울시 강남구',
-      image: 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400',
-      likedAt: '2024-01-15'
-    },
-    {
-      id: 2,
-      title: '소니 WH-1000XM5 헤드폰',
-      category: '오디오',
-      price: 12000,
-      location: '서울시 마포구',
-      image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=400',
-      likedAt: '2024-01-10'
-    },
-    {
-      id: 3,
-      title: '닌텐도 스위치',
-      category: '게임',
-      price: 8000,
-      location: '서울시 서초구',
-      image: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400',
-      likedAt: '2024-01-08'
-    }
-  ];
-
-  const displayProducts = likedProducts.length > 0 ? likedProducts : dummyLikedProducts;
+  const navigate = useNavigate();
+  
+  // 현재 사용자가 찜한 상품 (다른 사용자들의 상품)
+  const myLikedProducts = DUMMY_PRODUCTS.filter(product => product.sellerId !== DUMMY_USERS.currentUser.id);
+  
+  const displayProducts = likedProducts.length > 0 ? likedProducts : myLikedProducts;
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -72,22 +48,6 @@ const LikedProductList = ({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 섹션 */}
-      <div className="glass-product-header p-4">
-        <div className="flex items-center justify-between w-full">
-        <h3 className="glass-section-title text-lg lg:text-2xl">
-          찜한 상품
-        </h3>
-          <div className="flex space-x-1 lg:space-x-2">
-            <button className="glass-button-ghost text-xs lg:text-base px-2 py-1 lg:px-6 lg:py-3">
-              전체 선택
-            </button>
-            <button className="glass-button-danger text-xs lg:text-base px-2 py-1 lg:px-6 lg:py-3">
-              선택 삭제
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -95,7 +55,7 @@ const LikedProductList = ({
           <ProductCard
             key={product.id}
             product={product}
-            onClick={() => onProductClick(product.id)}
+            onClick={() => navigate(`/products/${product.id}`)}
             onAction={() => onUnlikeProduct(product.id)}
             actionType="unlike"
             status="available"

@@ -1,8 +1,15 @@
 package com.joying.review.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.joying.common.entity.BaseEntity;
+import com.joying.file.domain.ReviewFile;
 import com.joying.member.domain.Member;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.UploadType;
+import com.joying.rental.domain.RentalHistory;
+
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
@@ -18,12 +25,12 @@ import org.hibernate.annotations.Comment;
         },
         uniqueConstraints = {
                 // 한 멤버가 같은 상품에 리뷰를 한 번만
-                @UniqueConstraint(name = "uk_review_reviewer_product", columnNames = {"reviewer_id", "product_id"})
+                @UniqueConstraint(name = "uk_review_reviewer_product", columnNames = {"reviewer_id", "product_id", "reviewed_id"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "reviewId", callSuper=false)
-public class Review {
+public class Review extends BaseEntity {
 
     @Id
     @Column(name = "review_id")
@@ -52,12 +59,19 @@ public class Review {
     private Member reviewer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", referencedColumnName = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", referencedColumnName = "product_id")
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "reviewed_id", referencedColumnName = "member_id")
     private Member reviewed;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rental_his_id", referencedColumnName = "rental_his_id")
+    private RentalHistory rentalHistory;
+
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReviewFile> reviewFiles = new ArrayList<>();
 
     @Builder
     private Review(String title,
@@ -66,7 +80,8 @@ public class Review {
                    Float rating,
                    Member reviewer,
                    Product product,
-                   Member reviewed) {
+                   Member reviewed,
+                   RentalHistory rentalHistory) {
         this.title = title;
         this.content = content;
         this.uploadType = uploadType;
@@ -74,5 +89,17 @@ public class Review {
         this.reviewer = reviewer;
         this.product = product;
         this.reviewed = reviewed;
+        this.rentalHistory = rentalHistory;
+    }
+
+    public void updateReview(String title, String content, float rating) {
+        if (title != null) this.title = title;
+        if (content != null) this.content = content;
+        if (rating >= 0) this.rating = rating;
+    }
+
+    public void addReviewFile(ReviewFile reviewFile) {
+        this.reviewFiles.add(reviewFile);
+        reviewFile.addReview(this);
     }
 }

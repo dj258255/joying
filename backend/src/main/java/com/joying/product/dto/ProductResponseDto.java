@@ -1,8 +1,8 @@
 package com.joying.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
@@ -27,8 +27,8 @@ public class ProductResponseDto {
         private CategoryDto category;
         private Double rating;
 
-        private Timestamp startRent;
-        private Timestamp endRent;
+        private Instant startRent;
+        private Instant endRent;
 
         private Boolean liked;
 
@@ -36,9 +36,8 @@ public class ProductResponseDto {
         private List<String> hashtags;
         private List<RentalRefuseDto> rentalRefuses;
 
-        private List<ReviewSummaryDto> topReviews;
+        private List<ReviewSummaryDto> Reviews;
         private Integer totalReviewCount;
-        private Double reviewAverage;
     }
 
     @Getter @Builder @AllArgsConstructor

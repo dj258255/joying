@@ -7,7 +7,8 @@ import axios from 'axios';
 
 // 기본 axios 인스턴스 생성
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  // 베이스 URL은 포트까지만(경로 미포함). 엔드포인트에서 '/api/v1/...'를 붙여 사용
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'

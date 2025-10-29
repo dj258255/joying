@@ -1,10 +1,27 @@
 package com.joying.product.service;
 
 import com.joying.category.domain.Category;
+import com.joying.category.repository.CategoryRepository;
+import com.joying.file.domain.File;
+import com.joying.file.domain.ProductFile;
+import com.joying.file.repository.FileRepository;
+import com.joying.file.repository.ProductFileRepository;
+import com.joying.hashtag.domain.Hashtag;
+import com.joying.hashtag.domain.HashtagHistory;
 import com.joying.hashtag.repository.HashtagHistoryRepository;
+import com.joying.hashtag.repository.HashtagRepository;
+import com.joying.member.domain.Member;
+import com.joying.member.repository.MemberRepository;
 import com.joying.product.domain.Product;
+import com.joying.product.domain.RentMethod;
+import com.joying.product.domain.RentalRefuse;
+import com.joying.product.domain.UploadType;
+import com.joying.product.dto.ProductRequestDto;
 import com.joying.product.dto.ProductResponseDto;
 import com.joying.product.repository.*;
+import com.joying.region.repository.DongRepository;
+import com.joying.region.repository.GunguRepository;
+import com.joying.region.repository.SidoRepository;
 import com.joying.review.repository.ReviewRepository;
 import com.joying.region.domain.Sido;
 import com.joying.region.domain.Gungu;
@@ -28,11 +45,13 @@ public class ProductServiceImpl implements ProductService {
     private final ReviewRepository reviewRepository;
     private final RentalRefuseRepository rentalRefuseRepository;
     private final com.joying.file.component.FileUrlResolver fileUrlResolver;
-
-    @Override
-    public ProductResponseDto.ProductDetail getProductInfo(Long productId) {
-        return getProductInfo(productId, null);
-    }
+    private final MemberRepository memberRepository;
+    private final CategoryRepository categoryRepository;
+    private final SidoRepository sidoRepository;
+    private final GunguRepository gunguRepository;
+    private final DongRepository dongRepository;
+    private final FileRepository fileRepository;
+    private final HashtagRepository hashtagRepository;
 
     @Override
     public ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId) {
@@ -79,13 +98,12 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
 
         int totalReviewCount = reviewRepository.countByProduct_ProductId(productId);
-        Double avgRating = reviewRepository.avgRatingByProductId(productId);
 
         // 대여불가 기간
         var refuseDtos = rentalRefuseRepository.findByProduct_ProductId(productId).stream()
                 .map(r -> ProductResponseDto.RentalRefuseDto.builder()
-                        .startRef(r.getStartRef().toInstant())
-                        .endRef(r.getEndRef().toInstant())
+                        .startRef(r.getStartRef())
+                        .endRef(r.getEndRef())
                         .build())
                 .toList();
 
@@ -136,16 +154,15 @@ public class ProductServiceImpl implements ProductService {
                 .rentMethod(product.getRentMethod().name())
                 .videoNecessary(product.getVideoNecessary())
                 .category(categoryDto)
-                .rating(avgRating != null ? avgRating : product.getRating())
+                .rating(product.getRating())
                 .startRent(product.getStartRent())
                 .endRent(product.getEndRent())
                 .liked(liked)
                 .files(fileDtos)
                 .hashtags(hashtags)
                 .rentalRefuses(refuseDtos)
-                .topReviews(reviewDtos)
+                .Reviews(reviewDtos)
                 .totalReviewCount(totalReviewCount)
-                .reviewAverage(avgRating)
                 .build();
     }
 
@@ -161,4 +178,295 @@ public class ProductServiceImpl implements ProductService {
         path.add(category.getCategoryName());
         return path;
     }
+
+    @Override
+    @Transactional
+    public Long createProduct(Long memberId, ProductRequestDto.CreateProduct req) {
+
+        //작성자
+        Member writer = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+
+        //카테고리
+        Category category = null;
+        if (req.getCategoryId() != null) {
+            category = categoryRepository.findById(req.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 카테고리입니다."));
+        }
+
+        // 3) 지역
+        Sido sido = null;
+        if (req.getSidoId() != null) {
+            sido = sidoRepository.findById(req.getSidoId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 시/도입니다."));
+        }
+
+        Gungu gungu = null;
+        if (req.getGunguId() != null) {
+            gungu = gunguRepository.findById(req.getGunguId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 군/구입니다."));
+        }
+
+        Dong dong = null;
+        if (req.getDongId() != null) {
+            dong = dongRepository.findById(req.getDongId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 동입니다."));
+        }
+
+        // Enum 매핑
+        UploadType uploadType = null;
+        if (req.getUploadType() != null) {
+            try {
+                uploadType = UploadType.valueOf(req.getUploadType().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
+            }
+        }
+
+        RentMethod rentMethod = null;
+        if (req.getRentMethod() != null) {
+            try {
+                rentMethod = RentMethod.valueOf(req.getRentMethod().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
+            }
+        }
+
+        // Product 생성 & 저장
+        Product product = Product.builder()
+                .writer(writer)
+                .uploadType(uploadType)
+                .deposit(req.getDeposit())
+                .rentalFee(req.getRentalFee())
+                .title(req.getTitle())
+                .content(req.getContent())
+                .sido(sido)
+                .gungu(gungu)
+                .dong(dong)
+                .rentMethod(rentMethod)
+                .videoNecessary(req.getVideoNecessary())
+                .category(category)
+                .startRent(req.getStartRent())
+                .endRent(req.getEndRent())
+                .rating(0.0) // 기본 평점
+                .build();
+
+        Product saved = productRepository.save(product);
+
+        // rentalRefuses
+        if (req.getRentalRefuses() != null && !req.getRentalRefuses().isEmpty()) {
+            for (ProductResponseDto.RentalRefuseDto r : req.getRentalRefuses()) {
+                RentalRefuse entity = RentalRefuse.builder()
+                        .product(saved)
+                        .startRef(r.getStartRef())
+                        .endRef(r.getEndRef())
+                        .build();
+                rentalRefuseRepository.save(entity);
+            }
+        }
+
+        // 파일 연결
+        if (req.getFileIds() != null && !req.getFileIds().isEmpty()) {
+            var files = fileRepository.findAllById(req.getFileIds());
+            int order = 0;
+            for (File f : files) {
+                ProductFile pf = ProductFile.builder()
+                        .product(saved)
+                        .file(f)
+                        .isThumbnail(order == 0) // 첫 번째 이미지 썸네일
+                        .sortOrder(order)
+                        .build();
+
+                productFileRepository.save(pf);
+                order++;
+            }
+        }
+
+        // 해시태그
+        if (req.getHashtags() != null && !req.getHashtags().isEmpty()) {
+            for (String tagName : req.getHashtags()) {
+                if (tagName == null || tagName.isBlank()) continue;
+
+                Hashtag tag = hashtagRepository.findByHashtagName(tagName)
+                        .orElse(null);
+
+                if (tag == null) {
+                    Hashtag newTag = Hashtag.builder()
+                            .hashtagName(tagName)
+                            .category(category)
+                            .build();
+
+                    tag = hashtagRepository.save(newTag);
+                }
+
+                // HashtagHistory 로 product와 연결
+                HashtagHistory history = HashtagHistory.builder()
+                        .product(saved)
+                        .hashtag(tag)
+                        .build();
+
+                hashtagHistoryRepository.save(history);
+            }
+        }
+
+        return saved.getProductId();
+    }
+
+    @Override
+    @Transactional
+    public Long updateProduct(Long productId, Long memberId, ProductRequestDto.CreateProduct req) {
+
+        // 1. 기존 상품 조회
+        Product product = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+        // 2. 권한 체크 (작성자만 수정 가능)
+        if (!product.getWriter().getMemberId().equals(memberId)) {
+            throw new SecurityException("해당 상품을 수정할 권한이 없습니다.");
+        }
+
+        UploadType uploadType = null;
+        if (req.getUploadType() != null) {
+            try {
+                uploadType = UploadType.valueOf(req.getUploadType().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
+            }
+        }
+
+        RentMethod rentMethod = null;
+        if (req.getRentMethod() != null) {
+            try {
+                rentMethod = RentMethod.valueOf(req.getRentMethod().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
+            }
+        }
+
+        Category category = null;
+        if (req.getCategoryId() != null) {
+            category = categoryRepository.findById(req.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 카테고리입니다."));
+        }
+
+        Sido sido = null;
+        if (req.getSidoId() != null) {
+            sido = sidoRepository.findById(req.getSidoId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 시/도입니다."));
+        }
+
+        Gungu gungu = null;
+        if (req.getGunguId() != null) {
+            gungu = gunguRepository.findById(req.getGunguId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 군/구입니다."));
+        }
+
+        Dong dong = null;
+        if (req.getDongId() != null) {
+            dong = dongRepository.findById(req.getDongId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 동입니다."));
+        }
+
+        product.updateProductInfo(
+                req.getTitle(),
+                req.getContent(),
+                req.getDeposit(),
+                req.getRentalFee(),
+                uploadType,
+                rentMethod,
+                req.getVideoNecessary(),
+                category,
+                sido,
+                gungu,
+                dong,
+                req.getStartRent(),
+                req.getEndRent()
+        );
+
+        if (req.getRentalRefuses() != null) {
+            rentalRefuseRepository.deleteByProduct_ProductId(productId);
+
+            for (ProductResponseDto.RentalRefuseDto r : req.getRentalRefuses()) {
+                RentalRefuse entity = RentalRefuse.builder()
+                        .product(product)
+                        .startRef(r.getStartRef())
+                        .endRef(r.getEndRef())
+                        .build();
+                rentalRefuseRepository.save(entity);
+            }
+        }
+
+        if (req.getFileIds() != null) {
+            productFileRepository.deleteByProduct_ProductId(productId);
+
+            var files = fileRepository.findAllById(req.getFileIds());
+            int order = 0;
+            for (File f : files) {
+                ProductFile pf = ProductFile.builder()
+                        .product(product)
+                        .file(f)
+                        .isThumbnail(order == 0)
+                        .sortOrder(order)
+                        .build();
+                productFileRepository.save(pf);
+                order++;
+            }
+        }
+
+        if (req.getHashtags() != null) {
+            hashtagHistoryRepository.deleteByProduct_ProductId(productId);
+
+            for (String tagName : req.getHashtags()) {
+                if (tagName == null || tagName.isBlank()) continue;
+
+                Hashtag tag = hashtagRepository.findByHashtagName(tagName)
+                        .orElseGet(() -> {
+                            Hashtag newTag = Hashtag.builder()
+                                    .hashtagName(tagName)
+                                    .build();
+                            return hashtagRepository.save(newTag);
+                        });
+
+                HashtagHistory history = HashtagHistory.builder()
+                        .product(product)
+                        .hashtag(tag)
+                        .build();
+
+                hashtagHistoryRepository.save(history);
+            }
+        }
+
+        return product.getProductId();
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long productId, Long memberId) {
+
+        // 상품 조회
+        Product product = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+        // 권한 체크
+        if (!product.getWriter().getMemberId().equals(memberId)) {
+            throw new SecurityException("해당 상품을 삭제할 권한이 없습니다.");
+        }
+
+        // 찜삭제
+        productLikeRepository.deleteByProduct_ProductId(productId);
+
+        // 대여 불가 기간 삭제
+        rentalRefuseRepository.deleteByProduct_ProductId(productId);
+
+        // 상품-파일 매핑 삭제
+        productFileRepository.deleteByProduct_ProductId(productId);
+
+        // 해시태그 히스토리 삭제
+        hashtagHistoryRepository.deleteByProduct_ProductId(productId);
+
+        // 상품 자체 삭제
+        productRepository.delete(product);
+
+    }
+
 }

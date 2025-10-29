@@ -11,6 +11,7 @@ import lombok.*;
 import org.hibernate.annotations.Comment;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 
 @Getter
 @Entity
@@ -35,7 +36,7 @@ public class Product extends BaseEntity {
     private UploadType uploadType;
 
     @Comment("보증금")
-    @Column(name = "deposite")
+    @Column(name = "deposit")
     private Integer deposit;
 
     @Comment("일일 대여 요금")
@@ -81,11 +82,11 @@ public class Product extends BaseEntity {
 
     @Comment("대여 가능 시작 날짜")
     @Column(name = "start_rent")
-    private Timestamp startRent;
+    private Instant startRent;
 
     @Comment("대여 가능 종료 날짜")
     @Column(name = "end_rent")
-    private Timestamp endRent;
+    private Instant endRent;
 
     @Comment("평점")
     @Column(name = "rating")
@@ -104,8 +105,8 @@ public class Product extends BaseEntity {
                     RentMethod rentMethod,
                     Boolean videoNecessary,
                     Category category,
-                    Timestamp startRent,
-                    Timestamp endRent,
+                    Instant startRent,
+                    Instant endRent,
                     Double rating) {
 
         this.writer = writer;
@@ -118,10 +119,31 @@ public class Product extends BaseEntity {
         this.gungu = gungu;
         this.dong = dong;
         this.rentMethod = rentMethod;
-        this.videoNecessary = (videoNecessary != null) ? videoNecessary : false;
+        this.videoNecessary = videoNecessary;
         this.category = category;
         this.startRent = startRent;
         this.endRent = endRent;
         this.rating = (rating != null) ? rating : 0.0;
     }
+
+    public void updateProductInfo(String title, String content, Integer deposit, Integer rentalFee,
+                                  UploadType uploadType, RentMethod rentMethod, Boolean videoNecessary,
+                                  Category category, Sido sido, Gungu gungu, Dong dong,
+                                  Instant startRent, Instant endRent) {
+
+        if (title != null) this.title = title;
+        if (content != null) this.content = content;
+        if (deposit != null) this.deposit = deposit;
+        if (rentalFee != null) this.rentalFee = rentalFee;
+        if (uploadType != null) this.uploadType = uploadType;
+        if (rentMethod != null) this.rentMethod = rentMethod;
+        if (videoNecessary != null) this.videoNecessary = videoNecessary;
+        if (category != null) this.category = category;
+        if (sido != null) this.sido = sido;
+        if (gungu != null) this.gungu = gungu;
+        if (dong != null) this.dong = dong;
+        if (startRent != null) this.startRent = startRent;
+        if (endRent != null) this.endRent = endRent;
+    }
+
 }
