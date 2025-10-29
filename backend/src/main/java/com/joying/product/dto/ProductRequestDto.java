@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 
 @Getter
@@ -30,8 +31,8 @@ public class ProductRequestDto {
         private Long gunguId;
         private Long dongId;
 
-        private Timestamp startRent;
-        private Timestamp endRent;
+        private Instant startRent;
+        private Instant endRent;
 
         private List<Long> fileIds;
         private List<String> hashtags;

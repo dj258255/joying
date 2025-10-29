@@ -287,14 +287,17 @@ public class ProductServiceImpl implements ProductService {
             for (String tagName : req.getHashtags()) {
                 if (tagName == null || tagName.isBlank()) continue;
 
-                // 없으면 새로 만들기
                 Hashtag tag = hashtagRepository.findByHashtagName(tagName)
-                        .orElseGet(() -> {
-                            Hashtag newTag = Hashtag.builder()
-                                    .hashtagName(tagName)
-                                    .build();
-                            return hashtagRepository.save(newTag);
-                        });
+                        .orElse(null);
+
+                if (tag == null) {
+                    Hashtag newTag = Hashtag.builder()
+                            .hashtagName(tagName)
+                            .category(category)
+                            .build();
+
+                    tag = hashtagRepository.save(newTag);
+                }
 
                 // HashtagHistory 로 product와 연결
                 HashtagHistory history = HashtagHistory.builder()
@@ -308,4 +311,162 @@ public class ProductServiceImpl implements ProductService {
 
         return saved.getProductId();
     }
+
+    @Override
+    @Transactional
+    public Long updateProduct(Long productId, Long memberId, ProductRequestDto.CreateProduct req) {
+
+        // 1. 기존 상품 조회
+        Product product = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+        // 2. 권한 체크 (작성자만 수정 가능)
+        if (!product.getWriter().getMemberId().equals(memberId)) {
+            throw new SecurityException("해당 상품을 수정할 권한이 없습니다.");
+        }
+
+        UploadType uploadType = null;
+        if (req.getUploadType() != null) {
+            try {
+                uploadType = UploadType.valueOf(req.getUploadType().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
+            }
+        }
+
+        RentMethod rentMethod = null;
+        if (req.getRentMethod() != null) {
+            try {
+                rentMethod = RentMethod.valueOf(req.getRentMethod().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
+            }
+        }
+
+        Category category = null;
+        if (req.getCategoryId() != null) {
+            category = categoryRepository.findById(req.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 카테고리입니다."));
+        }
+
+        Sido sido = null;
+        if (req.getSidoId() != null) {
+            sido = sidoRepository.findById(req.getSidoId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 시/도입니다."));
+        }
+
+        Gungu gungu = null;
+        if (req.getGunguId() != null) {
+            gungu = gunguRepository.findById(req.getGunguId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 군/구입니다."));
+        }
+
+        Dong dong = null;
+        if (req.getDongId() != null) {
+            dong = dongRepository.findById(req.getDongId())
+                    .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 동입니다."));
+        }
+
+        product.updateProductInfo(
+                req.getTitle(),
+                req.getContent(),
+                req.getDeposit(),
+                req.getRentalFee(),
+                uploadType,
+                rentMethod,
+                req.getVideoNecessary(),
+                category,
+                sido,
+                gungu,
+                dong,
+                req.getStartRent(),
+                req.getEndRent()
+        );
+
+        if (req.getRentalRefuses() != null) {
+            rentalRefuseRepository.deleteByProduct_ProductId(productId);
+
+            for (ProductResponseDto.RentalRefuseDto r : req.getRentalRefuses()) {
+                RentalRefuse entity = RentalRefuse.builder()
+                        .product(product)
+                        .startRef(r.getStartRef())
+                        .endRef(r.getEndRef())
+                        .build();
+                rentalRefuseRepository.save(entity);
+            }
+        }
+
+        if (req.getFileIds() != null) {
+            productFileRepository.deleteByProduct_ProductId(productId);
+
+            var files = fileRepository.findAllById(req.getFileIds());
+            int order = 0;
+            for (File f : files) {
+                ProductFile pf = ProductFile.builder()
+                        .product(product)
+                        .file(f)
+                        .isThumbnail(order == 0)
+                        .sortOrder(order)
+                        .build();
+                productFileRepository.save(pf);
+                order++;
+            }
+        }
+
+        if (req.getHashtags() != null) {
+            hashtagHistoryRepository.deleteByProduct_ProductId(productId);
+
+            for (String tagName : req.getHashtags()) {
+                if (tagName == null || tagName.isBlank()) continue;
+
+                Hashtag tag = hashtagRepository.findByHashtagName(tagName)
+                        .orElseGet(() -> {
+                            Hashtag newTag = Hashtag.builder()
+                                    .hashtagName(tagName)
+                                    .build();
+                            return hashtagRepository.save(newTag);
+                        });
+
+                HashtagHistory history = HashtagHistory.builder()
+                        .product(product)
+                        .hashtag(tag)
+                        .build();
+
+                hashtagHistoryRepository.save(history);
+            }
+        }
+
+        return product.getProductId();
+    }
+
+    @Override
+    @Transactional
+    public void deleteProduct(Long productId, Long memberId) {
+
+        // 상품 조회
+        Product product = productRepository.findByProductId(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+        // 권한 체크
+        if (!product.getWriter().getMemberId().equals(memberId)) {
+            throw new SecurityException("해당 상품을 삭제할 권한이 없습니다.");
+        }
+
+        // 찜삭제
+        productLikeRepository.deleteByProduct_ProductId(productId);
+
+        // 대여 불가 기간 삭제
+        rentalRefuseRepository.deleteByProduct_ProductId(productId);
+
+        // 상품-파일 매핑 삭제
+        productFileRepository.deleteByProduct_ProductId(productId);
+
+        // 해시태그 히스토리 삭제
+        hashtagHistoryRepository.deleteByProduct_ProductId(productId);
+
+        // 상품 자체 삭제
+        productRepository.delete(product);
+
+    }
+
 }

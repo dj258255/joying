@@ -3,7 +3,7 @@
  * 채팅방 목록 아이템 컴포넌트 (카카오톡 스타일)
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import { DUMMY_USERS } from '../../../shared/constants/dummyData';
@@ -12,10 +12,14 @@ import { DUMMY_USERS } from '../../../shared/constants/dummyData';
  * @param {Object} props
  * @param {Object} props.chatRoom - 채팅방 데이터
  * @param {Function} props.onClick - 클릭 핸들러
+ * @param {Function} [props.onContextMenuOpen] - 컨텍스트 메뉴 열기 핸들러(더블클릭/롱프레스)
  * @param {boolean} props.isActive - 활성 상태
  */
-const ChatRoomListItem = ({ chatRoom, onClick, isActive = false }) => {
+const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = false }) => {
   const navigate = useNavigate();
+  const pressTimerRef = useRef(null);
+  const lastTouchPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const rootRef = useRef(null);
   const {
     id,
     name,
@@ -63,9 +67,49 @@ const ChatRoomListItem = ({ chatRoom, onClick, isActive = false }) => {
     }
   };
 
+  // 롱프레스 시작/취소
+  const startPressTimer = (x, y) => {
+    if (!onContextMenuOpen) return;
+    clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = setTimeout(() => {
+      onContextMenuOpen(id, x ?? lastTouchPosRef.current.x, y ?? lastTouchPosRef.current.y);
+    }, 400);
+  };
+  const cancelPressTimer = () => {
+    clearTimeout(pressTimerRef.current);
+    pressTimerRef.current = null;
+  };
+
+  useEffect(() => () => cancelPressTimer(), []);
+
   return (
     <div
+      ref={rootRef}
       onClick={() => onClick(id)}
+      onContextMenu={(e) => {
+        if (!onContextMenuOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenuOpen(id, e.clientX, e.clientY);
+      }}
+      onTouchStart={(e) => {
+        const t = e.touches?.[0];
+        if (t) {
+          lastTouchPosRef.current = { x: t.clientX, y: t.clientY };
+          startPressTimer(t.clientX, t.clientY);
+        } else {
+          startPressTimer();
+        }
+      }}
+      onTouchEnd={cancelPressTimer}
+      onTouchMove={cancelPressTimer}
+      onMouseDown={(e) => {
+        // 터치 디바이스가 아닌 경우에만 롱프레스 감지
+        if ('ontouchstart' in window) return;
+        if (e.button === 0) startPressTimer();
+      }}
+      onMouseUp={cancelPressTimer}
+      onMouseLeave={cancelPressTimer}
       className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
         isActive ? 'bg-blue-50' : ''
       }`}
@@ -74,15 +118,20 @@ const ChatRoomListItem = ({ chatRoom, onClick, isActive = false }) => {
         {/* 프로필 이미지 */}
         <div className="flex-shrink-0 relative">
           <ProfileImage 
-            src={participants?.find(p => p.id !== DUMMY_USERS.currentUser.id)?.profileImage}
+            src={participants?.find(p => p.id !== 101)?.profileImage}
             alt={name}
             size={48}
             className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
-              const opponent = participants?.find(p => p.id !== DUMMY_USERS.currentUser.id);
+              const opponent = participants?.find(p => p.id !== 101);
+              console.log('ChatRoomListItem - participants:', participants);
+              console.log('ChatRoomListItem - opponent:', opponent);
               if (opponent?.id) {
+                console.log('ChatRoomListItem - navigating to:', `/members/${opponent.id}`);
                 navigate(`/members/${opponent.id}`);
+              } else {
+                console.log('ChatRoomListItem - opponent not found');
               }
             }}
           />

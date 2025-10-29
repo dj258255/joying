@@ -7,6 +7,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 
 /**
  * @param {Object} props
@@ -41,7 +42,10 @@ const RegisteredProductList = ({
     return (
       <div className="text-center py-12">
         <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+        <button 
+          onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
           첫 상품 등록하기
         </button>
       </div>
@@ -50,17 +54,6 @@ const RegisteredProductList = ({
 
   return (
     <div className="space-y-6">
-      {/* 헤더 섹션 */}
-      <div className="glass-product-header p-4">
-        <div className="flex items-center justify-between w-full">
-        <h3 className="glass-section-title text-lg lg:text-2xl">
-          내가 등록한 상품
-        </h3>
-          <button className="glass-button-primary text-sm lg:text-base px-3 py-2 lg:px-6 lg:py-3">
-            새 상품 등록
-          </button>
-        </div>
-      </div>
 
       {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

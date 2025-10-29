@@ -15,27 +15,48 @@ export const chatApi = {
    * @returns {Promise<string>} 채팅방 ID
    */
   createChatRoom: async (sellerId) => {
-    // 더미 데이터로 새로운 채팅방 생성
+    // 로컬 스토리지에서 기존 채팅방 목록 가져오기
+    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
+    
+    // 로컬 스토리지가 비어있으면 더미 데이터 사용
+    if (chatRooms.length === 0) {
+      chatRooms.push(...DUMMY_CHAT_ROOMS);
+      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+    }
+
+    // 같은 사람과의 기존 채팅방이 있는지 확인
+    const existingChatRoom = chatRooms.find(room => {
+      const participantIds = room.participants.map(p => p.id);
+      return participantIds.includes(101) && 
+             participantIds.includes(sellerId) &&
+             participantIds.length === 2;
+    });
+
+    // 기존 채팅방이 있으면 해당 채팅방 ID 반환
+    if (existingChatRoom) {
+      return existingChatRoom.id;
+    }
+
+    // 새로운 채팅방 생성
     const newChatRoomId = `chat_${Date.now()}`;
-    const seller = DUMMY_USERS.others.find(user => user.id === sellerId) || DUMMY_USERS.currentUser;
+    const seller = DUMMY_USERS.others.find(user => user.userId === sellerId) || DUMMY_USERS.currentUser;
     
     if (!seller) {
       throw new Error('판매자를 찾을 수 없습니다.');
     }
 
-    // 로컬 스토리지에 채팅방 정보 저장
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
     const newChatRoom = {
       id: newChatRoomId,
-      name: seller.nickname,
+      name: seller.username,
       participants: [
-        { id: DUMMY_USERS.currentUser.id, profileImage: DUMMY_USERS.currentUser.profileImage },
-        { id: sellerId, profileImage: seller.profileImage }
+        { id: 101, profileImage: null },
+        { id: sellerId, profileImage: null }
       ],
       lastMessage: null,
       unreadCount: 0,
       isPinned: false,
       isMuted: false,
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     
@@ -54,6 +75,9 @@ export const chatApi = {
    * @returns {Promise<Array>}
    */
   getChatRooms: async (params = {}) => {
+    // 로컬 스토리지 초기화 (테스트용)
+    localStorage.removeItem('chatRooms');
+    
     // 로컬 스토리지에서 채팅방 목록 가져오기
     let chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
     
@@ -61,13 +85,7 @@ export const chatApi = {
     if (chatRooms.length === 0) {
       chatRooms = [...DUMMY_CHAT_ROOMS];
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-    }
-
-    // 검색 필터링
-    if (params.search) {
-      chatRooms = chatRooms.filter(room => 
-        room.name.toLowerCase().includes(params.search.toLowerCase())
-      );
+      console.log('더미 채팅방 데이터 로드:', chatRooms);
     }
 
     // 고정된 채팅방을 먼저 정렬
