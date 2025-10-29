@@ -48,8 +48,14 @@ export const DUMMY_USERS = {
   ]
 };
 
-// 상품 더미 데이터
-export const DUMMY_PRODUCTS = [
+// 상품 타입 상수
+export const PRODUCT_TYPES = {
+  LEND: 'lend',      // 빌려줘 (대여 가능한 상품)
+  BORROW: 'borrow'   // 구해요 (대여 요청)
+};
+
+// 빌려줘 상품 더미 데이터 (대여 가능한 상품)
+export const DUMMY_LEND_PRODUCTS = [
   {
     id: 'product_001',
     title: '닌텐도 스위치 OLED',
@@ -350,12 +356,119 @@ export const DUMMY_PRODUCTS = [
   }
 ];
 
+// 구해요 상품 더미 데이터 (대여 요청)
+export const DUMMY_BORROW_PRODUCTS = [
+  {
+    id: 'request_001',
+    title: '캠핑용 텐트 구해요',
+    description: '4인용 텐트 필요합니다. 주말 캠핑 예정이에요!',
+    price: 20000,
+    deposit: 50000,
+    location: '서울시 마포구',
+    image: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&h=400&fit=crop',
+    images: ['https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&h=600&fit=crop'],
+    requesterId: 101,
+    requester: DUMMY_USERS.currentUser,
+    category: '캠핑',
+    condition: 'any',
+    isActive: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: '2024-01-20T10:00:00Z',
+    updatedAt: '2024-01-20T10:00:00Z',
+    type: 'borrow'
+  },
+  {
+    id: 'request_002',
+    title: '드론 빌려주실 분 구해요',
+    description: 'DJI 미니 시리즈 드론 필요합니다. 여행 촬영용',
+    price: 30000,
+    deposit: 200000,
+    location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=400&h=400&fit=crop',
+    images: ['https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&h=600&fit=crop'],
+    requesterId: 102,
+    requester: DUMMY_USERS.others[0],
+    category: '촬영',
+    condition: 'good',
+    isActive: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: '2024-01-19T14:30:00Z',
+    updatedAt: '2024-01-19T14:30:00Z',
+    type: 'borrow'
+  },
+  {
+    id: 'request_003',
+    title: '전동 킥보드 대여 구합니다',
+    description: '출퇴근용으로 1주일 정도 빌리고 싶어요',
+    price: 10000,
+    deposit: 100000,
+    location: '서울시 송파구',
+    image: 'https://images.unsplash.com/photo-1559311042-f9b6c0d7d1f6?w=400&h=400&fit=crop',
+    images: ['https://images.unsplash.com/photo-1559311042-f9b6c0d7d1f6?w=800&h=600&fit=crop'],
+    requesterId: 103,
+    requester: DUMMY_USERS.others[1],
+    category: '이동수단',
+    condition: 'good',
+    isActive: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: '2024-01-18T09:00:00Z',
+    updatedAt: '2024-01-18T09:00:00Z',
+    type: 'borrow'
+  },
+  {
+    id: 'request_004',
+    title: '프로젝터 급하게 필요해요',
+    description: '발표용 프로젝터 하루만 빌리고 싶습니다',
+    price: 15000,
+    deposit: 150000,
+    location: '서울시 서초구',
+    image: 'https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=400&h=400&fit=crop',
+    images: ['https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=800&h=600&fit=crop'],
+    requesterId: 101,
+    requester: DUMMY_USERS.currentUser,
+    category: '전자기기',
+    condition: 'any',
+    isActive: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: '2024-01-21T16:00:00Z',
+    updatedAt: '2024-01-21T16:00:00Z',
+    type: 'borrow'
+  },
+  {
+    id: 'request_005',
+    title: '파티용 스피커 구해요',
+    description: '생일 파티용 블루투스 스피커 필요합니다',
+    price: 8000,
+    deposit: 50000,
+    location: '서울시 강동구',
+    image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&h=400&fit=crop',
+    images: ['https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&h=600&fit=crop'],
+    requesterId: 102,
+    requester: DUMMY_USERS.others[0],
+    category: '음향기기',
+    condition: 'good',
+    isActive: true,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: '2024-01-17T11:20:00Z',
+    updatedAt: '2024-01-17T11:20:00Z',
+    type: 'borrow'
+  }
+];
+
+// 통합 상품 데이터 (하위 호환성 유지)
+export const DUMMY_PRODUCTS = [...DUMMY_LEND_PRODUCTS];
+
 // 리뷰 더미 데이터
 export const DUMMY_REVIEWS = [
   {
     id: 'review_001',
     productId: 'product_001',
-    product: DUMMY_PRODUCTS[0], // 닌텐도 스위치 OLED
+    product: DUMMY_LEND_PRODUCTS[0], // 닌텐도 스위치 OLED
     reviewerId: 101,
     revieweeId: 102,
     reviewer: DUMMY_USERS.currentUser,

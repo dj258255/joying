@@ -2,6 +2,10 @@ package com.joying.member.service;
 
 import com.joying.common.exception.BusinessException;
 import com.joying.common.exception.ErrorCode;
+import com.joying.file.component.FileUrlResolver;
+import com.joying.file.domain.File;
+import com.joying.file.repository.FileRepository;
+import com.joying.file.service.FileService;
 import com.joying.member.domain.Member;
 import com.joying.member.dto.MemberProfileUpdateRequest;
 import com.joying.member.dto.MemberResponse;
@@ -10,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 회원 서비스
@@ -23,6 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class MemberService {
 
 	private final MemberRepository memberRepository;
+	private final FileService fileService;
+	private final FileRepository fileRepository;
+	private final FileUrlResolver fileUrlResolver;
 
 	/**
 	 * 회원 정보 조회
@@ -32,7 +40,7 @@ public class MemberService {
 	 */
 	public MemberResponse getMemberInfo(Long memberId) {
 		Member member = findMemberById(memberId);
-		return MemberResponse.from(member);
+		return MemberResponse.from(member, fileUrlResolver);
 	}
 
 	/**
@@ -40,8 +48,12 @@ public class MemberService {
 	 *
 	 * @param memberId        수정할 회원 ID
 	 * @param currentMemberId 현재 로그인한 회원 ID (토큰에서 추출)
-	 * @param request         프로필 수정 요청
+	 * @param request         프로필 수정 요청 (닉네임만 수정)
 	 * @return 수정된 회원 정보
+	 *
+	 * Note: 프로필 이미지 변경은 별도 API 사용
+	 * - uploadProfileImage() : 이미지 업로드
+	 * - deleteProfileImage() : 이미지 삭제
 	 */
 	@Transactional
 	public MemberResponse updateProfile(Long memberId, Long currentMemberId, MemberProfileUpdateRequest request) {
@@ -50,13 +62,69 @@ public class MemberService {
 
 		Member member = findMemberById(memberId);
 
-		// 닉네임 및 프로필 이미지 수정
+		// 닉네임 수정
 		// Note: 실명(name)은 1원 인증을 통해서만 업데이트 가능
-		member.updateProfile(request.getNickname(), null); // TODO: File 엔티티 연동 시 profileImage 처리
+		// Note: 프로필 이미지는 별도 API로 변경
+		member.updateProfile(request.getNickname(), null);
 
-		log.info("회원 프로필 수정 완료: memberId={}, nickname={}", memberId, request.getNickname());
+		log.info("회원 프로필 수정 완료: memberId={}, nickname={}",
+			memberId, request.getNickname());
 
-		return MemberResponse.from(member);
+		return MemberResponse.from(member, fileUrlResolver);
+	}
+
+	/**
+	 * 프로필 이미지 업로드 (본인만 가능)
+	 *
+	 * @param memberId        회원 ID
+	 * @param currentMemberId 현재 로그인한 회원 ID (토큰에서 추출)
+	 * @param multipartFile   업로드할 이미지 파일
+	 * @return 수정된 회원 정보
+	 */
+	@Transactional
+	public MemberResponse uploadProfileImage(Long memberId, Long currentMemberId, MultipartFile multipartFile) {
+		// 권한 검증: 본인만 수정 가능
+		validateOwnership(memberId, currentMemberId);
+
+		Member member = findMemberById(memberId);
+
+		// FileService를 통해 파일 업로드
+		File uploadedFile = fileService.saveFile(multipartFile);
+
+		// 회원 프로필 이미지 변경
+		member.updateProfile(null, uploadedFile);
+
+		log.info("프로필 이미지 업로드 완료: memberId={}, fileId={}", memberId, uploadedFile.getFileId());
+
+		return MemberResponse.from(member, fileUrlResolver);
+	}
+
+	/**
+	 * 프로필 이미지 완전 삭제 (본인만 가능)
+	 * - 사용자 업로드 이미지 삭제
+	 * - 카카오 프로필 이미지 URL 삭제
+	 * → 기본 이미지로 완전 복원
+	 *
+	 * @param memberId        회원 ID
+	 * @param currentMemberId 현재 로그인한 회원 ID (토큰에서 추출)
+	 * @return 수정된 회원 정보 (기본 이미지 적용)
+	 */
+	@Transactional
+	public MemberResponse deleteProfileImage(Long memberId, Long currentMemberId) {
+		// 권한 검증: 본인만 수정 가능
+		validateOwnership(memberId, currentMemberId);
+
+		Member member = findMemberById(memberId);
+
+		// 프로필 이미지 완전 삭제
+		// - profileImage (File FK) → null
+		// - kakaoProfileImageUrl (String) → null
+		// → 기본 이미지 경로만 반환됨
+		member.deleteProfileImage();
+
+		log.info("프로필 이미지 완전 삭제 완료: memberId={}", memberId);
+
+		return MemberResponse.from(member, fileUrlResolver);
 	}
 
 	/**

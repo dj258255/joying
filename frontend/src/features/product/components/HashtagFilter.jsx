@@ -1,11 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
-  const [hashtags, setHashtags] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
   // 더미 해시태그 데이터 (실제로는 API에서 가져와야 함)
   const dummyHashtags = [
     { id: 1, name: '게임', count: 45 },
@@ -50,22 +45,15 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
     { id: 40, name: '서핑', count: 1 }
   ];
 
-  useEffect(() => {
-    // 해시태그 데이터 로드 시뮬레이션
-    const loadHashtags = async () => {
-      setIsLoading(true);
-      // 실제로는 API 호출
-      setTimeout(() => {
-        setHashtags(dummyHashtags);
-        setIsLoading(false);
-      }, 500);
-    };
-
-    loadHashtags();
-  }, []);
+  const [hashtags] = useState(dummyHashtags);
+  const [showAll, setShowAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleHashtagClick = (hashtag) => {
-    onHashtagSelect(hashtag);
+    // 이미 선택된 태그인지 확인
+    const isSelected = selectedHashtags.some(h => h.id === hashtag.id);
+    // 선택된 태그면 제거(true), 아니면 추가(false)
+    onHashtagSelect(hashtag, isSelected);
   };
 
   const handleRemoveHashtag = (hashtagId) => {
@@ -79,14 +67,6 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
 
   // 표시할 해시태그 결정
   const displayHashtags = showAll ? filteredHashtags : filteredHashtags.slice(0, 20);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3">

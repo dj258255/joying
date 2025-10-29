@@ -49,14 +49,14 @@ const Header = ({ className = '' }) => {
                   마이페이지
                 </a>
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                    <span className="text-gray-600 font-medium text-sm">
-                      {user?.nickname?.charAt(0) || '?'}
+                  <div className="w-5 h-5 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center ring-1 ring-gray-300 hover:ring-gray-400 transition-all duration-200 shadow-sm">
+                    <span className="text-white font-bold text-[9px] leading-none">
+                      {user?.nickname?.charAt(0)?.toUpperCase() || '?'}
                     </span>
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
+                    className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                   >
                     로그아웃
                   </button>

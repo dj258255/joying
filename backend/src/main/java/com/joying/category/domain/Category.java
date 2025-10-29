@@ -47,4 +47,15 @@ public class Category {
         this.categoryLevel = categoryLevel;
     }
 
+    public void updateCategoryName(String categoryName) {
+        this.categoryName = categoryName;
+    }
+
+    public void updateCategoryLevel(Integer categoryLevel) {
+        this.categoryLevel = categoryLevel;
+    }
+
+    public void updateParent(Category parent) {
+        this.parent = parent;
+    }
 }

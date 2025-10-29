@@ -84,7 +84,14 @@ public enum ErrorCode {
 	// Member Domain (M001~M099)
 	// ========================================
 	MEMBER_NOT_FOUND(404, "M001", "회원을 찾을 수 없습니다"),
-	MEMBER_NOT_OWNER(403, "M002", "해당 회원 정보를 수정/삭제할 권한이 없습니다");
+	MEMBER_NOT_OWNER(403, "M002", "해당 회원 정보를 수정/삭제할 권한이 없습니다"),
+
+	// ========================================
+	// File Domain (F001~F099)
+	// ========================================
+	FILE_NOT_FOUND(404, "F001", "파일을 찾을 수 없습니다"),
+	INVALID_FILE_TYPE(400, "F002", "허용되지 않는 파일 형식입니다"),
+	FILE_UPLOAD_FAILED(500, "F003", "파일 업로드에 실패했습니다");
 
 	private final int status;
 	private final String code;
