@@ -3,10 +3,10 @@
  * 전역 스타일
  */
 
- @tailwind base;
- @tailwind components;
- @tailwind utilities;
- 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
  @keyframes scan {
    0% {
      transform: translateY(-100%);
@@ -15,10 +15,50 @@
      transform: translateY(100%);
    }
  }
- 
- @layer base {
-   html {
-     font-family: 'Inter', system-ui, sans-serif;
+
+ @keyframes fadeIn {
+   from {
+     opacity: 0;
+   }
+   to {
+     opacity: 1;
+   }
+ }
+
+ @keyframes slideUp {
+   from {
+     transform: translateY(100%);
+     opacity: 0;
+   }
+   to {
+     transform: translateY(0);
+     opacity: 1;
+   }
+ }
+
+ @keyframes slideDown {
+   from {
+     transform: translateY(0);
+     opacity: 1;
+   }
+   to {
+     transform: translateY(100%);
+     opacity: 0;
+   }
+ }
+
+ @keyframes fadeOut {
+   from {
+     opacity: 1;
+   }
+   to {
+     opacity: 0;
+   }
+ }
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
      /* 기본 스크롤바 숨김 */
      -ms-overflow-style: none;
      scrollbar-width: none;
@@ -26,9 +66,9 @@
    
    html::-webkit-scrollbar {
      display: none;
-   }
-   
-   body {
+  }
+  
+  body {
      @apply bg-black text-white;
      /* 기본 스크롤바 숨김 */
      -ms-overflow-style: none;
@@ -37,18 +77,18 @@
    
    body::-webkit-scrollbar {
      display: none;
-   }
-   
-   * {
-     @apply border-gray-200;
-   }
- }
- 
- @layer components {
-   .btn {
-     @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2;
-   }
-   
+  }
+  
+  * {
+    @apply border-gray-200;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
   .btn-primary {
     @apply btn bg-gray-900 text-white hover:bg-black focus:ring-gray-900;
   }
@@ -56,30 +96,15 @@
   .btn-secondary {
     @apply btn bg-white text-gray-700 border-gray-300 hover:bg-gray-50 focus:ring-gray-900;
   }
-   
-   .btn-danger {
-     @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
-   }
-   
+  
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+  
   .input {
     @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-gray-900 focus:border-gray-900;
   }
    
-   .card {
-     @apply bg-white overflow-hidden shadow rounded-lg;
-   }
-   
-   .card-header {
-     @apply px-4 py-5 sm:px-6 border-b border-gray-200;
-   }
-   
-   .card-body {
-     @apply px-4 py-5 sm:p-6;
-   }
-   
-   .card-footer {
-     @apply px-4 py-4 sm:px-6 border-t border-gray-200;
-   }
  
    /* 시안 블루(#007ACC) 스크롤리스 글래스모피즘 디자인 시스템 */
    
@@ -241,12 +266,6 @@
      @apply text-sm text-gray-600;
    }
  
-   /* 상품 카드 시스템 */
-   .glass-product-header {
-     @apply bg-white/30 backdrop-blur-xl border border-white/30 rounded-3xl shadow-2xl;
-     @apply hover:bg-white/40 hover:shadow-2xl transition-all duration-300;
-     @apply min-h-[80px] flex items-center;
-   }
  
    .glass-section-title {
      @apply text-2xl font-bold text-black drop-shadow-md;
@@ -373,25 +392,6 @@
      @apply px-6 py-4 whitespace-nowrap;
    }
  
-   .glass-product-info {
-     @apply flex items-center space-x-3;
-   }
- 
-   .glass-product-image {
-     @apply flex-shrink-0;
-   }
- 
-   .glass-product-details {
-     @apply flex-1;
-   }
- 
-   .glass-product-name {
-     @apply text-sm font-medium text-gray-900;
-   }
- 
-   .glass-product-category {
-     @apply text-sm text-gray-500;
-   }
  
    .glass-user-info {
      @apply flex flex-col;
@@ -452,20 +452,28 @@
    }
  
  
-  /* 새로운 카드 디자인 - 이미지 메인 + 텍스트 오버레이 */
-  .glass-product-card-new {
-    @apply relative w-full bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-200;
-  }
+ /* 새로운 카드 디자인 - 이미지 메인 + 텍스트 오버레이 */
+ .glass-product-card-new {
+   @apply relative w-full bg-white rounded-xl overflow-hidden shadow-sm transition-all duration-300 cursor-pointer border border-gray-200;
+ }
 
-  /* 메인 이미지 컨테이너 */
-  .glass-product-image-main {
-    @apply relative w-full aspect-square;
-  }
+.glass-product-card-new:hover {
+  @apply shadow-xl border-gray-300 -translate-y-1 rounded-xl overflow-hidden;
+}
 
-  /* 배경 이미지 */
-  .glass-product-image-bg {
-    @apply w-full h-full object-cover;
-  }
+ /* 메인 이미지 컨테이너 */
+ .glass-product-image-main {
+   @apply relative w-full aspect-square overflow-hidden;
+ }
+
+ /* 배경 이미지 */
+ .glass-product-image-bg {
+   @apply w-full h-full object-cover transition-transform duration-500;
+ }
+
+ .glass-product-card-new:hover .glass-product-image-bg {
+   @apply scale-110;
+ }
 
   /* 이미지 플레이스홀더 */
   .glass-product-image-placeholder-bg {
@@ -474,7 +482,11 @@
 
   /* 그라데이션 오버레이 */
   .glass-product-gradient-overlay {
-    @apply absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent;
+    @apply absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent transition-opacity duration-300;
+  }
+
+  .glass-product-card-new:hover .glass-product-gradient-overlay {
+    @apply from-black/70;
   }
  
   /* 상태 뱃지 (ProductCard에서 사용) */
@@ -503,41 +515,45 @@
     @apply absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200;
   }
 
-  .glass-action-button-new {
-    @apply p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200;
-  }
-
-  .glass-action-edit {
-    @apply text-gray-600 hover:text-gray-900;
-  }
-
-  .glass-action-delete {
-    @apply text-red-600 hover:text-red-700;
-  }
-
-  .glass-action-unlike {
-    @apply text-red-600 hover:text-red-700;
-  }
-
- .glass-action-view {
-   @apply text-gray-900 hover:text-black;
+ .glass-action-button-new {
+   @apply p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-110;
  }
+
+ .glass-action-edit {
+   @apply text-gray-600 hover:text-gray-900 hover:bg-gray-50;
+ }
+
+ .glass-action-delete {
+   @apply text-red-600 hover:text-red-700 hover:bg-red-50;
+ }
+
+ .glass-action-unlike {
+   @apply text-red-600 hover:text-red-700 hover:bg-red-50;
+ }
+
+.glass-action-view {
+  @apply text-gray-900 hover:text-black hover:bg-gray-50;
+}
 
   /* 하단 텍스트 오버레이 */
   .glass-product-text-overlay {
-    @apply absolute bottom-0 left-0 right-0 p-4 z-10;
+    @apply absolute bottom-0 left-0 right-0 p-4 z-[5] transition-transform duration-300;
+  }
+
+  .glass-product-card-new:hover .glass-product-text-overlay {
+    @apply translate-y-0;
   }
  
-  /* 반응형 디자인 */
-  @media (max-width: 768px) {
-    .glass-product-card-new {
-      @apply rounded-lg;
-    }
-    
-    .glass-product-text-overlay {
-      @apply p-3;
-    }
-  }
+ /* 반응형 디자인 */
+ @media (max-width: 768px) {
+   .glass-product-card-new {
+     @apply rounded-lg overflow-hidden;
+   }
+   
+   .glass-product-text-overlay {
+     @apply p-3;
+   }
+ }
  
   /* 접근성 개선 */
   .glass-product-card-new:focus {
@@ -720,22 +736,22 @@
    /* 스크롤리스 뷰포트 */
    .glass-viewport {
      @apply h-screen overflow-hidden;
-   }
- }
- 
- @layer utilities {
-   .text-balance {
-     text-wrap: balance;
-   }
-   
-   .scrollbar-hide {
-     -ms-overflow-style: none;
-     scrollbar-width: none;
-   }
-   
-   .scrollbar-hide::-webkit-scrollbar {
-     display: none;
-   }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
    
    /* 커스텀 스크롤바 스타일 (reference 스타일) */
    .custom-scrollbar {
@@ -761,14 +777,32 @@
      background: rgba(16, 185, 129, 0.7);
    }
  
-   /* 홀로그램 애니메이션 */
-   @keyframes shimmer {
-     0% {
-       transform: translateX(-100%);
-     }
-     100% {
-       transform: translateX(100%);
-     }
-   }
- 
- }
+  /* 홀로그램 애니메이션 */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* 모달 애니메이션 클래스 */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-fadeOut {
+    animation: fadeOut 0.3s ease-in forwards;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-slideDown {
+    animation: slideDown 0.3s ease-in forwards;
+  }
+
+}
+

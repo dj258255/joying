@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
-import { DUMMY_PRODUCTS } from '../../../shared/constants/dummyData';
+import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
+import { useAuth } from '@/features/auth';
+import { useProducts } from '../hooks/useProducts';
 
 const CATEGORIES = [
   { id: 1, name: "게임 / 오락", children: ["콘솔 (닌텐도 스위치, PS5, Xbox)", "보드게임", "오락기 / 아케이드 머신", "VR 기기 (Meta Quest, PS VR)", "게임 컨트롤러 / 조이스틱", "게임 타이틀 (소프트웨어)"] },
@@ -53,8 +55,18 @@ const SEOUL_DISTRICTS = [
 
 const ProductListMain = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  
+  // 임시: 로그인 상태 시뮬레이션 (개발용)
+  const mockIsAuthenticated = true;
+  const mockUser = { name: '김철수' };
+  
+  // 사이드 네비게이션 상태
+  const [isSideNavOpen, setIsSideNavOpen] = useState(false);
+  
   const [activeTab, setActiveTab] = useState('lend');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState({ start: null, end: null });
@@ -69,8 +81,37 @@ const ProductListMain = () => {
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // 더미 데이터 사용
-  const products = DUMMY_PRODUCTS;
+  // API 필터 파라미터 생성
+  const apiFilters = useMemo(() => ({
+    type: activeTab, // 'lend' 또는 'borrow'
+    search: searchQuery,
+    category: selectedSubcategories.length > 0 ? selectedSubcategories[0] : '',
+    minPrice: priceRange.min ? parseInt(priceRange.min) : 0,
+    maxPrice: priceRange.max ? parseInt(priceRange.max) : Infinity,
+    location: selectedAreas.length > 0 ? selectedAreas[0] : '',
+    minRating: rating,
+    sameDayRental: sameDayRental,
+    hashtags: selectedHashtags.map(h => h.name),
+    startDate: selectedDates.start ? selectedDates.start.toISOString() : null,
+    endDate: selectedDates.end ? selectedDates.end.toISOString() : null
+  }), [
+    activeTab,
+    searchQuery,
+    selectedSubcategories,
+    priceRange,
+    selectedAreas,
+    rating,
+    sameDayRental,
+    selectedHashtags,
+    selectedDates
+  ]);
+
+  // React Query로 상품 데이터 가져오기
+  const { data: productsData, isLoading, isError, error } = useProducts(apiFilters);
+
+  // 상품 목록 추출
+  const products = productsData?.items || [];
+  const totalProducts = productsData?.total || 0;
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -222,6 +263,15 @@ const ProductListMain = () => {
       sameDayRental,
       hashtags: selectedHashtags
     });
+    handleCloseFilter();
+  };
+
+  const handleCloseFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300); // 애니메이션 시간과 동일 (0.3s)
   };
 
   const handleCreateProduct = () => {
@@ -230,35 +280,65 @@ const ProductListMain = () => {
 
   return (
     <div className="flex h-screen bg-white">
-      <SideNavbar />
+      {/* 우측 상단 프로필/로그인 버튼 - 데스크톱 */}
+      <div className="hidden lg:flex fixed top-4 right-4 z-[100] items-center gap-4">
+        {mockIsAuthenticated ? (
+          // 로그인 상태: 원형 프로필 버튼
+          <button
+            onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+            className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+            title={mockUser?.name || '프로필'}
+          >
+            {mockUser?.name?.charAt(0) || '👤'}
+          </button>
+        ) : (
+          // 미로그인 상태: 로그인/회원가입 버튼
+          <>
+            <button
+              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-200"
+            >
+              로그인
+            </button>
+            <button
+              onClick={() => navigate('/register')}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
+            >
+              회원가입
+            </button>
+          </>
+        )}
+      </div>
+      
+      <SideNavbar isOpen={isSideNavOpen} onClose={() => setIsSideNavOpen(false)} />
       {/* 데스크톱 필터 사이드바 */}
       <div className="hidden lg:block w-64 h-screen overflow-y-auto sticky top-0 scrollbar-hide bg-white border-r border-gray-200">
         <div className="p-4 space-y-4">
           
           {/* 빌려요/구해요 탭 */}
           <div className="mb-4">
-            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-              <button
-                onClick={() => setActiveTab('lend')}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  activeTab === 'lend'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                빌려줘
-              </button>
-              <button
-                onClick={() => setActiveTab('borrow')}
-                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  activeTab === 'borrow'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                구해요
-              </button>
-            </div>
+           <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+             <button
+               onClick={() => setActiveTab('lend')}
+               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                 activeTab === 'lend'
+                   ? 'bg-gray-900 text-white shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+             >
+               빌려줘
+             </button>
+             <button
+               onClick={() => setActiveTab('borrow')}
+               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                 activeTab === 'borrow'
+                   ? 'bg-gray-900 text-white shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+             >
+               구해요
+             </button>
+           </div>
           </div>
         {/* 검색창 */}
         <div className="relative">
@@ -281,42 +361,14 @@ const ProductListMain = () => {
 
         {/* 날짜 기간 */}
         <div className="space-y-2">
-           <h3 className="text-sm font-semibold text-gray-900">날짜 기간</h3>
-          
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="시작 날짜"
-              value={selectedDates.start ? selectedDates.start.toLocaleDateString('ko-KR').slice(0, -1) : ''}
-              readOnly
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 cursor-pointer rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
-            <input
-              type="text"
-              placeholder="종료 날짜"
-              value={selectedDates.end ? selectedDates.end.toLocaleDateString('ko-KR').slice(0, -1) : ''}
-              readOnly
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 cursor-pointer rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">날짜 기간</h3>
+            {formatDateRange() && (
+              <span className="text-xs font-bold text-gray-900">
+                {formatDateRange()}
+              </span>
+            )}
           </div>
-
-           {formatDateRange() && (
-             <div className="text-sm font-bold text-gray-900">
-               {formatDateRange()}
-             </div>
-           )}
 
           {/* 캘린더 */}
           <div className="p-4 rounded-2xl" style={{ 
@@ -442,31 +494,26 @@ const ProductListMain = () => {
           </button>
 
           {showCategoryPopover && (
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
               maxWidth: '95%', 
-              height: '400px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(40px)',
-              border: '1.5px solid rgba(255, 255, 255, 0.6)',
-              boxShadow: '0 20px 60px rgba(31, 38, 135, 0.25), inset 0 0 30px rgba(255, 255, 255, 0.7)'
+              height: '350px',
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}>
-             <div className="flex h-full">
+             <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
                {/* 상위 카테고리 */}
-               <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+               <div className="w-2/5 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
                   {CATEGORIES.map(category => (
                     <button
                       key={category.id}
                       onClick={() => setActiveCategoryId(category.id)}
-                      className={`w-full px-4 py-3 text-left text-sm transition-all duration-200 ${
+                      className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
                         activeCategoryId === category.id
-                          ? 'font-semibold'
-                          : 'text-gray-700'
+                          ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
+                          : 'text-gray-600 hover:bg-white/50'
                       }`}
-                       style={activeCategoryId === category.id ? {
-                         background: 'rgba(17, 24, 39, 0.08)',
-                         color: '#111827',
-                         borderLeft: '3px solid #111827'
-                       } : {}}
                     >
                       {category.name}
                     </button>
@@ -474,33 +521,36 @@ const ProductListMain = () => {
                 </div>
 
                  {/* 하위 카테고리 */}
-                 <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
-                  {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => toggleSubcategory(sub)}
-                      className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                        selectedSubcategories.includes(sub)
-                          ? 'bg-gray-900 text-white border border-gray-900'
-                          : 'hover:bg-gray-50 text-gray-800'
-                      }`}
-                    >
-                      <span className="text-xs leading-tight">{sub}</span>
-                    </button>
-                  ))}
+                 <div className="w-3/5 overflow-y-auto scrollbar-hide p-2">
+                  <div className="grid grid-cols-1 gap-1">
+                    {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => toggleSubcategory(sub)}
+                        className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
+                          selectedSubcategories.includes(sub)
+                            ? 'bg-gray-900 text-white'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <span className="leading-tight">{sub}</span>
+                        {selectedSubcategories.includes(sub) && (
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                 <button
                   onClick={() => setShowCategoryPopover(false)}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-300 hover:shadow-xl"
-                   style={{ 
-                     background: 'linear-gradient(135deg, #1f2937, #111827)',
-                     boxShadow: '0 8px 20px rgba(0, 0, 0, 0.25)'
-                   }}
+                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
                 >
-                  선택 완료
+                  선택 완료 ({selectedSubcategories.length})
                 </button>
               </div>
             </div>
@@ -665,13 +715,12 @@ const ProductListMain = () => {
 
           {rating > 0 && (
             <div className="text-center">
-               <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
+               <div className="text-sm font-bold text-gray-900">
                  {rating}점 이상
                </div>
                <button
                  onClick={() => setRating(0)}
-                 className="text-xs mt-1 transition-opacity duration-200 hover:opacity-70"
-                 style={{ color: 'rgb(59 130 246 / 1)' }}
+                 className="text-xs mt-1 text-gray-700 hover:text-gray-900 transition-opacity duration-200 hover:opacity-70"
               >
                 평점 초기화
               </button>
@@ -720,7 +769,7 @@ const ProductListMain = () => {
       </div>
 
       {/* Sticky Footer */}
-      <div className="sticky bottom-0 p-4 space-y-2 bg-white border-t border-gray-200">
+      <div className="sticky bottom-0 p-4 space-y-2 bg-white border-t border-gray-200 z-[60]">
         <button
           onClick={handleReset}
           className="w-full py-2.5 px-4 rounded-lg font-medium text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -742,60 +791,165 @@ const ProductListMain = () => {
        {/* 모바일 헤더 */}
        <div className="lg:hidden p-4 bg-white border-b border-gray-200">
          <div className="flex items-center justify-between">
-           <div>
-             <h1 className="text-xl font-bold text-gray-900">
-               {activeTab === 'lend' ? '빌려줘' : '구해요'}
-             </h1>
+           {/* 토글 스위치 */}
+           <div className="relative">
+             <button
+               onClick={() => setActiveTab(activeTab === 'lend' ? 'borrow' : 'lend')}
+               className="relative w-40 h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
+             >
+               {/* 슬라이더 */}
+               <div
+                 className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
+                 style={{
+                   left: activeTab === 'lend' ? '4px' : 'calc(50% + 0px)'
+                 }}
+               />
+               
+               {/* 텍스트 레이어 */}
+               <div className="absolute inset-0 flex items-center pointer-events-none">
+                 <div className="w-1/2 flex items-center justify-center">
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'lend' ? 'text-white' : 'text-gray-600'}`}>
+                     빌려줘
+                   </span>
+                 </div>
+                 <div className="w-1/2 flex items-center justify-center">
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'borrow' ? 'text-white' : 'text-gray-600'}`}>
+                     구해요
+                   </span>
+                 </div>
+               </div>
+             </button>
            </div>
-           <button
-             onClick={() => setIsFilterOpen(true)}
-             className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors"
-           >
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-             </svg>
-           </button>
+           
+           {/* 모바일 우측 버튼 그룹 */}
+           <div className="flex items-center gap-2">
+             {/* 필터 버튼 */}
+             <button
+               onClick={() => setIsFilterOpen(true)}
+               className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+               </svg>
+             </button>
+             
+             {/* 프로필/로그인 버튼 */}
+             {mockIsAuthenticated ? (
+               <button
+                 onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                 className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30"
+                 title={mockUser?.name || '프로필'}
+               >
+                 {mockUser?.name?.charAt(0) || '👤'}
+               </button>
+             ) : (
+               <button
+                 onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+                 className="px-3 py-2 text-sm font-medium text-white bg-gray-900 hover:bg-black rounded-lg transition-colors duration-200 shadow-sm"
+               >
+                 로그인
+               </button>
+             )}
+           </div>
          </div>
        </div>
 
-       {/* 해시태그 필터 - 스티키 */}
-       <div className="sticky top-0 z-50 p-4 bg-white border-b border-gray-200">
-         <HashtagFilter 
-           onHashtagSelect={handleHashtagSelect}
-           selectedHashtags={selectedHashtags}
-         />
-       </div>
+      {/* 해시태그 필터 - 스티키 */}
+      <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
+        <HashtagFilter 
+          onHashtagSelect={handleHashtagSelect}
+          selectedHashtags={selectedHashtags}
+        />
+      </div>
 
        {/* 상품 목록 */}
-       <div className="p-6">
-         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-           {products.map((product) => (
-             <ProductCard
-               key={product.id}
-               product={product}
-               onClick={() => navigate(`/products/${product.id}`)}
-               actionType="view"
-               status={product.status}
-               showStats={false}
-               showDate={false}
-             />
-           ))}
-         </div>
+       <div className="flex-1 p-6 overflow-y-auto">
+         {/* 로딩 상태 */}
+         {isLoading && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+               <p className="text-gray-600">상품을 불러오는 중...</p>
+             </div>
+           </div>
+         )}
+
+         {/* 에러 상태 */}
+         {isError && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+               </svg>
+               <p className="text-gray-900 font-semibold mb-2">상품을 불러오는데 실패했습니다</p>
+               <p className="text-gray-600 text-sm">{error?.message}</p>
+             </div>
+           </div>
+         )}
+
+         {/* 상품 목록 */}
+         {!isLoading && !isError && products.length > 0 && (
+           <>
+             <div className="mb-4 flex items-center justify-between">
+               <p className="text-sm text-gray-600">
+                 총 <span className="font-semibold text-gray-900">{totalProducts}</span>개의 상품
+               </p>
+             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onClick={() => navigate(`/products/${product.id}`)}
+                  actionType="view"
+                  status={product.isAvailable ? 'available' : 'unavailable'}
+                  showStats={false}
+                  showDate={false}
+                />
+              ))}
+            </div>
+           </>
+         )}
+
+         {/* 빈 상태 */}
+         {!isLoading && !isError && products.length === 0 && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+               </svg>
+               <p className="text-gray-900 font-semibold mb-2">검색 결과가 없습니다</p>
+               <p className="text-gray-600 text-sm">다른 조건으로 검색해보세요</p>
+             </div>
+           </div>
+         )}
        </div>
      </div>
 
-     {/* 모바일 필터 모달 */}
-     {isFilterOpen && (
-       <div className="fixed inset-0 z-50 lg:hidden">
-         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsFilterOpen(false)} />
-         <div className="absolute bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto scrollbar-hide">
-           <div className="flex items-center justify-between mb-6">
-             <h2 className="text-xl font-bold text-gray-900">필터</h2>
-             <button
-               onClick={() => setIsFilterOpen(false)}
-               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+   {/* 모바일 필터 모달 */}
+   {isFilterOpen && (
+     <div className={`fixed inset-0 z-50 lg:hidden ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}>
+       <div 
+         className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}
+         onClick={handleCloseFilter} 
+       />
+       <div 
+         className={`absolute bottom-0 left-0 right-0 rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto scrollbar-hide ${isFilterClosing ? 'animate-slideDown' : 'animate-slideUp'}`}
+         style={{
+           background: 'rgba(255, 255, 255, 0.5)',
+           backdropFilter: 'blur(40px) saturate(180%)',
+           WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+           border: '1px solid rgba(255, 255, 255, 0.6)',
+           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+         }}
+       >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 drop-shadow-sm">필터</h2>
+            <button
+              onClick={handleCloseFilter}
+               className="p-2 hover:bg-white/30 rounded-lg transition-colors"
              >
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <svg className="w-5 h-5 text-gray-800 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                </svg>
              </button>
@@ -806,22 +960,23 @@ const ProductListMain = () => {
              {/* 빌려요/구해요 탭 */}
              <div className="mb-6">
                <div className="flex space-x-2 p-1 rounded-xl" style={{
-                 background: 'rgba(255, 255, 255, 0.15)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+                 background: 'rgba(255, 255, 255, 0.3)',
+                 backdropFilter: 'blur(20px) saturate(180%)',
+                 WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                 border: '1px solid rgba(255, 255, 255, 0.5)',
+                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                }}>
                  <button
                    onClick={() => setActiveTab('lend')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
                      activeTab === 'lend'
-                       ? 'text-gray-800 shadow-md'
-                       : 'text-gray-600 hover:bg-white/10'
+                       ? 'text-gray-900 shadow-md drop-shadow-sm'
+                       : 'text-gray-700 hover:bg-white/20'
                    }`}
                    style={activeTab === 'lend' ? {
-                     background: 'rgba(255, 255, 255, 0.3)',
+                     background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
-                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
+                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
                    빌려줘
@@ -830,13 +985,13 @@ const ProductListMain = () => {
                    onClick={() => setActiveTab('borrow')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
                      activeTab === 'borrow'
-                       ? 'text-gray-800 shadow-md'
-                       : 'text-gray-600 hover:bg-white/10'
+                       ? 'text-gray-900 shadow-md drop-shadow-sm'
+                       : 'text-gray-700 hover:bg-white/20'
                    }`}
                    style={activeTab === 'borrow' ? {
-                     background: 'rgba(255, 255, 255, 0.3)',
+                     background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
-                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
+                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
                    구해요
@@ -876,34 +1031,18 @@ const ProductListMain = () => {
                </svg>
              </div>
 
-             {/* 날짜 기간 */}
-             <div className="space-y-3">
-               <h3 className="text-base font-extrabold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>날짜 기간</h3>
-               
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="시작 날짜"
-              value={selectedDates.start ? selectedDates.start.toLocaleDateString() : ''}
-              readOnly
-              className="flex-1 px-3 py-2 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer"
-            />
-            <input
-              type="text"
-              placeholder="종료 날짜"
-              value={selectedDates.end ? selectedDates.end.toLocaleDateString() : ''}
-              readOnly
-              className="flex-1 px-3 py-2 text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer"
-            />
-          </div>
-
+           {/* 날짜 기간 */}
+           <div className="space-y-3">
+             <div className="flex items-center justify-between">
+               <h3 className="text-base font-extrabold text-gray-900">날짜 기간</h3>
                {formatDateRange() && (
-                 <div className="text-sm font-bold text-gray-900">
+                 <span className="text-sm font-bold text-gray-900">
                    {formatDateRange()}
-                 </div>
+                 </span>
                )}
+             </div>
 
-               {/* 캘린더 */}
+              {/* 캘린더 */}
                <div className="p-4 rounded-2xl" style={{ 
                  background: 'rgba(255, 255, 255, 0.75)',
                  backdropFilter: 'blur(25px)',
@@ -1035,57 +1174,58 @@ const ProductListMain = () => {
                  {getSelectedCategoriesText()}
                </button>
 
-               {showCategoryPopover && (
-                 <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
-                   background: 'rgba(255, 255, 255, 0.9)',
-                   backdropFilter: 'blur(25px)',
-                   border: '1.5px solid rgba(255, 255, 255, 0.6)',
-                   boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)'
-                 }}>
-                   <div className="flex h-full">
-                     {/* 상위 카테고리 */}
-                     <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                       {CATEGORIES.map(category => (
-                         <button
-                           key={category.id}
-                           onClick={() => setActiveCategoryId(category.id)}
-                           className={`w-full text-left py-3 px-4 transition-all duration-200 ${
-                            activeCategoryId === category.id
-                              ? 'bg-gray-900 text-white border-r-2 border-gray-900'
-                              : 'hover:bg-gray-50'
-                          }`}
-                         >
-                           <span className={`text-sm font-medium ${activeCategoryId === category.id ? 'text-white' : 'text-gray-800'}`}>{category.name}</span>
-                         </button>
-                       ))}
-                     </div>
-                     {/* 하위 카테고리 */}
-                     <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
-                       {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
-                         <button
-                           key={idx}
-                           onClick={() => toggleSubcategory(sub)}
-                           className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                            selectedSubcategories.includes(sub)
-                              ? 'bg-gray-900 text-white border border-gray-900'
-                              : 'hover:bg-gray-50'
-                          }`}
-                         >
-                           <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub) ? 'text-white' : 'text-gray-800'}`}>{sub}</span>
-                         </button>
-                       ))}
-                     </div>
-                   </div>
-                   <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                     <button 
-                       onClick={() => setShowCategoryPopover(false)}
-                       className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
-                     >
-                       선택 완료
-                     </button>
-                   </div>
-                 </div>
-               )}
+              {showCategoryPopover && (
+                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(25px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                  boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)',
+                  maxHeight: '400px'
+                }}>
+                  <div className="flex" style={{ height: '320px' }}>
+                    {/* 상위 카테고리 */}
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                      {CATEGORIES.map(category => (
+                        <button
+                          key={category.id}
+                          onClick={() => setActiveCategoryId(category.id)}
+                          className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                           activeCategoryId === category.id
+                             ? 'bg-gray-900 text-white border-r-2 border-gray-900'
+                             : 'hover:bg-gray-50'
+                         }`}
+                        >
+                          <span className={`text-sm font-medium ${activeCategoryId === category.id ? 'text-white' : 'text-gray-800'}`}>{category.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* 하위 카테고리 */}
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
+                      {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => toggleSubcategory(sub)}
+                          className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                           selectedSubcategories.includes(sub)
+                             ? 'bg-gray-900 text-white border border-gray-900'
+                             : 'hover:bg-gray-50'
+                         }`}
+                        >
+                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub) ? 'text-white' : 'text-gray-800'}`}>{sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    <button 
+                      onClick={() => setShowCategoryPopover(false)}
+                      className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                    >
+                      선택 완료
+                    </button>
+                  </div>
+                </div>
+              )}
 
                {/* 선택된 하위 카테고리 표시 */}
                {selectedSubcategories.length > 0 && (
@@ -1230,13 +1370,12 @@ const ProductListMain = () => {
 
                {rating > 0 && (
                  <div className="text-center">
-                   <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
+                   <div className="text-sm font-bold text-gray-900">
                      {rating}점 이상
                    </div>
                    <button
                      onClick={() => setRating(0)}
-                     className="text-xs mt-1 transition-opacity duration-200 hover:opacity-70"
-                     style={{ color: 'rgb(59 130 246 / 1)' }}
+                     className="text-xs mt-1 text-gray-700 hover:text-gray-900 transition-opacity duration-200 hover:opacity-70"
                    >
                      평점 초기화
                    </button>
