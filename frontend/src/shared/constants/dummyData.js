@@ -57,16 +57,18 @@ export const DUMMY_PRODUCTS = [
     price: 15000,
     deposit: 100000,
     location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=400&h=400&fit=crop',
     images: [
-      '/public/models/tent.glb', // fallback to existing public asset placeholder
-      '/public/models/gamepad.glb',
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800&h=600&fit=crop'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
     category: '게임기',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.8,
+    reviewCount: 24,
     createdAt: '2024-01-15T10:00:00Z',
     updatedAt: '2024-01-20T15:30:00Z'
   },
@@ -77,14 +79,17 @@ export const DUMMY_PRODUCTS = [
     price: 50000,
     deposit: 500000,
     location: '서울시 서초구',
+    image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
     category: '노트북',
     condition: 'good',
     isAvailable: true,
+    rating: 4.5,
+    reviewCount: 18,
     createdAt: '2024-01-12T11:00:00Z',
     updatedAt: '2024-01-19T16:45:00Z'
   },
@@ -95,9 +100,12 @@ export const DUMMY_PRODUCTS = [
     price: 8000,
     deposit: 200000,
     location: '서울시 마포구',
+    image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&h=600&fit=crop'
     ],
+    rating: 4.9,
+    reviewCount: 32,
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
     category: '오디오',
@@ -113,14 +121,17 @@ export const DUMMY_PRODUCTS = [
     price: 25000,
     deposit: 300000,
     location: '서울시 송파구',
+    image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
     category: '태블릿',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.7,
+    reviewCount: 15,
     createdAt: '2024-01-08T14:00:00Z',
     updatedAt: '2024-01-17T10:30:00Z'
   },
@@ -131,14 +142,17 @@ export const DUMMY_PRODUCTS = [
     price: 20000,
     deposit: 150000,
     location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400&h=400&fit=crop',
     images: [
-      '/public/models/gamepad.glb'
+      'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800&h=600&fit=crop'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
     category: '게임기',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.9,
+    reviewCount: 28,
     createdAt: '2024-01-05T16:00:00Z',
     updatedAt: '2024-01-16T12:15:00Z'
   },
@@ -150,14 +164,17 @@ export const DUMMY_PRODUCTS = [
     price: 30000,
     deposit: 400000,
     location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1592286927505-b0501739c440?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1592286927505-b0501739c440?w=800&h=600&fit=crop'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
     category: '스마트폰',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.6,
+    reviewCount: 21,
     createdAt: '2024-01-03T13:00:00Z',
     updatedAt: '2024-01-15T09:30:00Z'
   },
@@ -168,14 +185,17 @@ export const DUMMY_PRODUCTS = [
     price: 5000,
     deposit: 150000,
     location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7?w=800&h=600&fit=crop'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
     category: '오디오',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.8,
+    reviewCount: 19,
     createdAt: '2024-01-01T10:00:00Z',
     updatedAt: '2024-01-14T16:45:00Z'
   },
@@ -186,14 +206,17 @@ export const DUMMY_PRODUCTS = [
     price: 8000,
     deposit: 80000,
     location: '서울시 강남구',
+    image: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=400&h=400&fit=crop',
     images: [
-      '/public/models/gamepad.glb'
+      'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=800&h=600&fit=crop'
     ],
     sellerId: 101,
     seller: DUMMY_USERS.currentUser,
     category: '게임기',
     condition: 'good',
     isAvailable: true,
+    rating: 4.3,
+    reviewCount: 12,
     createdAt: '2023-12-28T15:30:00Z',
     updatedAt: '2024-01-13T11:20:00Z'
   },
@@ -205,14 +228,17 @@ export const DUMMY_PRODUCTS = [
     price: 18000,
     deposit: 140000,
     location: '서울시 서초구',
+    image: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=400&h=400&fit=crop',
     images: [
-      '/public/models/gamepad.glb'
+      'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=800&h=600&fit=crop'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
     category: '게임기',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.7,
+    reviewCount: 16,
     createdAt: '2024-01-07T12:00:00Z',
     updatedAt: '2024-01-17T14:15:00Z'
   },
@@ -223,14 +249,17 @@ export const DUMMY_PRODUCTS = [
     price: 6000,
     deposit: 120000,
     location: '서울시 서초구',
+    image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&h=600&fit=crop'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
     category: '오디오',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.4,
+    reviewCount: 22,
     createdAt: '2024-01-04T09:30:00Z',
     updatedAt: '2024-01-16T13:40:00Z'
   },
@@ -241,14 +270,17 @@ export const DUMMY_PRODUCTS = [
     price: 25000,
     deposit: 200000,
     location: '서울시 서초구',
+    image: 'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=400&h=400&fit=crop',
     images: [
-      '/public/models/gamepad.glb'
+      'https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=800&h=600&fit=crop'
     ],
     sellerId: 102,
     seller: DUMMY_USERS.others[0],
     category: '게임기',
     condition: 'good',
     isAvailable: true,
+    rating: 4.6,
+    reviewCount: 14,
     createdAt: '2023-12-30T11:15:00Z',
     updatedAt: '2024-01-15T10:25:00Z'
   },
@@ -260,14 +292,17 @@ export const DUMMY_PRODUCTS = [
     price: 35000,
     deposit: 350000,
     location: '서울시 송파구',
+    image: 'https://images.unsplash.com/photo-1585790050230-5dd28404f674?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1585790050230-5dd28404f674?w=800&h=600&fit=crop'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
     category: '태블릿',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.5,
+    reviewCount: 11,
     createdAt: '2024-01-06T14:45:00Z',
     updatedAt: '2024-01-18T12:30:00Z'
   },
@@ -278,14 +313,17 @@ export const DUMMY_PRODUCTS = [
     price: 40000,
     deposit: 450000,
     location: '서울시 송파구',
+    image: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=800&h=600&fit=crop'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
     category: '노트북',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.8,
+    reviewCount: 20,
     createdAt: '2024-01-02T16:20:00Z',
     updatedAt: '2024-01-17T15:10:00Z'
   },
@@ -296,14 +334,17 @@ export const DUMMY_PRODUCTS = [
     price: 12000,
     deposit: 180000,
     location: '서울시 송파구',
+    image: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=400&h=400&fit=crop',
     images: [
-      '/public/models/camera.glb'
+      'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=800&h=600&fit=crop'
     ],
     sellerId: 103,
     seller: DUMMY_USERS.others[1],
     category: '스마트워치',
     condition: 'excellent',
     isAvailable: true,
+    rating: 4.7,
+    reviewCount: 17,
     createdAt: '2023-12-25T08:00:00Z',
     updatedAt: '2024-01-14T17:50:00Z'
   }
