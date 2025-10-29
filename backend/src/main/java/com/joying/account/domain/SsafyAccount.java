@@ -6,37 +6,42 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
 
-
+/**
+ * SSAFY 테스트 계좌 엔티티
+ *
+ * SSAFY 금융망 API를 통해 생성한 테스트 계좌 정보를 저장
+ * (1원 인증 전 상태)
+ */
 @Getter
 @Entity
-@Table(name = "account")
+@Table(name = "ssafy_account")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EqualsAndHashCode(of = "accountId", callSuper = false)
-public class Account extends BaseEntity {
+@EqualsAndHashCode(of = "ssafyAccountId", callSuper = false)
+public class SsafyAccount extends BaseEntity {
 
     @Id
-    @Column(name = "account_id")
+    @Column(name = "ssafy_account_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long accountId;
+    private Long ssafyAccountId;
 
     @Comment("회원")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    @Comment("은행 이름")
-    @Column(name = "bank_name", nullable = false)
-    private String bankName;
+    @Comment("상품 고유번호 (예: 004-1-001)")
+    @Column(name = "account_type_unique_no", nullable = false, length = 20)
+    private String accountTypeUniqueNo;
+
+    @Comment("SSAFY 계좌번호 (16자리)")
+    @Column(name = "account_no", nullable = false, length = 16, unique = true)
+    private String accountNo;
 
     @Comment("은행 코드 (SSAFY 금융망)")
     @Column(name = "bank_code", nullable = false, length = 3)
     private String bankCode;
 
-    @Comment("계좌 번호 (16자리)")
-    @Column(name = "account_no", nullable = false, length = 16, unique = true)
-    private String accountNo;
-
-    @Comment("계좌 예금주명 (1원 인증으로 확인된 실명)")
+    @Comment("계좌 예금주명 (회원 실명 또는 미인증)")
     @Column(name = "account_holder_name", nullable = false)
     private String accountHolderName;
 
@@ -46,15 +51,15 @@ public class Account extends BaseEntity {
     private AccountState accountState;
 
     /**
-     * Builder 패턴으로 계좌 생성 (1원 인증 방식)
+     * Builder 패턴으로 SSAFY 계좌 생성
      */
     @Builder
-    public Account(Member member, String bankName, String bankCode, String accountNo,
-                   String accountHolderName, AccountState accountState) {
+    public SsafyAccount(Member member, String accountTypeUniqueNo, String accountNo,
+                        String bankCode, String accountHolderName, AccountState accountState) {
         this.member = member;
-        this.bankName = bankName;
-        this.bankCode = bankCode;
+        this.accountTypeUniqueNo = accountTypeUniqueNo;
         this.accountNo = accountNo;
+        this.bankCode = bankCode;
         this.accountHolderName = accountHolderName;
         this.accountState = accountState != null ? accountState : AccountState.ACTIVE;
     }
@@ -66,15 +71,6 @@ public class Account extends BaseEntity {
      */
     public void updateAccountState(AccountState accountState) {
         this.accountState = accountState;
-    }
-
-    /**
-     * 계좌 사용 가능 여부 확인
-     *
-     * @return 정상 상태 여부 (Account 테이블에 있으면 이미 1원 인증 완료)
-     */
-    public boolean isUsable() {
-        return this.accountState.isActive();
     }
 
     /**

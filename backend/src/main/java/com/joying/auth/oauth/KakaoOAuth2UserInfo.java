@@ -18,12 +18,16 @@ import java.util.Map;
  *     }
  *   }
  * }
+ *
+ * 참고:
+ * - Kakao OAuth는 실명이 아닌 별명(nickname)을 제공합니다
+ * - 실명은 1원 인증을 통해 별도로 확인해야 합니다
  */
 @Getter
 public class KakaoOAuth2UserInfo {
 
 	private final String email;
-	private final String name;
+	private final String nickname; // Kakao에서 제공하는 별명
 	private final String profileImageUrl;
 
 	@SuppressWarnings("unchecked")
@@ -32,7 +36,7 @@ public class KakaoOAuth2UserInfo {
 		this.email = (String) kakaoAccount.get("email");
 
 		Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
-		this.name = (String) profile.get("nickname");
+		this.nickname = (String) profile.get("nickname"); // Kakao 별명
 		this.profileImageUrl = (String) profile.get("profile_image_url");
 	}
 }

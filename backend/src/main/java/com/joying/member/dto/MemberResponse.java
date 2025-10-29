@@ -22,7 +22,10 @@ public class MemberResponse {
 	@Schema(description = "회원 ID", example = "1")
 	private Long memberId;
 
-	@Schema(description = "이름", example = "홍길동")
+	@Schema(description = "닉네임 (Kakao 별명)", example = "길동이")
+	private String nickname;
+
+	@Schema(description = "실명 (1원 인증으로 확인된 이름)", example = "홍길동", nullable = true)
 	private String name;
 
 	@Schema(description = "이메일", example = "user@example.com")
@@ -37,6 +40,9 @@ public class MemberResponse {
 	@Schema(description = "평점", example = "4.5")
 	private Double rating;
 
+	@Schema(description = "1원 인증 완료 여부", example = "false")
+	private Boolean verified;
+
 	/**
 	 * Member 엔티티를 MemberResponse로 변환
 	 *
@@ -46,11 +52,13 @@ public class MemberResponse {
 	public static MemberResponse from(Member member) {
 		return MemberResponse.builder()
 			.memberId(member.getMemberId())
-			.name(member.getName())
+			.nickname(member.getNickname())
+			.name(member.getName()) // 1원 인증 전이면 null
 			.email(member.getEmail())
 			.profileImageId(member.getProfileImage() != null ? member.getProfileImage().getFileId() : null)
 			.profileImageUrl(buildProfileImageUrl(member))
 			.rating(member.getRating())
+			.verified(member.getName() != null) // 실명이 있으면 인증 완료
 			.build();
 	}
 
