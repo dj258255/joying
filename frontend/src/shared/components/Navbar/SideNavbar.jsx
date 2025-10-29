@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ProfileImage from '../ProfileImage';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 const SideNavbar = () => {
   const [isVisible, setIsVisible] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
   
   // 채팅방 페이지에서 navbar 호버 비활성화 여부 확인
   const isChatRoom = location.pathname.startsWith('/chats/');
@@ -26,6 +29,16 @@ const SideNavbar = () => {
   
   const handleMouseLeave = () => {
     setIsVisible(false);
+  };
+
+  // 로그아웃 처리
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+    }
   };
 
   const navItems = [
@@ -82,6 +95,11 @@ const SideNavbar = () => {
     }
   ];
 
+  // 인증되지 않은 경우 navbar 숨기기 (홈페이지 제외)
+  if (!isAuthenticated && location.pathname !== '/') {
+    return null;
+  }
+
   return (
     <>
       {/* 호버 감지 영역 */}
@@ -110,14 +128,18 @@ const SideNavbar = () => {
           <div className="p-6 border-b border-white/20">
             <div className="flex items-center space-x-4">
               <ProfileImage 
-                src={null}
-                alt="사용자"
+                src={user?.profileImageUrl}
+                alt={user?.nickname || "사용자"}
                 size={48}
                 className="w-12 h-12"
               />
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">사용자</h3>
-                <p className="text-sm text-gray-600">user@example.com</p>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {user?.nickname || "사용자"}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {user?.email || "user@example.com"}
+                </p>
               </div>
             </div>
           </div>
@@ -171,12 +193,17 @@ const SideNavbar = () => {
             </button>
 
             {/* 로그아웃 버튼 */}
-            <button className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="font-medium">로그아웃</span>
-            </button>
+            {isAuthenticated && (
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="font-medium">로그아웃</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

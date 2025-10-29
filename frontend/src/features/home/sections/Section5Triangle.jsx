@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
+import { kakaoLogin } from '@/features/auth/api/authApi';
 
 /**
  * Section 5: Final CTA (삼각 대형)
@@ -9,6 +10,10 @@ import { ROUTE_PATHS } from '@/shared/constants';
  */
 const Section5Triangle = () => {
   const navigate = useNavigate();
+
+  const handleKakaoLogin = () => {
+    kakaoLogin();
+  };
 
   return (
     <section
@@ -29,10 +34,13 @@ const Section5Triangle = () => {
           </p>
           <div className="flex items-center justify-end gap-4">
             <button
-              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-              className="bg-primary-500 text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-primary-600 transition-all hover:scale-105"
+              onClick={handleKakaoLogin}
+              className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black px-12 py-4 rounded-full text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/40 flex items-center gap-2"
             >
-              회원가입하기
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L5.526 21.83c-.5.5-1.3.5-1.8 0s-.5-1.3 0-1.8l4.746-4.746A13.5 13.5 0 0 1 1.5 11.185C1.5 6.664 6.201 3 12 3z"/>
+              </svg>
+              카카오로 로그인하기
             </button>
             <button
               onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
