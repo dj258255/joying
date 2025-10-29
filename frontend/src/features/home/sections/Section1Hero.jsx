@@ -39,16 +39,13 @@ const Section1Hero = () => {
       {/* 우측 상단 버튼 - 모던 디자인 */}
       <div className="absolute top-8 right-8 flex items-center gap-4">
         {mockIsAuthenticated ? (
-          // 로그인 상태: 원형 프로필 버튼
+          // 로그인 상태: 원형 프로필 버튼 (작고 심플하게)
           <button
             onClick={() => navigate(ROUTE_PATHS.MYPAGE)}
-            className="group relative w-14 h-14 rounded-full bg-gradient-to-br from-primary-400 to-purple-500 flex items-center justify-center text-white font-bold text-xl shadow-lg hover:shadow-xl hover:shadow-primary-500/30 transition-all duration-300 hover:scale-110 border-2 border-white/20 hover:border-white/40"
+            className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
             title={mockUser?.name || '마이페이지'}
           >
             {mockUser?.name?.charAt(0) || '👤'}
-            
-            {/* 호버 시 회전하는 테두리 효과 */}
-            <div className="absolute inset-0 rounded-full border-2 border-transparent group-hover:border-primary-300/50 group-hover:rotate-180 transition-transform duration-700" />
           </button>
         ) : (
           // 미로그인 상태: 아이콘 버튼 (미니멀)

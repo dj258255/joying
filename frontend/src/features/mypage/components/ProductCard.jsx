@@ -93,7 +93,7 @@ const ProductCard = ({
         
         {/* 위치 정보 - 왼쪽 상단 */}
         {product?.location && (
-          <div className="absolute top-3 left-3 z-10">
+          <div className="absolute top-3 left-3 z-[5]">
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md text-xs text-white/90">
               📍 {product.location}
             </span>

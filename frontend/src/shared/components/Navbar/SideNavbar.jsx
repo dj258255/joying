@@ -1,32 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import ProfileImage from '../ProfileImage';
 
-const SideNavbar = () => {
-  const [isVisible, setIsVisible] = useState(false);
+const SideNavbar = ({ isOpen = false, onClose }) => {
   const location = useLocation();
-  
-  // 채팅방 페이지에서 navbar 호버 비활성화 여부 확인
-  const isChatRoom = location.pathname.startsWith('/chats/');
-  
-  // 채팅방에서 특정 영역의 호버를 비활성화하는 함수
-  const handleMouseEnter = (e) => {
-    if (isChatRoom) {
-      // 마우스 위치 확인
-      const mouseY = e.clientY;
-      const windowHeight = window.innerHeight;
-      
-      // 상단 100px 영역 (헤더) 또는 하단 150px 영역 (메시지 입력)에서 호버 비활성화
-      if (mouseY < 100 || mouseY > windowHeight - 150) {
-        return; // 호버 비활성화
-      }
-    }
-    setIsVisible(true);
-  };
-  
-  const handleMouseLeave = () => {
-    setIsVisible(false);
-  };
 
   const navItems = [
     {
@@ -84,20 +61,19 @@ const SideNavbar = () => {
 
   return (
     <>
-      {/* 호버 감지 영역 */}
-      <div 
-        className="fixed top-0 right-0 w-8 h-screen z-[9999]"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      />
+      {/* 배경 오버레이 */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[9998] transition-opacity duration-300"
+          onClick={onClose}
+        />
+      )}
 
       {/* 네비게이션 바 */}
       <div 
         className={`fixed top-0 right-0 h-screen w-80 z-[9999] transition-all duration-300 transform ${
-          isVisible ? 'translate-x-0' : 'translate-x-full'
+          isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
         style={{
           background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9))',
           backdropFilter: 'blur(20px)',
@@ -106,6 +82,19 @@ const SideNavbar = () => {
         }}
       >
         <div className="flex flex-col h-full">
+          {/* 헤더 - 닫기 버튼 */}
+          <div className="flex items-center justify-between p-6 border-b border-white/20">
+            <h2 className="text-xl font-bold text-gray-800">메뉴</h2>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-white/50 transition-colors"
+            >
+              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
           {/* 프로필 섹션 */}
           <div className="p-6 border-b border-white/20">
             <div className="flex items-center space-x-4">
@@ -116,7 +105,7 @@ const SideNavbar = () => {
                 className="w-12 h-12"
               />
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">사용자</h3>
+                <h3 className="text-lg font-semibold text-gray-800">김철수</h3>
                 <p className="text-sm text-gray-600">user@example.com</p>
               </div>
             </div>
@@ -131,18 +120,19 @@ const SideNavbar = () => {
                   <Link
                     key={item.id}
                     to={item.path}
+                    onClick={onClose}
                     className={`flex items-center space-x-3 px-6 py-3 mx-4 rounded-xl transition-all duration-200 ${
                       isActive
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                        ? 'bg-gray-900 text-white'
                         : 'text-gray-700 hover:bg-white/50 hover:text-gray-900'
                     }`}
                   >
-                    <div className={`${isActive ? 'text-blue-600' : 'text-gray-500'}`}>
+                    <div className={`${isActive ? 'text-white' : 'text-gray-500'}`}>
                       {item.icon}
                     </div>
                     <span className="font-medium">{item.name}</span>
                     {isActive && (
-                      <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                      <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
                     )}
                   </Link>
                 );
