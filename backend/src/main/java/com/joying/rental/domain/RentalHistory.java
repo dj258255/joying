@@ -24,9 +24,9 @@ public class RentalHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rentalHisId;
 
-    @Comment("렌탈ID")
+    @Comment("상품ID")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rental_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = false)
     private Product rentalProduct;
 
     @Comment("대여받는 사람ID")
@@ -85,4 +85,24 @@ public class RentalHistory {
     @Column(name = "extension_count")
     private Integer extensionCount;
 
+    /**
+     * 결제 완료 후 Escrow 상태로 전환
+     */
+    public void markAsEscrow() {
+        this.status = RentalStatus.ESCROW;
+    }
+
+    /**
+     * 거래 취소
+     */
+    public void cancel() {
+        this.status = RentalStatus.CANCELLED;
+    }
+
+    /**
+     * 거래 완료 (보증금 반환)
+     */
+    public void complete() {
+        this.status = RentalStatus.DEPOSIT_RETURNED;
+    }
 }

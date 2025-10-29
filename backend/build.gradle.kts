@@ -40,6 +40,16 @@ dependencies {
 	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.springframework.boot:spring-boot-starter-web")       // 기존 REST
 	implementation("org.springframework.boot:spring-boot-starter-webflux")   // WebClient 포함
+
+	// Retry & AOP (결제 재시도 기능)
+	implementation("org.springframework.retry:spring-retry")
+	implementation("org.springframework.boot:spring-boot-starter-aop")
+
+	// Resilience4j (Circuit Breaker, Rate Limiter, Retry, Bulkhead)
+	implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+	implementation("io.github.resilience4j:resilience4j-reactor:2.2.0")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+
 	// Kotlin
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")

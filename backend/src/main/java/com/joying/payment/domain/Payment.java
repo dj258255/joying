@@ -40,21 +40,21 @@ public class Payment {
     @JoinColumn(name = "rental_his_id", nullable = false)
     private RentalHistory rentalHistory;
 
-    @Comment("렌탈ID")
+    @Comment("상품ID")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="rental_id", nullable = false)
-    private Product rentalProduct;
+    @JoinColumn(name="product_id", nullable = false)
+    private Product product;
 
     @Comment("대여받는 사람ID")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable=false)
     private Member member;
 
-    @Comment("결제 날짜(레거시)")
+    @Comment("결제 날짜")
     @Column(name = "deposit_at")
     private Timestamp depositAt;
 
-    @Comment("요금(레거시)")
+    @Comment("요금")
     @Column(name = "fee")
     private Integer fee;
 
@@ -102,20 +102,20 @@ public class Payment {
     @Comment("승인/취소 동시요청 시 경쟁 방지를 위한 버전 관리")
     private Long version;
 
-    // ====== 정적 팩토리: 연관관계 세팅 전용 ======
+
     public static Payment create(RentalHistory rentalHistory,
-                                 Product rentalProduct,
+                                 Product product,
                                  Member member,
                                  PaymentType paymentType) {
         Payment p = new Payment();
         p.rentalHistory = rentalHistory;
-        p.rentalProduct = rentalProduct;
+        p.product = product;
         p.member = member;
         p.paymentType = paymentType;
         return p;
     }
 
-    // ====== 상태 전이 메서드 ======
+    // ====== 상태 메서드 ======
     public void markReady(String orderId, int totalAmount, Timestamp now) {
         this.orderId = orderId;
         this.totalAmount = totalAmount;
