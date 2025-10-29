@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import com.joying.common.exception.ErrorResponse;
 import com.joying.common.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,10 +27,10 @@ public class ProductController {
 
     @Operation(summary = "상품 조회", description = "물품의 상세 정보를 조회합니다.")
     @GetMapping("/{productId}")
-    public ResponseEntity<?> getProductInfo(@PathVariable Long productId, @AuthenticationPrincipal Member member) {
+    public ResponseEntity<?> getProductInfo(@PathVariable Long productId, Authentication authentication) {
         try {
 
-            Long memberId = (member != null) ? member.getMemberId() : null;
+            Long memberId = (authentication != null) ? Long.parseLong(authentication.getName()) : null;
 
             ProductResponseDto.ProductDetail product = productService.getProductInfo(productId, memberId);
 
@@ -64,10 +65,10 @@ public class ProductController {
     @PostMapping
     public ResponseEntity<?> createProduct(
             @RequestBody ProductRequestDto.CreateProduct req,
-            @AuthenticationPrincipal Member member
+            Authentication authentication
     ) {
         try {
-            if (member == null) {
+            if (authentication.getName() == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ErrorResponse.of(
                                 401,
@@ -76,7 +77,7 @@ public class ProductController {
                         ));
             }
 
-            Long writerId = member.getMemberId();
+            Long writerId = Long.parseLong(authentication.getName());
 
             Long newProductId = productService.createProduct(writerId, req);
 
@@ -109,10 +110,10 @@ public class ProductController {
     public ResponseEntity<?> updateProduct(
             @PathVariable Long productId,
             @RequestBody ProductRequestDto.CreateProduct req,
-            @AuthenticationPrincipal Member member
+            Authentication authentication
     ) {
         try {
-            if (member == null) {
+            if (authentication.getName() == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ErrorResponse.of(
                                 401,
@@ -121,7 +122,7 @@ public class ProductController {
                         ));
             }
 
-            Long memberId = member.getMemberId();
+            Long memberId = Long.parseLong(authentication.getName());
 
             Long updatedProductId = productService.updateProduct(productId, memberId, req);
 
@@ -162,10 +163,10 @@ public class ProductController {
     @DeleteMapping("/{productId}")
     public ResponseEntity<?> deleteProduct(
             @PathVariable Long productId,
-            @AuthenticationPrincipal Member member
+            Authentication authentication
     ) {
         try {
-            if (member == null) {
+            if (authentication.getName() == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ErrorResponse.of(
                                 401,
@@ -174,7 +175,7 @@ public class ProductController {
                         ));
             }
 
-            Long memberId = member.getMemberId();
+            Long memberId = Long.parseLong(authentication.getName());
 
             productService.deleteProduct(productId, memberId);
 
