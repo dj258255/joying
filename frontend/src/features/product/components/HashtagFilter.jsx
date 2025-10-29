@@ -82,47 +82,24 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
 
   if (isLoading) {
     return (
-      <div className="p-4 rounded-xl" style={{
-        background: 'rgba(255, 255, 255, 0.15)',
-        backdropFilter: 'blur(20px)',
-        border: '1.5px solid rgba(255, 255, 255, 0.3)',
-        boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-      }}>
-        <div className="flex items-center justify-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-        </div>
+      <div className="flex items-center justify-center py-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div 
-      className="p-4 rounded-xl" 
-      style={{
-        background: 'rgba(255, 255, 255, 0.2)',
-        backdropFilter: 'blur(20px)',
-        border: '1.5px solid rgba(255, 255, 255, 0.4)',
-        boxShadow: '0 8px 32px rgba(31, 38, 135, 0.15), inset 0 0 15px rgba(255, 255, 255, 0.5)',
-        overflow: 'hidden',
-        position: 'relative'
-      }}
-    >
+    <div className="space-y-3">
       {/* 헤더 - 검색창과 전체보기 버튼 */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
         {/* 해시태그 검색 */}
-        <div className="flex-1 mr-4">
+        <div className="flex-1">
           <input
             type="text"
             placeholder="해시태그 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 text-sm text-gray-800 placeholder-gray-500 rounded-lg transition-all duration-300 focus:outline-none focus:ring-2"
-            style={{ 
-              background: 'rgba(255, 255, 255, 0.8)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.6)',
-              '--tw-ring-color': 'rgb(59 130 246 / 0.3)'
-            }}
+            className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
           />
         </div>
         
@@ -130,10 +107,9 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
         {hashtags.length > 20 && (
           <button
             onClick={() => setShowAll(!showAll)}
-            className="text-sm font-medium px-3 py-2 rounded-lg transition-all duration-200 hover:bg-white/20"
-            style={{ color: 'rgb(59 130 246 / 1)' }}
+            className="text-sm font-medium px-3 py-2 text-gray-900 hover:text-black hover:bg-gray-100 rounded-lg transition-all"
           >
-            {showAll ? '간략히' : '+전체보기'}
+            {showAll ? '간략히' : '전체보기'}
           </button>
         )}
       </div>
@@ -248,14 +224,14 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
                 e.stopPropagation();
                 handleHashtagClick(hashtag);
               }}
-              className={`${showAll ? 'w-full' : 'flex-shrink-0'} px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap select-none ${
+              className={`${showAll ? 'w-full' : 'flex-shrink-0'} px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap select-none ${
                 isSelected
-                  ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                  : 'bg-white/20 text-gray-700 hover:bg-white/30'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               style={{ userSelect: 'none', pointerEvents: 'auto' }}
             >
-              #{hashtag.name} ({hashtag.count})
+              #{hashtag.name}
             </button>
           );
         })}
@@ -263,17 +239,17 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
 
       {/* 선택된 해시태그 표시 - 하단으로 이동 */}
       {selectedHashtags.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-white/20">
+        <div className="pt-3 border-t border-gray-200">
           <div className="flex flex-wrap gap-2">
             {selectedHashtags.map((hashtag) => (
               <span
                 key={hashtag.id}
-                className="inline-flex items-center px-3 py-1 bg-white/30 text-gray-800 text-sm rounded-full border border-white/40"
+                className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-900 text-xs font-medium rounded-full border border-gray-300"
               >
                 #{hashtag.name}
                 <button
                   onClick={() => handleRemoveHashtag(hashtag.id)}
-                  className="ml-2 text-gray-600 hover:text-gray-800"
+                  className="text-gray-700 hover:text-black"
                 >
                   ×
                 </button>
