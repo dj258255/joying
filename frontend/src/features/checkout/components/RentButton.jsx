@@ -53,4 +53,3 @@ const RentButton = ({ isEnabled = false, onClick }) => {
 };
 
 export default RentButton; 
-//좀 되라 제발
