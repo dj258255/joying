@@ -2,7 +2,7 @@ package com.joying.review.controller;
 
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -68,8 +68,8 @@ public class ReviewController {
 	@PostMapping
 	public ResponseEntity<?> createReview(
 		@RequestBody ReviewRequestDto dto,
-		@AuthenticationPrincipal Member member) {
-		Long authId = member.getMemberId();
+		Authentication authentication) {
+		Long authId = Long.parseLong(authentication.getName());
 		Long reviewId = reviewService.createReview(dto, authId);
 		return ApiResponse.created(reviewId);
 	}
@@ -78,8 +78,8 @@ public class ReviewController {
 	@PatchMapping
 	public ResponseEntity<?> updateReview(
 		@RequestBody ReviewRequestDto dto,
-		@AuthenticationPrincipal Member member) {
-		Long authId = member.getMemberId();
+		Authentication authentication) {
+		Long authId = Long.parseLong(authentication.getName());
 		reviewService.updateReview(dto, authId);
 		return ApiResponse.ok("리뷰가 수정되었습니다.", null);
 	}
@@ -88,8 +88,8 @@ public class ReviewController {
 	@DeleteMapping("/{reviewId}")
 	public ResponseEntity<?> deleteReview(
 		@PathVariable Long reviewId,
-		@AuthenticationPrincipal Member member) {
-		Long authId = member.getMemberId();
+		Authentication authentication) {
+		Long authId = Long.parseLong(authentication.getName());
 		reviewService.deleteReview(reviewId, authId);
 		return ApiResponse.noContent();
 	}

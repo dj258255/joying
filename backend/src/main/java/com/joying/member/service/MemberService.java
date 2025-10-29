@@ -50,12 +50,11 @@ public class MemberService {
 
 		Member member = findMemberById(memberId);
 
-		// 이름 수정
-		if (request.getName() != null) {
-			member.updateProfile(request.getName(), null);
-		}
+		// 닉네임 및 프로필 이미지 수정
+		// Note: 실명(name)은 1원 인증을 통해서만 업데이트 가능
+		member.updateProfile(request.getNickname(), null); // TODO: File 엔티티 연동 시 profileImage 처리
 
-		log.info("회원 프로필 수정 완료: memberId={}", memberId);
+		log.info("회원 프로필 수정 완료: memberId={}, nickname={}", memberId, request.getNickname());
 
 		return MemberResponse.from(member);
 	}

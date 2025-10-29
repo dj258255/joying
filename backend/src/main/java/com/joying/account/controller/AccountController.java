@@ -1,10 +1,13 @@
 package com.joying.account.controller;
 
-import com.joying.account.dto.AccountRealNameRequest;
 import com.joying.account.dto.AccountResponse;
-import com.joying.account.dto.OpenBankingRealNameResponse;
+import com.joying.account.dto.AccountVerificationRequest;
+import com.joying.account.dto.AccountVerificationResponse;
+import com.joying.account.dto.AccountVerificationStartRequest;
+import com.joying.account.dto.AccountVerificationStartResponse;
+import com.joying.account.dto.DemandDepositProductResponse;
+import com.joying.account.dto.SsafyTransactionResponse;
 import com.joying.account.service.AccountService;
-import com.joying.account.service.OpenBankingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,11 +32,34 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "계좌", description = "계좌 등록, 조회, 삭제 API (RESTful)")
+@Tag(
+	name = "계좌 인증",
+	description = """
+		1원 인증이 완료된 계좌를 조회하고 관리합니다.
+
+		## 전체 흐름
+
+		1. 상품 목록 조회: GET /api/v1/accounts/products
+		2. SSAFY 테스트 계좌 생성: POST /api/v1/ssafy-accounts
+		3. 1원 인증 시작: POST /api/v1/accounts/verify/start
+		4. 거래내역 조회 (인증코드 확인): GET /api/v1/accounts/transactions
+		5. 1원 인증 완료: POST /api/v1/accounts/verify/complete
+
+		## 계좌 테이블 분리
+
+		- ssafy_account: SSAFY API로 생성한 테스트 계좌 (1원 인증 전)
+		- account: 1원 인증 완료 계좌 (송금/결제 사용)
+
+		## 주의사항
+
+		- SSAFY에서 생성한 테스트 계좌로만 1원 인증 가능
+		- 1원 송금 후 5분 이내 인증 코드 입력 필요
+		- JWT 인증 필수 (상품 조회 제외)
+		"""
+)
 public class AccountController {
 
 	private final AccountService accountService;
-	private final OpenBankingService openBankingService;
 
 	/**
 	 * 회원의 계좌 목록 조회
@@ -114,142 +140,196 @@ public class AccountController {
 		return ResponseEntity.ok("계좌가 삭제되었습니다.");
 	}
 
-	// ========== 오픈뱅킹 계좌 인증 API (1원 인증) ==========
+	// ========== SSAFY 금융망 상품 조회 API ==========
 
 	/**
-	 * 계좌실명조회 (1원 인증)
+	 * 수시입출금 상품 목록 조회
+	 *
+	 * @return 상품 목록
+	 */
+	@GetMapping("/api/v1/accounts/products")
+	@Operation(
+		summary = "수시입출금 상품 목록 조회",
+		description = """
+			SSAFY 테스트 계좌 생성을 위한 수시입출금 상품 목록을 조회합니다.
+
+			로그인 불필요 (공개 API)
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공"),
+		@ApiResponse(responseCode = "500", description = "SSAFY 금융망 오류")
+	})
+	public ResponseEntity<List<DemandDepositProductResponse>> getDemandDepositProducts() {
+		log.info("수시입출금 상품 목록 조회 요청");
+
+		List<DemandDepositProductResponse> products = accountService.getDemandDepositProducts();
+
+		log.info("수시입출금 상품 목록 조회 성공: 총 {}개", products.size());
+
+		return ResponseEntity.ok(products);
+	}
+
+	// ========== SSAFY 금융망 계좌 인증 API (1원 인증) ==========
+
+	/**
+	 * 1원 인증 시작 (1원 송금)
 	 *
 	 * @param authentication 인증 정보
-	 * @param request        계좌실명조회 요청 (은행코드, 계좌번호, 생년월일)
-	 * @return 계좌 인증 결과 및 등록된 계좌 정보
+	 * @param request        계좌번호
+	 * @return 인증 시작 응답
 	 */
-	@PostMapping("/api/v1/accounts/verify")
+	@PostMapping("/api/v1/accounts/verify/start")
 	@Operation(
-		summary = "계좌 인증 (1원 인증)",
+		summary = "1원 인증 시작",
 		description = """
-			**계좌실명조회를 통한 계좌 인증**
-
-			사용자가 입력한 은행코드, 계좌번호, 생년월일을 통해 계좌실명조회를 수행하고,
-			인증에 성공하면 계좌를 등록합니다.
-
-			---
-
-			## 요청 본문
-
-			```json
-			{
-			  "bankCode": "004",
-			  "accountNum": "12345678901234",
-			  "accountHolderInfo": "19900101"
-			}
-			```
-
-			---
+			계좌번호로 1원을 송금하여 인증을 시작합니다.
 
 			## 처리 과정
 
-			### 1️⃣ 계좌실명조회 API 호출
-			```http
-			POST https://testapi.openbanking.or.kr/v2.0/inquiry/real_name
-			Authorization: Bearer {개발자센터_발급_토큰}
-			Content-Type: application/json
+			1. SSAFY userKey 확인 (없으면 자동 등록)
+			2. 계좌로 1원 송금
+			3. transactionUniqueNo 반환 (거래내역 조회 시 사용)
 
-			{
-			  "bank_tran_id": "M202502623U123456789",
-			  "bank_code_std": "004",
-			  "account_num": "12345678901234",
-			  "account_holder_info": "19900101",
-			  "tran_dtime": "20250123151200"
-			}
-			```
+			## 응답 데이터
 
-			### 2️⃣ 응답 검증
-			```json
-			{
-			  "rsp_code": "A0000",
-			  "rsp_message": "정상처리되었습니다",
-			  "bank_name": "국민은행",
-			  "account_num_masked": "123******234",
-			  "account_holder_name": "홍길동"
-			}
-			```
-
-			### 3️⃣ 계좌 등록
-			- 인증 성공 시 자동으로 계좌 등록
-			- verifiedAt에 현재 시각 저장
-
-			---
-
-			## 은행 코드 (bank_code_std)
-
-			| 코드 | 은행명 |
-			|-----|--------|
-			| 002 | KDB산업은행 |
-			| 003 | IBK기업은행 |
-			| 004 | KB국민은행 |
-			| 007 | 수협은행 |
-			| 011 | NH농협은행 |
-			| 020 | 우리은행 |
-			| 023 | SC제일은행 |
-			| 027 | 한국씨티은행 |
-			| 031 | 대구은행 |
-			| 032 | 부산은행 |
-			| 034 | 광주은행 |
-			| 035 | 제주은행 |
-			| 037 | 전북은행 |
-			| 039 | 경남은행 |
-			| 045 | 새마을금고 |
-			| 048 | 신협 |
-			| 050 | 저축은행 |
-			| 071 | 우체국 |
-			| 081 | KEB하나은행 |
-			| 088 | 신한은행 |
-			| 089 | K뱅크 |
-			| 090 | 카카오뱅크 |
-			| 092 | 토스뱅크 |
-
-			---
+			- accountNo: 계좌번호
+			- transactionUniqueNo: 거래 고유번호 (거래내역 조회 API에 사용)
+			- message: 안내 메시지
 
 			## 주의사항
 
-			- **JWT 인증 필요**: Authorization 헤더에 JWT 토큰 필요
-			- **개발자센터 토큰**: 오픈뱅킹 개발자센터에서 발급받은 Access Token 필요
-			- **중복 방지**: 이미 등록된 계좌는 등록 불가
-			- **정확한 정보**: 은행코드, 계좌번호, 생년월일이 모두 일치해야 성공
+			- SSAFY 테스트 계좌만 가능
+			- JWT 인증 필수
+			- 5분 이내 인증 코드 입력 필요
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "1원 송금 성공"),
+		@ApiResponse(responseCode = "400", description = "계좌번호 형식 오류"),
+		@ApiResponse(responseCode = "401", description = "인증 실패 (로그인 필요)"),
+		@ApiResponse(responseCode = "500", description = "SSAFY 금융망 오류")
+	})
+	public ResponseEntity<AccountVerificationStartResponse> startAccountVerification(
+		Authentication authentication,
+		@Valid @RequestBody AccountVerificationStartRequest request
+	) {
+		Long memberId = Long.parseLong(authentication.getName());
+		log.info("1원 인증 시작 요청: memberId={}, accountNo={}", memberId, request.getAccountNo());
+
+		AccountVerificationStartResponse response = accountService.startAccountVerification(
+			memberId,
+			request.getAccountNo()
+		);
+
+		log.info("1원 인증 시작 성공: memberId={}, accountNo={}", memberId, request.getAccountNo());
+
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * 1원 인증 확인 (authCode 검증 및 계좌 등록)
+	 *
+	 * @param authentication 인증 정보
+	 * @param request        계좌번호 + 인증 코드
+	 * @return 인증 결과 및 등록된 계좌 정보
+	 */
+	@PostMapping("/api/v1/accounts/verify/complete")
+	@Operation(
+		summary = "1원 인증 완료",
+		description = """
+			인증 코드를 검증하고 계좌를 등록합니다.
+
+			## 처리 과정
+
+			1. 인증 코드 검증
+			2. 계좌 자동 등록
+			3. 회원 실명 업데이트 (최초 1회)
+
+			## 주의사항
+
+			- JWT 인증 필수
+			- 중복 계좌 등록 불가
+			- 인증 코드 일치 필수
 			"""
 	)
 	@ApiResponses({
 		@ApiResponse(responseCode = "200", description = "계좌 인증 및 등록 성공"),
-		@ApiResponse(responseCode = "400", description = "계좌 인증 실패 (정보 불일치)"),
+		@ApiResponse(responseCode = "400", description = "인증 코드 불일치"),
 		@ApiResponse(responseCode = "401", description = "인증 실패 (로그인 필요)"),
 		@ApiResponse(responseCode = "409", description = "이미 등록된 계좌")
 	})
-	public ResponseEntity<AccountResponse> verifyAccount(
+	public ResponseEntity<AccountVerificationResponse> completeAccountVerification(
 		Authentication authentication,
-		@Valid @RequestBody AccountRealNameRequest request
+		@Valid @RequestBody AccountVerificationRequest request
 	) {
 		Long memberId = Long.parseLong(authentication.getName());
-		log.info("=== 계좌 인증 요청 디버깅 ===");
-		log.info("Request 객체: {}", request);
-		log.info("bankCode: '{}' (null: {})", request.getBankCode(), request.getBankCode() == null);
-		log.info("accountNum: '{}' (null: {})", request.getAccountNum(), request.getAccountNum() == null);
-		log.info("accountHolderInfo: '{}' (null: {})", request.getAccountHolderInfo(), request.getAccountHolderInfo() == null);
-		log.info("============================");
-		log.info("계좌 인증 요청: memberId={}, bankCode={}, accountNum={}",
-			memberId, request.getBankCode(), request.getAccountNum());
+		log.info("1원 인증 완료 요청: memberId={}, accountNo={}, authCode={}",
+			memberId, request.getAccountNo(), request.getAuthCode());
 
-		// 1. 계좌실명조회
-		OpenBankingRealNameResponse realNameResponse = openBankingService.verifyAccountRealName(
-			request.getBankCode(),
-			request.getAccountNum(),
-			request.getAccountHolderInfo()
+		AccountVerificationResponse response = accountService.completeAccountVerification(
+			memberId,
+			request.getAccountNo(),
+			request.getAuthCode(),
+			request.getAccountHolderName()
 		);
 
-		// 2. 계좌 등록 (인증 성공 시)
-		AccountResponse response = accountService.registerAccountFromRealName(memberId, realNameResponse);
+		log.info("1원 인증 완료 성공: memberId={}, accountNo={}, realName={}",
+			memberId, response.getAccountNo(), response.getRealName());
 
-		log.info("계좌 인증 및 등록 성공: accountId={}, bankName={}, holderName={}",
-			response.getAccountId(), response.getBankName(), response.getAccountHolderName());
+		return ResponseEntity.ok(response);
+	}
+
+	/**
+	 * SSAFY 계좌 거래 내역 조회 (1원 인증 코드 확인용)
+	 *
+	 * @param authentication      인증 정보
+	 * @param accountNo           계좌번호
+	 * @param transactionUniqueNo 거래 고유번호
+	 * @return 거래 내역 (인증 코드 포함)
+	 */
+	@GetMapping("/api/v1/accounts/transactions")
+	@Operation(
+		summary = "SSAFY 계좌 거래 내역 조회",
+		description = """
+			거래 내역을 조회하여 1원 인증 코드를 확인합니다.
+
+			## 응답 데이터
+
+			- transactionSummary: 입금자명 (예: "JOYING 8212")
+			- authCode: 자동 추출된 인증 코드 (예: "8212")
+
+			## 주의사항
+
+			- JWT 인증 필수
+			- SSAFY 테스트 계좌만 가능
+			- transactionUniqueNo는 1원 송금 시 응답으로 받음
+			"""
+	)
+	@ApiResponses({
+		@ApiResponse(responseCode = "200", description = "조회 성공"),
+		@ApiResponse(responseCode = "401", description = "인증 실패 (로그인 필요)"),
+		@ApiResponse(responseCode = "404", description = "거래 내역을 찾을 수 없음"),
+		@ApiResponse(responseCode = "500", description = "SSAFY 금융망 오류")
+	})
+	public ResponseEntity<SsafyTransactionResponse> getTransactionHistory(
+		Authentication authentication,
+		@Parameter(description = "계좌번호 (16자리)", required = true, example = "0041234567890123")
+		@RequestParam String accountNo,
+		@Parameter(description = "거래 고유번호", required = true, example = "7")
+		@RequestParam String transactionUniqueNo
+	) {
+		Long memberId = Long.parseLong(authentication.getName());
+		log.info("거래 내역 조회 요청: memberId={}, accountNo={}, transactionUniqueNo={}",
+			memberId, accountNo, transactionUniqueNo);
+
+		SsafyTransactionResponse response = accountService.getTransactionHistory(
+			memberId,
+			accountNo,
+			transactionUniqueNo
+		);
+
+		log.info("거래 내역 조회 성공: memberId={}, authCode={}", memberId, response.getAuthCode());
 
 		return ResponseEntity.ok(response);
 	}

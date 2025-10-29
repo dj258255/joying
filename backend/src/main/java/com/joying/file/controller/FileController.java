@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,10 +34,10 @@ public class FileController {
     @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<?> uploadFile(
             @RequestPart("file") MultipartFile multipartFile,
-            @AuthenticationPrincipal Member member
+            Authentication authentication
     ) {
         try {
-            if (member == null) {
+            if (authentication.getName() == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(ErrorResponse.of(
                                 401,

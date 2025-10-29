@@ -45,7 +45,7 @@ public class ReviewService {
 
 	public Page<ReviewResponseDto> getReviews(Long productId, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
-		Page<Review> reviews = reviewRepository.findProductReviews(productId, UploadType.borrow, pageRequest);
+		Page<Review> reviews = reviewRepository.findProductReviews(productId, UploadType.BORROW, pageRequest);
 
 		return reviews.map(review -> ReviewResponseDto.fromEntity(review, fileUrlResolver));
 	}
@@ -55,9 +55,9 @@ public class ReviewService {
 		Review review;
 
 		if (type.equals("rent")) {
-			review = reviewRepository.findRentalReview(rentalId, UploadType.rent.name());
+			review = reviewRepository.findRentalReview(rentalId, UploadType.RENT.name());
 		} else {
-			review = reviewRepository.findRentalReview(rentalId, UploadType.borrow.name());
+			review = reviewRepository.findRentalReview(rentalId, UploadType.BORROW.name());
 		}
 
 		return ReviewResponseDto.fromEntity(review, fileUrlResolver);
@@ -89,7 +89,7 @@ public class ReviewService {
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 대여 이력입니다."));
 
 		Member reviewed = null;
-		if (dto.uploadType() == UploadType.rent || dto.uploadType() == UploadType.borrow) {
+		if (dto.uploadType() == UploadType.RENT || dto.uploadType() == UploadType.BORROW) {
 			if (dto.reviewedId() == null)
 				throw new IllegalArgumentException("대여자/차용자 리뷰에는 대상 사용자 ID가 필요합니다.");
 

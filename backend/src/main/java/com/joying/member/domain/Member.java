@@ -34,8 +34,12 @@ public class Member extends BaseEntity {
     @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Account> accounts = new ArrayList<>();
 
-    @Comment("회원 이름")
-    @Column(name = "name", nullable = false)
+    @Comment("회원 닉네임 (Kakao OAuth에서 가져온 별명)")
+    @Column(name = "nickname", nullable = false)
+    private String nickname;
+
+    @Comment("회원 실명 (1원 인증으로 확인된 실제 이름)")
+    @Column(name = "name")
     private String name;
 
     @Comment("회원 이메일 (Kakao OAuth 식별자)")
@@ -51,11 +55,16 @@ public class Member extends BaseEntity {
     @Column(name = "rating")
     private Double rating;
 
+    @Comment("SSAFY 금융망 USER KEY")
+    @Column(name = "ssafy_user_key", unique = true)
+    private String ssafyUserKey;
+
     /**
      * Kakao OAuth 회원 생성 (Builder 패턴)
      */
     @Builder
-    public Member(String name, String email, File profileImage) {
+    public Member(String nickname, String name, String email, File profileImage) {
+        this.nickname = nickname;
         this.name = name;
         this.email = email;
         this.profileImage = profileImage;
@@ -63,13 +72,29 @@ public class Member extends BaseEntity {
     }
 
     /**
-     * 회원 정보 수정
+     * 회원 정보 수정 (닉네임, 프로필 이미지)
      */
-    public void updateProfile(String name, File profileImage) {
-        this.name = name;
+    public void updateProfile(String nickname, File profileImage) {
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
         if (profileImage != null) {
             this.profileImage = profileImage;
         }
+    }
+
+    /**
+     * 실명 업데이트 (1원 인증 완료 후)
+     */
+    public void updateRealName(String name) {
+        this.name = name;
+    }
+
+    /**
+     * SSAFY 금융망 USER KEY 저장
+     */
+    public void updateSsafyUserKey(String ssafyUserKey) {
+        this.ssafyUserKey = ssafyUserKey;
     }
 
     /**

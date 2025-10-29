@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
-import { useAuth } from '@/features/auth';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 /**
  * Section 1: Hero
@@ -14,10 +14,6 @@ const Section1Hero = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const { isAuthenticated, user } = useAuth();
-  
-  // 임시: 로그인 상태 시뮬레이션 (개발용)
-  const mockIsAuthenticated = true;
-  const mockUser = { name: '김철수' };
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -47,37 +43,8 @@ const Section1Hero = () => {
           >
             {mockUser?.name?.charAt(0) || '👤'}
           </button>
-        ) : (
-          // 미로그인 상태: 아이콘 버튼 (미니멀)
-          <>
-            <button
-              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-              className="group relative w-12 h-12 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 hover:border-primary-500 hover:bg-white/10 transition-all duration-300 flex items-center justify-center hover:scale-110"
-              title="로그인"
-            >
-              <svg 
-                className="w-6 h-6 text-white group-hover:text-primary-400 transition-colors" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-            </button>
-            
-            <button
-              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
-              className="group relative px-6 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-blue-500 hover:from-primary-600 hover:to-blue-600 text-white font-semibold transition-all duration-300 shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 hover:scale-105"
-              title="회원가입"
-            >
-              <span className="relative z-10">시작하기</span>
-              
-              {/* 반짝이는 효과 */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-            </button>
-          </>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-8 text-center">
         <h1 className="text-8xl font-bold mb-6 tracking-tight">
@@ -169,4 +136,3 @@ const Section1Hero = () => {
 };
 
 export default Section1Hero;
-
