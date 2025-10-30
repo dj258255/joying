@@ -31,19 +31,27 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 	List<Account> findByMember_MemberId(Long memberId);
 
 	/**
-	 * 계좌일련번호로 계좌 존재 여부 확인 (1원 인증 방식)
+	 * 계좌번호로 계좌 존재 여부 확인 (SSAFY 금융망)
 	 *
-	 * @param accountSeq 계좌일련번호
+	 * @param accountNo 계좌번호 (16자리)
 	 * @return 존재 여부
 	 */
-	boolean existsByAccountSeq(String accountSeq);
+	boolean existsByAccountNo(String accountNo);
 
 	/**
 	 * 회원 ID와 계좌번호로 계좌 존재 여부 확인
 	 *
 	 * @param memberId 회원 ID
-	 * @param accountNum 계좌번호
+	 * @param accountNo 계좌번호
 	 * @return 존재 여부
 	 */
-	boolean existsByMember_MemberIdAndAccountNum(Long memberId, String accountNum);
+	boolean existsByMember_MemberIdAndAccountNo(Long memberId, String accountNo);
+
+	/**
+	 * 계좌번호로 계좌 조회
+	 *
+	 * @param accountNo 계좌번호
+	 * @return 계좌
+	 */
+	Optional<Account> findByAccountNo(String accountNo);
 }

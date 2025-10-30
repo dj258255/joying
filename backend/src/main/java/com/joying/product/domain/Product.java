@@ -67,7 +67,9 @@ public class Product extends BaseEntity {
     private Dong dong;
 
     @Comment("거래 방법")
-    @Enumerated(value=EnumType.STRING)
+    // 2025-10-30: DB에서 소문자로 저장되는 문제 해결을 위해 Converter 사용
+     @Enumerated(value=EnumType.STRING)
+//    @Convert(converter = RentMethodConverter.class)
     @Column(name = "rent_method")
     private RentMethod rentMethod;
 

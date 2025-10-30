@@ -38,22 +38,17 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.kafka:spring-kafka")
-	implementation("org.springframework.boot:spring-boot-starter-web")       // 기존 REST
-	implementation("org.springframework.boot:spring-boot-starter-webflux")   // WebClient 포함
-
-	// Retry & AOP (결제 재시도 기능)
-	implementation("org.springframework.retry:spring-retry")
-	implementation("org.springframework.boot:spring-boot-starter-aop")
-
-	// Resilience4j (Circuit Breaker, Rate Limiter, Retry, Bulkhead)
-	implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
-	implementation("io.github.resilience4j:resilience4j-reactor:2.2.0")
-	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	implementation("org.springframework.boot:spring-boot-starter-websocket") // WebSocket STOMP
 
 	// Kotlin
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib")
+
+	// Kotlin Coroutines (비동기 처리 - 채팅 기능용)
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+	implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
+	testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
 	// Swagger/OpenAPI (Spring Boot 3.5.x 호환)
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
@@ -79,7 +74,6 @@ dependencies {
 	// Development Tools
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	// developmentOnly("org.springframework.boot:spring-boot-docker-compose") // Docker Compose 미사용으로 주석 처리
-
 
 	// Test Dependencies
 	testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -1,7 +1,6 @@
 package com.joying.payment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.joying.auth.oauth.CustomOAuth2User;
 import com.joying.payment.dto.request.PaymentCancelRequest;
 import com.joying.payment.dto.request.PaymentConfirmRequest;
 import com.joying.payment.dto.request.PaymentCreateRequest;
@@ -17,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -33,7 +32,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/payments")
+@RequestMapping("api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
@@ -53,12 +52,13 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentCreateResponse> createPayment(
             @Valid @RequestBody PaymentCreateRequest request,
-            @AuthenticationPrincipal CustomOAuth2User currentUser) {
+            Authentication authentication) {
 
+        Long memberId = Long.parseLong(authentication.getName());
         log.info("[POST /payments] 결제 생성 요청: rentalHisId={}, memberId={}",
-                request.getRentalHisId(), currentUser.getMemberId());
+                request.getRentalHisId(), memberId);
 
-        PaymentCreateResponse response = paymentService.createPayment(request, currentUser.getMemberId());
+        PaymentCreateResponse response = paymentService.createPayment(request, memberId);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -95,11 +95,12 @@ public class PaymentController {
     @GetMapping("/{orderId}")
     public ResponseEntity<PaymentResponse> getPayment(
             @PathVariable String orderId,
-            @AuthenticationPrincipal CustomOAuth2User currentUser) {
+            Authentication authentication) {
 
-        log.info("[GET /payments/{}] 결제 조회 요청: memberId={}", orderId, currentUser.getMemberId());
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /payments/{}] 결제 조회 요청: memberId={}", orderId, memberId);
 
-        PaymentResponse response = paymentService.getPayment(orderId, currentUser.getMemberId());
+        PaymentResponse response = paymentService.getPayment(orderId, memberId);
 
         return ResponseEntity.ok(response);
     }
@@ -116,12 +117,13 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> cancelPayment(
             @PathVariable String orderId,
             @Valid @RequestBody PaymentCancelRequest request,
-            @AuthenticationPrincipal CustomOAuth2User currentUser) {
+            Authentication authentication) {
 
+        Long memberId = Long.parseLong(authentication.getName());
         log.info("[PATCH /payments/{}/cancel] 결제 취소 요청: memberId={}, reason={}",
-                orderId, currentUser.getMemberId(), request.getReason());
+                orderId, memberId, request.getReason());
 
-        PaymentResponse response = paymentService.cancelPayment(orderId, request, currentUser.getMemberId());
+        PaymentResponse response = paymentService.cancelPayment(orderId, request, memberId);
 
         return ResponseEntity.ok(response);
     }
@@ -136,11 +138,12 @@ public class PaymentController {
     @GetMapping("/{orderId}/amount")
     public ResponseEntity<Integer> getPaymentAmount(
             @PathVariable String orderId,
-            @AuthenticationPrincipal CustomOAuth2User currentUser) {
+            Authentication authentication) {
 
-        log.info("[GET /payments/{}/amount] 결제 금액 조회 요청: memberId={}", orderId, currentUser.getMemberId());
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /payments/{}/amount] 결제 금액 조회 요청: memberId={}", orderId, memberId);
 
-        Integer amount = paymentService.getPaymentAmount(orderId, currentUser.getMemberId());
+        Integer amount = paymentService.getPaymentAmount(orderId, memberId);
 
         return ResponseEntity.ok(amount);
     }

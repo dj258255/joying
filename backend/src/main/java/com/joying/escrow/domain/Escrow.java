@@ -127,4 +127,27 @@ public class Escrow {
     public void cancel() {
         this.status = Status.CANCELLED;
     }
+
+    /**
+     * 정산 완료 (대여료 지급 + 보증금 반환)
+     */
+    public void settle() {
+        if (this.status != Status.RETURN_STARTED && this.status != Status.RENTAL_STARTED) {
+            throw new IllegalStateException("RETURN_STARTED 또는 RENTAL_STARTED 상태에서만 정산할 수 있습니다");
+        }
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+
+        // 대여료 지급 시점 기록
+        if (this.rentalFeeReleasedAt == null) {
+            this.rentalFeeReleasedAt = now;
+        }
+
+        // 보증금 반환 시점 기록
+        if (this.depositReturnedAt == null) {
+            this.depositReturnedAt = now;
+        }
+
+        this.status = Status.SETTLED;
+    }
 }

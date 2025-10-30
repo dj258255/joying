@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
-import { DUMMY_PRODUCTS } from '../../../shared/constants/dummyData';
+import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
+import { useAuth, kakaoLogin } from '@/features/auth';
+import { useProducts } from '../hooks/useProducts';
 
 const CATEGORIES = [
   { id: 1, name: "게임 / 오락", children: ["콘솔 (닌텐도 스위치, PS5, Xbox)", "보드게임", "오락기 / 아케이드 머신", "VR 기기 (Meta Quest, PS VR)", "게임 컨트롤러 / 조이스틱", "게임 타이틀 (소프트웨어)"] },
@@ -53,8 +55,14 @@ const SEOUL_DISTRICTS = [
 
 const ProductListMain = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  
+  // 사이드 네비게이션 상태
+  const [isSideNavOpen, setIsSideNavOpen] = useState(false);
+  
   const [activeTab, setActiveTab] = useState('lend');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDates, setSelectedDates] = useState({ start: null, end: null });
@@ -69,8 +77,37 @@ const ProductListMain = () => {
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // 더미 데이터 사용
-  const products = DUMMY_PRODUCTS;
+  // API 필터 파라미터 생성
+  const apiFilters = useMemo(() => ({
+    type: activeTab, // 'lend' 또는 'borrow'
+    search: searchQuery,
+    category: selectedSubcategories.length > 0 ? selectedSubcategories[0] : '',
+    minPrice: priceRange.min ? parseInt(priceRange.min) : 0,
+    maxPrice: priceRange.max ? parseInt(priceRange.max) : Infinity,
+    location: selectedAreas.length > 0 ? selectedAreas[0] : '',
+    minRating: rating,
+    sameDayRental: sameDayRental,
+    hashtags: selectedHashtags.map(h => h.name),
+    startDate: selectedDates.start ? selectedDates.start.toISOString() : null,
+    endDate: selectedDates.end ? selectedDates.end.toISOString() : null
+  }), [
+    activeTab,
+    searchQuery,
+    selectedSubcategories,
+    priceRange,
+    selectedAreas,
+    rating,
+    sameDayRental,
+    selectedHashtags,
+    selectedDates
+  ]);
+
+  // React Query로 상품 데이터 가져오기
+  const { data: productsData, isLoading, isError, error } = useProducts(apiFilters);
+
+  // 상품 목록 추출
+  const products = productsData?.items || [];
+  const totalProducts = productsData?.total || 0;
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -133,11 +170,9 @@ const ProductListMain = () => {
 
   const formatDateRange = () => {
     if (!selectedDates.start) return '';
-    const startStr = selectedDates.start.toLocaleDateString('ko-KR').replace(/\./g, '.').slice(0, -1);
-    if (!selectedDates.end) return startStr;
-    const endStr = selectedDates.end.toLocaleDateString('ko-KR').replace(/\./g, '.').slice(0, -1);
+    if (!selectedDates.end) return '';
     const daysDiff = Math.ceil((selectedDates.end - selectedDates.start) / (1000 * 60 * 60 * 24)) + 1;
-    return `${startStr} ~ ${endStr} (총 ${daysDiff}일)`;
+    return `총 ${daysDiff}일`;
   };
 
   const formatPrice = (value) => {
@@ -224,6 +259,15 @@ const ProductListMain = () => {
       sameDayRental,
       hashtags: selectedHashtags
     });
+    handleCloseFilter();
+  };
+
+  const handleCloseFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setIsFilterOpen(false);
+      setIsFilterClosing(false);
+    }, 300); // 애니메이션 시간과 동일 (0.3s)
   };
 
   const handleCreateProduct = () => {
@@ -231,55 +275,59 @@ const ProductListMain = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <SideNavbar />
+    <div className="flex h-screen bg-white">
+      {/* 우측 상단 프로필/로그인 버튼 - 데스크톱 */}
+      <div className="hidden lg:flex fixed top-4 right-4 z-[100] items-center gap-4">
+        {isAuthenticated ? (
+          // 로그인 상태: 원형 프로필 버튼
+          <button
+            onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+            className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+            title={user?.nickname || '프로필'}
+          >
+            {user?.nickname?.charAt(0) || '👤'}
+          </button>
+        ) : (
+          // 미로그인 상태: 로그인하기 버튼 노출
+          <button
+            onClick={() => kakaoLogin()}
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm hover:shadow"
+            title="로그인하기"
+          >
+            로그인하기
+          </button>
+        )}
+      </div>
+      
+      <SideNavbar isOpen={isSideNavOpen} onClose={() => setIsSideNavOpen(false)} />
       {/* 데스크톱 필터 사이드바 */}
-      <div className="hidden lg:block w-1/4 h-screen overflow-y-auto sticky top-0 scrollbar-hide" style={{ 
-        background: 'linear-gradient(135deg, rgba(249, 250, 251, 0.95), rgba(243, 244, 246, 0.9))',
-        backdropFilter: 'blur(30px)',
-        borderRight: '1px solid rgba(255, 255, 255, 0.5)'
-      }}>
-        <div className="p-6 space-y-6">
+      <div className="hidden lg:block w-64 h-screen overflow-y-auto sticky top-0 scrollbar-hide bg-white border-r border-gray-200">
+        <div className="p-4 space-y-4">
           
           {/* 빌려요/구해요 탭 */}
-          <div className="mb-6">
-            <div className="flex space-x-2 p-1 rounded-xl" style={{
-              background: 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(20px)',
-              border: '1.5px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-            }}>
-              <button
-                onClick={() => setActiveTab('lend')}
-                className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
-                  activeTab === 'lend'
-                    ? 'text-gray-800 shadow-md'
-                    : 'text-gray-600 hover:bg-white/10'
-                }`}
-                style={activeTab === 'lend' ? {
-                  background: 'rgba(255, 255, 255, 0.3)',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
-                } : {}}
-              >
-                빌려줘
-              </button>
-              <button
-                onClick={() => setActiveTab('borrow')}
-                className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
-                  activeTab === 'borrow'
-                    ? 'text-gray-800 shadow-md'
-                    : 'text-gray-600 hover:bg-white/10'
-                }`}
-                style={activeTab === 'borrow' ? {
-                  background: 'rgba(255, 255, 255, 0.3)',
-                  backdropFilter: 'blur(10px)',
-                  boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
-                } : {}}
-              >
-                구해요
-              </button>
-            </div>
+          <div className="mb-4">
+           <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+             <button
+               onClick={() => setActiveTab('lend')}
+               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                 activeTab === 'lend'
+                   ? 'bg-gray-900 text-white shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+             >
+               빌려줘
+             </button>
+             <button
+               onClick={() => setActiveTab('borrow')}
+               className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                 activeTab === 'borrow'
+                   ? 'bg-gray-900 text-white shadow-sm'
+                   : 'text-gray-600 hover:text-gray-900'
+               }`}
+             >
+               구해요
+             </button>
+           </div>
           </div>
         {/* 검색창 */}
         <div className="relative">
@@ -288,17 +336,10 @@ const ProductListMain = () => {
             placeholder="상품 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-5 py-3.5 pr-12 text-sm text-gray-800 placeholder-gray-400 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-2"
-            style={{ 
-              background: 'rgba(255, 255, 255, 0.8)',
-              backdropFilter: 'blur(20px)',
-              border: '1.5px solid rgba(255, 255, 255, 0.6)',
-              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.15), inset 0 0 20px rgba(255, 255, 255, 0.5)',
-              '--tw-ring-color': 'rgb(59 130 246 / 0.3)'
-            }}
+            className="w-full px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
           />
           <svg 
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" 
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
@@ -308,43 +349,15 @@ const ProductListMain = () => {
         </div>
 
         {/* 날짜 기간 */}
-        <div className="space-y-3">
-           <h3 className="text-base font-extrabold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>날짜 기간</h3>
-          
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="시작 날짜"
-              value={selectedDates.start ? selectedDates.start.toLocaleDateString('ko-KR').slice(0, -1) : ''}
-              readOnly
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 cursor-pointer rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
-            <input
-              type="text"
-              placeholder="종료 날짜"
-              value={selectedDates.end ? selectedDates.end.toLocaleDateString('ko-KR').slice(0, -1) : ''}
-              readOnly
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 cursor-pointer rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">날짜 기간</h3>
+            {formatDateRange() && (
+              <span className="text-xs font-bold text-gray-900">
+                {formatDateRange()}
+              </span>
+            )}
           </div>
-
-           {formatDateRange() && (
-             <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
-               {formatDateRange()}
-             </div>
-           )}
 
           {/* 캘린더 */}
           <div className="p-4 rounded-2xl" style={{ 
@@ -402,8 +415,8 @@ const ProductListMain = () => {
                     }
                   `}
                    style={isDateSelected(date) || isDateInRange(date) ? {
-                     background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-                     boxShadow: '0 4px 12px #007ACC40'
+                     background: 'linear-gradient(135deg, #1f2937, #111827)',
+                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
                    } : {
                     background: 'rgba(255, 255, 255, 0.3)',
                     backdropFilter: 'blur(5px)'
@@ -418,7 +431,7 @@ const ProductListMain = () => {
 
          {/* 가격 범위 */}
          <div className="space-y-3">
-           <h3 className="text-base font-extrabold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>가격 범위</h3>
+           <h3 className="text-base font-extrabold text-gray-900">가격 범위</h3>
           
           <div className="flex gap-2">
             <input
@@ -454,7 +467,7 @@ const ProductListMain = () => {
 
          {/* 카테고리 */}
          <div className="space-y-3 relative">
-           <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>카테고리</h3>
+           <h3 className="text-base font-semibold text-gray-900">카테고리</h3>
           
           <button
             onClick={() => setShowCategoryPopover(!showCategoryPopover)}
@@ -470,31 +483,26 @@ const ProductListMain = () => {
           </button>
 
           {showCategoryPopover && (
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
               maxWidth: '95%', 
-              height: '400px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(40px)',
-              border: '1.5px solid rgba(255, 255, 255, 0.6)',
-              boxShadow: '0 20px 60px rgba(31, 38, 135, 0.25), inset 0 0 30px rgba(255, 255, 255, 0.7)'
+              height: '350px',
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
             }}>
-             <div className="flex h-full">
+             <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
                {/* 상위 카테고리 */}
-               <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+               <div className="w-2/5 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
                   {CATEGORIES.map(category => (
                     <button
                       key={category.id}
                       onClick={() => setActiveCategoryId(category.id)}
-                      className={`w-full px-4 py-3 text-left text-sm transition-all duration-200 ${
+                      className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
                         activeCategoryId === category.id
-                          ? 'font-semibold'
-                          : 'text-gray-700'
+                          ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
+                          : 'text-gray-600 hover:bg-white/50'
                       }`}
-                       style={activeCategoryId === category.id ? {
-                         background: '#007ACC15',
-                         color: '#007ACC',
-                         borderLeft: '3px solid #007ACC'
-                       } : {}}
                     >
                       {category.name}
                     </button>
@@ -502,33 +510,36 @@ const ProductListMain = () => {
                 </div>
 
                  {/* 하위 카테고리 */}
-                 <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
-                  {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => toggleSubcategory(sub)}
-                      className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                        selectedSubcategories.includes(sub)
-                          ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                          : 'hover:bg-gray-50 text-gray-800'
-                      }`}
-                    >
-                      <span className="text-xs leading-tight">{sub}</span>
-                    </button>
-                  ))}
+                 <div className="w-3/5 overflow-y-auto scrollbar-hide p-2">
+                  <div className="grid grid-cols-1 gap-1">
+                    {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => toggleSubcategory(sub)}
+                        className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
+                          selectedSubcategories.includes(sub)
+                            ? 'bg-gray-900 text-white'
+                            : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        <span className="leading-tight">{sub}</span>
+                        {selectedSubcategories.includes(sub) && (
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                 <button
                   onClick={() => setShowCategoryPopover(false)}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-300 hover:shadow-xl"
-                   style={{ 
-                     background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-                     boxShadow: '0 8px 20px #007ACC40'
-                   }}
+                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
                 >
-                  선택 완료
+                  선택 완료 ({selectedSubcategories.length})
                 </button>
               </div>
             </div>
@@ -541,9 +552,9 @@ const ProductListMain = () => {
                   key={idx}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full overflow-hidden whitespace-nowrap text-ellipsis max-w-full transition-all duration-200"
                    style={{ 
-                     background: '#007ACC15',
-                     color: '#007ACC',
-                     border: '1px solid #007ACC30',
+                     background: 'rgba(17, 24, 39, 0.08)',
+                     color: '#111827',
+                     border: '1px solid rgba(17, 24, 39, 0.2)',
                      backdropFilter: 'blur(10px)'
                    }}
                 >
@@ -562,7 +573,7 @@ const ProductListMain = () => {
 
          {/* 지역 (구 → 동) */}
          <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>지역 (구 · 동)</h3>
+           <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
           
            {/* 구 선택 */}
            <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
@@ -577,11 +588,11 @@ const ProductListMain = () => {
                  onClick={() => toggleDistrict(district.id)}
                  className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
                    selectedDistricts.includes(district.id)
-                     ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                     ? 'bg-gray-900 text-white border border-gray-900'
                      : 'hover:bg-white/60 text-gray-800'
                  }`}
                >
-                 <span className="text-sm">{district.name}</span>
+                 <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
                </button>
              ))}
            </div>
@@ -600,7 +611,7 @@ const ProductListMain = () => {
                    const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
                    return district ? (
                      <div key={districtId} className="space-y-1">
-                       <div className="text-xs font-semibold px-2" style={{ color: '#007ACC' }}>{district.name}</div>
+                       <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
                        <div className="grid grid-cols-2 gap-1">
                          {district.areas.map((area, idx) => (
                            <button
@@ -608,11 +619,11 @@ const ProductListMain = () => {
                              onClick={() => toggleArea(area)}
                              className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
                                selectedAreas.includes(area)
-                                 ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                 ? 'bg-gray-900 text-white border border-gray-900'
                                  : 'hover:bg-white/50 text-gray-800'
                              }`}
                            >
-                             <span className="text-xs">{area}</span>
+                             <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
                            </button>
                          ))}
                        </div>
@@ -630,9 +641,9 @@ const ProductListMain = () => {
                   key={idx}
                   className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full transition-all duration-200"
                    style={{ 
-                     background: '#007ACC15',
-                     color: '#007ACC',
-                     border: '1px solid #007ACC30',
+                     background: 'rgba(17, 24, 39, 0.08)',
+                     color: '#111827',
+                     border: '1px solid rgba(17, 24, 39, 0.2)',
                      backdropFilter: 'blur(10px)'
                    }}
                 >
@@ -651,7 +662,7 @@ const ProductListMain = () => {
 
          {/* 최소 평점 (0.5점 단위, 별 5개만 표시) */}
          <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>최소 평점</h3>
+           <h3 className="text-base font-semibold text-gray-900">최소 평점</h3>
           
           <div className="flex justify-center gap-2 py-2">
             {[1, 2, 3, 4, 5].map(star => {
@@ -693,13 +704,12 @@ const ProductListMain = () => {
 
           {rating > 0 && (
             <div className="text-center">
-               <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
+               <div className="text-sm font-bold text-gray-900">
                  {rating}점 이상
                </div>
                <button
                  onClick={() => setRating(0)}
-                 className="text-xs mt-1 transition-opacity duration-200 hover:opacity-70"
-                 style={{ color: 'rgb(59 130 246 / 1)' }}
+                 className="text-xs mt-1 text-gray-700 hover:text-gray-900 transition-opacity duration-200 hover:opacity-70"
               >
                 평점 초기화
               </button>
@@ -709,7 +719,7 @@ const ProductListMain = () => {
 
          {/* 당일 대여 */}
          <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>당일 대여 가능</h3>
+           <h3 className="text-base font-semibold text-gray-900">당일 대여 가능</h3>
           
           <div className="flex items-center justify-between p-4 rounded-xl transition-all duration-300" style={{ 
             background: 'rgba(255, 255, 255, 0.7)',
@@ -725,11 +735,11 @@ const ProductListMain = () => {
                  minWidth: '52px',
                  height: '32px',
                  background: sameDayRental 
-                   ? 'linear-gradient(135deg, #007ACC, #0056CC)' 
+                   ? 'linear-gradient(135deg, #1f2937, #111827)' 
                    : 'rgba(229, 231, 235, 0.8)',
                  backdropFilter: 'blur(10px)',
                  boxShadow: sameDayRental 
-                   ? '0 4px 12px #007ACC40' 
+                   ? '0 4px 12px rgba(0, 0, 0, 0.25)' 
                    : '0 2px 8px rgba(0, 0, 0, 0.1)'
                }}
             >
@@ -748,32 +758,16 @@ const ProductListMain = () => {
       </div>
 
       {/* Sticky Footer */}
-      <div className="sticky bottom-0 p-4 space-y-2" style={{ 
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(40px)',
-        borderTop: '1.5px solid rgba(255, 255, 255, 0.5)',
-        boxShadow: '0 -8px 32px rgba(31, 38, 135, 0.15)'
-      }}>
+      <div className="sticky bottom-0 p-4 space-y-2 bg-white border-t border-gray-200 z-[60]">
         <button
           onClick={handleReset}
-          className="w-full py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 hover:shadow-lg"
-          style={{ 
-            background: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(20px)',
-            border: '1.5px solid rgba(255, 255, 255, 0.4)',
-            color: '#6B7280',
-            boxShadow: '0 4px 16px rgba(31, 38, 135, 0.1)'
-          }}
+          className="w-full py-2.5 px-4 rounded-lg font-medium text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
         >
           초기화
         </button>
         <button
           onClick={handleApply}
-          className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
-           style={{ 
-             background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-             boxShadow: '0 8px 24px #007ACC40'
-           }}
+          className="w-full py-2.5 px-4 rounded-lg font-medium text-sm text-white bg-gray-900 hover:bg-black transition-colors"
         >
           필터 적용
         </button>
@@ -782,64 +776,170 @@ const ProductListMain = () => {
 
 
      {/* 메인 콘텐츠 영역 */}
-     <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ backgroundColor: 'rgb(59 130 246 / 0.3)' }}>
+     <div className="flex-1 overflow-y-auto scrollbar-hide bg-gray-50">
        {/* 모바일 헤더 */}
-       <div className="lg:hidden p-4 bg-white/20 backdrop-blur-sm border-b border-white/20">
+       <div className="lg:hidden p-4 bg-white border-b border-gray-200">
          <div className="flex items-center justify-between">
-           <div>
-             <h1 className="text-xl font-bold text-gray-900">
-               {activeTab === 'lend' ? '빌려줘' : '구해요'}
-             </h1>
+           {/* 토글 스위치 */}
+           <div className="relative">
+             <button
+               onClick={() => setActiveTab(activeTab === 'lend' ? 'borrow' : 'lend')}
+               className="relative w-40 h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
+             >
+               {/* 슬라이더 */}
+               <div
+                 className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
+                 style={{
+                   left: activeTab === 'lend' ? '4px' : 'calc(50% + 0px)'
+                 }}
+               />
+               
+               {/* 텍스트 레이어 */}
+               <div className="absolute inset-0 flex items-center pointer-events-none">
+                 <div className="w-1/2 flex items-center justify-center">
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'lend' ? 'text-white' : 'text-gray-600'}`}>
+                     빌려줘
+                   </span>
+                 </div>
+                 <div className="w-1/2 flex items-center justify-center">
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'borrow' ? 'text-white' : 'text-gray-600'}`}>
+                     구해요
+                   </span>
+                 </div>
+               </div>
+             </button>
            </div>
-           <button
-             onClick={() => setIsFilterOpen(true)}
-             className="p-2 bg-white/10 backdrop-blur-sm rounded-lg text-gray-600 hover:bg-white/20 transition-colors"
-           >
-             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
-             </svg>
-           </button>
+           
+           {/* 모바일 우측 버튼 그룹 */}
+           <div className="flex items-center gap-2">
+             {/* 필터 버튼 */}
+             <button
+               onClick={() => setIsFilterOpen(true)}
+               className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 transition-colors"
+             >
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+               </svg>
+             </button>
+             
+            {/* 프로필 또는 로그인 버튼 */}
+            {isAuthenticated ? (
+              <button
+                onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30"
+                title={user?.nickname || '프로필'}
+              >
+                {user?.nickname?.charAt(0) || '👤'}
+              </button>
+            ) : (
+              <button
+                onClick={() => kakaoLogin()}
+                className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
+                title="로그인하기"
+              >
+                로그인하기
+              </button>
+            )}
+           </div>
          </div>
        </div>
 
-       {/* 해시태그 필터 - 스티키 */}
-       <div className="sticky top-0 z-50 p-4 border-b border-white/20" style={{ backgroundColor: 'rgb(203 214 247 / 0.82)' }}>
-         <HashtagFilter 
-           onHashtagSelect={handleHashtagSelect}
-           selectedHashtags={selectedHashtags}
-         />
-       </div>
+      {/* 해시태그 필터 - 스티키 */}
+      <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
+        <HashtagFilter 
+          onHashtagSelect={handleHashtagSelect}
+          selectedHashtags={selectedHashtags}
+        />
+      </div>
 
        {/* 상품 목록 */}
-       <div className="p-6">
-         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-           {products.map((product) => (
-             <ProductCard
-               key={product.id}
-               product={product}
-               onClick={() => navigate(`/products/${product.id}`)}
-               actionType="view"
-               status={product.status}
-               showStats={false}
-               showDate={false}
-             />
-           ))}
-         </div>
+       <div className="flex-1 p-6 overflow-y-auto">
+         {/* 로딩 상태 */}
+         {isLoading && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+               <p className="text-gray-600">상품을 불러오는 중...</p>
+             </div>
+           </div>
+         )}
+
+         {/* 에러 상태 */}
+         {isError && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+               </svg>
+               <p className="text-gray-900 font-semibold mb-2">상품을 불러오는데 실패했습니다</p>
+               <p className="text-gray-600 text-sm">{error?.message}</p>
+             </div>
+           </div>
+         )}
+
+         {/* 상품 목록 */}
+         {!isLoading && !isError && products.length > 0 && (
+           <>
+             <div className="mb-4 flex items-center justify-between">
+               <p className="text-sm text-gray-600">
+                 총 <span className="font-semibold text-gray-900">{totalProducts}</span>개의 상품
+               </p>
+             </div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onClick={() => navigate(`/products/${product.id}`)}
+                  actionType="view"
+                  status={product.isAvailable ? 'available' : 'unavailable'}
+                  showStats={false}
+                  showDate={false}
+                />
+              ))}
+            </div>
+           </>
+         )}
+
+         {/* 빈 상태 */}
+         {!isLoading && !isError && products.length === 0 && (
+           <div className="flex items-center justify-center py-20">
+             <div className="text-center">
+               <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+               </svg>
+               <p className="text-gray-900 font-semibold mb-2">검색 결과가 없습니다</p>
+               <p className="text-gray-600 text-sm">다른 조건으로 검색해보세요</p>
+             </div>
+           </div>
+         )}
        </div>
      </div>
 
-     {/* 모바일 필터 모달 */}
-     {isFilterOpen && (
-       <div className="fixed inset-0 z-50 lg:hidden">
-         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsFilterOpen(false)} />
-         <div className="absolute bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto scrollbar-hide">
-           <div className="flex items-center justify-between mb-6">
-             <h2 className="text-xl font-bold text-gray-900">필터</h2>
-             <button
-               onClick={() => setIsFilterOpen(false)}
-               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+   {/* 모바일 필터 모달 */}
+   {isFilterOpen && (
+     <div className={`fixed inset-0 z-50 lg:hidden ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}>
+       <div 
+         className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}
+         onClick={handleCloseFilter} 
+       />
+       <div 
+         className={`absolute bottom-0 left-0 right-0 rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto scrollbar-hide ${isFilterClosing ? 'animate-slideDown' : 'animate-slideUp'}`}
+         style={{
+           background: 'rgba(255, 255, 255, 0.5)',
+           backdropFilter: 'blur(40px) saturate(180%)',
+           WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+           border: '1px solid rgba(255, 255, 255, 0.6)',
+           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+         }}
+       >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 drop-shadow-sm">필터</h2>
+            <button
+              onClick={handleCloseFilter}
+               className="p-2 hover:bg-white/30 rounded-lg transition-colors"
              >
-               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <svg className="w-5 h-5 text-gray-800 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                </svg>
              </button>
@@ -850,22 +950,23 @@ const ProductListMain = () => {
              {/* 빌려요/구해요 탭 */}
              <div className="mb-6">
                <div className="flex space-x-2 p-1 rounded-xl" style={{
-                 background: 'rgba(255, 255, 255, 0.15)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.3)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+                 background: 'rgba(255, 255, 255, 0.3)',
+                 backdropFilter: 'blur(20px) saturate(180%)',
+                 WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                 border: '1px solid rgba(255, 255, 255, 0.5)',
+                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                }}>
                  <button
                    onClick={() => setActiveTab('lend')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
                      activeTab === 'lend'
-                       ? 'text-gray-800 shadow-md'
-                       : 'text-gray-600 hover:bg-white/10'
+                       ? 'text-gray-900 shadow-md drop-shadow-sm'
+                       : 'text-gray-700 hover:bg-white/20'
                    }`}
                    style={activeTab === 'lend' ? {
-                     background: 'rgba(255, 255, 255, 0.3)',
+                     background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
-                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
+                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
                    빌려줘
@@ -874,13 +975,13 @@ const ProductListMain = () => {
                    onClick={() => setActiveTab('borrow')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
                      activeTab === 'borrow'
-                       ? 'text-gray-800 shadow-md'
-                       : 'text-gray-600 hover:bg-white/10'
+                       ? 'text-gray-900 shadow-md drop-shadow-sm'
+                       : 'text-gray-700 hover:bg-white/20'
                    }`}
                    style={activeTab === 'borrow' ? {
-                     background: 'rgba(255, 255, 255, 0.3)',
+                     background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
-                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.2)'
+                     boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
                    구해요
@@ -920,47 +1021,18 @@ const ProductListMain = () => {
                </svg>
              </div>
 
-             {/* 날짜 기간 */}
-             <div className="space-y-3">
-               <h3 className="text-base font-extrabold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>날짜 기간</h3>
-               
-               <div className="flex gap-2">
-                 <input
-                   type="text"
-                   placeholder="시작 날짜"
-                   value={selectedDates.start ? selectedDates.start.toLocaleDateString() : ''}
-                   readOnly
-                   className="flex-1 px-4 py-3 text-sm text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
-                   style={{ 
-                     background: 'rgba(255, 255, 255, 0.7)',
-                     backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                     boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)',
-                     '--tw-ring-color': 'rgb(59 130 246 / 0.3)'
-                   }}
-                 />
-                 <input
-                   type="text"
-                   placeholder="종료 날짜"
-                   value={selectedDates.end ? selectedDates.end.toLocaleDateString() : ''}
-                   readOnly
-                   className="flex-1 px-4 py-3 text-sm text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
-                   style={{ 
-                     background: 'rgba(255, 255, 255, 0.7)',
-                     backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                     boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-                   }}
-                 />
-               </div>
-
+           {/* 날짜 기간 */}
+           <div className="space-y-3">
+             <div className="flex items-center justify-between">
+               <h3 className="text-base font-extrabold text-gray-900">날짜 기간</h3>
                {formatDateRange() && (
-                 <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
+                 <span className="text-sm font-bold text-gray-900">
                    {formatDateRange()}
-                 </div>
+                 </span>
                )}
+             </div>
 
-               {/* 캘린더 */}
+              {/* 캘린더 */}
                <div className="p-4 rounded-2xl" style={{ 
                  background: 'rgba(255, 255, 255, 0.75)',
                  backdropFilter: 'blur(25px)',
@@ -1020,9 +1092,9 @@ const ProductListMain = () => {
                            className={`p-2 rounded-lg transition-all duration-200 ${
                              isToday ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''
                            } ${
-                             isSelected ? 'bg-[#007ACC] text-white' : ''
+                             isSelected ? 'bg-gray-900 text-white' : ''
                            } ${
-                             isInRange && !isSelected ? 'bg-[#007ACC]/30 text-[#007ACC]' : ''
+                             isInRange && !isSelected ? 'bg-gray-900/30 text-gray-900' : ''
                            } ${
                              !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
                            }`}
@@ -1040,7 +1112,7 @@ const ProductListMain = () => {
 
              {/* 가격 범위 */}
              <div className="space-y-3">
-               <h3 className="text-base font-extrabold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>가격 범위</h3>
+               <h3 className="text-base font-extrabold text-gray-900">가격 범위</h3>
                
                <div className="flex gap-2">
                  <input
@@ -1077,7 +1149,7 @@ const ProductListMain = () => {
 
              {/* 카테고리 */}
              <div className="space-y-3 relative">
-               <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>카테고리</h3>
+               <h3 className="text-base font-semibold text-gray-900">카테고리</h3>
                
                <button
                  onClick={() => setShowCategoryPopover(!showCategoryPopover)}
@@ -1092,57 +1164,58 @@ const ProductListMain = () => {
                  {getSelectedCategoriesText()}
                </button>
 
-               {showCategoryPopover && (
-                 <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
-                   background: 'rgba(255, 255, 255, 0.9)',
-                   backdropFilter: 'blur(25px)',
-                   border: '1.5px solid rgba(255, 255, 255, 0.6)',
-                   boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)'
-                 }}>
-                   <div className="flex h-full">
-                     {/* 상위 카테고리 */}
-                     <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                       {CATEGORIES.map(category => (
-                         <button
-                           key={category.id}
-                           onClick={() => setActiveCategoryId(category.id)}
-                           className={`w-full text-left py-3 px-4 transition-all duration-200 ${
-                             activeCategoryId === category.id
-                               ? 'bg-blue-100 text-blue-800 border-r-2 border-blue-500'
-                               : 'hover:bg-gray-50'
-                           }`}
-                         >
-                           <span className="text-sm font-medium text-gray-800">{category.name}</span>
-                         </button>
-                       ))}
-                     </div>
-                     {/* 하위 카테고리 */}
-                     <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
-                       {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
-                         <button
-                           key={idx}
-                           onClick={() => toggleSubcategory(sub)}
-                           className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                             selectedSubcategories.includes(sub)
-                               ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                               : 'hover:bg-gray-50'
-                           }`}
-                         >
-                           <span className="text-xs leading-tight text-gray-800">{sub}</span>
-                         </button>
-                       ))}
-                     </div>
-                   </div>
-                   <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                     <button 
-                       onClick={() => setShowCategoryPopover(false)}
-                       className="w-full py-2 px-4 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
-                     >
-                       선택 완료
-                     </button>
-                   </div>
-                 </div>
-               )}
+              {showCategoryPopover && (
+                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(25px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                  boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)',
+                  maxHeight: '400px'
+                }}>
+                  <div className="flex" style={{ height: '320px' }}>
+                    {/* 상위 카테고리 */}
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                      {CATEGORIES.map(category => (
+                        <button
+                          key={category.id}
+                          onClick={() => setActiveCategoryId(category.id)}
+                          className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                           activeCategoryId === category.id
+                             ? 'bg-gray-900 text-white border-r-2 border-gray-900'
+                             : 'hover:bg-gray-50'
+                         }`}
+                        >
+                          <span className={`text-sm font-medium ${activeCategoryId === category.id ? 'text-white' : 'text-gray-800'}`}>{category.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* 하위 카테고리 */}
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
+                      {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => toggleSubcategory(sub)}
+                          className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                           selectedSubcategories.includes(sub)
+                             ? 'bg-gray-900 text-white border border-gray-900'
+                             : 'hover:bg-gray-50'
+                         }`}
+                        >
+                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub) ? 'text-white' : 'text-gray-800'}`}>{sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    <button 
+                      onClick={() => setShowCategoryPopover(false)}
+                      className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                    >
+                      선택 완료
+                    </button>
+                  </div>
+                </div>
+              )}
 
                {/* 선택된 하위 카테고리 표시 */}
                {selectedSubcategories.length > 0 && (
@@ -1167,7 +1240,7 @@ const ProductListMain = () => {
 
              {/* 지역 (구 → 동) */}
              <div className="space-y-3">
-               <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>지역 (구 · 동)</h3>
+               <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
                
                {/* 구 선택 */}
                <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
@@ -1181,12 +1254,12 @@ const ProductListMain = () => {
                      key={district.id}
                      onClick={() => toggleDistrict(district.id)}
                      className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
-                       selectedDistricts.includes(district.id)
-                         ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                         : 'hover:bg-white/60 text-gray-800'
-                     }`}
+                      selectedDistricts.includes(district.id)
+                        ? 'bg-gray-900 text-white border border-gray-900'
+                        : 'hover:bg-white/60 text-gray-800'
+                    }`}
                    >
-                     <span className="text-sm text-gray-800">{district.name}</span>
+                     <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
                    </button>
                  ))}
                </div>
@@ -1205,19 +1278,19 @@ const ProductListMain = () => {
                        const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
                        return district ? (
                          <div key={districtId} className="space-y-1">
-                           <div className="text-xs font-semibold px-2" style={{ color: '#007ACC' }}>{district.name}</div>
+                           <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
                            <div className="grid grid-cols-2 gap-1">
                              {district.areas.map((area, idx) => (
                                <button
                                  key={idx}
                                  onClick={() => toggleArea(area)}
-                                 className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
-                                   selectedAreas.includes(area)
-                                     ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                     : 'hover:bg-white/50 text-gray-800'
-                                 }`}
+                                className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
+                                  selectedAreas.includes(area)
+                                    ? 'bg-gray-900 text-white border border-gray-900'
+                                    : 'hover:bg-white/50 text-gray-800'
+                                }`}
                                >
-                                 <span className="text-xs text-gray-800">{area}</span>
+                                 <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
                                </button>
                              ))}
                            </div>
@@ -1251,7 +1324,7 @@ const ProductListMain = () => {
 
              {/* 최소 평점 */}
              <div className="space-y-3">
-               <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>최소 평점</h3>
+               <h3 className="text-base font-semibold text-gray-900">최소 평점</h3>
                
                <div className="flex justify-center gap-2 py-2">
                  {[1, 2, 3, 4, 5].map(star => {
@@ -1287,13 +1360,12 @@ const ProductListMain = () => {
 
                {rating > 0 && (
                  <div className="text-center">
-                   <div className="text-sm font-bold" style={{ color: 'rgb(59 130 246 / 1)' }}>
+                   <div className="text-sm font-bold text-gray-900">
                      {rating}점 이상
                    </div>
                    <button
                      onClick={() => setRating(0)}
-                     className="text-xs mt-1 transition-opacity duration-200 hover:opacity-70"
-                     style={{ color: 'rgb(59 130 246 / 1)' }}
+                     className="text-xs mt-1 text-gray-700 hover:text-gray-900 transition-opacity duration-200 hover:opacity-70"
                    >
                      평점 초기화
                    </button>
@@ -1303,7 +1375,7 @@ const ProductListMain = () => {
 
              {/* 당일 대여 */}
              <div className="space-y-3">
-               <h3 className="text-base font-semibold text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>당일 대여 가능</h3>
+               <h3 className="text-base font-semibold text-gray-900">당일 대여 가능</h3>
                
                <div className="flex items-center justify-between p-4 rounded-xl transition-all duration-300" style={{ 
                  background: 'rgba(255, 255, 255, 0.7)',
@@ -1314,8 +1386,8 @@ const ProductListMain = () => {
                  <span className="text-sm font-medium text-gray-800">당일 대여 가능한 상품만 보기</span>
                  <button
                    onClick={() => setSameDayRental(!sameDayRental)}
-                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#007ACC] focus:ring-offset-2 ${
-                     sameDayRental ? 'bg-[#007ACC]' : 'bg-gray-200'
+                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 ${
+                     sameDayRental ? 'bg-gray-900' : 'bg-gray-200'
                    }`}
                  >
                    <span
@@ -1349,8 +1421,8 @@ const ProductListMain = () => {
                  }}
                  className="w-full py-3 px-4 rounded-xl font-bold text-sm text-white transition-all duration-300 hover:shadow-xl hover:scale-[1.02]"
                  style={{ 
-                   background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-                   boxShadow: '0 8px 24px #007ACC40'
+                   background: 'linear-gradient(135deg, #1f2937, #111827)',
+                   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
                  }}
                >
                  필터 적용
@@ -1361,45 +1433,26 @@ const ProductListMain = () => {
        </div>
      )}
 
-     {/* 플로팅 상품 등록 버튼 */}
-     <button
-       onClick={() => setShowCreateModal(true)}
-       className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
-       style={{
-         background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-         boxShadow: '0 8px 32px rgba(0, 122, 204, 0.4)',
-         backdropFilter: 'blur(20px)',
-         border: '2px solid rgba(255, 255, 255, 0.2)'
-       }}
-     >
-       <svg className="w-6 h-6 text-white mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-       </svg>
-     </button>
+    {/* 플로팅 상품 등록 버튼 */}
+    <button
+      onClick={() => setShowCreateModal(true)}
+      className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gray-900 hover:bg-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
+    >
+      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+      </svg>
+    </button>
 
      {/* 상품 등록 확인 모달 */}
      {showCreateModal && (
-       <div className="fixed inset-0 z-50 flex items-center justify-center">
+       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
          <div 
-           className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+           className="absolute inset-0 bg-black/50" 
            onClick={() => setShowCreateModal(false)}
          />
-         <div 
-           className="relative bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl"
-           style={{
-             background: 'rgba(255, 255, 255, 0.95)',
-             backdropFilter: 'blur(40px)',
-             border: '1px solid rgba(255, 255, 255, 0.2)',
-             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)'
-           }}
-         >
+         <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
            <div className="text-center">
-             <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-               style={{
-                 background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-                 boxShadow: '0 8px 24px rgba(0, 122, 204, 0.3)'
-               }}
-             >
+             <div className="w-16 h-16 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center">
                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                </svg>
@@ -1417,11 +1470,7 @@ const ProductListMain = () => {
                </button>
                <button
                  onClick={handleCreateProduct}
-                 className="flex-1 px-4 py-3 text-white rounded-lg hover:shadow-lg transition-all duration-300 font-medium"
-                 style={{
-                   background: 'linear-gradient(135deg, #007ACC, #0056CC)',
-                   boxShadow: '0 4px 16px rgba(0, 122, 204, 0.3)'
-                 }}
+                 className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-lg hover:bg-black transition-colors font-medium"
                >
                  새로 등록
                </button>

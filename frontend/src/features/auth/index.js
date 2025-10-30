@@ -8,11 +8,10 @@ export * from './api/authApi';
 
 // Components
 export { default as KakaoLoginButton } from './components/KakaoLoginButton';
-export { default as AuthTokenHandler } from './components/AuthTokenHandler';
 
 // Hooks
-export * from './hooks/useAuth';
 export * from './hooks/useKakaoLogin';
+export { useAuth } from './contexts/AuthContext';
 
 // Pages
 export { default as LoginPage } from './pages/LoginPage';

@@ -19,6 +19,9 @@ public enum Status {
     @Comment("반납 시작")
     RETURN_STARTED("반납 시작"),
 
+    @Comment("정산 완료")
+    SETTLED("정산 완료"),
+
     @Comment("전액 환불")
     REFUNDED("전액 환불"),
 

@@ -91,6 +91,15 @@ const ProductCard = ({
         {/* 그라데이션 오버레이 */}
         <div className="glass-product-gradient-overlay"></div>
         
+        {/* 위치 정보 - 왼쪽 상단 */}
+        {product?.location && (
+          <div className="absolute top-3 left-3 z-[5]">
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md text-xs text-white/90">
+              📍 {product.location}
+            </span>
+          </div>
+        )}
+        
         {/* 액션 버튼 */}
         {onAction && (
           <div className="glass-product-action-overlay">
@@ -109,14 +118,27 @@ const ProductCard = ({
 
         {/* 하단 텍스트 오버레이 */}
         <div className="glass-product-text-overlay">
-          <div className="glass-product-title-overlay">
+          {/* 제품명 */}
+          <h3 className="text-sm font-bold text-white mb-2 line-clamp-1">
             {product?.title || product?.name || '상품명 없음'}
-          </div>
-          <div className="glass-product-price-overlay">
-            {product?.price ? `${product.price.toLocaleString()}원/일` : '가격 정보 없음'}
-          </div>
-          <div className="glass-product-location-overlay">
-            📍 {product?.location || '위치 정보 없음'}
+          </h3>
+          
+          {/* 가격 & 평점 */}
+          <div className="flex items-center justify-between">
+            <p className="text-white font-semibold text-xs">
+              {product?.price ? `${product.price.toLocaleString()}원/일` : '가격 정보 없음'}
+            </p>
+            
+            {/* 별점 표시 */}
+            {product?.rating !== undefined && (
+              <div className="flex items-center gap-1 text-xs text-white">
+                <span>⭐</span>
+                <span className="font-semibold">{product.rating.toFixed(1)}</span>
+                {product?.reviewCount && (
+                  <span className="text-gray-300">({product.reviewCount})</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

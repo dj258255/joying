@@ -5,6 +5,7 @@ import com.joying.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.joying.auth.service.CustomOAuth2UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Spring Security 설정
@@ -37,6 +39,14 @@ public class SecurityConfig {
 	private final OAuth2AuthenticationFailureHandler oAuth2FailureHandler;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final JwtProperties jwtProperties;
+
+	/**
+	 * CORS 허용 Origin 목록 (환경변수에서 주입)
+	 * application.properties: cors.allowed-origins=${CORS_ALLOWED_ORIGINS},http://localhost:8080
+	 * .env: CORS_ALLOWED_ORIGINS=http://localhost:5173
+	 */
+	@Value("${cors.allowed-origins}")
+	private List<String> allowedOrigins;
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -73,7 +83,7 @@ public class SecurityConfig {
 				).permitAll()
 				// OAuth2 로그인 엔드포인트
 				.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-				// 오픈뱅킹 계좌 인증 엔드포인트
+				// 계좌 1원 인증 엔드포인트 (SSAFY 금융망 API)
 				.requestMatchers("/api/v1/accounts/verify/**").permitAll()
 				// 그 외 모든 요청은 인증 필요
 				.anyRequest().authenticated()
@@ -109,16 +119,13 @@ public class SecurityConfig {
 	}
 
 	/**
-	 * CORS 설정
+	 * CORS 설정 (환경변수 기반)
 	 */
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		// 허용할 Origin (프론트엔드 URL)
-		configuration.setAllowedOrigins(Arrays.asList(
-			"http://localhost:3000",
-			"http://localhost:8080"// 실제 프로덕션 도메인 추가
-		));
+		// 허용할 Origin (환경변수에서 주입)
+		configuration.setAllowedOrigins(allowedOrigins);
 		// 허용할 HTTP 메서드
 		configuration.setAllowedMethods(Arrays.asList(
 			"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"

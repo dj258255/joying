@@ -77,12 +77,21 @@ public enum ErrorCode {
 	ACCOUNT_NOT_VERIFIED(400, "AC003", "인증되지 않은 계좌입니다"),
 	ACCOUNT_NOT_USABLE(400, "AC004", "사용 불가능한 계좌입니다"),
 	ACCOUNT_NOT_AUTHORIZED(403, "AC005", "계좌에 대한 권한이 없습니다"),
+	ACCOUNT_VERIFICATION_FAILED(400, "AC006", "계좌 인증에 실패했습니다"),
+	INVALID_AUTH_CODE(400, "AC007", "인증 코드가 일치하지 않습니다"),
 
 	// ========================================
 	// Member Domain (M001~M099)
 	// ========================================
 	MEMBER_NOT_FOUND(404, "M001", "회원을 찾을 수 없습니다"),
-	MEMBER_NOT_OWNER(403, "M002", "해당 회원 정보를 수정/삭제할 권한이 없습니다");
+	MEMBER_NOT_OWNER(403, "M002", "해당 회원 정보를 수정/삭제할 권한이 없습니다"),
+
+	// ========================================
+	// File Domain (F001~F099)
+	// ========================================
+	FILE_NOT_FOUND(404, "F001", "파일을 찾을 수 없습니다"),
+	INVALID_FILE_TYPE(400, "F002", "허용되지 않는 파일 형식입니다"),
+	FILE_UPLOAD_FAILED(500, "F003", "파일 업로드에 실패했습니다");
 
 	private final int status;
 	private final String code;

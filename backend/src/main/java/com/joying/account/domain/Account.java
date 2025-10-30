@@ -6,8 +6,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
 
-import java.time.Instant;
-
 
 @Getter
 @Entity
@@ -30,27 +28,19 @@ public class Account extends BaseEntity {
     @Column(name = "bank_name", nullable = false)
     private String bankName;
 
-    @Comment("표준 은행 코드 (금융결제원 오픈뱅킹)")
-    @Column(name = "bank_code_std", nullable = false, length = 3)
-    private String bankCodeStd;
+    @Comment("은행 코드 (SSAFY 금융망)")
+    @Column(name = "bank_code", nullable = false, length = 3)
+    private String bankCode;
 
-    @Comment("계좌 번호")
-    @Column(name = "account_num", nullable = false)
-    private String accountNum;
+    @Comment("계좌 번호 (16자리)")
+    @Column(name = "account_no", nullable = false, length = 16, unique = true)
+    private String accountNo;
 
-    @Comment("계좌일련번호 (금융결제원 오픈뱅킹 1원 인증)")
-    @Column(name = "account_seq", nullable = false, unique = true)
-    private String accountSeq;
-
-    @Comment("계좌 예금주명")
+    @Comment("계좌 예금주명 (1원 인증으로 확인된 실명)")
     @Column(name = "account_holder_name", nullable = false)
     private String accountHolderName;
 
-    @Comment("계좌 인증 완료 시간 (UTC) - null이면 미인증")
-    @Column(name = "verified_at")
-    private Instant verifiedAt;
-
-    @Comment("계좌 상태 (01:정상, 02:휴면, 03:해지, 04:정지)")
+    @Comment("계좌 상태")
     @Enumerated(EnumType.STRING)
     @Column(name = "account_state", nullable = false, length = 20)
     private AccountState accountState;
@@ -59,32 +49,14 @@ public class Account extends BaseEntity {
      * Builder 패턴으로 계좌 생성 (1원 인증 방식)
      */
     @Builder
-    public Account(Member member, String bankName, String bankCodeStd, String accountNum,
-                   String accountSeq, String accountHolderName, AccountState accountState) {
+    public Account(Member member, String bankName, String bankCode, String accountNo,
+                   String accountHolderName, AccountState accountState) {
         this.member = member;
         this.bankName = bankName;
-        this.bankCodeStd = bankCodeStd;
-        this.accountNum = accountNum;
-        this.accountSeq = accountSeq;
+        this.bankCode = bankCode;
+        this.accountNo = accountNo;
         this.accountHolderName = accountHolderName;
-        this.verifiedAt = null; // 기본값: 미인증
         this.accountState = accountState != null ? accountState : AccountState.ACTIVE;
-    }
-
-    /**
-     * 계좌 인증 완료 처리 (UTC 기준 시간 저장)
-     */
-    public void verifyAccount() {
-        this.verifiedAt = Instant.now(); // UTC 기준 현재 시간
-    }
-
-    /**
-     * 계좌 인증 여부 확인
-     *
-     * @return verifiedAt이 null이 아니면 인증됨
-     */
-    public boolean isVerified() {
-        return this.verifiedAt != null;
     }
 
     /**
@@ -99,10 +71,10 @@ public class Account extends BaseEntity {
     /**
      * 계좌 사용 가능 여부 확인
      *
-     * @return 정상 상태 && 인증 완료 여부
+     * @return 정상 상태 여부 (Account 테이블에 있으면 이미 1원 인증 완료)
      */
     public boolean isUsable() {
-        return isVerified() && this.accountState.isActive();
+        return this.accountState.isActive();
     }
 
     /**

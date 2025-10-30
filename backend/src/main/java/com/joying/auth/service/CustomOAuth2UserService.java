@@ -77,13 +77,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 	 * @return 생성된 Member
 	 */
 	private Member createNewMember(KakaoOAuth2UserInfo kakaoUserInfo) {
-		log.info("신규 Kakao 회원 가입: email={}",
-			kakaoUserInfo.getEmail());
+		log.info("신규 Kakao 회원 가입: email={}, nickname={}",
+			kakaoUserInfo.getEmail(), kakaoUserInfo.getNickname());
 
 		Member newMember = Member.builder()
-			.name(kakaoUserInfo.getName())
+			.nickname(kakaoUserInfo.getNickname()) // Kakao 별명 (실명 아님)
+			.name(null) // 실명은 1원 인증 후 저장
 			.email(kakaoUserInfo.getEmail())
 			.profileImage(null)
+			.kakaoProfileImageUrl(kakaoUserInfo.getProfileImageUrl()) // Kakao 프로필 이미지 URL 저장
 			.build();
 
 		return memberRepository.save(newMember);

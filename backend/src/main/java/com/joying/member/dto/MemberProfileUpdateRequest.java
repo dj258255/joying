@@ -8,6 +8,10 @@ import lombok.NoArgsConstructor;
 
 /**
  * 회원 프로필 수정 요청 DTO
+ *
+ * Note: 프로필 이미지 변경은 별도 API 사용
+ * - PUT /api/v1/members/{memberId}/profile-image (업로드)
+ * - DELETE /api/v1/members/{memberId}/profile-image (삭제)
  */
 @Getter
 @NoArgsConstructor
@@ -15,7 +19,6 @@ import lombok.NoArgsConstructor;
 @Schema(description = "회원 프로필 수정 요청")
 public class MemberProfileUpdateRequest {
 
-	@NotBlank(message = "이름은 필수입니다.")
-	@Schema(description = "이름", example = "홍길동")
-	private String name;
+	@Schema(description = "닉네임 (변경 시에만 입력)", example = "길동이", nullable = true)
+	private String nickname;
 }
