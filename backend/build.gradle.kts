@@ -3,6 +3,7 @@ plugins {
 	kotlin("jvm") version "2.1.0"
 	kotlin("plugin.spring") version "2.1.0"
 	kotlin("plugin.jpa") version "2.1.0"
+	kotlin("kapt") version "2.1.0"
 	id("org.springframework.boot") version "3.5.6"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -30,8 +31,10 @@ repositories {
 dependencies {
 	// Spring Boot Starters
 	implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-	implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // 채팅 기능용
+	implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // JPA용 (기존)
+	implementation("org.springframework.boot:spring-boot-starter-data-mongodb-reactive") // 채팅 기능용 (코루틴)
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
+	implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive") // 채팅 기능용 (코루틴)
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-web")
@@ -67,6 +70,9 @@ dependencies {
 	annotationProcessor("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
+	// Lombok for Kotlin (Kotlin에서 Java Lombok 클래스 접근용)
+	kapt("org.projectlombok:lombok")
+
 	// Database Drivers
 	runtimeOnly("com.mysql:mysql-connector-j")
 	testRuntimeOnly("com.h2database:h2")
@@ -96,11 +102,27 @@ dependencies {
 // Kotlin 컴파일 옵션
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 	kotlinOptions {
-		freeCompilerArgs = listOf("-Xjsr305=strict")
+		freeCompilerArgs = listOf("-Xjsr305=strict", "-Xallow-kotlin-package")
 		jvmTarget = "17"
 	}
 }
 
+// kapt 설정 (Kotlin에서 Lombok 인식)
+kapt {
+	correctErrorTypes = true
+	useBuildCache = false
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
+
+	// 테스트 실행 시 자동으로 test 프로필 활성화
+	systemProperty("spring.profiles.active", "test")
+
+	// 테스트 로그 출력 설정
+	testLogging {
+		events("passed", "skipped", "failed")
+		showStandardStreams = false
+		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+	}
 }
