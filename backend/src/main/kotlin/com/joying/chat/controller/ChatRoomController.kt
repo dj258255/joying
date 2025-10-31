@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.*
 class ChatRoomController(
     private val chatRoomService: ChatRoomService,
     private val chatService: ChatService,
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenProvider: JwtTokenProvider,
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomController::class.java)
 
@@ -42,7 +42,7 @@ class ChatRoomController(
     @PostMapping
     fun createOrGetChatRoom(
         @RequestBody request: CreateChatRoomRequest,
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -51,33 +51,37 @@ class ChatRoomController(
         val chatRoom = chatRoomService.getOrCreateChatRoom(request.productId, memberId)
 
         // 채팅방 DTO 변환
-        val chatRoomDto = ChatRoomDto(
-            chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product.getProductId()!!,
-            productTitle = chatRoom.product.getTitle(),
-            productImageUrl = null,  // TODO: 상품 이미지 추가
-            otherMemberId = if (chatRoom.buyer.getMemberId() == memberId) {
-                chatRoom.seller.getMemberId()!!
-            } else {
-                chatRoom.buyer.getMemberId()!!
-            },
-            otherMemberNickname = if (chatRoom.buyer.getMemberId() == memberId) {
-                chatRoom.seller.getNickname()
-            } else {
-                chatRoom.buyer.getNickname()
-            },
-            otherMemberProfileUrl = if (chatRoom.buyer.getMemberId() == memberId) {
-                chatRoom.seller.getKakaoProfileImageUrl()
-            } else {
-                chatRoom.buyer.getKakaoProfileImageUrl()
-            },
-            lastMessage = chatRoom.lastMessage,
-            lastMessageAt = chatRoom.lastMessageAt,
-            unreadCount = 0L,  // 새 채팅방이므로 0
-            status = chatRoom.status,
-            isPinned = false,
-            isMuted = false
-        )
+        val chatRoomDto =
+            ChatRoomDto(
+                chatRoomId = chatRoom.chatRoomId!!,
+                productId = chatRoom.product.getProductId()!!,
+                productTitle = chatRoom.product.getTitle(),
+                productImageUrl = null, // TODO: 상품 이미지 추가
+                otherMemberId =
+                    if (chatRoom.buyer.getMemberId() == memberId) {
+                        chatRoom.seller.getMemberId()!!
+                    } else {
+                        chatRoom.buyer.getMemberId()!!
+                    },
+                otherMemberNickname =
+                    if (chatRoom.buyer.getMemberId() == memberId) {
+                        chatRoom.seller.getNickname()
+                    } else {
+                        chatRoom.buyer.getNickname()
+                    },
+                otherMemberProfileUrl =
+                    if (chatRoom.buyer.getMemberId() == memberId) {
+                        chatRoom.seller.getKakaoProfileImageUrl()
+                    } else {
+                        chatRoom.buyer.getKakaoProfileImageUrl()
+                    },
+                lastMessage = chatRoom.lastMessage,
+                lastMessageAt = chatRoom.lastMessageAt,
+                unreadCount = 0L, // 새 채팅방이므로 0
+                status = chatRoom.status,
+                isPinned = false,
+                isMuted = false,
+            )
 
         return ApiResponse.ok("채팅방이 생성되었습니다", chatRoomDto)
     }
@@ -94,7 +98,7 @@ class ChatRoomController(
     @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 모든 채팅방 목록을 반환합니다")
     @GetMapping
     fun getMyChatRooms(
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomDto>>> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -116,7 +120,7 @@ class ChatRoomController(
     @GetMapping("/{chatRoomId}")
     fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -124,8 +128,9 @@ class ChatRoomController(
 
         // 채팅방 목록에서 해당 채팅방만 필터링
         val chatRooms = chatRoomService.getMyChatRooms(memberId)
-        val chatRoom = chatRooms.find { it.chatRoomId == chatRoomId }
-            ?: throw IllegalArgumentException("채팅방을 찾을 수 없습니다")
+        val chatRoom =
+            chatRooms.find { it.chatRoomId == chatRoomId }
+                ?: throw IllegalArgumentException("채팅방을 찾을 수 없습니다")
 
         return ApiResponse.ok("채팅방 상세 조회 완료", chatRoom)
     }
@@ -143,7 +148,7 @@ class ChatRoomController(
     @DeleteMapping("/{chatRoomId}")
     fun leaveChatRoom(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<Void> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -165,7 +170,7 @@ class ChatRoomController(
     @PatchMapping("/{chatRoomId}/pin")
     fun togglePin(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Boolean>>> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -175,7 +180,7 @@ class ChatRoomController(
 
         return ApiResponse.ok(
             if (isPinned) "채팅방이 고정되었습니다" else "채팅방 고정이 해제되었습니다",
-            mapOf("isPinned" to isPinned)
+            mapOf("isPinned" to isPinned),
         )
     }
 
@@ -190,7 +195,7 @@ class ChatRoomController(
     @PatchMapping("/{chatRoomId}/mute")
     fun toggleMute(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String
+        @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Boolean>>> {
         val memberId = extractMemberIdFromToken(authorization)
 
@@ -200,7 +205,7 @@ class ChatRoomController(
 
         return ApiResponse.ok(
             if (isMuted) "채팅방 알림이 꺼졌습니다" else "채팅방 알림이 켜졌습니다",
-            mapOf("isMuted" to isMuted)
+            mapOf("isMuted" to isMuted),
         )
     }
 

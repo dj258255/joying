@@ -176,26 +176,25 @@ class ChatMessagePersistenceWorker(
         try {
             logger.info("Pending 메시지 재처리 시작")
 
-            // Pending List 조회
+            // Pending List 조회 (그룹 전체)
             val pendingMessages = chatMessageRedisTemplate
                 .opsForStream<String, ChatMessageDto>()
                 .pending(
                     RedisStreamConfig.CHAT_STREAM_KEY,
-                    Consumer.from(
-                        RedisStreamConfig.PERSISTENCE_CONSUMER_GROUP,
-                        CONSUMER_NAME
-                    )
+                    RedisStreamConfig.PERSISTENCE_CONSUMER_GROUP
                 )
-                .awaitSingleOrNull()
+                ?.awaitSingleOrNull()
 
-            if (pendingMessages != null && pendingMessages.size() > 0) {
+            if (pendingMessages != null && pendingMessages.totalPendingMessages > 0) {
                 logger.warn(
                     "Pending 메시지 발견: count={}",
-                    pendingMessages.size()
+                    pendingMessages.totalPendingMessages
                 )
 
                 // Pending 메시지 클레임 (재처리)
                 // 구현 생략 (필요 시 XCLAIM 사용)
+            } else {
+                logger.debug("Pending 메시지 없음")
             }
 
         } catch (e: Exception) {
