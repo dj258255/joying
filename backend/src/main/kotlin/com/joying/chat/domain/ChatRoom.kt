@@ -1,20 +1,34 @@
 package com.joying.chat.domain
 
+import com.joying.common.entity.BaseEntity
+import com.joying.member.domain.Member
+import com.joying.product.domain.Product
 import jakarta.persistence.*
 import org.hibernate.annotations.Comment
+import java.time.LocalDateTime
 
 /**
  * 채팅방 엔티티 (MySQL)
  *
- * 대여 거래마다 자동으로 생성되는 1:1 채팅방
- * - rentalHisId와 1:1 매핑
- * - 채팅방 참여자(ChatRoomMember) 관리
+ * 상품별 구매자-판매자 간 1:1 채팅방
+ * - product_id, buyer_id, seller_id 조합으로 유니크
+ * - 하나의 상품에 대해 구매자와 판매자는 하나의 채팅방만 가짐
  */
 @Entity
 @Table(
     name = "chat_room",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_chat_room_product_buyer_seller",
+            columnNames = ["product_id", "buyer_id", "seller_id"]
+        )
+    ],
     indexes = [
-        Index(name = "idx_chat_room_rental_his_id", columnList = "rental_his_id")
+        Index(name = "idx_chat_room_buyer", columnList = "buyer_id"),
+        Index(name = "idx_chat_room_seller", columnList = "seller_id"),
+        Index(name = "idx_chat_room_product", columnList = "product_id"),
+        Index(name = "idx_chat_room_last_message_at", columnList = "last_message_at"),
+        Index(name = "idx_chat_room_status", columnList = "status")
     ]
 )
 class ChatRoom(
@@ -24,53 +38,77 @@ class ChatRoom(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var chatRoomId: Long? = null,
 
-    @Comment("대여 거래 ID (RentalHistory FK - 논리적 참조)")
-    @Column(name = "rental_his_id", nullable = false, unique = true)
-    var rentalHisId: Long,
+    @Comment("대여 상품")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    var product: Product,
 
-    @Comment("채팅방 이름 (기본: 상품명)")
-    @Column(name = "name", nullable = false)
-    var name: String,
+    @Comment("구매자 (대여자)")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "buyer_id", nullable = false)
+    var buyer: Member,
 
-    @Comment("채팅방 상태 (ACTIVE: 활성, CLOSED: 종료)")
+    @Comment("판매자 (임대자)")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_id", nullable = false)
+    var seller: Member,
+
+    @Comment("마지막 메시지 내용")
+    @Column(name = "last_message", length = 500)
+    var lastMessage: String? = null,
+
+    @Comment("마지막 메시지 시간")
+    @Column(name = "last_message_at")
+    var lastMessageAt: LocalDateTime? = null,
+
+    @Comment("채팅방 상태 (ACTIVE, CLOSED, AUTO_CLOSED)")
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, length = 20)
     var status: ChatRoomStatus = ChatRoomStatus.ACTIVE,
 
-    @Comment("채팅방 참여자 목록")
-    @OneToMany(mappedBy = "chatRoom", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var members: MutableList<ChatRoomMember> = mutableListOf()
+    @Comment("종료 시간")
+    @Column(name = "closed_at")
+    var closedAt: LocalDateTime? = null
 
 ) : BaseEntity() {
 
     /**
-     * 채팅방 참여자 추가 (연관관계 편의 메서드)
+     * 마지막 메시지 업데이트
      */
-    fun addMember(member: ChatRoomMember) {
-        members.add(member)
-        member.chatRoom = this
+    fun updateLastMessage(message: String, messageAt: LocalDateTime) {
+        this.lastMessage = message
+        this.lastMessageAt = messageAt
     }
 
     /**
-     * 채팅방 참여자 제거 (연관관계 편의 메서드)
-     */
-    fun removeMember(member: ChatRoomMember) {
-        members.remove(member)
-        member.chatRoom = null
-    }
-
-    /**
-     * 채팅방 종료
+     * 채팅방 종료 (상호 동의 또는 나가기)
      */
     fun close() {
         this.status = ChatRoomStatus.CLOSED
+        this.closedAt = LocalDateTime.now()
     }
 
     /**
-     * 채팅방 재활성화
+     * 채팅방 자동 종료 (30일 미사용, 거래 완료 후 7일 등)
+     */
+    fun autoClose() {
+        this.status = ChatRoomStatus.AUTO_CLOSED
+        this.closedAt = LocalDateTime.now()
+    }
+
+    /**
+     * 채팅방 재개 (활성화)
      */
     fun reopen() {
         this.status = ChatRoomStatus.ACTIVE
+        this.closedAt = null
+    }
+
+    /**
+     * 채팅방 활성 여부 확인
+     */
+    fun isActive(): Boolean {
+        return this.status == ChatRoomStatus.ACTIVE
     }
 
     override fun equals(other: Any?): Boolean {
@@ -82,12 +120,4 @@ class ChatRoom(
     override fun hashCode(): Int {
         return chatRoomId?.hashCode() ?: 0
     }
-}
-
-/**
- * 채팅방 상태
- */
-enum class ChatRoomStatus {
-    ACTIVE,  // 활성
-    CLOSED   // 종료
 }

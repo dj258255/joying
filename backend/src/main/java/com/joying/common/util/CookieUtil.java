@@ -3,6 +3,8 @@ package com.joying.common.util;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
@@ -12,8 +14,22 @@ import java.util.Optional;
  * 보안 설정 적용:
  * - Access Token: SameSite=Lax (일반적인 GET 요청 허용)
  * - Refresh Token: SameSite=Strict (완벽한 CSRF 방어)
+ * - Secure 플래그: 환경에 따라 동적 설정 (프로덕션에서만 true)
  */
+@Component
 public class CookieUtil {
+
+	private static boolean cookieSecure;
+
+	/**
+	 * 쿠키 Secure 플래그 설정 (환경변수 기반)
+	 * - 로컬/개발: false (HTTP 허용)
+	 * - 프로덕션: true (HTTPS 필수)
+	 */
+	@Value("${cookie.secure:true}")
+	public void setCookieSecure(boolean secure) {
+		CookieUtil.cookieSecure = secure;
+	}
 
 	/**
 	 * Cookie 생성 (SameSite=Lax)
@@ -29,7 +45,7 @@ public class CookieUtil {
 	public static Cookie createCookie(String name, String value, int maxAge) {
 		Cookie cookie = new Cookie(name, value);
 		cookie.setHttpOnly(true);
-		cookie.setSecure(true); // HTTPS 환경에서만 전송
+		cookie.setSecure(cookieSecure); // 환경 변수 기반 설정
 		cookie.setPath("/");
 		cookie.setMaxAge(maxAge);
 		cookie.setAttribute("SameSite", "Lax");
@@ -50,7 +66,7 @@ public class CookieUtil {
 	public static Cookie createStrictCookie(String name, String value, int maxAge) {
 		Cookie cookie = new Cookie(name, value);
 		cookie.setHttpOnly(true);
-		cookie.setSecure(true);
+		cookie.setSecure(cookieSecure); // 환경 변수 기반 설정
 		cookie.setPath("/");
 		cookie.setMaxAge(maxAge);
 		cookie.setAttribute("SameSite", "Strict");
