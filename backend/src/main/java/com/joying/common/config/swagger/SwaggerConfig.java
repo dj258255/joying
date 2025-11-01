@@ -41,7 +41,7 @@ public class SwaggerConfig {
 				.url("http://localhost:8080")
 				.description("로컬 개발 서버"))
 			.addServersItem(new Server()
-				.url("http://k13c202.p.ssafy.io")
+				.url("https://k13c202.p.ssafy.io")
 				.description("프로덕션 서버"))
 			.addSecurityItem(new SecurityRequirement()
 				.addList("Bearer Authentication"))
