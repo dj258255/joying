@@ -8,12 +8,16 @@ import { axiosInstance } from '@/lib/axios/axiosInstance';
 /**
  * 카카오 로그인
  * 백엔드 OAuth2 엔드포인트로 리다이렉트
+ *
+ * 로컬: Vite 프록시 → /oauth2/authorization/kakao → https://k13c202.p.ssafy.io/oauth2/authorization/kakao
+ * 운영: Nginx 라우팅 → /oauth2/authorization/kakao → 백엔드
  */
 export const kakaoLogin = () => {
   console.log('🔍 API Base URL:', import.meta.env.VITE_API_BASE_URL);
-  
+
   // 백엔드 OAuth2 엔드포인트로 리다이렉트
-  window.location.href = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/kakao`;
+  // Vite 프록시가 /oauth2 경로를 백엔드로 전달
+  window.location.href = '/oauth2/authorization/kakao';
 };
 
 /**
