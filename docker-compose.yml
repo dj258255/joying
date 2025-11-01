@@ -125,6 +125,8 @@ services:
     restart: unless-stopped
 
   jenkins:
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
     image: jenkins/jenkins:lts
     container_name: joying-jenkins
     user: root
