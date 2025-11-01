@@ -36,8 +36,15 @@ pipeline {
       steps {
         sh '''
           set -e
-          # Jenkins 컨테이너 볼륨을 그대로 물려받아 /var/jenkins_home/... 를 읽게 만든다
+          # joying_* 네트워크 중에서 우선 joying_joying-network, 없으면 joying_default 탐색
+          NET=$(docker network ls --format "{{.Name}}" | grep -E "^joying_joying-network$|^joying(_default)?$" | head -n1)
+          if [ -z "$NET" ]; then
+            echo "[ERR] joying docker network not found"; docker network ls; exit 1
+          fi
+          echo "[INFO] using docker network: $NET"
+
           docker run --rm \
+            --network "$NET" \
             --volumes-from joying-jenkins \
             -v /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:ro \
             -v /home/ubuntu/joying/certbot/www:/var/www/certbot:ro \
@@ -46,6 +53,7 @@ pipeline {
         '''
       }
     }
+
 
 
     stage('Build images') {
