@@ -57,9 +57,9 @@ public class RentalService {
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + renterId));
 
         // 2. 본인 상품은 빌릴 수 없음
-        if (product.getWriter().getMemberId().equals(renterId)) {
-            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
-        }
+//        if (product.getWriter().getMemberId().equals(renterId)) {
+//            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
+//        }
 
         // 3. 기본 날짜 검증
         if (request.getEndRen().isBefore(request.getStartRen())) {

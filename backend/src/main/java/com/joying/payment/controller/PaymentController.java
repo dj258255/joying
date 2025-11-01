@@ -1,6 +1,7 @@
 package com.joying.payment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.joying.common.response.ApiResponse;
 import com.joying.payment.dto.request.PaymentCancelRequest;
 import com.joying.payment.dto.request.PaymentConfirmRequest;
 import com.joying.payment.dto.request.PaymentCreateRequest;
@@ -50,7 +51,7 @@ public class PaymentController {
      * - 인증된 사용자만 결제 생성 가능 (보안)
      */
     @PostMapping
-    public ResponseEntity<PaymentCreateResponse> createPayment(
+    public ResponseEntity<ApiResponse.SuccessBody<PaymentCreateResponse>> createPayment(
             @Valid @RequestBody PaymentCreateRequest request,
             Authentication authentication) {
 
@@ -60,9 +61,7 @@ public class PaymentController {
 
         PaymentCreateResponse response = paymentService.createPayment(request, memberId);
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ApiResponse.created(response);
     }
 
     /**
@@ -74,7 +73,7 @@ public class PaymentController {
      * - DB에 결제 완료 상태 저장
      */
     @PostMapping("/confirm")
-    public ResponseEntity<PaymentResponse> confirmPayment(
+    public ResponseEntity<ApiResponse.SuccessBody<PaymentResponse>> confirmPayment(
             @Valid @RequestBody PaymentConfirmRequest request) {
 
         log.info("[POST /payments/confirm] 결제 승인 요청: orderId={}, paymentKey={}",
@@ -82,7 +81,7 @@ public class PaymentController {
 
         PaymentResponse response = paymentService.confirmPayment(request);
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -93,7 +92,7 @@ public class PaymentController {
      * - 권한 검증: 본인의 결제만 조회 가능
      */
     @GetMapping("/{orderId}")
-    public ResponseEntity<PaymentResponse> getPayment(
+    public ResponseEntity<ApiResponse.SuccessBody<PaymentResponse>> getPayment(
             @PathVariable String orderId,
             Authentication authentication) {
 
@@ -102,7 +101,7 @@ public class PaymentController {
 
         PaymentResponse response = paymentService.getPayment(orderId, memberId);
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -114,7 +113,7 @@ public class PaymentController {
      * - 권한 검증: 본인의 결제만 취소 가능
      */
     @PatchMapping("/{orderId}/cancel")
-    public ResponseEntity<PaymentResponse> cancelPayment(
+    public ResponseEntity<ApiResponse.SuccessBody<PaymentResponse>> cancelPayment(
             @PathVariable String orderId,
             @Valid @RequestBody PaymentCancelRequest request,
             Authentication authentication) {
@@ -125,7 +124,7 @@ public class PaymentController {
 
         PaymentResponse response = paymentService.cancelPayment(orderId, request, memberId);
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -136,7 +135,7 @@ public class PaymentController {
      * - 권한 검증: 본인의 결제만 조회 가능
      */
     @GetMapping("/{orderId}/amount")
-    public ResponseEntity<Integer> getPaymentAmount(
+    public ResponseEntity<ApiResponse.SuccessBody<Integer>> getPaymentAmount(
             @PathVariable String orderId,
             Authentication authentication) {
 
@@ -145,7 +144,7 @@ public class PaymentController {
 
         Integer amount = paymentService.getPaymentAmount(orderId, memberId);
 
-        return ResponseEntity.ok(amount);
+        return ApiResponse.ok(amount);
     }
 
     /**

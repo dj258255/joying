@@ -1,5 +1,6 @@
 package com.joying.rental.controller;
 
+import com.joying.common.response.ApiResponse;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
 import com.joying.rental.dto.response.ConfirmReceiveResponse;
@@ -32,7 +33,7 @@ public class RentalController {
      * POST /rentals/{productId}/reservations
      */
     @PostMapping("/{productId}/reservations")
-    public ResponseEntity<ReservationCreateResponse> createReservation(
+    public ResponseEntity<ApiResponse.SuccessBody<ReservationCreateResponse>> createReservation(
             @PathVariable Long productId,
             @Valid @RequestBody ReservationCreateRequest request,
             Authentication authentication) {
@@ -47,9 +48,7 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(response);
+        return ApiResponse.created(response);
     }
 
     /**
@@ -58,7 +57,7 @@ public class RentalController {
      * GET /rental-histories/{rentalHisId}
      */
     @GetMapping("/rental-histories/{rentalHisId}")
-    public ResponseEntity<RentalDetailResponse> getRentalDetail(
+    public ResponseEntity<ApiResponse.SuccessBody<RentalDetailResponse>> getRentalDetail(
             @PathVariable Long rentalHisId,
             Authentication authentication) {
 
@@ -71,7 +70,7 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -80,7 +79,7 @@ public class RentalController {
      * PATCH /rental-histories/{rentalHisId}/ship
      */
     @PatchMapping("/rental-histories/{rentalHisId}/ship")
-    public ResponseEntity<ShipResponse> shipItem(
+    public ResponseEntity<ApiResponse.SuccessBody<ShipResponse>> shipItem(
             @PathVariable Long rentalHisId,
             @Valid @RequestBody ShipRequest request,
             Authentication authentication) {
@@ -95,7 +94,7 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -104,7 +103,7 @@ public class RentalController {
      * PATCH /rental-histories/{rentalHisId}/confirm-receive
      */
     @PatchMapping("/rental-histories/{rentalHisId}/confirm-receive")
-    public ResponseEntity<ConfirmReceiveResponse> confirmReceive(
+    public ResponseEntity<ApiResponse.SuccessBody<ConfirmReceiveResponse>> confirmReceive(
             @PathVariable Long rentalHisId,
             Authentication authentication) {
 
@@ -117,7 +116,7 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -126,7 +125,7 @@ public class RentalController {
      * PATCH /rental-histories/{rentalHisId}/return
      */
     @PatchMapping("/rental-histories/{rentalHisId}/return")
-    public ResponseEntity<ShipResponse> returnItem(
+    public ResponseEntity<ApiResponse.SuccessBody<ShipResponse>> returnItem(
             @PathVariable Long rentalHisId,
             @Valid @RequestBody ShipRequest request,
             Authentication authentication) {
@@ -141,7 +140,7 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 
     /**
@@ -150,7 +149,7 @@ public class RentalController {
      * PATCH /rental-histories/{rentalHisId}/confirm-return
      */
     @PatchMapping("/rental-histories/{rentalHisId}/confirm-return")
-    public ResponseEntity<ConfirmReceiveResponse> confirmReturn(
+    public ResponseEntity<ApiResponse.SuccessBody<ConfirmReceiveResponse>> confirmReturn(
             @PathVariable Long rentalHisId,
             Authentication authentication) {
 
@@ -163,6 +162,6 @@ public class RentalController {
                 memberId
         );
 
-        return ResponseEntity.ok(response);
+        return ApiResponse.ok(response);
     }
 }
