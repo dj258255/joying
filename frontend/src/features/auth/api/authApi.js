@@ -26,7 +26,7 @@ export const kakaoLogin = () => {
  */
 export const getCurrentUser = async () => {
   try {
-    const response = await axiosInstance.get('/api/v1/auth/me');
+    const response = await axiosInstance.get('/auth/me');
     return response.data;
   } catch (error) {
     console.error('사용자 정보 조회 실패:', error);
@@ -40,7 +40,7 @@ export const getCurrentUser = async () => {
  */
 export const refreshToken = async () => {
   try {
-    const response = await axiosInstance.post('/api/v1/auth/refresh');
+    const response = await axiosInstance.post('/auth/refresh');
     return response.data;
   } catch (error) {
     console.error('토큰 갱신 실패:', error);
@@ -54,7 +54,7 @@ export const refreshToken = async () => {
  */
 export const logout = async () => {
   try {
-    const response = await axiosInstance.post('/api/v1/auth/logout');
+    const response = await axiosInstance.post('/auth/logout');
     return response.data;
   } catch (error) {
     console.error('로그아웃 실패:', error);

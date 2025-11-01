@@ -10,7 +10,7 @@ import axios from 'axios';
 
 // Axios 인스턴스 생성
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 10000,
   withCredentials: true, // 쿠키 자동 전송 (SameSite=Lax/Strict 지원)
   headers: {
