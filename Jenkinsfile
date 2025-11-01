@@ -36,15 +36,17 @@ pipeline {
       steps {
         sh '''
           set -e
-          # nginx 문법 체크를 컨테이너로 사전 검증 (여기서 실패하면 "created에서 멈춤"의 원인 확정)
+          # Jenkins 컨테이너 볼륨을 그대로 물려받아 /var/jenkins_home/... 를 읽게 만든다
           docker run --rm \
-            -v "$PWD/infra/nginx.conf:/etc/nginx/nginx.conf:ro" \
-            -v "/home/ubuntu/joying/certbot/conf:/etc/letsencrypt:ro" \
-            -v "/home/ubuntu/joying/certbot/www:/var/www/certbot:ro" \
-            nginx:alpine nginx -t
+            --volumes-from joying-jenkins \
+            -v /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:ro \
+            -v /home/ubuntu/joying/certbot/www:/var/www/certbot:ro \
+            nginx:alpine \
+            nginx -t -c /var/jenkins_home/workspace/joying/infra/nginx.conf
         '''
       }
     }
+
 
     stage('Build images') {
       steps {
