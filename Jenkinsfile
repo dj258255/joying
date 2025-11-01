@@ -34,7 +34,6 @@ pipeline {
         sh '''
           set -e
 
-          # 서버 실경로(인증서/챌린지/실제 compose 파일이 있는 곳)
           PROJ=/home/ubuntu/joying
 
           # 안전하게 현재 실행 중인 로그 한 줄 찍고
