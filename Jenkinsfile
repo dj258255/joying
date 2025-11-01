@@ -16,7 +16,6 @@ pipeline {
     stage('Docker Build') {
       steps {
         sh '''
-          # 서버에서 로컬 빌드 (이미지 태그는 compose의 build 컨텍스트 기준)
           docker compose build backend nginx
         '''
       }
