@@ -32,16 +32,15 @@ const Section1Hero = () => {
       className="relative min-h-screen flex items-center justify-center"
       style={{ zIndex: 60 }}
     >
-      {/* 우측 상단 버튼 - 모던 디자인 */}
-      <div className="absolute top-8 right-8 flex items-center gap-4">
-        {mockIsAuthenticated ? (
-          // 로그인 상태: 원형 프로필 버튼 (작고 심플하게)
+      {/* 우측 상단 버튼 - 로그인 상태에서만 표시 */}
+      {isAuthenticated && (
+        <div className="absolute top-8 right-8 flex items-center gap-4">
           <button
             onClick={() => navigate(ROUTE_PATHS.MYPAGE)}
             className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
-            title={mockUser?.name || '마이페이지'}
+            title={user?.nickname || '마이페이지'}
           >
-            {mockUser?.name?.charAt(0) || '👤'}
+            {user?.nickname?.charAt(0) || '👤'}
           </button>
         </div>
       )}
