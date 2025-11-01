@@ -100,7 +100,7 @@ pipeline {
               --format 'Name={{.Name}} State={{.State.Status}} Error={{.State.Error}} Started={{.State.StartedAt}} Finished={{.State.FinishedAt}}'
           fi
 
-          # 4) 최종 상태 요약
+          # 4) 상태 요약
           echo "[INFO] final ps"
           docker compose --env-file .env.prod ps
         '''
