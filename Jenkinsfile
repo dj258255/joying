@@ -70,38 +70,19 @@ pipeline {
       steps {
         sh '''
           set -e
-
-          echo "[INFO] hard-refresh compose for backend, nginx"
-          # 0) 프로젝트명 고정(이름 충돌 방지)
           export COMPOSE_PROJECT_NAME=joying
 
-          # 1) 충돌 방지: 같은 이름의 컨테이너/오브젝트 먼저 정리
-          docker compose --env-file .env.prod stop nginx || true
-          docker compose --env-file .env.prod rm -f nginx || true
+          echo "[INFO] backend만 재배포(nginx는 재생성 금지)"
+          docker compose --env-file .env.prod up -d --force-recreate --remove-orphans backend
 
-          # 2) 의존성까지 정상 재작성 (no-deps 제거, remove-orphans 추가)
-          docker compose --env-file .env.prod up -d --force-recreate --remove-orphans backend nginx
+          echo "[INFO] nginx 컨테이너 존재/실행 확인"
+          docker compose --env-file .env.prod up -d --no-deps --no-recreate nginx
+
+          echo "[INFO] nginx 설정 문법 확인 후 reload"
+          docker compose --env-file .env.prod exec -T nginx nginx -t
+          docker compose --env-file .env.prod exec -T nginx nginx -s reload || docker compose --env-file .env.prod restart nginx
 
           echo "[INFO] compose ps"
-          docker compose --env-file .env.prod ps
-
-          echo "[INFO] nginx first 15s logs (may be empty if started clean)"
-          docker compose --env-file .env.prod logs --since=15s nginx || true
-
-          # 3) 만약 nginx가 'created'면 강제 재시도(NG 원인 추적을 위해 상태/오류 출력)
-          NSTATE=$(docker ps -a --filter "name=nginx" --format "{{.Names}} {{.State}}" | awk '/nginx/ {print $2}')
-          if [ "$NSTATE" = "created" ] || [ -z "$NSTATE" ]; then
-            echo "[WARN] nginx state=$NSTATE → force recreate once"
-            docker compose --env-file .env.prod rm -f nginx || true
-            docker compose --env-file .env.prod up -d --force-recreate --remove-orphans nginx || true
-            docker ps -a --filter "name=nginx"
-            echo "[DIAG] docker inspect (State & Error)"
-            docker inspect $(docker ps -a --filter "name=nginx" --format "{{.ID}}") \
-              --format 'Name={{.Name}} State={{.State.Status}} Error={{.State.Error}} Started={{.State.StartedAt}} Finished={{.State.FinishedAt}}'
-          fi
-
-          # 4) 상태 요약
-          echo "[INFO] final ps"
           docker compose --env-file .env.prod ps
         '''
       }
