@@ -66,10 +66,10 @@ pipeline {
           docker compose --env-file .env.prod up -d --no-deps --force-recreate backend nginx
 
           echo "[INFO] compose ps"
-          docker compose ps
+          docker compose --env-file .env.prod ps
 
           echo "[INFO] recent nginx logs (20s)"
-          docker compose logs --since=20s nginx || true
+          docker compose --env-file .env.prod logs --since=20s nginx || true
         '''
       }
     }
@@ -81,8 +81,8 @@ pipeline {
       echo '❌ Deploy failed'
       sh '''
         echo "[DIAG] nginx status & last logs"
-        docker compose ps || true
-        docker compose logs --tail=200 nginx || true
+        docker compose --env-file .env.prod ps || true
+        docker compose --env-file .env.prod logs --tail=200 nginx || true
       '''
     }
   }
