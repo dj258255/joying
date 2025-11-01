@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # (선택) git, make 등 도구가 필요하면 여기에 추가
 # RUN apt-get update && apt-get install -y git make && rm -rf /var/lib/apt/lists/*
 
-# Jenkins가 서브패스(/jenkins)에서 동작하도록
 ENV JENKINS_OPTS="--prefix=/jenkins"
 
 USER jenkins
