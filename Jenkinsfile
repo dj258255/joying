@@ -7,7 +7,6 @@ pipeline {
       steps { checkout scm }
     }
 
-    // ★ 서버의 안전한 위치에 있는 .env.prod를 워크스페이스로 복사
     stage('Prepare .env') {
       steps {
         sh '''
