@@ -12,7 +12,7 @@ pipeline {
       steps {
         sh '''
           set -e
-          SRC_ENV="/home/ubuntu/joying/.env.prod"
+          SRC_ENV="/run/secrets/env.prod"
           if [ ! -f "$SRC_ENV" ]; then
             echo "[ERROR] $SRC_ENV 가 없습니다."; exit 1
           fi
