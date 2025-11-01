@@ -1,8 +1,23 @@
 /**
  * WebSocket 설정
  */
+// WebSocket URL 생성 (상대 경로를 절대 경로로 변환)
+const getWebSocketUrl = () => {
+  const wsPath = import.meta.env.VITE_WS_URL || '/ws/chat';
+
+  // 상대 경로인 경우 현재 호스트 기반으로 절대 URL 생성
+  if (wsPath.startsWith('/')) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    return `${protocol}//${host}${wsPath}`;
+  }
+
+  // 이미 절대 경로인 경우 그대로 사용
+  return wsPath;
+};
+
 export const websocketConfig = {
-  url: import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws/chat',
+  url: getWebSocketUrl(),
   reconnectInterval: 3000,
   heartbeatInterval: 30000
 };

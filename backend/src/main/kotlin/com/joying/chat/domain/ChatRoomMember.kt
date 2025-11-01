@@ -1,27 +1,31 @@
 package com.joying.chat.domain
 
+import com.joying.common.entity.BaseEntity
+import com.joying.member.domain.Member
 import jakarta.persistence.*
 import org.hibernate.annotations.Comment
+import java.time.LocalDateTime
 
 /**
- * 채팅방 참여자 엔티티 (MySQL)
+ * 채팅방 참여자 설정 엔티티 (MySQL)
  *
- * 채팅방과 회원의 다대다 관계를 풀어낸 중간 테이블
- * - 한 채팅방에 여러 참여자 (일반적으로 2명: OWNER, RENTER)
- * - 각 참여자의 역할(role)과 읽음 정보 관리
+ * 채팅방 참여자별 개인 설정 관리
+ * - 읽음 시간 (안읽은 메시지 개수 계산용)
+ * - 고정 여부
+ * - 알림 설정
  */
 @Entity
 @Table(
     name = "chat_room_member",
-    indexes = [
-        Index(name = "idx_chat_room_member_chat_room_id", columnList = "chat_room_id"),
-        Index(name = "idx_chat_room_member_member_id", columnList = "member_id")
-    ],
     uniqueConstraints = [
         UniqueConstraint(
-            name = "uk_chat_room_member",
+            name = "uk_chat_room_member_room_member",
             columnNames = ["chat_room_id", "member_id"]
         )
+    ],
+    indexes = [
+        Index(name = "idx_chat_room_member_member", columnList = "member_id"),
+        Index(name = "idx_chat_room_member_room", columnList = "chat_room_id")
     ]
 )
 class ChatRoomMember(
@@ -34,48 +38,81 @@ class ChatRoomMember(
     @Comment("채팅방")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chat_room_id", nullable = false)
-    var chatRoom: ChatRoom? = null,
+    var chatRoom: ChatRoom,
 
-    @Comment("회원 ID (Member FK - 논리적 참조)")
-    @Column(name = "member_id", nullable = false)
-    var memberId: Long,
+    @Comment("회원")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "member_id", nullable = false)
+    var member: Member,
 
-    @Comment("역할 (OWNER: 대여자, RENTER: 대여받는 사람)")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false)
-    var role: ChatRoomMemberRole,
+    @Comment("마지막으로 읽은 시간 (안읽은 메시지 개수 계산용)")
+    @Column(name = "last_read_at")
+    var lastReadAt: LocalDateTime? = null,
 
-    @Comment("마지막으로 읽은 메시지 ID (MongoDB ObjectId)")
-    @Column(name = "last_read_message_id")
-    var lastReadMessageId: String? = null,
+    @Comment("채팅방 고정 여부")
+    @Column(name = "is_pinned", nullable = false)
+    var isPinned: Boolean = false,
 
-    @Comment("읽지 않은 메시지 수")
-    @Column(name = "unread_count", nullable = false)
-    var unreadCount: Int = 0
+    @Comment("알림 끄기 여부")
+    @Column(name = "is_muted", nullable = false)
+    var isMuted: Boolean = false
 
 ) : BaseEntity() {
 
     /**
-     * 메시지 읽음 처리
-     * @param messageId 읽은 메시지의 MongoDB ObjectId
+     * 읽음 처리 (현재 시간으로 업데이트)
      */
-    fun markAsRead(messageId: String) {
-        this.lastReadMessageId = messageId
-        this.unreadCount = 0
+    fun markAsRead() {
+        this.lastReadAt = LocalDateTime.now()
     }
 
     /**
-     * 읽지 않은 메시지 수 증가
+     * 특정 시간으로 읽음 처리
      */
-    fun incrementUnreadCount() {
-        this.unreadCount++
+    fun markAsRead(readAt: LocalDateTime) {
+        this.lastReadAt = readAt
     }
 
     /**
-     * 읽지 않은 메시지 수 초기화
+     * 채팅방 고정
      */
-    fun resetUnreadCount() {
-        this.unreadCount = 0
+    fun pin() {
+        this.isPinned = true
+    }
+
+    /**
+     * 채팅방 고정 해제
+     */
+    fun unpin() {
+        this.isPinned = false
+    }
+
+    /**
+     * 고정 토글
+     */
+    fun togglePin() {
+        this.isPinned = !this.isPinned
+    }
+
+    /**
+     * 알림 끄기
+     */
+    fun mute() {
+        this.isMuted = true
+    }
+
+    /**
+     * 알림 켜기
+     */
+    fun unmute() {
+        this.isMuted = false
+    }
+
+    /**
+     * 알림 토글
+     */
+    fun toggleMute() {
+        this.isMuted = !this.isMuted
     }
 
     override fun equals(other: Any?): Boolean {

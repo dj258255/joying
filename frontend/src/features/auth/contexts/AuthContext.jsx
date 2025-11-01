@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
   // 로그인 상태 확인
   const checkAuthStatus = async () => {
     try {
-      const response = await axiosInstance.get('/api/v1/auth/me');
+      const response = await axiosInstance.get('/auth/me');
       if (response.status === 200) {
         setUser(response.data);
         setIsAuthenticated(true);
@@ -40,7 +40,7 @@ export const AuthProvider = ({ children }) => {
   // 로그인
   const login = async () => {
     try {
-      const response = await axiosInstance.get('/api/v1/auth/me');
+      const response = await axiosInstance.get('/auth/me');
       if (response.status === 200) {
         setUser(response.data);
         setIsAuthenticated(true);
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
   // 로그아웃
   const logout = async () => {
     try {
-      await axiosInstance.post('/api/v1/auth/logout');
+      await axiosInstance.post('/auth/logout');
     } catch (error) {
       console.error('로그아웃 API 호출 실패:', error);
     } finally {
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
   // 토큰 갱신
   const refreshToken = async () => {
     try {
-      const response = await axiosInstance.post('/api/v1/auth/refresh');
+      const response = await axiosInstance.post('/auth/refresh');
       if (response.status === 200) {
         return true;
       }
