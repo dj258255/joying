@@ -1,20 +1,23 @@
 /**
- * WebSocket URL 생성
- * 개발/프로덕션 환경에 맞는 WebSocket URL 반환
+ * WebSocket 설정 및 API
  */
-const getWebSocketUrl = () => {
-  const wsUrl = import.meta.env.VITE_WS_URL || '/ws/chat';
+
+// WebSocket URL 생성 (상대 경로를 절대 경로로 변환)
+export function getWebSocketUrl() {
+  const wsPath = import.meta.env.VITE_WS_URL || '/ws/chat';
   
-  // 절대 URL이면 그대로 사용 (예: ws://localhost:8080/ws/chat)
-  if (wsUrl.startsWith('ws://') || wsUrl.startsWith('wss://')) {
-    return wsUrl;
+  // 절대 ws(s) 주소면 그대로 반환
+  if (wsPath.startsWith('ws://') || wsPath.startsWith('wss://')) {
+    return wsPath;
   }
   
-  // 상대 경로인 경우 현재 프로토콜에 맞춰 변환
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.host;
-  return `${protocol}//${host}${wsUrl}`;
-};
+  // 상대 경로면 현재 origin 기준 ws(s)로 변환
+  const { protocol, host } = window.location;
+  const wsProtocol = protocol === 'https:' ? 'wss:' : 'ws:';
+  const path = wsPath.startsWith('/') ? wsPath : `/${wsPath}`;
+  
+  return `${wsProtocol}//${host}${path}`;
+}
 
 /**
  * WebSocket 설정
