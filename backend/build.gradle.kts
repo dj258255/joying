@@ -51,8 +51,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
-    // Swagger/OpenAPI (Spring Boot 3.5.x 호환)
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 	// WebClient (Reactive Web Client)
 	implementation("org.springframework.boot:spring-boot-starter-webflux")
 
