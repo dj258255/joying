@@ -91,6 +91,7 @@ export const websocketApi = {
         onError?.(error);
       }
     };
+    //merge 용 주석
     
     ws.onerror = (error) => {
       console.error('WebSocket 오류:', error);
