@@ -98,6 +98,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:ro
+      - /home/ubuntu/joying/certbot/www:/var/www/certbot:ro
     networks:
       - joying-network
     restart: unless-stopped
