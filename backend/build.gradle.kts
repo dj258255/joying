@@ -51,8 +51,15 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
-    // Swagger/OpenAPI (Spring Boot 3.5.x 호환)
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
+	// WebClient (Reactive Web Client)
+	implementation("org.springframework.boot:spring-boot-starter-webflux")
+
+	// Resilience4j Circuit Breaker
+	implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+	implementation("io.github.resilience4j:resilience4j-circuitbreaker:2.2.0")
+
+	// Swagger/OpenAPI (Spring Boot 3.5.x 호환)
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
 
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")

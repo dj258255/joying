@@ -18,6 +18,6 @@ export const accountApi = {
    * @returns {Promise<{verified: boolean}>}
    */
   verifyAccount: async (data) => {
-    return await axiosInstance.post('/v1/accounts/verify', data);
+    return await axiosInstance.post('/accounts/verify', data);
   }
 };

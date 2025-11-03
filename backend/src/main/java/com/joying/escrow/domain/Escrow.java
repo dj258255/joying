@@ -56,4 +56,98 @@ public class Escrow {
     @Comment("보증금 반환 일시")
     @Column(name = "deposit_returned_at")
     private Timestamp depositReturnedAt;
+
+    /**
+     * Escrow 생성 (결제 완료 후)
+     *
+     * @param rentalHistory 거래 내역
+     * @param payment       결제 정보
+     * @param rentalFee     대여료
+     * @param depositAmount 보증금
+     * @return Escrow 엔티티
+     */
+    public static Escrow createHeld(RentalHistory rentalHistory,
+                                     Payment payment,
+                                     Integer rentalFee,
+                                     Integer depositAmount) {
+        Escrow escrow = new Escrow();
+        escrow.rentalHistory = rentalHistory;
+        escrow.payment = payment;
+        escrow.rentalFee = rentalFee;
+        escrow.depositAmount = depositAmount;
+        escrow.totalAmount = rentalFee + depositAmount;
+        escrow.status = Status.HELD;  // 홀드 완료(예치중)
+        return escrow;
+    }
+
+    /**
+     * 대여 시작 (수령 확정)
+     */
+    public void startRental() {
+        if (this.status != Status.HELD) {
+            throw new IllegalStateException("HELD 상태에서만 대여를 시작할 수 있습니다.");
+        }
+        this.status = Status.RENTAL_STARTED;
+    }
+
+    /**
+     * 반납 시작
+     */
+    public void startReturn() {
+        if (this.status != Status.RENTAL_STARTED) {
+            throw new IllegalStateException("RENTAL_STARTED 상태에서만 반납을 시작할 수 있습니다.");
+        }
+        this.status = Status.RETURN_STARTED;
+    }
+
+    /**
+     * 대여료 지급
+     */
+    public void releaseRentalFee(Timestamp releasedAt) {
+        this.rentalFeeReleasedAt = releasedAt;
+    }
+
+    /**
+     * 보증금 반환
+     */
+    public void returnDeposit(Timestamp returnedAt) {
+        this.depositReturnedAt = returnedAt;
+    }
+
+    /**
+     * 전액 환불
+     */
+    public void refund() {
+        this.status = Status.REFUNDED;
+    }
+
+    /**
+     * 취소
+     */
+    public void cancel() {
+        this.status = Status.CANCELLED;
+    }
+
+    /**
+     * 정산 완료 (대여료 지급 + 보증금 반환)
+     */
+    public void settle() {
+        if (this.status != Status.RETURN_STARTED && this.status != Status.RENTAL_STARTED) {
+            throw new IllegalStateException("RETURN_STARTED 또는 RENTAL_STARTED 상태에서만 정산할 수 있습니다");
+        }
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+
+        // 대여료 지급 시점 기록
+        if (this.rentalFeeReleasedAt == null) {
+            this.rentalFeeReleasedAt = now;
+        }
+
+        // 보증금 반환 시점 기록
+        if (this.depositReturnedAt == null) {
+            this.depositReturnedAt = now;
+        }
+
+        this.status = Status.SETTLED;
+    }
 }

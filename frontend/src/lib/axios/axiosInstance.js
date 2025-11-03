@@ -10,6 +10,9 @@ import axios from 'axios';
 
 // 기본 axios 인스턴스 생성
 export const axiosInstance = axios.create({
+  // 개발 환경: /api/v1 (Vite 프록시 사용)
+  // 프로덕션 환경: /api/v1 (Nginx 프록시 사용)
+  // 모든 엔드포인트는 baseURL에 /api/v1가 포함되어 있으므로 경로만 사용 (예: /auth/me)
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 10000,
   withCredentials: true, // 쿠키 자동 전송 (SameSite=Lax/Strict 지원)
@@ -33,6 +36,11 @@ const shouldSuppressRedirect = () => {
   } catch (_) {
     return false;
   }
+};
+
+// baseURL에 /api/v1가 이미 포함되어 있으므로 경로만 반환
+const getRefreshEndpoint = () => {
+  return '/auth/refresh';
 };
 
 // 요청 인터셉터
@@ -65,7 +73,8 @@ axiosInstance.interceptors.response.use(
     // 401 에러이고 토큰 갱신이 아직 시도되지 않은 경우
     if (error.response?.status === 401) {
       // 리프레시 엔드포인트 자체에서 401이면 더 이상 재시도하지 않음
-      if (originalRequest?.url?.includes('/api/v1/auth/refresh')) {
+      const refreshEndpoint = getRefreshEndpoint();
+      if (originalRequest?.url?.includes(refreshEndpoint)) {
         return Promise.reject(error);
       }
 
@@ -84,11 +93,19 @@ axiosInstance.interceptors.response.use(
       try {
         isRefreshing = true;
         // 인터셉터를 우회하기 위해 기본 axios로 직접 호출
-        const response = await axios.post(
-          `${axiosInstance.defaults.baseURL}/api/v1/auth/refresh`,
-          null,
-          { withCredentials: true }
-        );
+        // baseURL이 절대 경로면 그대로 사용, 상대 경로면 현재 도메인 기준으로 변환
+        const baseURL = axiosInstance.defaults.baseURL || '/api/v1';
+        let refreshUrl;
+        
+        if (baseURL.startsWith('http')) {
+          // 절대 경로: http://localhost:8080/api/v1 + /auth/refresh
+          refreshUrl = `${baseURL}${refreshEndpoint}`;
+        } else {
+          // 상대 경로: /api/v1/auth/refresh → 현재 도메인 기준으로 변환
+          refreshUrl = `${window.location.origin}${baseURL}${refreshEndpoint}`;
+        }
+        
+        const response = await axios.post(refreshUrl, null, { withCredentials: true });
 
         const accessToken = response.data?.accessToken;
         if (accessToken) {
