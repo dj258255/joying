@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 대여 API 컨트롤러
  */
@@ -121,7 +123,6 @@ public class RentalController {
 
     /**
      * 반납 처리
-     *
      * PATCH /rental-histories/{rentalHisId}/return
      */
     @PatchMapping("/rental-histories/{rentalHisId}/return")
@@ -163,5 +164,21 @@ public class RentalController {
         );
 
         return ApiResponse.ok(response);
+    }
+
+    /**
+     * 나의 대여 내역 확인
+     *
+     * GET /rentals/borrowed/history
+     */
+    @GetMapping("/rentals/borrowed/history")
+    public ResponseEntity<ApiResponse.SuccessBody<List<RentalDetailResponse>>> getRentalHistory(
+            Authentication authentication
+    ){
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /rentals/borrowed/history] 나의 대여 내역 요청 : memberId={}",memberId);
+
+        List<RentalDetailResponse> borrowList = rentalService.getRentalList(memberId);
+        return ApiResponse.ok(borrowList);
     }
 }
