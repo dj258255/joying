@@ -33,8 +33,31 @@ export const useUserProfile = (userId) => {
   const deleteUserMutation = useMutation({
     mutationFn: () => userApi.deleteUser(userId),
     onSuccess: () => {
+      // 모든 쿼리 캐시 클리어
       queryClient.clear();
-      // TODO: 로그인 페이지로 리다이렉트
+      // 로컬 스토리지 정리
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    },
+    onError: (error) => {
+      console.error('회원 탈퇴 실패:', error);
+      throw error; // 컴포넌트에서 에러 처리할 수 있도록 에러를 다시 throw
+    }
+  });
+
+  // 프로필 이미지 업데이트
+  const updateProfileImageMutation = useMutation({
+    mutationFn: (file) => userApi.updateProfileImage(userId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.USER, userId]);
+    }
+  });
+
+  // 프로필 이미지 삭제
+  const deleteProfileImageMutation = useMutation({
+    mutationFn: () => userApi.deleteProfileImage(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries([QUERY_KEYS.USER, userId]);
     }
   });
 
@@ -44,7 +67,11 @@ export const useUserProfile = (userId) => {
     error,
     updateUser: updateUserMutation.mutateAsync,
     deleteUser: deleteUserMutation.mutateAsync,
+    updateProfileImage: updateProfileImageMutation.mutateAsync,
+    deleteProfileImage: deleteProfileImageMutation.mutateAsync,
     isUpdating: updateUserMutation.isPending,
-    isDeleting: deleteUserMutation.isPending
+    isDeleting: deleteUserMutation.isPending,
+    isUploadingImage: updateProfileImageMutation.isPending,
+    isDeletingImage: deleteProfileImageMutation.isPending
   };
 };

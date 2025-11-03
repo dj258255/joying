@@ -8,7 +8,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
 import ReviewCard from '../../review/components/ReviewCard';
-import { DUMMY_USERS, DUMMY_PRODUCTS, DUMMY_REVIEWS, DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
+import { DUMMY_PRODUCTS, DUMMY_REVIEWS, DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
+import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 
 const UserProfilePage = () => {
@@ -16,76 +17,33 @@ const UserProfilePage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
   const [reviewTab, setReviewTab] = useState('borrowed'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
-  const [user, setUser] = useState(null);
   const [userProducts, setUserProducts] = useState([]);
   const [userReviews, setUserReviews] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
+  const { user, isLoading, error } = useUserProfile(memberId ? parseInt(memberId) : null);
 
   useEffect(() => {
-    loadUserProfile();
-  }, [memberId]);
-
-  const loadUserProfile = async () => {
-    try {
-      setIsLoading(true);
-      
-      console.log('UserProfilePage - memberId:', memberId);
-      console.log('UserProfilePage - DUMMY_USERS:', DUMMY_USERS);
-      
-      const foundUser = DUMMY_USERS.others.find(u => u.userId === parseInt(memberId));
-      console.log('UserProfilePage - foundUser:', foundUser);
-      
-      if (!foundUser) {
-        console.error('사용자를 찾을 수 없습니다:', memberId);
-        navigate('/404');
-        return;
-      }
-      setUser(foundUser);
-
-      // 사용자 상품 로드
+    if (error) {
+      console.error('사용자 프로필 로드 실패:', error);
+      navigate('/404');
+      return;
+    }
+    
+    if (user && memberId) {
+      // 사용자 상품 로드 (임시로 더미 데이터 사용, 추후 API 연동 필요)
       const products = DUMMY_PRODUCTS.filter(p => p.sellerId === parseInt(memberId));
       setUserProducts(products);
 
-      // 사용자 리뷰 로드
+      // 사용자 리뷰 로드 (임시로 더미 데이터 사용, 추후 API 연동 필요)
       const reviews = DUMMY_REVIEWS.filter(r => r.reviewerId === parseInt(memberId) || r.revieweeId === parseInt(memberId));
       setUserReviews(reviews);
-
-    } catch (error) {
-      console.error('사용자 프로필 로드 실패:', error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [user, memberId, error, navigate]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
-  };
-
-  // 활동 일수 계산
-  const getActivityDays = (createdAt) => {
-    const createdDate = new Date(createdAt);
-    const currentDate = new Date();
-    const diffTime = Math.abs(currentDate - createdDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
-  // 성별 표시 텍스트
-  const getGenderText = (gender) => {
-    return gender === 'male' ? '남성' : '여성';
-  };
-
-  // 나이 계산
-  const getAge = (birth) => {
-    const birthDate = new Date(birth);
-    const currentDate = new Date();
-    let age = currentDate.getFullYear() - birthDate.getFullYear();
-    const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
   };
 
   const getReviewType = (review) => {
@@ -183,11 +141,11 @@ const UserProfilePage = () => {
               <div className="text-center mb-6">
                 <ProfileImage 
                   src={user.profileImageUrl}
-                  alt={user.username}
+                  alt={user.nickname}
                   size={80}
                   className="w-20 h-20 mx-auto mb-4"
                 />
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.username}</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.nickname}</h2>
                 <p className="text-gray-500 text-sm mb-2">{user.bio || '소개가 없습니다.'}</p>
                 
                 {/* 평점 표시 */}
@@ -253,20 +211,22 @@ const UserProfilePage = () => {
                 <div className="bg-gray-50 rounded-xl mb-4" style={{ padding: '14px' }}>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="text-center">
-                      <div className="text-gray-600 mb-1">성별</div>
-                      <div className="font-medium text-gray-900">{getGenderText(user.gender)}</div>
+                      <div className="text-gray-600 mb-1">이름</div>
+                      <div className="font-medium text-gray-900">{user.name || '-'}</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-gray-600 mb-1">나이</div>
-                      <div className="font-medium text-gray-900">{getAge(user.birth)}세</div>
+                      <div className="text-gray-600 mb-1">인증 상태</div>
+                      <div className="font-medium text-gray-900">{user.verified ? '✓ 인증됨' : '미인증'}</div>
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="text-center">
-                      <div className="text-gray-600 mb-1">활동 기간</div>
-                      <div className="font-medium text-blue-600">{getActivityDays(user.createdAt)}일째 활동중</div>
+                  {user.email && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-center">
+                        <div className="text-gray-600 mb-1">이메일</div>
+                        <div className="font-medium text-blue-600 text-xs">{user.email}</div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 
                 {/* 통계 */}
