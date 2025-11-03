@@ -77,4 +77,114 @@ public class RentalCancel {
     @Column(name = "created_at", nullable = false)
     private Timestamp createdAt;
 
+    /**
+     * 취소 요청 생성
+     */
+    public static RentalCancel create(
+            RentalHistory rentalHistory,
+            Member proposer,
+            String reason,
+            Integer depositOwnerAmt,
+            Integer depositRenterAmt) {
+
+        RentalCancel cancel = new RentalCancel();
+        cancel.rentalHistory = rentalHistory;
+        cancel.proposer = proposer;
+        cancel.reason = reason;
+        cancel.depositOwnerAmt = depositOwnerAmt;
+        cancel.depositRenterAmt = depositRenterAmt;
+        cancel.status = CancelStatus.REQUESTED;
+
+        // 제안자가 owner인지 renter인지 판단
+        boolean isOwner = rentalHistory.getRentalProduct().getWriter().equals(proposer);
+        cancel.ownerDecision = isOwner ? Decision.APPROVE : Decision.PENDING;
+        cancel.renterDecision = isOwner ? Decision.PENDING : Decision.APPROVE;
+
+        Timestamp now = Timestamp.valueOf(java.time.LocalDateTime.now());
+        cancel.createdAt = now;
+        cancel.expiresAt = Timestamp.valueOf(java.time.LocalDateTime.now().plusDays(7));
+
+        if (isOwner) {
+            cancel.ownerDecidedAt = now;
+        } else {
+            cancel.renterDecidedAt = now;
+        }
+
+        return cancel;
+    }
+
+    /**
+     * 승인
+     */
+    public void approve(Member member) {
+        boolean isOwner = rentalHistory.getRentalProduct().getWriter().equals(member);
+        Timestamp now = Timestamp.valueOf(java.time.LocalDateTime.now());
+
+        if (isOwner) {
+            if (ownerDecision != Decision.PENDING) {
+                throw new IllegalStateException("이미 결정하셨습니다");
+            }
+            ownerDecision = Decision.APPROVE;
+            ownerDecidedAt = now;
+        } else {
+            if (renterDecision != Decision.PENDING) {
+                throw new IllegalStateException("이미 결정하셨습니다");
+            }
+            renterDecision = Decision.APPROVE;
+            renterDecidedAt = now;
+        }
+
+        // 양측 모두 승인 시
+        if (ownerDecision == Decision.APPROVE && renterDecision == Decision.APPROVE) {
+            status = CancelStatus.BOTH_APPROVED;
+        }
+    }
+
+    /**
+     * 거부
+     */
+    public void reject(Member member, String rejectReason) {
+        boolean isOwner = rentalHistory.getRentalProduct().getWriter().equals(member);
+        Timestamp now = Timestamp.valueOf(java.time.LocalDateTime.now());
+
+        if (isOwner) {
+            if (ownerDecision != Decision.PENDING) {
+                throw new IllegalStateException("이미 결정하셨습니다");
+            }
+            ownerDecision = Decision.REJECT;
+            ownerDecidedAt = now;
+        } else {
+            if (renterDecision != Decision.PENDING) {
+                throw new IllegalStateException("이미 결정하셨습니다");
+            }
+            renterDecision = Decision.REJECT;
+            renterDecidedAt = now;
+        }
+
+        status = CancelStatus.REJECTED;
+        this.reason = rejectReason;
+    }
+
+    /**
+     * 만료 처리
+     */
+    public void expire() {
+        if (status == CancelStatus.REQUESTED) {
+            status = CancelStatus.EXPIRED;
+        }
+    }
+
+    /**
+     * 취소 완료 처리
+     */
+    public void complete() {
+        status = CancelStatus.CANCELLED;
+    }
+
+    /**
+     * 양측 승인 여부
+     */
+    public boolean isBothApproved() {
+        return status == CancelStatus.BOTH_APPROVED;
+    }
 }
