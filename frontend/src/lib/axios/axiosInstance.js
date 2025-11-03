@@ -98,10 +98,12 @@ axiosInstance.interceptors.response.use(
           // 절대 경로: http://localhost:8080/api/v1 + /auth/refresh
           refreshUrl = `${baseURL}${refreshEndpoint}`;
         } else {
-          // 상대 경로: /api/v1/auth/refresh → 현재 도메인 기준으로 변환
+          // 상대 경로: /api/v1 + /auth/refresh → 현재 도메인 기준으로 변환
+          // baseURL과 refreshEndpoint를 결합하여 절대 URL 생성
           refreshUrl = `${window.location.origin}${baseURL}${refreshEndpoint}`;
         }
         
+        console.log('[Token Refresh] URL:', refreshUrl);
         const response = await axios.post(refreshUrl, null, { withCredentials: true });
 
         const accessToken = response.data?.accessToken;
@@ -109,7 +111,31 @@ axiosInstance.interceptors.response.use(
           localStorage.setItem('accessToken', accessToken);
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
-        return axiosInstance(originalRequest);
+        
+        // originalRequest 재요청 시 baseURL 중복 방지
+        // error.config.url은 이미 baseURL이 결합된 전체 경로일 수 있음
+        const retryConfig = { ...originalRequest };
+        
+        // originalRequest.url에서 baseURL 제거 (중복 방지)
+        if (retryConfig.url) {
+          // 이미 baseURL이 포함된 경로인지 확인
+          // 예: /api/v1/auth/me → /auth/me
+          if (retryConfig.url.startsWith('/api/v1/')) {
+            retryConfig.url = retryConfig.url.replace(/^\/api\/v1/, '');
+          }
+          // 절대 URL인 경우 (프로덕션에서 발생할 수 있음)
+          else if (retryConfig.url.includes('/api/v1/')) {
+            const urlObj = new URL(retryConfig.url, window.location.origin);
+            retryConfig.url = urlObj.pathname.replace(/^\/api\/v1/, '');
+          }
+        }
+        
+        // baseURL 초기화 (axiosInstance의 baseURL 사용)
+        delete retryConfig.baseURL;
+        
+        console.log('[Token Refresh] Retry URL:', retryConfig.url);
+        // baseURL이 포함되지 않은 순수 경로로 재요청
+        return axiosInstance(retryConfig);
       } catch (refreshError) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
