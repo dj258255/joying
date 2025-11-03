@@ -22,7 +22,7 @@ public class Hashtag {
     private String hashtagName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "categoryId", referencedColumnName = "category_id", nullable = false)
+    @JoinColumn(name = "categoryId", referencedColumnName = "category_id")
     private Category category;
 
     @Builder

@@ -1,4 +1,4 @@
-package com.joying.chat.domain
+package com.joying.chat.document
 
 import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.Id
@@ -7,56 +7,63 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.core.mapping.Field
-import java.time.Instant
+import java.time.LocalDateTime
 
 /**
  * 채팅 메시지 Document (MongoDB)
  *
  * 대용량 메시지 저장을 위해 NoSQL 사용
- * - 읽기/쓰기 성능 최적화
+ * - 쓰기 속도 최적화
+ * - 스키마 유연성 (이모티콘 등 확장 가능)
  * - 샤딩 가능 (향후 확장성)
  */
-@Document(collection = "messages")
+@Document(collection = "chat_messages")
 @CompoundIndexes(
     CompoundIndex(
         name = "idx_chat_room_id_created_at",
         def = "{'chatRoomId': 1, 'createdAt': -1}"
     )
 )
-data class Message(
+data class ChatMessage(
 
     @Id
     var id: String? = null,
 
     @Field("chatRoomId")
     @Indexed
-    var chatRoomId: Long,
+    val chatRoomId: Long,
 
     @Field("senderId")
     @Indexed
-    var senderId: Long,
+    val senderId: Long,
 
-    @Field("senderName")
-    var senderName: String,
-
-    @Field("messageType")
-    var messageType: MessageType,
+    @Field("type")
+    val type: MessageType,
 
     @Field("content")
-    var content: String,
+    val content: String,
+
+    @Field("imageUrl")
+    val imageUrl: String? = null,
 
     @Field("fileUrl")
-    var fileUrl: String? = null,
+    val fileUrl: String? = null,
 
     @Field("fileName")
-    var fileName: String? = null,
+    val fileName: String? = null,
 
     @Field("fileSize")
-    var fileSize: Long? = null,
+    val fileSize: Long? = null,
+
+    @Field("replyToMessageId")
+    val replyToMessageId: String? = null,
 
     @CreatedDate
     @Field("createdAt")
-    var createdAt: Instant? = null
+    var createdAt: LocalDateTime? = null,
+
+    @Field("isDeleted")
+    var isDeleted: Boolean = false
 
 ) {
     companion object {
@@ -66,15 +73,15 @@ data class Message(
         fun createTextMessage(
             chatRoomId: Long,
             senderId: Long,
-            senderName: String,
-            content: String
-        ): Message {
-            return Message(
+            content: String,
+            replyToMessageId: String? = null
+        ): ChatMessage {
+            return ChatMessage(
                 chatRoomId = chatRoomId,
                 senderId = senderId,
-                senderName = senderName,
-                messageType = MessageType.TEXT,
-                content = content
+                type = MessageType.TEXT,
+                content = content,
+                replyToMessageId = replyToMessageId
             )
         }
 
@@ -84,20 +91,20 @@ data class Message(
         fun createImageMessage(
             chatRoomId: Long,
             senderId: Long,
-            senderName: String,
-            fileUrl: String,
+            imageUrl: String,
             fileName: String,
-            fileSize: Long
-        ): Message {
-            return Message(
+            fileSize: Long,
+            replyToMessageId: String? = null
+        ): ChatMessage {
+            return ChatMessage(
                 chatRoomId = chatRoomId,
                 senderId = senderId,
-                senderName = senderName,
-                messageType = MessageType.IMAGE,
+                type = MessageType.IMAGE,
                 content = "[이미지]",
-                fileUrl = fileUrl,
+                imageUrl = imageUrl,
                 fileName = fileName,
-                fileSize = fileSize
+                fileSize = fileSize,
+                replyToMessageId = replyToMessageId
             )
         }
 
@@ -107,20 +114,20 @@ data class Message(
         fun createFileMessage(
             chatRoomId: Long,
             senderId: Long,
-            senderName: String,
             fileUrl: String,
             fileName: String,
-            fileSize: Long
-        ): Message {
-            return Message(
+            fileSize: Long,
+            replyToMessageId: String? = null
+        ): ChatMessage {
+            return ChatMessage(
                 chatRoomId = chatRoomId,
                 senderId = senderId,
-                senderName = senderName,
-                messageType = MessageType.FILE,
-                content = "[파일]",
+                type = MessageType.FILE,
+                content = "[파일] $fileName",
                 fileUrl = fileUrl,
                 fileName = fileName,
-                fileSize = fileSize
+                fileSize = fileSize,
+                replyToMessageId = replyToMessageId
             )
         }
 
@@ -130,14 +137,20 @@ data class Message(
         fun createSystemMessage(
             chatRoomId: Long,
             content: String
-        ): Message {
-            return Message(
+        ): ChatMessage {
+            return ChatMessage(
                 chatRoomId = chatRoomId,
                 senderId = 0L,  // 시스템 메시지
-                senderName = "System",
-                messageType = MessageType.SYSTEM,
+                type = MessageType.SYSTEM,
                 content = content
             )
         }
+    }
+
+    /**
+     * 메시지 삭제 (Soft Delete)
+     */
+    fun delete() {
+        this.isDeleted = true
     }
 }

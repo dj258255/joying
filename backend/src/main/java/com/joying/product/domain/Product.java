@@ -2,6 +2,7 @@ package com.joying.product.domain;
 
 import com.joying.category.domain.Category;
 import com.joying.common.entity.BaseEntity;
+import com.joying.hashtag.domain.HashtagHistory;
 import com.joying.member.domain.Member;
 import com.joying.region.domain.Dong;
 import com.joying.region.domain.Gungu;
@@ -10,8 +11,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
 
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Entity
@@ -67,7 +69,9 @@ public class Product extends BaseEntity {
     private Dong dong;
 
     @Comment("거래 방법")
-    @Enumerated(value=EnumType.STRING)
+    // 2025-10-30: DB에서 소문자로 저장되는 문제 해결을 위해 Converter 사용
+     @Enumerated(value=EnumType.STRING)
+//    @Convert(converter = RentMethodConverter.class)
     @Column(name = "rent_method")
     private RentMethod rentMethod;
 
@@ -79,6 +83,10 @@ public class Product extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "categoryId", nullable = true)
     private Category category;
+
+    @Comment("해시태그 내역")
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<HashtagHistory> hashtagHistory = new ArrayList<>();
 
     @Comment("대여 가능 시작 날짜")
     @Column(name = "start_rent")

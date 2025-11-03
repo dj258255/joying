@@ -2,6 +2,7 @@ package com.joying.region.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,4 +27,10 @@ public class Dong {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gunguId", nullable = false)
     private Gungu gungu;
+
+    @Builder
+    private Dong (String name, Gungu gungu) {
+        this.name = name;
+        this.gungu = gungu;
+    }
 }
