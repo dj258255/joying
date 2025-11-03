@@ -25,9 +25,9 @@ public class RentalHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rentalHisId;
 
-    @Comment("렌탈ID")
+    @Comment("상품ID")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rental_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = false)
     private Product rentalProduct;
 
     @Comment("대여받는 사람ID")
@@ -85,6 +85,100 @@ public class RentalHistory {
     @Comment("연장 횟수")
     @Column(name = "extension_count")
     private Integer extensionCount;
+
+    /**
+     * 대여 생성 (예약)
+     */
+    public static RentalHistory create(
+            Product product,
+            Member renter,
+            Timestamp startRen,
+            Timestamp endRen,
+            RentMethod rentMethod) {
+
+        RentalHistory rental = new RentalHistory();
+        rental.rentalProduct = product;
+        rental.member = renter;
+        rental.startRen = startRen;
+        rental.endRen = endRen;
+        rental.rentMethod = rentMethod;
+
+        // 상품 정보에서 가져오기
+        rental.fee = product.getRentalFee();
+        rental.deposit = Long.valueOf(product.getDeposit());
+
+        // 초기 상태
+        rental.status = RentalStatus.PENDING;  // 결제 전 상태
+        rental.videoStatus = VideoStatus.ALIVE;
+        rental.extensionCount = 0;
+
+        return rental;
+    }
+
+    /**
+     * 결제 완료 후 Escrow 상태로 전환
+     */
+    public void markAsEscrow() {
+        this.status = RentalStatus.ESCROW;
+    }
+
+    /**
+     * 거래 취소
+     */
+    public void cancel() {
+        this.status = RentalStatus.CANCELLED;
+    }
+
+    /**
+     * 거래 완료 (보증금 반환)
+     */
+    public void complete() {
+        this.status = RentalStatus.DEPOSIT_RETURNED;
+    }
+
+    /**
+     * 발송 처리 (owner가 상품 발송)
+     */
+    public void ship(String carrierCode, String trackingNo) {
+        if (this.status != RentalStatus.ESCROW) {
+            throw new IllegalStateException("ESCROW 상태에서만 발송할 수 있습니다");
+        }
+        this.outboundCarrierCode = carrierCode;
+        this.outboundTrackingNo = trackingNo;
+        this.status = RentalStatus.SHIPPED;
+    }
+
+    /**
+     * 수령 확인 (renter가 상품 수령)
+     */
+    public void confirmReceive() {
+        if (this.status != RentalStatus.SHIPPED) {
+            throw new IllegalStateException("SHIPPED 상태에서만 수령 확인할 수 있습니다");
+        }
+        this.status = RentalStatus.RENTING;
+    }
+
+    /**
+     * 반납 처리 (renter가 상품 반납)
+     */
+    public void returnItem(String carrierCode, String trackingNo) {
+        if (this.status != RentalStatus.RENTING) {
+            throw new IllegalStateException("RENTING 상태에서만 반납할 수 있습니다");
+        }
+        this.returnCarrierCode = carrierCode;
+        this.returnTrackingNo = trackingNo;
+        this.status = RentalStatus.RETURN_REQUESTED;
+    }
+
+    /**
+     * 회수 확인 (owner가 상품 회수 확인)
+     */
+    public void confirmReturn() {
+        if (this.status != RentalStatus.RETURN_REQUESTED) {
+            throw new IllegalStateException("RETURN_REQUESTED 상태에서만 회수 확인할 수 있습니다");
+        }
+        this.status = RentalStatus.RETURNED;
+    }
 
     @Builder
     public RentalHistory(

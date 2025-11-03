@@ -85,6 +85,8 @@ public class SecurityConfig {
 				.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
 				// 계좌 1원 인증 엔드포인트 (SSAFY 금융망 API)
 				.requestMatchers("/api/v1/accounts/verify/**").permitAll()
+				// WebSocket 채팅 엔드포인트 (JWT는 WebSocket 핸들러에서 검증)
+				.requestMatchers("/ws/chat/**").permitAll()
 				// 그 외 모든 요청은 인증 필요
 				.anyRequest().authenticated()
 			)

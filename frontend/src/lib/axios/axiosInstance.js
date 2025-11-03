@@ -1,16 +1,18 @@
 /**
  * Axios Instance Configuration
- * Axios 인스턴스 설정
+ * 쿠키 기반 인증을 위한 Axios 설정
+ *
+ * 로컬 개발: Vite 프록시를 통해 /api/* → https://k13c202.p.ssafy.io/api/*
+ * 운영 배포: Nginx가 /api/* → 백엔드 서버로 라우팅
  */
 
 import axios from 'axios';
 
 // 기본 axios 인스턴스 생성
 export const axiosInstance = axios.create({
-  // 베이스 URL은 포트까지만(경로 미포함). 엔드포인트에서 '/api/v1/...'를 붙여 사용
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   timeout: 10000,
-  withCredentials: true,
+  withCredentials: true, // 쿠키 자동 전송 (SameSite=Lax/Strict 지원)
   headers: {
     'Content-Type': 'application/json'
   }

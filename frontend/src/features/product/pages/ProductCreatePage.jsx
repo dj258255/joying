@@ -133,7 +133,7 @@ function ProductCreatePage() {
         fileArr.map(async (file) => {
           const formData = new FormData();
           formData.append('file', file);
-          const res = await axiosInstance.post('/api/v1/files', formData, {
+          const res = await axiosInstance.post('/files', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
           return res.data; // { fileId, url }
@@ -341,7 +341,7 @@ function ProductCreatePage() {
         navigate(ROUTE_PATHS.PRODUCT_DETAIL(fakeId));
         return;
       }
-      const res = await axiosInstance.post('/api/v1/products', payload);
+      const res = await axiosInstance.post('/products', payload);
       const productId = res?.data;
       navigate(productId ? ROUTE_PATHS.PRODUCT_DETAIL(productId) : ROUTE_PATHS.PRODUCTS);
     } catch (err) {
