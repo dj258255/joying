@@ -1,6 +1,6 @@
 /**
  * ProductDetailPage Component
- * 상품 상세 페이지 컴포넌트 - 좌측 캘린더 영역과 우측 컨텐츠 영역이 따로 스크롤
+ * 상품 상세 페이지 - 참고 프로젝트의 깔끔한 디자인 적용
  */
 
 import React, { useState } from 'react';
@@ -109,200 +109,25 @@ const ProductDetailPage = () => {
   return (
     <>
       <SideNavbar />
-      <style>
-        {`
-          .glass-card {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-            transition: all 0.3s ease;
-          }
-          
-          .glass-card:hover {
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
-          }
-          
-          .glass-section {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-            margin-bottom: 24px;
-            transition: all 0.3s ease;
-          }
-          
-          .glass-section:hover {
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
-          }
-          
-          .glass-rent-button {
-            background: rgba(0, 122, 204, 0.2);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 122, 204, 0.3);
-            box-shadow: 0 8px 32px rgba(0, 122, 204, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-            transition: all 0.3s ease;
-          }
-          
-          .glass-rent-button:hover {
-            background: rgba(0, 122, 204, 0.3);
-            box-shadow: 0 12px 40px rgba(0, 122, 204, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-            transform: translateY(-2px);
-          }
-          
-          .glass-rent-button:disabled {
-            background: rgba(156, 163, 175, 0.2);
-            border: 1px solid rgba(156, 163, 175, 0.3);
-            box-shadow: 0 4px 16px rgba(156, 163, 175, 0.1);
-            cursor: not-allowed;
-          }
-          
-          .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-          }
-          
-          .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-          }
-        `}
-      </style>
       
-      <div className="flex h-screen bg-gray-50">
-        {/* 좌측 캘린더 영역 - 고정 스크롤 */}
-        <div className="hidden lg:block w-1/3 h-screen overflow-y-auto sticky top-0 bg-white border-r border-gray-200 p-4 scrollbar-hide">
-          <div className="space-y-4">
+      <div className="min-h-screen bg-gray-50">
+        {/* 데스크톱 레이아웃 */}
+        <div className="hidden lg:block">
+          <div className="max-w-[1400px] mx-auto px-6 py-8">
             {/* 뒤로가기 버튼 */}
-            <div className="mb-6">
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card hover:bg-white/20 transition-all duration-200 w-full"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="text-gray-600 font-medium">뒤로 가기</span>
-              </button>
-            </div>
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 mb-6 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-sm font-medium">뒤로 가기</span>
+            </button>
 
-            {/* 가격 표시 */}
-            <div className="glass-card p-4">
-              <div className="text-2xl font-extrabold text-blue-600 mb-2">
-                {product.price.toLocaleString()}원
-                <span className="text-base text-gray-600 font-medium">/일</span>
-              </div>
-              <div className="text-sm text-gray-600">
-                📍 {product.location}
-              </div>
-            </div>
-
-            {/* 날짜 선택 */}
-            <div className="glass-card">
-              <DateRangeCalendar
-                onDateRangeChange={handleDateRangeChange}
-                disabledDates={[]}
-              />
-            </div>
-
-            {/* 가격 계산 */}
-            <div className="glass-card">
-              <PriceCalculation
-                pricePerDay={product.price}
-                deposit={product.deposit}
-                days={calculateDays()}
-              />
-            </div>
-
-            {/* 대여 버튼 */}
-            <div className="glass-card">
-              <RentButton
-                isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
-                onClick={handleRentRequest}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 우측 컨텐츠 영역 - 스크롤 가능 */}
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          {/* 모바일 헤더 */}
-          <div className="lg:hidden p-4 bg-white border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card hover:bg-white/20 transition-all duration-200"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="text-gray-600 font-medium">뒤로가기</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 모바일 캘린더 오버레이 */}
-          {isCalendarOpen && (
-            <div className="lg:hidden fixed inset-0 z-50 bg-black/50 flex items-end">
-              <div className="w-full bg-white rounded-t-3xl p-4 space-y-4 animate-in slide-in-from-bottom-2 duration-300 max-h-[80vh] overflow-y-auto">
-                {/* 가격 표시 */}
-                <div className="glass-card p-4">
-                  <div className="text-xl font-extrabold text-blue-600 mb-2">
-                    {product.price.toLocaleString()}원
-                    <span className="text-sm text-gray-600 font-medium">/일</span>
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    📍 {product.location}
-                  </div>
-                </div>
-
-                {/* 날짜 선택 */}
-                <div className="glass-card">
-                  <DateRangeCalendar
-                    onDateRangeChange={handleDateRangeChange}
-                    disabledDates={[]}
-                  />
-                </div>
-
-                {/* 가격 계산 - 날짜 선택 시에만 표시 */}
-                {dateRange && dateRange.start && dateRange.end && (
-                  <div className="glass-card">
-                    <PriceCalculation
-                      pricePerDay={product.price}
-                      deposit={product.deposit}
-                      days={calculateDays()}
-                    />
-                  </div>
-                )}
-
-                {/* 빌려주세요 버튼 */}
-                <RentButton
-                  isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
-                  onClick={handleRentRequest}
-                />
-
-                {/* 닫기 버튼 */}
-                <button
-                  onClick={() => setIsCalendarOpen(false)}
-                  className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* 상품 컨텐츠 */}
-          <div className="p-4 lg:p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
-              {/* 이미지 갤러리 */}
-              <div className="glass-section">
+            <div className="grid lg:grid-cols-2 gap-12">
+              {/* 좌측: 이미지 갤러리 */}
+              <div className="space-y-4">
                 <ImageGallery 
                   images={product.images}
                   productTitle={product.title}
@@ -311,24 +136,157 @@ const ProductDetailPage = () => {
                 />
               </div>
 
-              {/* 상품 정보 */}
-              <div className="glass-section">
-                <ProductInfo
-                  title={product.title}
-                  hashtags={product.hashtags}
-                  description={product.description}
-                />
-              </div>
+              {/* 우측: 제품 정보 */}
+              <div className="space-y-6">
+                {/* 기본 정보 */}
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                    {product.title}
+                  </h1>
+                  <div className="text-3xl font-bold text-gray-900 mb-4">
+                    {product.price.toLocaleString()}원<span className="text-lg text-gray-600 font-normal">/일</span>
+                  </div>
+                  
+                  {/* 별점과 위치 */}
+                  <div className="flex items-center gap-4 text-sm mb-6">
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <svg
+                          key={i}
+                          className={`w-5 h-5 ${
+                            i < Math.floor(product.rating || 0)
+                              ? 'text-yellow-400 fill-current'
+                              : 'text-gray-300 fill-current'
+                          }`}
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-gray-600">{productReviews.length} reviews</span>
+                    <span className="text-gray-400">•</span>
+                    <span className="flex items-center gap-1 text-gray-600">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {product.location}
+                    </span>
+                  </div>
 
-              {/* 판매자 정보 */}
-              <div className="glass-section">
-                <SellerProfile seller={product.seller} sellerId={product.sellerId} />
-              </div>
+                  <div className="text-sm text-gray-600 mb-6">
+                    보증금: {product.deposit.toLocaleString()}원
+                  </div>
+                </div>
 
-              {/* 리뷰 목록 */}
-              <div className="glass-section">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">리뷰</h3>
-                <div className="space-y-4">
+                {/* 대여 기간 선택 */}
+                <div className="border-t border-b border-gray-200 py-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
+                  
+                  <div className="flex gap-6">
+                    {/* 왼쪽: 캘린더 */}
+                    <div className="flex-shrink-0">
+                      <DateRangeCalendar
+                        onDateRangeChange={handleDateRangeChange}
+                        disabledDates={[]}
+                      />
+                    </div>
+
+                    {/* 오른쪽: 가격 정보 및 버튼 */}
+                    <div className="flex-1 flex flex-col justify-between min-h-[320px]">
+                      {/* 가격 요약 */}
+                      {dateRange && dateRange.start && dateRange.end ? (
+                        <div className="space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">대여료 ({calculateDays()}일)</span>
+                              <span className="font-semibold text-gray-900">{(product.price * calculateDays()).toLocaleString()}원</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">보증금</span>
+                              <span className="font-semibold text-gray-900">{product.deposit.toLocaleString()}원</span>
+                            </div>
+                          </div>
+                          <div className="pt-4 border-t border-gray-300">
+                            <div className="flex justify-between items-center">
+                              <span className="text-base font-semibold text-gray-900">총 결제 금액</span>
+                              <span className="text-2xl font-bold text-gray-900">
+                                {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-500">날짜를 선택해주세요</p>
+                        </div>
+                      )}
+
+                      {/* 버튼 그룹 */}
+                      <div className="flex gap-3 mt-auto">
+                        <button
+                          disabled={!dateRange || !dateRange.start || !dateRange.end}
+                          onClick={handleRentRequest}
+                          className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          채팅 시작하기
+                        </button>
+                        <button
+                          onClick={() => console.log('찜하기')}
+                          className="w-14 h-14 border-2 border-gray-300 rounded-lg hover:border-gray-900 transition-colors flex items-center justify-center flex-shrink-0"
+                        >
+                          <svg
+                            className="w-6 h-6 text-gray-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 상품 설명 */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">상품 설명</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                    {product.description}
+                  </p>
+                  {product.hashtags && product.hashtags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {product.hashtags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 판매자 정보 */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">판매자 정보</h3>
+                  <SellerProfile seller={product.seller} sellerId={product.sellerId} />
+                </div>
+              </div>
+            </div>
+
+            {/* 리뷰 섹션 - 하단 전체 너비 */}
+            <div className="mt-16">
+              <div className="border-t border-gray-200 pt-12">
+                <h2 className="text-2xl font-bold text-gray-900 mb-8">
+                  리뷰 ({productReviews.length})
+                </h2>
+
+                {/* 리뷰 목록 */}
+                <div className="space-y-6">
                   {productReviews.map((review, index) => (
                     <ReviewCard
                       key={review.id || index}
@@ -338,57 +296,223 @@ const ProductDetailPage = () => {
                     />
                   ))}
                   {productReviews.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      등록된 리뷰가 없습니다.
+                    <div className="text-center py-16 text-gray-500">
+                      <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <p className="text-base">아직 등록된 리뷰가 없습니다</p>
+                      <p className="text-sm mt-2">첫 리뷰를 남겨보세요!</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* 모바일 하단 고정 푸터 */}
-          <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 space-y-3 shadow-2xl" style={{
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)',
-            borderTop: '1px solid rgba(255, 255, 255, 0.3)'
-          }}>
-            {/* 캘린더 토글 버튼 */}
+        {/* 모바일 레이아웃 */}
+        <div className="lg:hidden">
+          {/* 모바일 헤더 */}
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
             <button
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-sm font-medium">뒤로가기</span>
+            </button>
+          </div>
+
+          {/* 모바일 컨텐츠 */}
+          <div className="pb-32">
+            {/* 이미지 갤러리 */}
+            <div className="bg-white p-4">
+              <ImageGallery 
+                images={product.images}
+                productTitle={product.title}
+                isLiked={false}
+                onLikeClick={() => console.log('찜하기')}
+              />
+            </div>
+
+            {/* 상품 정보 */}
+            <div className="bg-white p-6 mt-2">
+              <div className="text-sm text-gray-500 mb-1">{product.category}</div>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">{product.title}</h1>
+              
+              {/* 별점 */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <svg
+                      key={i}
+                      className={`w-4 h-4 ${
+                        i < Math.floor(product.rating || 0)
+                          ? 'text-yellow-400 fill-current'
+                          : 'text-gray-300'
+                      }`}
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                    </svg>
+                  ))}
+                </div>
+                <span className="text-sm text-gray-600">{productReviews.length} reviews</span>
+              </div>
+
+              {/* 가격 */}
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <div className="text-2xl font-bold text-gray-900">
+                  {product.price.toLocaleString()}원
+                  <span className="text-base text-gray-600 font-normal ml-2">/일</span>
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  보증금: {product.deposit.toLocaleString()}원
+                </div>
+                <div className="text-sm text-gray-600 flex items-center gap-1 mt-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {product.location}
+                </div>
+              </div>
+
+              {/* 상품 설명 */}
+              <div className="mb-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-2">상품 설명</h3>
+                <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                  {product.description}
+                </div>
+                
+                {/* 해시태그 */}
+                {product.hashtags && product.hashtags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {product.hashtags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 판매자 정보 */}
+            <div className="bg-white p-6 mt-2">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">판매자 정보</h3>
+              <SellerProfile seller={product.seller} sellerId={product.sellerId} />
+            </div>
+
+            {/* 리뷰 */}
+            <div className="bg-white p-6 mt-2">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">
+                리뷰 ({productReviews.length})
+              </h3>
+              <div className="space-y-4">
+                {productReviews.map((review, index) => (
+                  <ReviewCard
+                    key={review.id || index}
+                    review={review}
+                    showProductInfo={false}
+                    showRating={true}
+                  />
+                ))}
+                {productReviews.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    등록된 리뷰가 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 모바일 하단 고정 바 */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
+            <button
+              onClick={() => setIsCalendarOpen(true)}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
-              className="w-full flex items-center justify-center p-2 rounded-xl glass-card hover:bg-white/10 transition-all duration-200"
+              className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors flex items-center justify-center gap-2"
             >
-                <svg 
-                  className={`w-6 h-6 text-gray-600 transition-transform duration-200 ${isCalendarOpen ? 'rotate-180' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                </svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              날짜 선택하고 대여하기
             </button>
-
-            {/* 총 금액 - 날짜 선택 시에만 표시 */}
-            {dateRange && dateRange.start && dateRange.end && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">총 금액</span>
-                <span className="text-xl font-extrabold text-blue-600">
-                  {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
-                </span>
-              </div>
-            )}
-
-            <RentButton
-              isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
-              onClick={handleRentRequest}
-            />
           </div>
 
-          {/* 하단 여백 (모바일 푸터 공간 확보) */}
-          <div className="lg:hidden h-32" />
+          {/* 모바일 캘린더 모달 */}
+          {isCalendarOpen && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end">
+              <div className="w-full bg-white rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">대여 기간 선택</h2>
+                  <button
+                    onClick={() => setIsCalendarOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* 가격 정보 */}
+                <div className="bg-gray-50 p-4 rounded-xl mb-6">
+                  <div className="text-lg font-bold text-gray-900">
+                    {product.price.toLocaleString()}원
+                    <span className="text-sm text-gray-600 font-normal ml-2">/일</span>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    보증금: {product.deposit.toLocaleString()}원
+                  </div>
+                </div>
+
+                {/* 캘린더 */}
+                <div className="mb-6">
+                  <DateRangeCalendar
+                    onDateRangeChange={handleDateRangeChange}
+                    disabledDates={[]}
+                  />
+                </div>
+
+                {/* 가격 계산 */}
+                {dateRange && dateRange.start && dateRange.end && (
+                  <div className="mb-6">
+                    <PriceCalculation
+                      pricePerDay={product.price}
+                      deposit={product.deposit}
+                      days={calculateDays()}
+                    />
+                  </div>
+                )}
+
+                {/* 대여 버튼 */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsCalendarOpen(false)}
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    disabled={!dateRange || !dateRange.start || !dateRange.end}
+                    onClick={handleRentRequest}
+                    className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    빌려주세요
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
