@@ -4,10 +4,17 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const UserDeletePage = () => {
+  const navigate = useNavigate();
+  const { user: currentUser, logout } = useAuth();
+  const memberId = currentUser?.memberId || currentUser?.id;
+  const { deleteUser, isDeleting } = useUserProfile(memberId);
+  
   const [confirmText, setConfirmText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
   const handleConfirm = async () => {
@@ -21,14 +28,28 @@ const UserDeletePage = () => {
       return;
     }
 
-    setIsLoading(true);
-    
-    // 실제 API 호출 시뮬레이션
-    setTimeout(() => {
-      setIsLoading(false);
-      alert('회원 탈퇴가 완료되었습니다.');
-      // 실제로는 로그아웃 처리
-    }, 2000);
+    if (!memberId) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!window.confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    try {
+      const response = await deleteUser();
+      // API 응답 메시지 표시 (있는 경우)
+      const successMessage = response?.message || '회원 탈퇴가 완료되었습니다.';
+      alert(successMessage);
+      // 로그아웃 처리 및 로그인 페이지로 리다이렉트
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('회원 탈퇴 실패:', error);
+      const errorMessage = error.response?.data?.message || error.message || '회원 탈퇴에 실패했습니다.';
+      alert(errorMessage);
+    }
   };
 
   return (
@@ -94,10 +115,10 @@ const UserDeletePage = () => {
         <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4 border-t border-gray-200">
           <button
             onClick={handleConfirm}
-            disabled={isLoading || confirmText !== '탈퇴하겠습니다' || !agreed}
+            disabled={isDeleting || confirmText !== '탈퇴하겠습니다' || !agreed || !memberId}
             className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? '탈퇴 처리 중...' : '회원 탈퇴'}
+            {isDeleting ? '탈퇴 처리 중...' : '회원 탈퇴'}
           </button>
           <button
             onClick={() => window.history.back()}

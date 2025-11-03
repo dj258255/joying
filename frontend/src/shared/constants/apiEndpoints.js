@@ -20,6 +20,13 @@ export const API_ENDPOINTS = {
     ACCOUNT: '/users/account'
   },
 
+  // Member
+  MEMBER: {
+    BASE: '/members',
+    BY_ID: (memberId) => `/members/${memberId}`,
+    PROFILE_IMAGE: (memberId) => `/members/${memberId}/profile-image`
+  },
+
   // Chat
   CHAT: {
     BASE: '/chats',

@@ -35,7 +35,8 @@ const UserInfoEditor = ({ userId, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await updateUser(formData);
+      // API 스펙에 맞춰 nickname만 전송
+      await updateUser({ nickname: formData.nickname });
       onSave?.();
     } catch (error) {
       console.error('사용자 정보 수정 실패:', error);
