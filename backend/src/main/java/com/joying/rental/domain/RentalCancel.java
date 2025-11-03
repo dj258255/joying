@@ -93,7 +93,7 @@ public class RentalCancel {
         cancel.reason = reason;
         cancel.depositOwnerAmt = depositOwnerAmt;
         cancel.depositRenterAmt = depositRenterAmt;
-        cancel.status = CancelStatus.REQUESTED;
+        cancel.status = CancelStatus.PENDING;
 
         // 제안자가 owner인지 renter인지 판단
         boolean isOwner = rentalHistory.getRentalProduct().getWriter().equals(proposer);
@@ -136,7 +136,7 @@ public class RentalCancel {
 
         // 양측 모두 승인 시
         if (ownerDecision == Decision.APPROVE && renterDecision == Decision.APPROVE) {
-            status = CancelStatus.BOTH_APPROVED;
+            status = CancelStatus.APPROVED;
         }
     }
 
@@ -166,25 +166,9 @@ public class RentalCancel {
     }
 
     /**
-     * 만료 처리
-     */
-    public void expire() {
-        if (status == CancelStatus.REQUESTED) {
-            status = CancelStatus.EXPIRED;
-        }
-    }
-
-    /**
-     * 취소 완료 처리
-     */
-    public void complete() {
-        status = CancelStatus.CANCELLED;
-    }
-
-    /**
      * 양측 승인 여부
      */
     public boolean isBothApproved() {
-        return status == CancelStatus.BOTH_APPROVED;
+        return status == CancelStatus.APPROVED;
     }
 }

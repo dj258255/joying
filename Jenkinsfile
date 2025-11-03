@@ -72,11 +72,24 @@ pipeline {
           set -e
           export COMPOSE_PROJECT_NAME=joying
 
-          echo "[INFO] backend만 재배포(nginx는 재생성 금지)"
+          # 현재 실행 중 컨테이너가 사용하는 이미지 ID
+          OLD_IMG=$(docker inspect -f '{{.Image}}' joying-nginx 2>/dev/null || true)
+          # 로컬에 빌드된 최신 이미지 ID
+          NEW_IMG=$(docker images --no-trunc --quiet joying-nginx | head -n1 || true)
+
+          echo "[INFO] old image=${OLD_IMG}"
+          echo "[INFO] new image=${NEW_IMG}"
+
+          echo "[INFO] backend만 재배포"
           docker compose --env-file .env.prod up -d --force-recreate --remove-orphans backend
 
-          echo "[INFO] nginx 컨테이너 존재/실행 확인"
-          docker compose --env-file .env.prod up -d --no-deps --no-recreate nginx
+          if [ -n "$NEW_IMG" ] && [ "$OLD_IMG" != "$NEW_IMG" ]; then
+            echo "[INFO] nginx 이미지가 변경됨 → nginx만 무중단에 가깝게 교체"
+            docker compose --env-file .env.prod up -d --no-deps --force-recreate nginx
+          else
+            echo "[INFO] nginx 이미지 변경 없음 → 컨테이너 유지"
+            docker compose --env-file .env.prod up -d --no-deps --no-recreate nginx
+          fi
 
           echo "[INFO] nginx 설정 문법 확인 후 reload"
           docker compose --env-file .env.prod exec -T nginx nginx -t

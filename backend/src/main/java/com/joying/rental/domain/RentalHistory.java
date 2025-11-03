@@ -178,4 +178,19 @@ public class RentalHistory {
         }
         this.status = RentalStatus.RETURNED;
     }
+
+    /**
+     * 대여 기간 연장
+     */
+    public void extend(Timestamp newEndRen, Integer additionalFee) {
+        if (this.status != RentalStatus.RENTING) {
+            throw new IllegalStateException("RENTING 상태에서만 연장할 수 있습니다");
+        }
+        if (newEndRen.before(this.endRen)) {
+            throw new IllegalArgumentException("연장 종료일은 기존 종료일보다 늦어야 합니다");
+        }
+        this.endRen = newEndRen;
+        this.fee += additionalFee;
+        this.extensionCount++;
+    }
 }
