@@ -2,6 +2,7 @@ package com.joying.region.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,4 +24,8 @@ public class Sido {
     @Column(name = "name")
     private String name;
 
+    @Builder
+    private Sido(String name) {
+        this.name = name;
+    }
 }

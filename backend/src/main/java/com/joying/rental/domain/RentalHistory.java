@@ -5,6 +5,7 @@ import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -85,4 +86,36 @@ public class RentalHistory {
     @Column(name = "extension_count")
     private Integer extensionCount;
 
+    @Builder
+    public RentalHistory(
+        Product rentalProduct,
+        Member member,
+        RentalStatus status,
+        Long deposit,
+        Integer fee,
+        Timestamp startRen,
+        Timestamp endRen,
+        String outboundTrackingNo,
+        String returnTrackingNo,
+        String outboundCarrierCode,
+        String returnCarrierCode,
+        RentMethod rentMethod,
+        VideoStatus videoStatus,
+        Integer extensionCount
+    ) {
+        this.rentalProduct = rentalProduct;
+        this.member = member;
+        this.status = status;
+        this.deposit = deposit;
+        this.fee = fee;
+        this.startRen = startRen;
+        this.endRen = endRen;
+        this.outboundTrackingNo = outboundTrackingNo;
+        this.returnTrackingNo = returnTrackingNo;
+        this.outboundCarrierCode = outboundCarrierCode;
+        this.returnCarrierCode = returnCarrierCode;
+        this.rentMethod = rentMethod;
+        this.videoStatus = videoStatus;
+        this.extensionCount = extensionCount;
+    }
 }
