@@ -98,10 +98,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
-      - /home/ubuntu/joying/certbot/www:/var/www/certbot:rw            # ← 절대경로
-      - /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:rw
     networks:
       - joying-network
     restart: unless-stopped
