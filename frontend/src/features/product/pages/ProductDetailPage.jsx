@@ -22,6 +22,7 @@ import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 const ProductDetailPage = () => {
   const { id: routeId } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   
   // productId를 문자열/숫자로 변환 (객체가 아닌 값만 사용)
   const productId = useMemo(() => {
@@ -37,9 +38,25 @@ const ProductDetailPage = () => {
   const [dateRange, setDateRange] = useState(null);
   // 모바일 캘린더 표시 상태
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  // 사이드바 상태
+  const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   // 터치 이벤트 상태
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+
+  // 모바일 캘린더 모달이 열릴 때 body 스크롤 막기
+  useEffect(() => {
+    if (isCalendarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isCalendarOpen]);
   
   // 실제 상품 상세 조회
   const { product: productResponse, isLoading, error } = useProductDetail(productId);
@@ -221,22 +238,23 @@ const ProductDetailPage = () => {
 
   return (
     <>
-      <SideNavbar />
+      <SideNavbar isOpen={isSideNavOpen} onClose={() => setIsSideNavOpen(false)} />
       
       <div className="min-h-screen bg-gray-50">
         {/* 데스크톱 레이아웃 */}
-        <div className="hidden lg:block">
-          <div className="max-w-[1400px] mx-auto px-6 py-8">
-            {/* 뒤로가기 버튼 */}
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 mb-6 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-sm font-medium">뒤로 가기</span>
-            </button>
+        <div className="hidden lg:block h-screen overflow-hidden">
+          <div className="max-w-[1400px] mx-auto px-6 py-8 h-full flex flex-col">
+            {/* 헤더: 뒤로가기 버튼 + 프로필 */}
+            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-sm font-medium">뒤로 가기</span>
+              </button>
 
             {/* 가격 표시 */}
               <div className="glass-card p-4">
@@ -360,8 +378,11 @@ const ProductDetailPage = () => {
                 />
               </div>
 
-              {/* 우측: 제품 정보 */}
-              <div className="space-y-6">
+              {/* 가운데 구분선 */}
+              <div className="absolute top-0 bottom-0 w-px bg-gray-200 pointer-events-none" style={{ left: 'calc(40%)' }}></div>
+
+              {/* 우측: 제품 정보 + 대여 기간 선택 + 상품 설명 + 판매자 정보 + 리뷰 (6칸, 스크롤) */}
+              <div className="lg:col-span-6 h-full overflow-y-auto scrollbar-hide space-y-6 pb-8 pl-4">
                 {/* 기본 정보 */}
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">
@@ -433,15 +454,36 @@ const ProductDetailPage = () => {
         <div className="lg:hidden">
           {/* 모바일 헤더 */}
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-gray-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-sm font-medium">뒤로가기</span>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-sm font-medium">뒤로가기</span>
+              </button>
+
+              {/* 프로필/로그인 버튼 */}
+              {isAuthenticated ? (
+                <button
+                  onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md transition-all duration-300 ring-2 ring-white/30"
+                  title={user?.nickname || '프로필'}
+                >
+                  {user?.nickname?.charAt(0) || '👤'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+                  className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
+                  title="로그인하기"
+                >
+                  로그인
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 모바일 컨텐츠 */}

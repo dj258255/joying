@@ -33,9 +33,8 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
     if (!date || disabledDates.includes(date.toISOString().split('T')[0])) return;
 
     // 1단계: 시작일 선택 (처음 클릭)
-    if (!startDate) {
+    if (!startDate && !endDate) {
       setStartDate(date);
-      setEndDate(null);
       setSelectedRange([date]);
     } 
     // 2단계: 종료일 선택 (두 번째 클릭)
@@ -55,7 +54,7 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
         });
       }
     }
-    // 3단계: 범위가 완성된 후 추가 클릭 시 초기화
+    // 3단계: 범위가 완성된 후 추가 클릭 시 완전히 초기화만
     else if (startDate && endDate) {
       setStartDate(null);
       setEndDate(null);
@@ -149,6 +148,7 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
             const disabled = isDisabled(date);
             const isStart = startDate && date.getTime() === startDate.getTime();
             const isEnd = endDate && date.getTime() === endDate.getTime();
+            const isSelected = inRange || isStart || isEnd;
 
             return (
               <button
@@ -158,7 +158,7 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
                 className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
                   disabled
                     ? 'text-gray-300 cursor-not-allowed'
-                    : inRange
+                    : isSelected
                     ? 'bg-black text-white font-bold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
