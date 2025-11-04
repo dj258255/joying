@@ -84,6 +84,7 @@ services:
       - mysql
       - redis
       - mongodb
+      - elasticsearch
     networks:
       - joying-network
     restart: unless-stopped
@@ -140,6 +141,34 @@ services:
       - joying-network
     restart: unless-stopped
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.5
+    container_name: joying-elasticsearch
+    env_file:
+      - .env.prod
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - network.host=0.0.0.0
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+      - es-plugins:/usr/share/elasticsearch/plugins
+    networks:
+          - joying-network
+    restart: unless-stopped
+    command:
+      - /bin/bash
+      - -c
+      - |
+        if [ ! -d "/usr/share/elasticsearch/plugins/analysis-nori" ]; then
+          echo "📦 Installing analysis-nori plugin..."
+          elasticsearch-plugin install --batch analysis-nori
+        fi
+        echo "✅ Starting Elasticsearch..."
+        /usr/local/bin/docker-entrypoint.sh elasticsearch
 
 networks:
   joying-network:
@@ -151,3 +180,5 @@ volumes:
   mongodb-data:
   mongodb-config:
   jenkins-data:
+  es-data:
+  es-plugins:

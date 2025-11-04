@@ -1,0 +1,65 @@
+{
+  "properties": {
+    "productId": {
+      "type": "long"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "korean",
+      "search_analyzer": "korean",
+      "fields": {
+        "autocomplete": {
+          "type": "text",
+          "analyzer": "korean_autocomplete",
+          "search_analyzer": "standard"
+        }
+      }
+    },
+    "content": {
+      "type": "text",
+      "analyzer": "korean",
+      "search_analyzer": "korean"
+    },
+    "categoryId": {
+      "type": "integer"
+    },
+    "hashtags": {
+      "type": "keyword"
+    },
+    "deposit": {
+      "type": "integer"
+    },
+    "rentalFee": {
+      "type": "integer"
+    },
+    "sidoId": {
+      "type": "integer"
+    },
+    "gugunId": {
+      "type": "integer"
+    },
+    "dongId": {
+      "type": "integer"
+    },
+    "rentMethod": {
+      "type": "keyword"
+    },
+    "videoNecessary": {
+      "type": "boolean"
+    },
+    "startRent": {
+      "type": "date",
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis"
+    },
+    "endRent": {
+      "type": "date",
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis"
+    },
+    "rating": {
+      "type": "float"
+    },
+    "thumbnailFileId": {
+      "type": "long"
+    }
+  }
+}

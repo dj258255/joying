@@ -73,4 +73,23 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         Integer hashtagCount,
         Pageable pageable
     );
+
+    @Query(value = """
+    SELECT DISTINCT rh.rentalProduct.productId
+    FROM RentalHistory rh
+    WHERE rh.rentalProduct.productId IN :productIds
+      AND rh.startRen <= :dateTo
+      AND rh.endRen >= :dateFrom
+    UNION
+    SELECT DISTINCT rr.product.productId
+    FROM RentalRefuse rr
+    WHERE rr.product.productId IN :productIds
+      AND rr.startRef <= :dateTo
+      AND rr.endRef >= :dateFrom
+""")
+    List<Long> findUnavailableProductIds(
+        List<Long> productIds,
+        Instant dateFrom,
+        Instant dateTo
+    );
 }

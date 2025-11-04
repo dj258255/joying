@@ -26,13 +26,19 @@ import com.joying.review.repository.ReviewRepository;
 import com.joying.region.domain.Sido;
 import com.joying.region.domain.Gungu;
 import com.joying.region.domain.Dong;
+import com.joying.search.dto.SearchRequest;
+import com.joying.search.service.SearchService;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -52,6 +58,7 @@ public class ProductServiceImpl implements ProductService {
     private final DongRepository dongRepository;
     private final FileRepository fileRepository;
     private final HashtagRepository hashtagRepository;
+    private final SearchService searchService;
 
     @Override
     public ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId) {
@@ -266,9 +273,11 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // 파일 연결
+        Long thumbnailFileId = null;
         if (req.getFileIds() != null && !req.getFileIds().isEmpty()) {
             var files = fileRepository.findAllById(req.getFileIds());
             int order = 0;
+            thumbnailFileId = files.get(0).getFileId();
             for (File f : files) {
                 ProductFile pf = ProductFile.builder()
                         .product(saved)
@@ -308,6 +317,16 @@ public class ProductServiceImpl implements ProductService {
                 hashtagHistoryRepository.save(history);
             }
         }
+
+        searchService.save(SearchRequest.ofProduct(
+            saved,
+            req.getHashtags(),
+            thumbnailFileId,
+            sido.getName(),
+            gungu.getName(),
+            dong.getName(),
+            dong.getDongId(),
+            category.getCategoryId()));
 
         return saved.getProductId();
     }

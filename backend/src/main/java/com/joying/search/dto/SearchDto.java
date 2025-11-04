@@ -1,11 +1,12 @@
 package com.joying.search.dto;
 
 import com.joying.product.domain.Product;
+import com.joying.search.domain.SearchDocument;
 
 import lombok.Builder;
 
 @Builder
-public record SearchResponse(
+public record SearchDto(
 	Long productId,
 	String title,
 	String content,
@@ -17,10 +18,11 @@ public record SearchResponse(
 	Long dongId,
 	String category,
 	Long categoryId,
-	double rating) {
+	double rating,
+	String thumbnailUrl) {
 
-	public static SearchResponse fromEntity(Product product) {
-		return SearchResponse.builder()
+	public static SearchDto fromEntityRDB(Product product) {
+		return SearchDto.builder()
 			.productId(product.getProductId())
 			.title(product.getTitle())
 			.content(product.getContent())
@@ -33,6 +35,23 @@ public record SearchResponse(
 			.category(product.getCategory() == null ? null : product.getCategory().getCategoryName())
 			.categoryId(product.getCategory() == null ? null : product.getCategory().getCategoryId())
 			.rating(product.getRating())
+			.build();
+	}
+
+	public static SearchDto fromEntity(SearchDocument searchDocument, String thumbnailUrl) {
+		return SearchDto.builder()
+			.productId(searchDocument.getProductId())
+			.title(searchDocument.getTitle())
+			.content(searchDocument.getContent())
+			.deposit(searchDocument.getDeposit())
+			.rentalFee(searchDocument.getRentalFee())
+			.sido(searchDocument.getSido())
+			.gugun(searchDocument.getGugun())
+			.dong(searchDocument.getDong())
+			.dongId(searchDocument.getDongId())
+			.categoryId(searchDocument.getCategoryId())
+			.rating(searchDocument.getRating())
+			.thumbnailUrl(thumbnailUrl)
 			.build();
 	}
 }
