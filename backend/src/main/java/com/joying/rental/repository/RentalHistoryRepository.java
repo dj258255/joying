@@ -2,9 +2,11 @@ package com.joying.rental.repository;
 
 import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.domain.RentalStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -106,7 +108,7 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
     /**
      * 날짜 겹침 체크용 - 비관적 락 적용
      * - 동시성 문제 해결: Product 락과 함께 RentalHistory 레코드도 락
-     * - SELECT FOR UPDATE로 다른 트랜잭션의 동시 예약 방지
+     * - PESSIMISTIC_WRITE 락으로 다른 트랜잭션의 동시 예약 방지
      * - 특정 상품의 활성 예약들을 조회하여 날짜 겹침 검증
      *
      * @param productId 상품 ID
@@ -116,8 +118,8 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
     @Query("SELECT r FROM RentalHistory r " +
            "WHERE r.rentalProduct.productId = :productId " +
            "AND r.status IN :statuses " +
-           "ORDER BY r.startRen ASC " +
-           "FOR UPDATE")
+           "ORDER BY r.startRen ASC")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<RentalHistory> findActiveRentalsWithLock(
             @Param("productId") Long productId,
             @Param("statuses") List<RentalStatus> statuses
