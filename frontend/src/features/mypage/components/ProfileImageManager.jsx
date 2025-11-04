@@ -4,50 +4,99 @@
  */
 
 import React, { useState } from 'react';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const ProfileImageManager = () => {
-  const [currentImage, setCurrentImage] = useState(null);
+  const { user: currentUser } = useAuth();
+  const memberId = currentUser?.memberId || currentUser?.id;
+  
+  const { user, updateProfileImage, deleteProfileImage, isUploadingImage, isDeletingImage } = useUserProfile(memberId);
   const [previewImage, setPreviewImage] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [error, setError] = useState(null);
+
+  // user 정보가 업데이트되면 현재 이미지도 업데이트
+  const currentImage = user?.profileImageUrl || null;
+
+  const validateFile = (file) => {
+    // 파일 형식 검증 (image/png, image/jpeg, image/jpg, image/gif)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('이미지 파일만 업로드 가능합니다. (PNG, JPEG, JPG, GIF)');
+    }
+
+    // 파일 크기 검증 (최대 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new Error('파일 크기는 10MB 이하여야 합니다.');
+    }
+
+    return true;
+  };
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    if (file) {
-      // 파일 크기 체크 (5MB 제한)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('파일 크기는 5MB 이하여야 합니다.');
-        return;
-      }
+    if (!file) return;
 
-      // 이미지 파일 체크
-      if (!file.type.startsWith('image/')) {
-        alert('이미지 파일만 업로드 가능합니다.');
-        return;
-      }
+    try {
+      validateFile(file);
+      setError(null);
+      setSelectedFile(file);
 
+      // 미리보기 생성
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewImage(e.target.result);
       };
       reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err.message);
+      setSelectedFile(null);
+      setPreviewImage(null);
+      // 파일 입력 초기화
+      event.target.value = '';
     }
   };
 
   const handleUpload = async () => {
-    if (!previewImage) {
-      alert('이미지를 선택해주세요.');
+    if (!selectedFile) {
+      setError('이미지를 선택해주세요.');
       return;
     }
 
-    setIsLoading(true);
-    
-    // 실제 API 호출 시뮬레이션
-    setTimeout(() => {
-      setCurrentImage(previewImage);
+    if (!memberId) {
+      setError('회원 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    try {
+      setError(null);
+      await updateProfileImage(selectedFile);
+      
+      // 업로드 성공 시 파일 선택 초기화
+      const fileInput = document.getElementById('profile-image-input');
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      setSelectedFile(null);
       setPreviewImage(null);
-      setIsLoading(false);
-      alert('프로필 이미지가 업로드되었습니다.');
-    }, 1000);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || '이미지 업로드에 실패했습니다.';
+      setError(errorMessage);
+      console.error('이미지 업로드 실패:', error);
+    }
+  };
+
+  const handleCancel = () => {
+    setPreviewImage(null);
+    setSelectedFile(null);
+    setError(null);
+    // 파일 입력 초기화
+    const fileInput = document.getElementById('profile-image-input');
+    if (fileInput) {
+      fileInput.value = '';
+    }
   };
 
   const handleDelete = async () => {
@@ -55,23 +104,22 @@ const ProfileImageManager = () => {
       return;
     }
 
-    setIsLoading(true);
-    
-    // 실제 API 호출 시뮬레이션
-    setTimeout(() => {
-      setCurrentImage(null);
-      setPreviewImage(null);
-      setIsLoading(false);
-      alert('프로필 이미지가 삭제되었습니다.');
-    }, 1000);
-  };
+    if (!memberId) {
+      setError('회원 정보를 찾을 수 없습니다.');
+      return;
+    }
 
-  const handleCancel = () => {
-    setPreviewImage(null);
-    // 파일 입력 초기화
-    const fileInput = document.getElementById('profile-image-input');
-    if (fileInput) {
-      fileInput.value = '';
+    try {
+      setError(null);
+      await deleteProfileImage();
+      
+      // 삭제 성공 시 미리보기 초기화
+      setPreviewImage(null);
+      setSelectedFile(null);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || '이미지 삭제에 실패했습니다.';
+      setError(errorMessage);
+      console.error('이미지 삭제 실패:', error);
     }
   };
 
@@ -128,7 +176,7 @@ const ProfileImageManager = () => {
                   <input
                     id="profile-image-input"
                     type="file"
-                    accept="image/*"
+                    accept="image/png,image/jpeg,image/jpg,image/gif"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -148,29 +196,45 @@ const ProfileImageManager = () => {
                   )}
                 </div>
                 <p className="glass-form-help text-xs mt-1">
-                  JPG, PNG, GIF 파일만 가능 (최대 5MB)
+                  PNG, JPEG, JPG, GIF 파일만 가능 (최대 10MB)
                 </p>
               </div>
 
+              {error && (
+                <div className="glass-error-message text-red-500 text-sm p-3 bg-red-50 rounded">
+                  {error}
+                </div>
+              )}
+
               {/* 액션 버튼들 */}
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                {previewImage && (
-                  <button
-                    onClick={handleUpload}
-                    disabled={isLoading}
-                    className="glass-button-success flex-1 py-3 px-6 font-semibold disabled:opacity-50"
-                  >
-                    {isLoading ? '업로드 중...' : '이미지 업로드'}
-                  </button>
-                )}
-                {currentImage && (
-                  <button
-                    onClick={handleDelete}
-                    disabled={isLoading}
-                    className="glass-button-danger flex-1 py-3 px-6 font-semibold disabled:opacity-50"
-                  >
-                    {isLoading ? '삭제 중...' : '이미지 삭제'}
-                  </button>
+                {previewImage ? (
+                  <>
+                    <button
+                      onClick={handleUpload}
+                      disabled={isUploadingImage || isDeletingImage}
+                      className="glass-button-success flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                    >
+                      {isUploadingImage ? '업로드 중...' : '이미지 업로드'}
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      disabled={isUploadingImage || isDeletingImage}
+                      className="glass-button-ghost flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                    >
+                      취소
+                    </button>
+                  </>
+                ) : (
+                  currentImage && user?.profileImageId && (
+                    <button
+                      onClick={handleDelete}
+                      disabled={isUploadingImage || isDeletingImage}
+                      className="glass-button-danger flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                    >
+                      {isDeletingImage ? '삭제 중...' : '이미지 삭제'}
+                    </button>
+                  )
                 )}
               </div>
 

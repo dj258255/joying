@@ -32,24 +32,35 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
   const handleDateClick = (date) => {
     if (!date || disabledDates.includes(date.toISOString().split('T')[0])) return;
 
-    if (!startDate || (startDate && endDate)) {
+    // 1단계: 시작일 선택 (처음 클릭)
+    if (!startDate && !endDate) {
       setStartDate(date);
-      setEndDate(null);
       setSelectedRange([date]);
-    } else if (startDate && !endDate) {
+    } 
+    // 2단계: 종료일 선택 (두 번째 클릭)
+    else if (startDate && !endDate) {
+      // 종료일이 시작일보다 이전이면 선택 불가
       if (date < startDate) {
-        setEndDate(startDate);
-        setStartDate(date);
-      } else {
-        setEndDate(date);
+        return; // 아무 동작 하지 않음
       }
-      const range = getDaysInRange(startDate, date < startDate ? startDate : date);
+      // 종료일이 시작일과 같거나 이후인 경우에만 선택
+      setEndDate(date);
+      const range = getDaysInRange(startDate, date);
       setSelectedRange(range);
       if (onDateRangeChange) {
         onDateRangeChange({
-          start: startDate > date ? date : startDate,
-          end: date < startDate ? startDate : date
+          start: startDate,
+          end: date
         });
+      }
+    }
+    // 3단계: 범위가 완성된 후 추가 클릭 시 완전히 초기화만
+    else if (startDate && endDate) {
+      setStartDate(null);
+      setEndDate(null);
+      setSelectedRange([]);
+      if (onDateRangeChange) {
+        onDateRangeChange(null);
       }
     }
   };
@@ -131,23 +142,24 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
 
         <div className="grid grid-cols-7 gap-1">
           {days.map((date, index) => {
-            if (!date) return <div key={index} className="aspect-square" />;
+            if (!date) return <div key={index} className="w-10 h-10" />;
 
             const inRange = isDateInRange(date);
             const disabled = isDisabled(date);
             const isStart = startDate && date.getTime() === startDate.getTime();
             const isEnd = endDate && date.getTime() === endDate.getTime();
+            const isSelected = inRange || isStart || isEnd;
 
             return (
               <button
                 key={index}
                 onClick={() => handleDateClick(date)}
                 disabled={disabled}
-                className={`aspect-square flex items-center justify-center text-xs md:text-sm rounded-lg transition-all duration-200 ${
+                className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
                   disabled
                     ? 'text-gray-300 cursor-not-allowed'
-                    : inRange
-                    ? 'bg-blue-600 text-white font-bold'
+                    : isSelected
+                    ? 'bg-black text-white font-bold'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -160,7 +172,7 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
 
       {/* 선택된 날짜 범위 */}
       {formatDateRange() && (
-        <div className="text-center text-base md:text-lg font-bold text-blue-600 py-2">
+        <div className="text-center text-base md:text-lg font-bold text-black py-2">
           {formatDateRange()}
         </div>
       )}
