@@ -156,7 +156,7 @@ services:
       - es-data:/usr/share/elasticsearch/data
       - es-plugins:/usr/share/elasticsearch/plugins
     networks:
-          - joying-network
+      - joying-network
     restart: unless-stopped
     command:
       - /bin/bash
