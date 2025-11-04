@@ -62,9 +62,8 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
       {/* 로고 또는 제목 */}
       <div className="mb-8 text-center">
         <h1 className="text-6xl font-bold text-white mb-2">
-          빌려<span className="text-primary-500">joying</span>
+          빌리다
         </h1>
-        <p className="text-gray-400 text-lg">3D 모델 로딩 중...</p>
       </div>
 
       {/* 프로그레스 바 */}
@@ -85,14 +84,6 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
         <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
         <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
         <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-      </div>
-
-      {/* 추가 정보 */}
-      <div className="absolute bottom-8 text-gray-500 text-sm">
-        <p>카메라, 텐트, 게임패드 모델을 불러오는 중...</p>
-        <p className="mt-2 text-gray-600 text-xs text-center">
-          {loaded} / {total} 항목 로드됨
-        </p>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import logo from '@/assets/icons/logo.png';
 
 /**
  * Section 1: Hero
@@ -45,13 +46,17 @@ const Section1Hero = () => {
         </div>
       )}
 
-      <div className="container mx-auto px-8 text-center">
-        <h1 className="text-8xl font-bold mb-6 tracking-tight">
-          빌려<span className="text-primary-500">joying</span>
-        </h1>
-        <p className="text-2xl text-gray-300 mb-12 font-light">
-          부담없이 시작하는 취미생활!
-        </p>
+      <div className="container mx-auto px-8">
+        {/* 로고 중앙 정렬 */}
+        <div className="text-center max-w-4xl mx-auto">
+          <h1 className="mb-6 flex justify-center">
+            <img 
+              src={logo} 
+              alt="빌려joying" 
+              className="h-32 lg:h-56 w-auto object-contain"
+            />
+          </h1>
+        </div>
 
         {/* 검색창 */}
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto">

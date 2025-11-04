@@ -727,15 +727,19 @@ const HomePage = () => {
 
     // 각 섹션의 애니메이션 상태
     const sectionStates = [
-      // Section 1: Hero (Section 2와 비슷한 크기로 시작)
-      {
-        position: { x: 0.02, y: 0.24, z: 0 },
+      // Section 1: Hero (모바일/PC 반응형 - 중앙 고정)
+      isMobile ? {
+        position: { x: 0, y: 0.3, z: 0 },
         rotation: { x: 0, y: Math.PI * 2, z: 0 },
-        scale: 6,  // 3 → 6으로 증가 (Section 2와 차이 줄임)
+        scale:3,  // 모바일에서 크기 축소
+      } : {
+        position: { x: 0, y: 0.01, z: 0 },
+        rotation: { x: 0, y: Math.PI * 2, z: 0 },
+        scale: 7,  // PC는 기존 크기 유지
       },
       // Section 2: 카메라 (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.65, y: 0.65, z: 0 },
+        position: { x: 0.65, y: 0.1, z: 0 },
         rotation: { x: 0.3, y: Math.PI * 2.2, z: 0.2 },
         scale: 3,
       } : {
@@ -745,17 +749,17 @@ const HomePage = () => {
       },
       // Section 3: 캠핑 (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.5, y: 0.7, z: 0.00 },
+        position: { x: 0.5, y: 0.15, z: 0.00 },
         rotation: { x: -0.32, y: Math.PI * 0.5, z: 0.6 },
         scale: 0.3,
       } : {
-        position: { x: -1.96, y: -1.00, z: 0.00 },
+        position: { x: -1.96, y: -0.8, z: 0.00 },
         rotation: { x: -0.32, y: Math.PI * 0.46, z: 0.13 },
         scale: 0.98,
       },
       // Section 4: 전자기기 (게임패드) (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.9, y: 1.3, z: 0.00 },
+        position: { x: 0.9, y: 0.7, z: 0.00 },
         rotation: { x: 1.7, y: Math.PI * -0.17, z: 0.72 },
         scale: 5.00,
       } : {
