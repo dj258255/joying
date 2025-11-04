@@ -925,6 +925,12 @@ const HomePage = () => {
 
     // 키보드 이벤트 핸들러
     const handleKeyDown = (e) => {
+      // 스페이스바로 인한 스크롤 방지
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        return;
+      }
+
       if (isScrolling) return;
 
       // Section 5에서 아래로 키보드 스크롤 시 일반 스크롤로 전환
