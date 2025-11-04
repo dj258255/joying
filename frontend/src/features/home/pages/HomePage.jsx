@@ -7,7 +7,7 @@
 
 
 
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { useGLTF, Environment, useProgress, Loader } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '@/shared/constants';
+import { useProducts } from '@/features/product/hooks/useProducts';
 
 
 import LoadingScreen from '../components/LoadingScreen';
@@ -653,24 +654,31 @@ const Scene3DCanvas = ({ animationState, currentModel, onProgressChange, current
 const HomePage = () => {
   const navigate = useNavigate();
 
-  // 더미 제품 데이터 (모든 카드에 별점 통일)
-  const featuredProducts = {
-    camera: [
-      { id: 1, name: 'Sony A7 III', price: '50,000원/일', image: 'https://images.unsplash.com/photo-1606980707986-8e7d6c1c1c1c?w=400', rating: 4.9, reviews: 127 },
-      { id: 2, name: 'Canon EOS R5', price: '70,000원/일', image: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=400', rating: 4.8, reviews: 89 },
-      { id: 3, name: 'Nikon Z6 II', price: '45,000원/일', image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400', rating: 4.7, reviews: 156 },
-    ],
-    camping: [
-      { id: 4, name: '4인용 돔 텐트', price: '30,000원/일', image: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400', rating: 4.8, reviews: 203 },
-      { id: 5, name: '캠핑 체어 세트', price: '15,000원/일', image: 'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=400', rating: 4.6, reviews: 142 },
-      { id: 6, name: '백패킹 텐트', price: '25,000원/일', image: 'https://images.unsplash.com/photo-1537225228614-56cc3556d7ed?w=400', rating: 4.9, reviews: 178 },
-    ],
-    electronics: [
-      { id: 7, name: 'PS5 + 듀얼센스', price: '20,000원/일', image: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=400', rating: 4.9, reviews: 312 },
-      { id: 8, name: 'Nintendo Switch', price: '15,000원/일', image: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=400', rating: 4.8, reviews: 267 },
-      { id: 9, name: 'Xbox Series X', price: '18,000원/일', image: 'https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=400', rating: 4.7, reviews: 198 },
-    ],
-  };
+  // API로 카테고리별 제품 가져오기
+  const { data: cameraData } = useProducts({ category: 'CAMERA', page: 0, size: 3 });
+  const { data: campingData } = useProducts({ category: 'CAMPING', page: 0, size: 3 });
+  const { data: electronicsData } = useProducts({ category: 'ELECTRONICS', page: 0, size: 3 });
+
+  // API 응답을 섹션에 맞게 변환
+  const featuredProducts = useMemo(() => {
+    const transformProduct = (product) => {
+      const firstImage = product.files?.[0]?.url || 'https://via.placeholder.com/400';
+      return {
+        id: product.productId || product.product_id,
+        name: product.title,
+        price: `${(product.rentalFee || product.rental_fee || 0).toLocaleString()}원/일`,
+        image: firstImage,
+        rating: Number(product.rating) || 0,
+        reviews: Number(product.totalReviewCount || product.total_review_count) || 0,
+      };
+    };
+
+    return {
+      camera: cameraData?.content ? cameraData.content.map(transformProduct) : [],
+      camping: campingData?.content ? campingData.content.map(transformProduct) : [],
+      electronics: electronicsData?.content ? electronicsData.content.map(transformProduct) : [],
+    };
+  }, [cameraData, campingData, electronicsData]);
 
   // 현재 모델 상태
   const [currentModel, setCurrentModel] = React.useState('camera');
