@@ -10,6 +10,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants/routePaths';
+import { API_ENDPOINTS } from '@/shared/constants/apiEndpoints';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 const enumUploadTypes = [
@@ -62,8 +63,8 @@ function ProductCreatePage() {
   const [showPreview, setShowPreview] = useState(false);
   // 카테고리 팝오버 제거
 
-  // 렌탈 불가 기간
-  const [rentalRefuses, setRentalRefuses] = useState([]); // {startRef,endRef} ISO 문자열
+  // 렌탈 불가 기간 (API 스펙에 맞춰 rentalRefs 사용)
+  const [rentalRefs, setRentalRefs] = useState([]); // {startRef,endRef} ISO 문자열
   const [tempRefuseStart, setTempRefuseStart] = useState('');
   const [tempRefuseEnd, setTempRefuseEnd] = useState('');
 
@@ -116,8 +117,9 @@ function ProductCreatePage() {
     if (fileArr.length === 0) return;
     setErrorMessage('');
 
-    // 1) 즉시 로컬 미리보기 추가 (업로드 성공/실패와 무관하게 미리보기는 보이도록)
+    // 1) 즉시 로컬 미리보기 추가 (업로드 전에 미리보기 표시)
     const localUrls = fileArr.map((f) => URL.createObjectURL(f));
+    const previewStartIndex = filePreviews.length;
     setFilePreviews((prev) => [...prev, ...localUrls]);
 
     // 2) 업로드 모드에 따라 파일 업로드 처리
@@ -128,25 +130,132 @@ function ProductCreatePage() {
     }
 
     setUploading(true);
+    const uploadedResults = [];
+    const failedIndices = [];
+    
     try {
-      const results = await Promise.all(
-        fileArr.map(async (file) => {
+      // 각 파일을 개별적으로 업로드 (하나 실패해도 다른 파일은 계속 진행)
+      const uploadPromises = fileArr.map(async (file, index) => {
+        try {
           const formData = new FormData();
           formData.append('file', file);
-          const res = await axiosInstance.post('/files', formData, {
+          const res = await axiosInstance.post(API_ENDPOINTS.FILE.BASE, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
-          return res.data; // { fileId, url }
-        })
-      );
+          
+          // 실제 응답 구조: res.data.body.data.fileId
+          // res.data = { body: { data: { fileId, url }, message, status, timestamp }, headers, statusCode, statusCodeValue }
+          console.log(`파일 업로드 응답 [${file.name}]:`, res);
+          
+          let fileId = null;
+          let url = null;
+          
+          if (res.data) {
+            // 실제 응답 구조에 맞춰 파싱
+            // 경우 1: res.data.body.data.fileId (실제 응답 구조)
+            if (res.data.body?.data?.fileId) {
+              fileId = res.data.body.data.fileId;
+              url = res.data.body.data.url;
+            }
+            // 경우 2: res.data.data.fileId (혹시 다른 형식일 경우)
+            else if (res.data.data?.fileId) {
+              fileId = res.data.data.fileId;
+              url = res.data.data.url;
+            }
+            // 경우 3: 직접 res.data.fileId (스펙에 명시된 형식)
+            else if (res.data.fileId) {
+              fileId = res.data.fileId;
+              url = res.data.url;
+            }
+            // 경우 4: res.data.body.fileId (혹시 body에 직접 있는 경우)
+            else if (res.data.body?.fileId) {
+              fileId = res.data.body.fileId;
+              url = res.data.body.url;
+            }
+          }
+          
+          console.log(`추출된 fileId: ${fileId}, url: ${url}`);
+          
+          if (!fileId) {
+            console.error(`파일 ${file.name} 업로드 응답에 fileId가 없습니다.`);
+            console.error('전체 응답 구조:', {
+              'res.data': res.data,
+              'res.data.body': res.data?.body,
+              'res.data.body?.data': res.data?.body?.data,
+              'res.data.body?.data?.fileId': res.data?.body?.data?.fileId,
+              'res.data.data': res.data?.data,
+              'res.data.data?.fileId': res.data?.data?.fileId,
+              'res.data.fileId': res.data?.fileId
+            });
+            throw new Error('fileId가 응답에 없습니다');
+          }
+          
+          uploadedResults.push({
+            fileId: fileId,
+            index: previewStartIndex + index
+          });
+          return { success: true, fileId: fileId, index: previewStartIndex + index };
+        } catch (fileErr) {
+          console.error(`파일 ${file.name} 업로드 실패:`, fileErr);
+          console.error('에러 상세:', {
+            message: fileErr?.message,
+            response: fileErr?.response?.data,
+            status: fileErr?.response?.status
+          });
+          failedIndices.push(previewStartIndex + index);
+          return { success: false, index: previewStartIndex + index };
+        }
+      });
 
-      // 서버에서 받은 fileId만 저장 (미리보기는 기존 로컬 URL 유지)
-      const uploadedIds = results.map((r) => r.fileId).filter((id) => id !== undefined && id !== null);
-      if (uploadedIds.length > 0) {
-        setFileIds((prev) => [...prev, ...uploadedIds]);
+      await Promise.all(uploadPromises);
+
+      // 성공한 파일들의 fileId만 저장
+      const successfulUploads = uploadedResults.filter(r => r.fileId !== undefined && r.fileId !== null);
+      if (successfulUploads.length > 0) {
+        setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
+      }
+
+      // 업로드 실패한 파일들의 미리보기 제거
+      if (failedIndices.length > 0) {
+        setFilePreviews((prev) => {
+          const newPreviews = [...prev];
+          // 역순으로 제거 (인덱스 변경 방지)
+          failedIndices.reverse().forEach(idx => {
+            if (idx < newPreviews.length) {
+              const url = newPreviews[idx];
+              if (url?.startsWith('blob:')) {
+                try {
+                  URL.revokeObjectURL(url);
+                } catch {}
+              }
+              newPreviews.splice(idx, 1);
+            }
+          });
+          return newPreviews;
+        });
+        
+        if (successfulUploads.length === 0) {
+          // 모든 파일이 실패한 경우
+          setErrorMessage('이미지 업로드에 실패했습니다. 파일을 확인 후 다시 시도해주세요.');
+        } else {
+          // 일부만 실패한 경우
+          setErrorMessage(`${failedIndices.length}개의 이미지 업로드에 실패했습니다.`);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('파일 업로드 오류:', err);
+      // 예상치 못한 오류 발생 시 모든 미리보기 제거
+      setFilePreviews((prev) => {
+        const newPreviews = [...prev];
+        localUrls.forEach(url => {
+          if (url?.startsWith('blob:')) {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {}
+          }
+        });
+        return newPreviews.slice(0, previewStartIndex);
+      });
       setErrorMessage(err?.response?.data?.message || '이미지 업로드 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setUploading(false);
@@ -162,13 +271,26 @@ function ProductCreatePage() {
   };
 
   const removeImageAt = (idx) => {
-    setFileIds((prev) => prev.filter((_, i) => i !== idx));
-    setFilePreviews((prev) => {
-      const toRemove = prev[idx];
-      if (toRemove?.startsWith('blob:')) {
-        try { URL.revokeObjectURL(toRemove); } catch {}
+    // fileIds와 filePreviews 동기화하여 제거
+    setFileIds((prev) => {
+      const newIds = [...prev];
+      if (idx < newIds.length) {
+        newIds.splice(idx, 1);
       }
-      return prev.filter((_, i) => i !== idx);
+      return newIds;
+    });
+    setFilePreviews((prev) => {
+      const newPreviews = [...prev];
+      if (idx < newPreviews.length) {
+        const toRemove = newPreviews[idx];
+        if (toRemove?.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(toRemove);
+          } catch {}
+        }
+        newPreviews.splice(idx, 1);
+      }
+      return newPreviews;
     });
   };
 
@@ -224,8 +346,8 @@ function ProductCreatePage() {
     return d >= new Date(s.getFullYear(), s.getMonth(), s.getDate()) && d <= new Date(e.getFullYear(), e.getMonth(), e.getDate());
   };
   const isInRefuseRanges = (d) => {
-    if (!d || rentalRefuses.length === 0) return false;
-    return rentalRefuses.some((r) => {
+    if (!d || rentalRefs.length === 0) return false;
+    return rentalRefs.some((r) => {
       const rs = new Date(r.startRef);
       const re = new Date(r.endRef);
       const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -258,7 +380,7 @@ function ProductCreatePage() {
           } else {
             const startIso = new Date(calStart.getTime() - calStart.getTimezoneOffset()*60000).toISOString();
             const endIso = new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString();
-            setRentalRefuses((prev) => [...prev, { startRef: startIso, endRef: endIso }]);
+            setRentalRefs((prev) => [...prev, { startRef: startIso, endRef: endIso }]);
           }
         }, 0);
       } else {
@@ -273,7 +395,7 @@ function ProductCreatePage() {
     if (calendarMode === 'refuse') {
       // 단일일 추가(두 번째 클릭 없이 같은 날로 간주)
       const startIso = new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString();
-      setRentalRefuses((prev) => [...prev, { startRef: startIso, endRef: startIso }]);
+      setRentalRefs((prev) => [...prev, { startRef: startIso, endRef: startIso }]);
     }
   };
 
@@ -293,21 +415,21 @@ function ProductCreatePage() {
       const startIso = new Date(calStart.getTime() - calStart.getTimezoneOffset()*60000).toISOString();
       const endBase = calEnd ? calEnd : calStart; // 하루 단위 허용
       const endIso = new Date(endBase.getTime() - endBase.getTimezoneOffset()*60000).toISOString();
-      setRentalRefuses((prev) => [...prev, { startRef: startIso, endRef: endIso }]);
+      setRentalRefs((prev) => [...prev, { startRef: startIso, endRef: endIso }]);
     }
   };
 
   // 불가 기간 추가
   const addRefuseRange = () => {
     if (!tempRefuseStart || !tempRefuseEnd) return;
-    setRentalRefuses((prev) => [...prev, {
+    setRentalRefs((prev) => [...prev, {
       startRef: new Date(tempRefuseStart).toISOString(),
       endRef: new Date(tempRefuseEnd).toISOString(),
     }]);
     setTempRefuseStart('');
     setTempRefuseEnd('');
   };
-  const removeRefuseAt = (i) => setRentalRefuses((prev) => prev.filter((_, idx) => idx !== i));
+  const removeRefuseAt = (i) => setRentalRefs((prev) => prev.filter((_, idx) => idx !== i));
 
   const buildPayload = () => ({
     uploadType: form.uploadType,
@@ -325,7 +447,7 @@ function ProductCreatePage() {
     endRent: form.endRent ? new Date(form.endRent).toISOString() : null,
     fileIds,
     hashtags,
-    rentalRefuses,
+    rentalRefs,
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -342,8 +464,41 @@ function ProductCreatePage() {
         return;
       }
       const res = await axiosInstance.post('/products', payload);
-      const productId = res?.data;
-      navigate(productId ? ROUTE_PATHS.PRODUCT_DETAIL(productId) : ROUTE_PATHS.PRODUCTS);
+      
+      // 응답 구조 확인: productId (long 타입) 추출
+      // 가능한 응답 구조:
+      // 1. 직접 productId 반환: res.data = 6
+      // 2. ApiResponse 구조: res.data = { status, message, data: 6, timestamp }
+      // 3. body.data 구조: res.data.body.data = 6
+      let productId = null;
+      
+      if (res?.data) {
+        // 직접 숫자로 반환되는 경우
+        if (typeof res.data === 'number') {
+          productId = res.data;
+        }
+        // ApiResponse 구조인 경우
+        else if (res.data?.data !== undefined) {
+          productId = res.data.data;
+        }
+        // body.data 구조인 경우
+        else if (res.data?.body?.data !== undefined) {
+          productId = res.data.body.data;
+        }
+        // productId 필드가 있는 경우
+        else if (res.data?.productId !== undefined) {
+          productId = res.data.productId;
+        }
+      }
+      
+      console.log('상품 등록 응답:', res?.data);
+      console.log('추출된 productId:', productId);
+      
+      if (productId) {
+        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productId)));
+      } else {
+        setErrorMessage('상품 등록은 성공했지만 상품 ID를 가져올 수 없습니다.');
+      }
     } catch (err) {
       console.error(err);
       setErrorMessage(
@@ -598,7 +753,7 @@ function ProductCreatePage() {
                     // 적용 값 전체 초기화 (가능/불가 모두)
                     updateField('startRent', '');
                     updateField('endRent', '');
-                    setRentalRefuses([]);
+                    setRentalRefs([]);
                   }}
                   className="px-3 py-2 rounded-lg border text-gray-700"
                 >초기화</button>
@@ -618,16 +773,16 @@ function ProductCreatePage() {
                 <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
                   <div className="text-sm font-medium text-gray-700 mb-2">렌탈 불가 기간</div>
                   <div className="space-y-2">
-                    {rentalRefuses.length === 0 ? (
+                    {rentalRefs.length === 0 ? (
                       <span className="text-sm text-gray-500">없음</span>
                     ) : (
                       <div className="space-y-1">
-                        {rentalRefuses.map((r,i)=> (
+                        {rentalRefs.map((r,i)=> (
                           <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white border border-gray-200">
                             <span className="text-sm text-gray-900">
                               {new Date(r.startRef).toLocaleDateString()} ~ {new Date(r.endRef).toLocaleDateString()}
                             </span>
-                            <button type="button" onClick={()=>setRentalRefuses(prev=>prev.filter((_,idx)=>idx!==i))} className="text-gray-400 hover:text-red-500 text-sm">×</button>
+                            <button type="button" onClick={()=>setRentalRefs(prev=>prev.filter((_,idx)=>idx!==i))} className="text-gray-400 hover:text-red-500 text-sm">×</button>
                           </div>
                         ))}
                       </div>
@@ -731,11 +886,11 @@ function ProductCreatePage() {
                       <div>
                         <div className="text-sm font-medium text-gray-700 mb-2">렌탈 불가 기간</div>
                         <div className="bg-gray-50 rounded-lg p-3">
-                          {rentalRefuses.length === 0 ? (
+                          {rentalRefs.length === 0 ? (
                             <div className="text-sm text-gray-500">없음</div>
                           ) : (
                             <div className="space-y-1">
-                              {rentalRefuses.map((r,i)=>(
+                              {rentalRefs.map((r,i)=>(
                                 <div key={i} className="text-sm text-gray-900">{new Date(r.startRef).toLocaleDateString()} ~ {new Date(r.endRef).toLocaleDateString()}</div>
                               ))}
                             </div>

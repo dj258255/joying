@@ -36,6 +36,7 @@ export const API_ENDPOINTS = {
   // Product
   PRODUCT: {
     BASE: '/products',
+    BY_ID: (productId) => `/products/${productId}`,
     LIKE: (productId) => `/products/${productId}/like`,
     UNAVAILABLE_DATES: (productId) => `/products/${productId}/unavailable-dates`
   },
@@ -65,5 +66,10 @@ export const API_ENDPOINTS = {
     RENT_HISTORY: '/mypage/rent-history',
     REGISTERED_PRODUCTS: '/mypage/registered-products',
     LIKED_PRODUCTS: '/mypage/liked-products'
+  },
+
+  // File
+  FILE: {
+    BASE: '/files'
   }
 };
