@@ -8,11 +8,12 @@
 
 
 import React, { Suspense, useEffect, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';
 import { useGLTF, Environment, useProgress, Loader } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 
 import * as THREE from 'three';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -25,7 +26,13 @@ import { Section1Hero, Section2Camera, Section3Tent, Section4Gamepad, Section5Tr
 
 gsap.registerPlugin(ScrollTrigger);
 
-// 모델 프리로드
+// Draco 디코더 설정 (압축된 GLB 파일 로딩 최적화)
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+dracoLoader.setDecoderConfig({ type: 'js' });
+dracoLoader.preload();
+
+// 모델 프리로드 (Draco 압축 지원)
 useGLTF.preload('/models/camera.glb');
 useGLTF.preload('/models/tent.glb');
 useGLTF.preload('/models/gamepad.glb');

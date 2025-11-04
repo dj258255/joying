@@ -44,7 +44,7 @@ const Section5Triangle = () => {
             </button>
             <button
               onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
-              className="border-2 border-white text-white px-12 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-black transition-all hover:scale-105"
+              className="bg-white text-black px-12 py-4 rounded-full text-lg font-semibold transition-all hover:scale-105"
             >
               둘러보기
             </button>

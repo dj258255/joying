@@ -54,11 +54,15 @@ File → Export → glTF 2.0 (.glb/.gltf)
 - **Sampling Rate**: 1
 - **Always Sample Animations**: 체크
 
-#### Compression (선택)
-- **Compression**: `Draco` (파일 크기 50% 감소)
+#### Compression (⚠️ 필수!)
+- **Compression**: `Draco` ✅ (파일 크기 60% 감소)
   - Quantize Position: 14
   - Quantize Normal: 10
   - Quantize Texcoord: 12
+  - Compression level: 6
+
+> 🚨 **중요**: Draco 압축은 필수입니다! 현재 파일 크기(60.8MB)를 20MB 이하로 줄여야 합니다.
+> 📖 자세한 가이드: [DRACO_EXPORT_GUIDE.md](./DRACO_EXPORT_GUIDE.md)
 
 ### 3. 최적화 팁
 

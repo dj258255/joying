@@ -3,7 +3,6 @@ pipeline {
   options { timestamps(); disableConcurrentBuilds() }
 
   environment {
-    // Jenkins 컨테이너에 마운트된 호스트 .env.prod (docker-compose.yml의 변수 치환용)
     ENV_FILE    = '/run/secrets/env.prod'
   }
 
