@@ -880,14 +880,26 @@ const HomePage = () => {
     let isTouchScrolling = false;
     
     const handleTouchStart = (e) => {
+      // 애니메이션 진행 중이면 터치 시작 자체를 무시
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
       touchStartY = e.touches[0].clientY;
       touchStartTime = Date.now();
       isTouchScrolling = false;
     };
 
     const handleTouchMove = (e) => {
-      // 스크롤 중이거나 일반 스크롤 모드면 처리 안 함
-      if (isScrolling || isNormalScrolling) return;
+      // 애니메이션 진행 중이면 모든 터치 동작 차단
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
+      // 일반 스크롤 모드면 처리 안 함
+      if (isNormalScrolling) return;
       
       const touchCurrentY = e.touches[0].clientY;
       const delta = Math.abs(touchStartY - touchCurrentY);
@@ -899,8 +911,11 @@ const HomePage = () => {
     };
 
     const handleTouchEnd = (e) => {
-      // 스크롤 중이면 처리 안 함
-      if (isScrolling) return;
+      // 애니메이션 진행 중이면 터치 종료도 무시
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
       
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
