@@ -84,3 +84,6 @@ dist
 # Temporary folders
 tmp/
 temp/
+
+# 3D Model backups
+public/models/backup/

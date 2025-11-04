@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { DUMMY_USERS, DUMMY_PRODUCTS, DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
+import { DUMMY_PRODUCTS, DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { 
   FiPackage, 
   FiUsers, 
@@ -116,16 +117,16 @@ const MyPageMain = () => {
 
   // Tier 1: 대시보드 뷰 컴포넌트 - 미니멀리즘 디자인
   const DashboardView = () => {
-    // 더미데이터 기반 통계 계산
-    const currentUserId = DUMMY_USERS.currentUser.userId;
+    const { user: currentUser } = useAuth();
+    const currentUserId = currentUser?.memberId || currentUser?.id;
     
-    // 등록한 상품 수
+    // 등록한 상품 수 (임시로 더미 데이터 사용, 추후 API 연동 필요)
     const registeredProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId).length;
     
     // 빌린 상품 수 (다른 사용자의 상품)
     const borrowedProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId).length;
     
-    // 채팅방 수
+    // 채팅방 수 (임시로 더미 데이터 사용, 추후 API 연동 필요)
     const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
     
     // 읽지 않은 메시지 수
@@ -168,7 +169,7 @@ const MyPageMain = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-medium mb-1">받은 리뷰</p>
-                <p className="text-2xl font-bold text-gray-900">{DUMMY_USERS.currentUser.reviewCount}</p>
+                <p className="text-2xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</p>
               </div>
               <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
                 <FiUsers className="w-6 h-6 text-purple-600" />

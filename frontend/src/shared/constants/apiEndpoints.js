@@ -20,6 +20,13 @@ export const API_ENDPOINTS = {
     ACCOUNT: '/users/account'
   },
 
+  // Member
+  MEMBER: {
+    BASE: '/members',
+    BY_ID: (memberId) => `/members/${memberId}`,
+    PROFILE_IMAGE: (memberId) => `/members/${memberId}/profile-image`
+  },
+
   // Chat
   CHAT: {
     BASE: '/chats',
@@ -29,6 +36,7 @@ export const API_ENDPOINTS = {
   // Product
   PRODUCT: {
     BASE: '/products',
+    BY_ID: (productId) => `/products/${productId}`,
     LIKE: (productId) => `/products/${productId}/like`,
     UNAVAILABLE_DATES: (productId) => `/products/${productId}/unavailable-dates`
   },
@@ -58,5 +66,16 @@ export const API_ENDPOINTS = {
     RENT_HISTORY: '/mypage/rent-history',
     REGISTERED_PRODUCTS: '/mypage/registered-products',
     LIKED_PRODUCTS: '/mypage/liked-products'
+  },
+
+  // File
+  FILE: {
+    BASE: '/files'
+  },
+
+  // Account
+  ACCOUNT: {
+    VERIFY_START: '/accounts/verify/start',
+    VERIFY_COMPLETE: '/accounts/verify/complete'
   }
 };

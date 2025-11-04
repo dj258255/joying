@@ -754,6 +754,32 @@ const SHIPPING_STATUS = {
 - **에러 핸들링은 axios 인터셉터에서 처리**
 - **환경 변수로 Base URL 관리**
 
+### ⚠️ API 엔드포인트 재사용 규칙 (필수 준수)
+- **한 번 만든 API 함수는 반드시 재사용해야 함**
+- **같은 엔드포인트를 여러 곳에서 직접 호출하지 말 것**
+- **예시: 회원 정보 조회는 `userApi.getUser(memberId)` 사용 필수**
+  ```javascript
+  // ❌ 나쁜 예: 직접 axios 호출
+  const response = await axiosInstance.get(`/members/${memberId}`);
+  
+  // ❌ 나쁜 예: 다른 파일에서 같은 API를 또 만들기
+  export const anotherUserApi = {
+    getUser: async (id) => { ... }
+  };
+  
+  // ✅ 좋은 예: 기존 API 재사용
+  import { userApi } from '@/features/user/api/userApi';
+  const user = await userApi.getUser(memberId);
+  ```
+- **새로운 엔드포인트 추가 시:**
+  1. `shared/constants/apiEndpoints.js`에 상수 추가
+  2. 해당 도메인의 `features/[domain]/api/[domain]Api.js`에 함수 추가
+  3. 필요한 경우 React Query 훅 생성 (`features/[domain]/hooks/use[Domain].js`)
+- **기존 API 함수 확인 방법:**
+  1. `shared/constants/apiEndpoints.js`에서 엔드포인트 확인
+  2. `features/[domain]/api/` 폴더에서 관련 API 함수 검색
+  3. 존재하면 반드시 재사용, 없으면 새로 생성
+
 ### MSW Mock API 규칙
 - **개발 환경에서만 MSW 활성화**
 - **Mock 데이터는 실제 API 스펙과 일치**

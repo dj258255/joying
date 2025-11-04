@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.*
 
 /**
@@ -49,6 +49,6 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
     @Query("SELECT cr FROM ChatRoom cr WHERE cr.status = :status AND cr.lastMessageAt < :threshold")
     fun findInactiveChatRooms(
         @Param("status") status: ChatRoomStatus,
-        @Param("threshold") threshold: LocalDateTime
+        @Param("threshold") threshold: Instant
     ): List<ChatRoom>
 }

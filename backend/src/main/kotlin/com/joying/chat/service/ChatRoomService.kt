@@ -13,14 +13,15 @@ import com.joying.member.domain.Member
 import com.joying.member.repository.MemberRepository
 import com.joying.product.domain.Product
 import com.joying.product.repository.ProductRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅방 Service
@@ -34,7 +35,8 @@ class ChatRoomService(
     private val chatRoomMemberRepository: ChatRoomMemberRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val memberRepository: MemberRepository,
-    private val productRepository: ProductRepository
+    private val productRepository: ProductRepository,
+    private val chatPresenceService: ChatPresenceService
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -117,7 +119,7 @@ class ChatRoomService(
      * @param memberId 회원 ID
      * @return 채팅방 목록
      */
-    fun getMyChatRooms(memberId: Long): List<ChatRoomDto> = runBlocking {
+    suspend fun getMyChatRooms(memberId: Long): List<ChatRoomDto> {
         val chatRooms = chatRoomRepository.findByMemberId(memberId)
         val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
 
@@ -125,7 +127,7 @@ class ChatRoomService(
         val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoom.chatRoomId }
 
         // 코루틴으로 각 채팅방의 안읽은 메시지 개수를 병렬로 조회
-        coroutineScope {
+        return coroutineScope {
             chatRooms.map { chatRoom ->
                 async {
                     val settings = memberSettingsMap[chatRoom.chatRoomId]
@@ -138,12 +140,14 @@ class ChatRoomService(
                         chatRoom.buyer
                     }
 
-                    // 안읽은 메시지 개수 계산
+                    // 안읽은 메시지 개수 계산 (blocking I/O를 withContext로 처리)
                     val unreadCount = if (settings.lastReadAt != null) {
-                        chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
-                            chatRoom.chatRoomId!!,
-                            settings.lastReadAt!!
-                        )
+                        withContext(Dispatchers.IO) {
+                            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
+                                chatRoom.chatRoomId!!,
+                                settings.lastReadAt!!
+                            )
+                        }
                     } else {
                         0L
                     }
@@ -197,7 +201,7 @@ class ChatRoomService(
      */
     @Transactional
     fun autoCloseInactiveChatRooms() {
-        val threshold = LocalDateTime.now().minusDays(30)
+        val threshold = Instant.now().minusSeconds(30L * 24 * 60 * 60)  // 30일 = 30 * 24 * 60 * 60초
         val inactiveChatRooms = chatRoomRepository.findInactiveChatRooms(ChatRoomStatus.ACTIVE, threshold)
 
         inactiveChatRooms.forEach { chatRoom ->
@@ -206,5 +210,85 @@ class ChatRoomService(
         }
 
         logger.info("30일 미사용 채팅방 자동 종료 완료: count={}", inactiveChatRooms.size)
+    }
+
+    /**
+     * 전체 안읽은 메시지 개수 조회
+     * (앱 배지 표시용)
+     *
+     * @param memberId 회원 ID
+     * @return 모든 채팅방의 안읽은 메시지 총 개수
+     */
+    suspend fun getTotalUnreadCount(memberId: Long): Long {
+        val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+
+        // 각 채팅방의 안읽은 메시지 개수를 병렬로 조회하고 합산
+        return coroutineScope {
+            chatRoomMembers.map { member ->
+                async {
+                    if (member.lastReadAt != null) {
+                        withContext(Dispatchers.IO) {
+                            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
+                                member.chatRoom.chatRoomId!!,
+                                member.lastReadAt!!
+                            )
+                        }
+                    } else {
+                        0L
+                    }
+                }
+            }.awaitAll().sum()
+        }
+    }
+
+    /**
+     * 채팅방 참여자 정보 조회
+     * (상대방 정보 + 온라인 상태 + 내 설정)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param memberId 요청한 회원 ID
+     * @return 채팅방 참여자 정보
+     */
+    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): com.joying.chat.dto.ChatRoomMemberDto {
+        val chatRoom = chatRoomRepository.findById(chatRoomId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+        // 권한 확인 (구매자 또는 판매자만)
+        if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
+            throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
+        }
+
+        // 상대방 정보
+        val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
+            chatRoom.seller
+        } else {
+            chatRoom.buyer
+        }
+
+        // 내 설정 정보
+        val mySettings = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+
+        // 온라인 상태 조회
+        val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
+        val lastSeenAt = if (!isOnline) {
+            chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+        } else {
+            null
+        }
+
+        return com.joying.chat.dto.ChatRoomMemberDto(
+            memberId = otherMember.getMemberId()!!,
+            nickname = otherMember.getNickname(),
+            profileUrl = otherMember.getKakaoProfileImageUrl(),
+            isOnline = isOnline,
+            lastSeenAt = lastSeenAt,
+            isPinned = mySettings.isPinned,
+            isMuted = mySettings.isMuted,
+            lastReadAt = mySettings.lastReadAt,
+            chatRoomId = chatRoom.chatRoomId!!,
+            productId = chatRoom.product.getProductId()!!,
+            productTitle = chatRoom.product.getTitle()
+        )
     }
 }
