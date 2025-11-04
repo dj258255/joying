@@ -3,7 +3,7 @@
  * 상품 상세 페이지 - 참고 프로젝트의 깔끔한 디자인 적용
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
@@ -14,12 +14,24 @@ import PriceCalculation from '../../../features/checkout/components/PriceCalcula
 import RentButton from '../../../features/checkout/components/RentButton';
 import { chatApi } from '../../../features/chat/api/chatApi';
 import { messageApi } from '../../../features/chat/api/messageApi';
-import { DUMMY_PRODUCTS, DUMMY_USERS, DUMMY_REVIEWS } from '../../../shared/constants/dummyData';
+import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { useProductDetail } from '@/features/product/hooks/useProductDetail';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const ProductDetailPage = () => {
-  const { id } = useParams();
+  const { id: routeId } = useParams();
   const navigate = useNavigate();
+  
+  // productId를 문자열/숫자로 변환 (객체가 아닌 값만 사용)
+  const productId = useMemo(() => {
+    if (!routeId) return null;
+    // 문자열이나 숫자면 그대로 사용, 객체면 null 반환
+    if (typeof routeId === 'string' || typeof routeId === 'number') {
+      return String(routeId);
+    }
+    return null;
+  }, [routeId]);
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState(null);
@@ -29,11 +41,112 @@ const ProductDetailPage = () => {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   
-  // 더미 데이터에서 상품 찾기
-  const product = DUMMY_PRODUCTS.find(p => p.id === id) || DUMMY_PRODUCTS[0];
+  // 실제 상품 상세 조회
+  const { product: productResponse, isLoading, error } = useProductDetail(productId);
   
-  // 해당 상품의 리뷰 필터링
-  const productReviews = DUMMY_REVIEWS.filter(review => review.productId === product.id);
+  // 판매자 정보 조회 (writer.name이 null인 경우 nickname 가져오기)
+  const sellerMemberId = productResponse?.writer?.memberId || productResponse?.writer?.member_id;
+  const { user: sellerUser } = useUserProfile(sellerMemberId);
+
+  // 상세 응답을 페이지에서 사용하던 형태로 정규화
+  const product = useMemo(() => {
+    if (!productResponse) return null;
+    
+    // API 응답 구조: camelCase (productId, rentalFee, memberId 등)
+    const images = Array.isArray(productResponse.files)
+      ? productResponse.files.map(f => f.url)
+      : [];
+
+    // rentalRefuses를 disabledDates 형식으로 변환 (날짜 문자열 배열)
+    const disabledDates = Array.isArray(productResponse.rentalRefuses)
+      ? productResponse.rentalRefuses.flatMap(refuse => {
+          const start = new Date(refuse.startRef);
+          const end = new Date(refuse.endRef);
+          const dates = [];
+          const currentDate = new Date(start);
+          while (currentDate <= end) {
+            dates.push(currentDate.toISOString().split('T')[0]);
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          return dates;
+        })
+      : [];
+
+    // 리뷰 데이터 매핑
+    const reviews = Array.isArray(productResponse.reviews)
+      ? productResponse.reviews.map(review => ({
+          review_id: review.review_id,
+          title: review.title,
+          content: review.content,
+          rating: review.rating,
+          createdAt: review.created_at || review.createdAt,
+          reviewer: {
+            member_id: review.reviewer?.member_id,
+            username: review.reviewer?.name,
+            name: review.reviewer?.name,
+            profileImageUrl: review.reviewer?.profile_image_url,
+            profile_image_url: review.reviewer?.profile_image_url,
+          },
+        }))
+      : [];
+
+    return {
+      id: productResponse.productId || productResponse.product_id,
+      title: productResponse.title || '',
+      description: productResponse.content || '',
+      price: Number(productResponse.rentalFee || productResponse.rental_fee) || 0,
+      deposit: Number(productResponse.deposit) || 0,
+      location: [
+        productResponse?.region?.sido,
+        productResponse?.region?.gungu,
+        productResponse?.region?.dong
+      ].filter(Boolean).join(' ') || '',
+      images,
+      sellerId: productResponse?.writer?.memberId || productResponse?.writer?.member_id,
+      seller: {
+        // writer.name이 null이면 판매자 정보의 nickname 사용
+        nickname: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
+        name: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
+        profileImage: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
+        profile_image_url: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
+        rating: Number(productResponse?.writer?.rating) || 0,
+        reviewCount: Number(productResponse.totalReviewCount || productResponse.total_review_count) || 0,
+      },
+      hashtags: productResponse?.hashtags || [],
+      reviews: reviews,
+      isLiked: productResponse?.liked || false,
+      disabledDates: disabledDates,
+      startRent: productResponse?.startRent || productResponse?.start_rent,
+      endRent: productResponse?.endRent || productResponse?.end_rent,
+      category: productResponse?.category,
+      uploadType: productResponse?.uploadType || productResponse?.upload_type,
+      rentMethod: productResponse?.rentMethod || productResponse?.rent_method,
+      videoNecessary: productResponse?.videoNecessary || productResponse?.video_necessary,
+      rating: Number(productResponse?.rating) || 0,
+      totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
+    };
+  }, [productResponse, sellerUser]);
+  if (isLoading) {
+    return (
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-gray-600">상품 정보를 불러오는 중...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-red-500">상품 정보를 불러올 수 없습니다.</div>
+        </div>
+      </>
+    );
+  }
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
@@ -69,9 +182,9 @@ const ProductDetailPage = () => {
         startDate: dateRange.start,
         endDate: dateRange.end,
         days: calculateDays(),
-        dailyPrice: product.price,
-        deposit: product.deposit,
-        totalPrice: (product.price * calculateDays()) + product.deposit,
+        dailyPrice: product.price || 0,
+        deposit: product.deposit || 0,
+        totalPrice: ((product.price || 0) * calculateDays()) + (product.deposit || 0),
         requesterName: DUMMY_USERS.currentUser.username,
         requesterProfile: DUMMY_USERS.currentUser.profileImageUrl
       };
@@ -125,14 +238,125 @@ const ProductDetailPage = () => {
               <span className="text-sm font-medium">뒤로 가기</span>
             </button>
 
-            <div className="grid lg:grid-cols-2 gap-12">
-              {/* 좌측: 이미지 갤러리 */}
-              <div className="space-y-4">
+            {/* 가격 표시 */}
+              <div className="glass-card p-4">
+              <div className="text-2xl font-extrabold text-blue-600 mb-2">
+                {(product.price || 0).toLocaleString()}원
+                <span className="text-base text-gray-600 font-medium">/일</span>
+              </div>
+              <div className="text-sm text-gray-600">
+                📍 {product.location || '위치 정보 없음'}
+              </div>
+            </div>
+
+            {/* 날짜 선택 */}
+            <div className="glass-card">
+              <DateRangeCalendar
+                onDateRangeChange={handleDateRangeChange}
+                disabledDates={product.disabledDates || []}
+              />
+            </div>
+
+            {/* 가격 계산 */}
+            <div className="glass-card">
+              <PriceCalculation
+                pricePerDay={product.price}
+                deposit={product.deposit}
+                days={calculateDays()}
+              />
+            </div>
+
+            {/* 대여 버튼 */}
+            <div className="glass-card">
+              <RentButton
+                isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
+                onClick={handleRentRequest}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 우측 컨텐츠 영역 - 스크롤 가능 */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
+          {/* 모바일 헤더 */}
+          <div className="lg:hidden p-4 bg-white border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card hover:bg-white/20 transition-all duration-200"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-gray-600 font-medium">뒤로가기</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 모바일 캘린더 오버레이 */}
+          {isCalendarOpen && (
+            <div className="lg:hidden fixed inset-0 z-50 bg-black/50 flex items-end">
+              <div className="w-full bg-white rounded-t-3xl p-4 space-y-4 animate-in slide-in-from-bottom-2 duration-300 max-h-[80vh] overflow-y-auto">
+                {/* 가격 표시 */}
+                <div className="glass-card p-4">
+                  <div className="text-xl font-extrabold text-blue-600 mb-2">
+                    {(product.price || 0).toLocaleString()}원
+                    <span className="text-sm text-gray-600 font-medium">/일</span>
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    📍 {product.location || '위치 정보 없음'}
+                  </div>
+                </div>
+
+                {/* 날짜 선택 */}
+                <div className="glass-card">
+                  <DateRangeCalendar
+                    onDateRangeChange={handleDateRangeChange}
+                    disabledDates={product.disabledDates || []}
+                  />
+                </div>
+
+                {/* 가격 계산 - 날짜 선택 시에만 표시 */}
+                {dateRange && dateRange.start && dateRange.end && (
+                  <div className="glass-card">
+                    <PriceCalculation
+                      pricePerDay={product.price}
+                      deposit={product.deposit}
+                      days={calculateDays()}
+                    />
+                  </div>
+                )}
+
+                {/* 빌려주세요 버튼 */}
+                <RentButton
+                  isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
+                  onClick={handleRentRequest}
+                />
+
+                {/* 닫기 버튼 */}
+                <button
+                  onClick={() => setIsCalendarOpen(false)}
+                  className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 상품 컨텐츠 */}
+          <div className="p-4 lg:p-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* 이미지 갤러리 */}
+              <div className="glass-section">
                 <ImageGallery 
                   images={product.images}
                   productTitle={product.title}
-                  isLiked={false}
-                  onLikeClick={() => console.log('찜하기')}
+                  isLiked={product.isLiked}
+                  onLikeClick={() => {
+                    // TODO: 찜하기 API 연동
+                    console.log('찜하기', product.id);
+                  }}
                 />
               </div>
 
@@ -180,128 +404,23 @@ const ProductDetailPage = () => {
                   </div>
                 </div>
 
-                {/* 대여 기간 선택 */}
-                <div className="border-t border-b border-gray-200 py-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
-                  
-                  <div className="flex gap-6">
-                    {/* 왼쪽: 캘린더 */}
-                    <div className="flex-shrink-0">
-                      <DateRangeCalendar
-                        onDateRangeChange={handleDateRangeChange}
-                        disabledDates={[]}
-                      />
-                    </div>
-
-                    {/* 오른쪽: 가격 정보 및 버튼 */}
-                    <div className="flex-1 flex flex-col justify-between min-h-[320px]">
-                      {/* 가격 요약 */}
-                      {dateRange && dateRange.start && dateRange.end ? (
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">대여료 ({calculateDays()}일)</span>
-                              <span className="font-semibold text-gray-900">{(product.price * calculateDays()).toLocaleString()}원</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">보증금</span>
-                              <span className="font-semibold text-gray-900">{product.deposit.toLocaleString()}원</span>
-                            </div>
-                          </div>
-                          <div className="pt-4 border-t border-gray-300">
-                            <div className="flex justify-between items-center">
-                              <span className="text-base font-semibold text-gray-900">총 결제 금액</span>
-                              <span className="text-2xl font-bold text-gray-900">
-                                {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">날짜를 선택해주세요</p>
-                        </div>
-                      )}
-
-                      {/* 버튼 그룹 */}
-                      <div className="flex gap-3 mt-auto">
-                        <button
-                          disabled={!dateRange || !dateRange.start || !dateRange.end}
-                          onClick={handleRentRequest}
-                          className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        >
-                          채팅 시작하기
-                        </button>
-                        <button
-                          onClick={() => console.log('찜하기')}
-                          className="w-14 h-14 border-2 border-gray-300 rounded-lg hover:border-gray-900 transition-colors flex items-center justify-center flex-shrink-0"
-                        >
-                          <svg
-                            className="w-6 h-6 text-gray-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 상품 설명 */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-3">상품 설명</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
-                    {product.description}
-                  </p>
-                  {product.hashtags && product.hashtags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      {product.hashtags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 판매자 정보 */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-4">판매자 정보</h3>
-                  <SellerProfile seller={product.seller} sellerId={product.sellerId} />
-                </div>
-              </div>
-            </div>
-
-            {/* 리뷰 섹션 - 하단 전체 너비 */}
-            <div className="mt-16">
-              <div className="border-t border-gray-200 pt-12">
-                <h2 className="text-2xl font-bold text-gray-900 mb-8">
-                  리뷰 ({productReviews.length})
-                </h2>
-
-                {/* 리뷰 목록 */}
-                <div className="space-y-6">
-                  {productReviews.map((review, index) => (
+              {/* 리뷰 목록 */}
+              <div className="glass-section">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">
+                  리뷰 {product.totalReviewCount > 0 && `(${product.totalReviewCount})`}
+                </h3>
+                <div className="space-y-4">
+                  {(product.reviews || []).map((review, index) => (
                     <ReviewCard
-                      key={review.id || index}
+                      key={review.review_id || index}
                       review={review}
                       showProductInfo={false}
                       showRating={true}
                     />
                   ))}
-                  {productReviews.length === 0 && (
-                    <div className="text-center py-16 text-gray-500">
-                      <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <p className="text-base">아직 등록된 리뷰가 없습니다</p>
-                      <p className="text-sm mt-2">첫 리뷰를 남겨보세요!</p>
+                  {(product.reviews || []).length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      등록된 리뷰가 없습니다.
                     </div>
                   )}
                 </div>
@@ -446,6 +565,21 @@ const ProductDetailPage = () => {
               </svg>
               날짜 선택하고 대여하기
             </button>
+
+            {/* 총 금액 - 날짜 선택 시에만 표시 */}
+            {dateRange && dateRange.start && dateRange.end && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">총 금액</span>
+                <span className="text-xl font-extrabold text-blue-600">
+                  {(((product.price || 0) * calculateDays()) + (product.deposit || 0)).toLocaleString()}원
+                </span>
+              </div>
+            )}
+
+            <RentButton
+              isEnabled={!!dateRange && !!dateRange.start && !!dateRange.end}
+              onClick={handleRentRequest}
+            />
           </div>
 
           {/* 모바일 캘린더 모달 */}
