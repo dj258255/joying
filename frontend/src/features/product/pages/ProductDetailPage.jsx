@@ -3,7 +3,7 @@
  * 상품 상세 페이지 컴포넌트 - 좌측 캘린더 영역과 우측 컨텐츠 영역이 따로 스크롤
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
@@ -14,12 +14,24 @@ import PriceCalculation from '../../../features/checkout/components/PriceCalcula
 import RentButton from '../../../features/checkout/components/RentButton';
 import { chatApi } from '../../../features/chat/api/chatApi';
 import { messageApi } from '../../../features/chat/api/messageApi';
-import { DUMMY_PRODUCTS, DUMMY_USERS, DUMMY_REVIEWS } from '../../../shared/constants/dummyData';
+import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { useProductDetail } from '@/features/product/hooks/useProductDetail';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const ProductDetailPage = () => {
-  const { id } = useParams();
+  const { id: routeId } = useParams();
   const navigate = useNavigate();
+  
+  // productId를 문자열/숫자로 변환 (객체가 아닌 값만 사용)
+  const productId = useMemo(() => {
+    if (!routeId) return null;
+    // 문자열이나 숫자면 그대로 사용, 객체면 null 반환
+    if (typeof routeId === 'string' || typeof routeId === 'number') {
+      return String(routeId);
+    }
+    return null;
+  }, [routeId]);
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState(null);
@@ -29,11 +41,112 @@ const ProductDetailPage = () => {
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   
-  // 더미 데이터에서 상품 찾기
-  const product = DUMMY_PRODUCTS.find(p => p.id === id) || DUMMY_PRODUCTS[0];
+  // 실제 상품 상세 조회
+  const { product: productResponse, isLoading, error } = useProductDetail(productId);
   
-  // 해당 상품의 리뷰 필터링
-  const productReviews = DUMMY_REVIEWS.filter(review => review.productId === product.id);
+  // 판매자 정보 조회 (writer.name이 null인 경우 nickname 가져오기)
+  const sellerMemberId = productResponse?.writer?.memberId || productResponse?.writer?.member_id;
+  const { user: sellerUser } = useUserProfile(sellerMemberId);
+
+  // 상세 응답을 페이지에서 사용하던 형태로 정규화
+  const product = useMemo(() => {
+    if (!productResponse) return null;
+    
+    // API 응답 구조: camelCase (productId, rentalFee, memberId 등)
+    const images = Array.isArray(productResponse.files)
+      ? productResponse.files.map(f => f.url)
+      : [];
+
+    // rentalRefuses를 disabledDates 형식으로 변환 (날짜 문자열 배열)
+    const disabledDates = Array.isArray(productResponse.rentalRefuses)
+      ? productResponse.rentalRefuses.flatMap(refuse => {
+          const start = new Date(refuse.startRef);
+          const end = new Date(refuse.endRef);
+          const dates = [];
+          const currentDate = new Date(start);
+          while (currentDate <= end) {
+            dates.push(currentDate.toISOString().split('T')[0]);
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          return dates;
+        })
+      : [];
+
+    // 리뷰 데이터 매핑
+    const reviews = Array.isArray(productResponse.reviews)
+      ? productResponse.reviews.map(review => ({
+          review_id: review.review_id,
+          title: review.title,
+          content: review.content,
+          rating: review.rating,
+          createdAt: review.created_at || review.createdAt,
+          reviewer: {
+            member_id: review.reviewer?.member_id,
+            username: review.reviewer?.name,
+            name: review.reviewer?.name,
+            profileImageUrl: review.reviewer?.profile_image_url,
+            profile_image_url: review.reviewer?.profile_image_url,
+          },
+        }))
+      : [];
+
+    return {
+      id: productResponse.productId || productResponse.product_id,
+      title: productResponse.title || '',
+      description: productResponse.content || '',
+      price: Number(productResponse.rentalFee || productResponse.rental_fee) || 0,
+      deposit: Number(productResponse.deposit) || 0,
+      location: [
+        productResponse?.region?.sido,
+        productResponse?.region?.gungu,
+        productResponse?.region?.dong
+      ].filter(Boolean).join(' ') || '',
+      images,
+      sellerId: productResponse?.writer?.memberId || productResponse?.writer?.member_id,
+      seller: {
+        // writer.name이 null이면 판매자 정보의 nickname 사용
+        nickname: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
+        name: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
+        profileImage: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
+        profile_image_url: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
+        rating: Number(productResponse?.writer?.rating) || 0,
+        reviewCount: Number(productResponse.totalReviewCount || productResponse.total_review_count) || 0,
+      },
+      hashtags: productResponse?.hashtags || [],
+      reviews: reviews,
+      isLiked: productResponse?.liked || false,
+      disabledDates: disabledDates,
+      startRent: productResponse?.startRent || productResponse?.start_rent,
+      endRent: productResponse?.endRent || productResponse?.end_rent,
+      category: productResponse?.category,
+      uploadType: productResponse?.uploadType || productResponse?.upload_type,
+      rentMethod: productResponse?.rentMethod || productResponse?.rent_method,
+      videoNecessary: productResponse?.videoNecessary || productResponse?.video_necessary,
+      rating: Number(productResponse?.rating) || 0,
+      totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
+    };
+  }, [productResponse, sellerUser]);
+  if (isLoading) {
+    return (
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-gray-600">상품 정보를 불러오는 중...</div>
+        </div>
+      </>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-red-500">상품 정보를 불러올 수 없습니다.</div>
+        </div>
+      </>
+    );
+  }
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
@@ -69,9 +182,9 @@ const ProductDetailPage = () => {
         startDate: dateRange.start,
         endDate: dateRange.end,
         days: calculateDays(),
-        dailyPrice: product.price,
-        deposit: product.deposit,
-        totalPrice: (product.price * calculateDays()) + product.deposit,
+        dailyPrice: product.price || 0,
+        deposit: product.deposit || 0,
+        totalPrice: ((product.price || 0) * calculateDays()) + (product.deposit || 0),
         requesterName: DUMMY_USERS.currentUser.username,
         requesterProfile: DUMMY_USERS.currentUser.profileImageUrl
       };
@@ -193,13 +306,13 @@ const ProductDetailPage = () => {
             </div>
 
             {/* 가격 표시 */}
-            <div className="glass-card p-4">
+              <div className="glass-card p-4">
               <div className="text-2xl font-extrabold text-blue-600 mb-2">
-                {product.price.toLocaleString()}원
+                {(product.price || 0).toLocaleString()}원
                 <span className="text-base text-gray-600 font-medium">/일</span>
               </div>
               <div className="text-sm text-gray-600">
-                📍 {product.location}
+                📍 {product.location || '위치 정보 없음'}
               </div>
             </div>
 
@@ -207,7 +320,7 @@ const ProductDetailPage = () => {
             <div className="glass-card">
               <DateRangeCalendar
                 onDateRangeChange={handleDateRangeChange}
-                disabledDates={[]}
+                disabledDates={product.disabledDates || []}
               />
             </div>
 
@@ -254,11 +367,11 @@ const ProductDetailPage = () => {
                 {/* 가격 표시 */}
                 <div className="glass-card p-4">
                   <div className="text-xl font-extrabold text-blue-600 mb-2">
-                    {product.price.toLocaleString()}원
+                    {(product.price || 0).toLocaleString()}원
                     <span className="text-sm text-gray-600 font-medium">/일</span>
                   </div>
                   <div className="text-xs text-gray-600">
-                    📍 {product.location}
+                    📍 {product.location || '위치 정보 없음'}
                   </div>
                 </div>
 
@@ -266,7 +379,7 @@ const ProductDetailPage = () => {
                 <div className="glass-card">
                   <DateRangeCalendar
                     onDateRangeChange={handleDateRangeChange}
-                    disabledDates={[]}
+                    disabledDates={product.disabledDates || []}
                   />
                 </div>
 
@@ -306,8 +419,11 @@ const ProductDetailPage = () => {
                 <ImageGallery 
                   images={product.images}
                   productTitle={product.title}
-                  isLiked={false}
-                  onLikeClick={() => console.log('찜하기')}
+                  isLiked={product.isLiked}
+                  onLikeClick={() => {
+                    // TODO: 찜하기 API 연동
+                    console.log('찜하기', product.id);
+                  }}
                 />
               </div>
 
@@ -327,17 +443,19 @@ const ProductDetailPage = () => {
 
               {/* 리뷰 목록 */}
               <div className="glass-section">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">리뷰</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">
+                  리뷰 {product.totalReviewCount > 0 && `(${product.totalReviewCount})`}
+                </h3>
                 <div className="space-y-4">
-                  {productReviews.map((review, index) => (
+                  {(product.reviews || []).map((review, index) => (
                     <ReviewCard
-                      key={review.id || index}
+                      key={review.review_id || index}
                       review={review}
                       showProductInfo={false}
                       showRating={true}
                     />
                   ))}
-                  {productReviews.length === 0 && (
+                  {(product.reviews || []).length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       등록된 리뷰가 없습니다.
                     </div>
@@ -376,7 +494,7 @@ const ProductDetailPage = () => {
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">총 금액</span>
                 <span className="text-xl font-extrabold text-blue-600">
-                  {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
+                  {(((product.price || 0) * calculateDays()) + (product.deposit || 0)).toLocaleString()}원
                 </span>
               </div>
             )}
