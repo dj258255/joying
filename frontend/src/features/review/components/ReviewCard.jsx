@@ -29,7 +29,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
   };
 
   return (
-    <div className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
+    <div className="p-3 md:p-4 border border-gray-200 rounded-2xl">
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage

@@ -3,7 +3,7 @@
  * 상품 상세 페이지 - 참고 프로젝트의 깔끔한 디자인 적용
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
@@ -16,18 +16,37 @@ import { chatApi } from '../../../features/chat/api/chatApi';
 import { messageApi } from '../../../features/chat/api/messageApi';
 import { DUMMY_PRODUCTS, DUMMY_USERS, DUMMY_REVIEWS } from '../../../shared/constants/dummyData';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { useAuth } from '../../../features/auth/contexts/AuthContext';
+import { ROUTE_PATHS } from '../../../shared/constants';
 
 const ProductDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState(null);
   // 모바일 캘린더 표시 상태
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  // 사이드바 상태
+  const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   // 터치 이벤트 상태
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+
+  // 모바일 캘린더 모달이 열릴 때 body 스크롤 막기
+  useEffect(() => {
+    if (isCalendarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isCalendarOpen]);
   
   // 더미 데이터에서 상품 찾기
   const product = DUMMY_PRODUCTS.find(p => p.id === id) || DUMMY_PRODUCTS[0];
@@ -108,26 +127,40 @@ const ProductDetailPage = () => {
 
   return (
     <>
-      <SideNavbar />
+      <SideNavbar isOpen={isSideNavOpen} onClose={() => setIsSideNavOpen(false)} />
       
       <div className="min-h-screen bg-gray-50">
         {/* 데스크톱 레이아웃 */}
-        <div className="hidden lg:block">
-          <div className="max-w-[1400px] mx-auto px-6 py-8">
-            {/* 뒤로가기 버튼 */}
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 mb-6 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-sm font-medium">뒤로 가기</span>
-            </button>
+        <div className="hidden lg:block h-screen overflow-hidden">
+          <div className="max-w-[1400px] mx-auto px-6 py-8 h-full flex flex-col">
+            {/* 헤더: 뒤로가기 버튼 + 프로필 */}
+            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-sm font-medium">뒤로 가기</span>
+              </button>
 
-            <div className="grid lg:grid-cols-2 gap-12">
-              {/* 좌측: 이미지 갤러리 */}
-              <div className="space-y-4">
+              {/* 프로필 버튼 */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                  className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+                  title={user?.nickname || '프로필'}
+                >
+                  {user?.nickname?.charAt(0) || '👤'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid lg:grid-cols-10 gap-8 flex-1 overflow-hidden relative">
+              {/* 좌측: 이미지 갤러리만 (4칸) */}
+              <div className="lg:col-span-4 h-full overflow-y-auto scrollbar-hide pb-8 pr-4">
+                {/* 이미지 갤러리 */}
                 <ImageGallery 
                   images={product.images}
                   productTitle={product.title}
@@ -136,8 +169,11 @@ const ProductDetailPage = () => {
                 />
               </div>
 
-              {/* 우측: 제품 정보 */}
-              <div className="space-y-6">
+              {/* 가운데 구분선 */}
+              <div className="absolute top-0 bottom-0 w-px bg-gray-200 pointer-events-none" style={{ left: 'calc(40%)' }}></div>
+
+              {/* 우측: 제품 정보 + 대여 기간 선택 + 상품 설명 + 판매자 정보 + 리뷰 (6칸, 스크롤) */}
+              <div className="lg:col-span-6 h-full overflow-y-auto scrollbar-hide space-y-6 pb-8 pl-4">
                 {/* 기본 정보 */}
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-3">
@@ -181,7 +217,7 @@ const ProductDetailPage = () => {
                 </div>
 
                 {/* 대여 기간 선택 */}
-                <div className="border-t border-b border-gray-200 py-6">
+                <div className="border-t border-gray-200 pt-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
                   
                   <div className="flex gap-6">
@@ -275,35 +311,33 @@ const ProductDetailPage = () => {
                   <h3 className="text-base font-semibold text-gray-900 mb-4">판매자 정보</h3>
                   <SellerProfile seller={product.seller} sellerId={product.sellerId} />
                 </div>
-              </div>
-            </div>
 
-            {/* 리뷰 섹션 - 하단 전체 너비 */}
-            <div className="mt-16">
-              <div className="border-t border-gray-200 pt-12">
-                <h2 className="text-2xl font-bold text-gray-900 mb-8">
-                  리뷰 ({productReviews.length})
-                </h2>
+                {/* 리뷰 섹션 */}
+                <div className="border-t border-gray-200 pt-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-6">
+                    리뷰 ({productReviews.length})
+                  </h2>
 
-                {/* 리뷰 목록 */}
-                <div className="space-y-6">
-                  {productReviews.map((review, index) => (
-                    <ReviewCard
-                      key={review.id || index}
-                      review={review}
-                      showProductInfo={false}
-                      showRating={true}
-                    />
-                  ))}
-                  {productReviews.length === 0 && (
-                    <div className="text-center py-16 text-gray-500">
-                      <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <p className="text-base">아직 등록된 리뷰가 없습니다</p>
-                      <p className="text-sm mt-2">첫 리뷰를 남겨보세요!</p>
-                    </div>
-                  )}
+                  {/* 리뷰 목록 */}
+                  <div className="space-y-4">
+                    {productReviews.map((review, index) => (
+                      <ReviewCard
+                        key={review.id || index}
+                        review={review}
+                        showProductInfo={false}
+                        showRating={true}
+                      />
+                    ))}
+                    {productReviews.length === 0 && (
+                      <div className="text-center py-12 text-gray-500">
+                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <p className="text-sm">아직 등록된 리뷰가 없습니다</p>
+                        <p className="text-xs mt-1 text-gray-400">첫 리뷰를 남겨보세요!</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -314,15 +348,36 @@ const ProductDetailPage = () => {
         <div className="lg:hidden">
           {/* 모바일 헤더 */}
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-gray-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-sm font-medium">뒤로가기</span>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center gap-2 text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-sm font-medium">뒤로가기</span>
+              </button>
+
+              {/* 프로필/로그인 버튼 */}
+              {isAuthenticated ? (
+                <button
+                  onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md transition-all duration-300 ring-2 ring-white/30"
+                  title={user?.nickname || '프로필'}
+                >
+                  {user?.nickname?.charAt(0) || '👤'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+                  className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
+                  title="로그인하기"
+                >
+                  로그인
+                </button>
+              )}
+            </div>
           </div>
 
           {/* 모바일 컨텐츠 */}
