@@ -134,7 +134,7 @@ const ProductDetailPage = () => {
       reviews: reviews,
       isLiked: productResponse?.liked || false,
       disabledDates: disabledDates,
-      category: productResponse?.category,
+      category: productResponse?.category?.name || productResponse?.category || '',
       rating: Number(productResponse?.rating) || 0,
       totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
     };
