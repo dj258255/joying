@@ -872,17 +872,39 @@ const HomePage = () => {
 
     // 터치 이벤트 핸들러 (모바일)
     let touchStartY = 0;
+    let touchStartTime = 0;
+    let isTouchScrolling = false;
+    
     const handleTouchStart = (e) => {
       touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      isTouchScrolling = false;
+    };
+
+    const handleTouchMove = (e) => {
+      // 스크롤 중이 아니고 섹션 기반 스크롤 영역이면 기본 스크롤 방지
+      if (!isNormalScrolling && currentSection < totalSections) {
+        const touchCurrentY = e.touches[0].clientY;
+        const delta = Math.abs(touchStartY - touchCurrentY);
+        
+        // 일정 거리 이상 움직이면 터치 스크롤로 간주
+        if (delta > 30) {
+          isTouchScrolling = true;
+          e.preventDefault();
+        }
+      }
     };
 
     const handleTouchEnd = (e) => {
-      if (isScrolling) return;
-
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
+      const touchDuration = Date.now() - touchStartTime;
 
-      if (Math.abs(delta) > 50) {
+      // 빠른 스와이프 또는 충분한 거리 이동 시에만 섹션 전환
+      const isQuickSwipe = touchDuration < 300 && Math.abs(delta) > 30;
+      const isLongSwipe = Math.abs(delta) > 80;
+
+      if (isTouchScrolling && (isQuickSwipe || isLongSwipe)) {
         if (delta > 0) {
           // 위로 스와이프 (다음 섹션)
           if (currentSection < totalSections - 1) {
@@ -897,6 +919,8 @@ const HomePage = () => {
           }
         }
       }
+      
+      isTouchScrolling = false;
     };
 
     // 키보드 이벤트 핸들러
@@ -945,6 +969,7 @@ const HomePage = () => {
     // 이벤트 리스너 등록
     window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd, { passive: false });
     window.addEventListener('keydown', handleKeyDown);
 
@@ -955,6 +980,7 @@ const HomePage = () => {
     return () => {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('keydown', handleKeyDown);
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
@@ -984,7 +1010,14 @@ const HomePage = () => {
   return (
 
 
-    <div className="bg-black text-white" style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div 
+      className="bg-black text-white" 
+      style={{ 
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+        touchAction: 'pan-y',
+        overscrollBehavior: 'none'
+      }}
+    >
 
       {/* 로딩 화면 */}
       <LoadingScreen 

@@ -13,14 +13,14 @@ const Section6System = () => {
   return (
     <section
       id="section-6"
-      className="relative h-screen flex items-center overflow-hidden"
+      className="relative min-h-screen flex items-center overflow-hidden"
       style={{ zIndex: 60 }}
     >
-      <div className="container mx-auto px-4 md:px-8 py-6 md:py-0">
-        <h2 className="text-2xl md:text-4xl font-bold text-center mb-6 md:mb-12">
+      <div className="container mx-auto px-4 md:px-8 py-8 md:py-0">
+        <h2 className="text-2xl md:text-4xl font-bold text-center mb-4 md:mb-12">
           안전한 거래를 위한 <span className="text-primary-500">3가지 시스템</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-8 mb-6 md:mb-16">
           <div className="text-center">
             <div className="w-12 h-12 md:w-14 md:h-14 bg-primary-500/20 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
               <span className="text-xl md:text-2xl">🛡️</span>
@@ -53,11 +53,11 @@ const Section6System = () => {
         </div>
 
         {/* 거래 단계 */}
-        <div className="max-w-4xl mx-auto border-t border-gray-800 pt-6 md:pt-12">
-          <h3 className="text-xl md:text-3xl font-bold text-center mb-4 md:mb-8">
+        <div className="max-w-4xl mx-auto border-t border-gray-800 pt-4 md:pt-12">
+          <h3 className="text-xl md:text-3xl font-bold text-center mb-3 md:mb-8">
             간편한 <span className="text-primary-500">3단계</span> 대여
           </h3>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6 pb-8 md:pb-0">
             <div className="flex-1 text-center">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3 text-base md:text-lg font-bold">
                 1
