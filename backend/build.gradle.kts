@@ -29,10 +29,8 @@ repositories {
 dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // JPA용 (기존)
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb-reactive") // 채팅 기능용 (코루틴)
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive") // 채팅 기능용 (코루틴)
+    implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // 채팅 메시지 저장용 (blocking)
+    implementation("org.springframework.boot:spring-boot-starter-data-redis") // Redis Pub/Sub (blocking)
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -48,10 +46,9 @@ dependencies {
 
     // Kotlin Coroutines (비동기 처리 - 채팅 기능용)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
-	// WebClient (Reactive Web Client)
+	// WebClient (외부 API 호출용 - Toss Payments 등)
 	implementation("org.springframework.boot:spring-boot-starter-webflux")
 
 	// Resilience4j Circuit Breaker

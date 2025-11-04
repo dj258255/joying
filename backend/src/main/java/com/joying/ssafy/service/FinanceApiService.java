@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -114,6 +115,25 @@ public class FinanceApiService {
 
 			// 전체 응답 반환 (userKey, userName 포함)
 			return responseBody;
+
+		} catch (HttpClientErrorException.BadRequest e) {
+			// E4002: 이미 존재하는 ID입니다 - 기존 회원 조회로 userKey 가져오기
+			String errorBody = e.getResponseBodyAsString();
+			log.warn("SSAFY 회원 등록 실패 (이미 존재하는 사용자일 수 있음): userId={}, error={}", userId, errorBody);
+
+			if (errorBody.contains("E4002") || errorBody.contains("이미 존재하는 ID")) {
+				log.info("기존 SSAFY 회원 조회 시도: userId={}", userId);
+				try {
+					// 기존 회원 정보 조회
+					return searchMember(userId);
+				} catch (Exception searchException) {
+					log.error("기존 SSAFY 회원 조회 실패: userId={}", userId, searchException);
+					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+				}
+			}
+
+			log.error("SSAFY 회원 등록 API 호출 중 오류 발생", e);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 
 		} catch (Exception e) {
 			log.error("SSAFY 회원 등록 API 호출 중 오류 발생", e);

@@ -2,10 +2,12 @@ package com.joying.chat.config
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
+import org.springframework.messaging.simp.config.ChannelRegistration
 import org.springframework.messaging.simp.config.MessageBrokerRegistry
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration
 
 /**
  * WebSocket STOMP 설정
@@ -13,6 +15,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * 실시간 채팅을 위한 WebSocket 설정
  * - STOMP 프로토콜 사용
  * - SockJS Fallback 지원
+ * - Rate Limiting 및 연결 제한
+ * - Backpressure 설정
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -57,5 +61,70 @@ class WebSocketConfig(
             .addEndpoint("/ws/chat")  // WebSocket 연결 endpoint
             .setAllowedOriginPatterns(*allowedOrigins.toTypedArray())  // CORS 허용
             .withSockJS()  // SockJS Fallback 활성화
+            .setStreamBytesLimit(512 * 1024)  // 스트리밍 전송 크기 제한: 512KB
+            .setHttpMessageCacheSize(1000)  // HTTP 메시지 캐시 크기: 1000개
+            .setDisconnectDelay(30 * 1000)  // 연결 끊김 지연 시간: 30초
+            .setHeartbeatTime(25 * 1000)  // Heartbeat 주기: 25초
+    }
+
+    /**
+     * WebSocket Transport 설정
+     *
+     * 메시지 크기 제한, 전송 버퍼 크기 제한, 타임아웃 설정
+     * → 갑작스러운 부하 증가 시 서버 보호
+     */
+    override fun configureWebSocketTransport(registry: WebSocketTransportRegistration) {
+        registry
+            .setMessageSizeLimit(128 * 1024)  // 단일 메시지 최대 크기: 128KB (이미지/파일은 별도 업로드)
+            .setSendBufferSizeLimit(512 * 1024)  // 전송 버퍼 크기: 512KB
+            .setSendTimeLimit(20 * 1000)  // 전송 타임아웃: 20초
+            .setTimeToFirstMessage(30 * 1000)  // 첫 메시지 대기 시간: 30초 (CONNECT 이후)
+    }
+
+    /**
+     * Inbound Channel 설정 (클라이언트 → 서버)
+     *
+     * 사용자 입력 메시지를 받아서 처리
+     *
+     * 부하 특성:
+     * - 사람 타이핑 속도: 초당 5-10개 메시지 (최대)
+     * - MongoDB 저장 + Redis Pub/Sub 발행 (I/O 작업)
+     * - 상대적으로 느리지만 CPU 집약적이지 않음
+     *
+     * 최적화 전략:
+     * - 작은 Thread Pool (20개)로 충분
+     * - 큐는 중간 크기 (200개) - 급격한 스파이크 대비
+     * - keepAlive 짧게 (30초) - 유휴 시 빠른 해제
+     */
+    override fun configureClientInboundChannel(registration: ChannelRegistration) {
+        registration.taskExecutor()
+            .corePoolSize(5)  // 기본 5개 (유휴 시 최소 스레드)
+            .maxPoolSize(20)  // 최대 20개 (사용자 입력은 느림)
+            .queueCapacity(200)  // 대기 큐 200개 (갑작스러운 동시 전송 대비)
+            .keepAliveSeconds(30)  // 30초 후 유휴 스레드 해제
+    }
+
+    /**
+     * Outbound Channel 설정 (서버 → 클라이언트)
+     *
+     * Redis Pub/Sub에서 받은 메시지를 여러 클라이언트에게 브로드캐스트
+     *
+     * 부하 특성:
+     * - 1개 메시지 → N명 클라이언트에게 전송 (Fan-out)
+     * - 네트워크 I/O 위주 (CPU는 낮음)
+     * - 동시 접속자 많을수록 부하 증가
+     * - 초당 100-1000개 메시지 전송 가능
+     *
+     * 최적화 전략:
+     * - 큰 Thread Pool (100개) - 많은 클라이언트에게 빠르게 전송
+     * - 큰 큐 (1000개) - 브로드캐스트 병목 방지
+     * - keepAlive 길게 (60초) - 스레드 재사용 극대화
+     */
+    override fun configureClientOutboundChannel(registration: ChannelRegistration) {
+        registration.taskExecutor()
+            .corePoolSize(20)  // 기본 20개 (항상 대기)
+            .maxPoolSize(100)  // 최대 100개 (브로드캐스트 폭증 대비)
+            .queueCapacity(1000)  // 큐 1000개 (많은 클라이언트 동시 전송)
+            .keepAliveSeconds(60)  // 60초 유지 (재사용 극대화)
     }
 }

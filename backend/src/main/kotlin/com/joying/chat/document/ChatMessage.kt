@@ -7,7 +7,7 @@ import org.springframework.data.mongodb.core.index.CompoundIndexes
 import org.springframework.data.mongodb.core.index.Indexed
 import org.springframework.data.mongodb.core.mapping.Document
 import org.springframework.data.mongodb.core.mapping.Field
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅 메시지 Document (MongoDB)
@@ -16,6 +16,7 @@ import java.time.LocalDateTime
  * - 쓰기 속도 최적화
  * - 스키마 유연성 (이모티콘 등 확장 가능)
  * - 샤딩 가능 (향후 확장성)
+ * - Instant 사용 (UTC 기준, 글로벌 서비스 대비)
  */
 @Document(collection = "chat_messages")
 @CompoundIndexes(
@@ -60,7 +61,7 @@ data class ChatMessage(
 
     @CreatedDate
     @Field("createdAt")
-    var createdAt: LocalDateTime? = null,
+    var createdAt: Instant? = null,
 
     @Field("isDeleted")
     var isDeleted: Boolean = false

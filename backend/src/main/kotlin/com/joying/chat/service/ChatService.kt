@@ -3,37 +3,40 @@ package com.joying.chat.service
 import com.joying.chat.document.ChatMessage
 import com.joying.chat.dto.ChatMessageDto
 import com.joying.chat.dto.SendMessageRequest
+import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
 import com.joying.chat.repository.ChatRoomRepository
 import com.joying.common.exception.BusinessException
 import com.joying.common.exception.ErrorCode
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅 통합 Service
  *
- * WebSocket 메시지 전송 및 읽음 처리
+ * MongoDB 직접 저장 + Redis Pub/Sub 메시지 발행
  */
 @Service
 class ChatService(
     private val chatRoomRepository: ChatRoomRepository,
     private val chatRoomMemberRepository: ChatRoomMemberRepository,
-    private val redisStreamPublisher: RedisStreamPublisher
+    private val chatMessageRepository: ChatMessageRepository,
+    private val redisPubSubPublisher: RedisPubSubPublisher
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
     /**
-     * 메시지 전송 
-     * (Redis Stream에 발행)
+     * 메시지 전송
+     * (MongoDB 저장 + Redis Pub/Sub 발행)
      *
      * @param chatRoomId 채팅방 ID
      * @param senderId 발신자 ID
      * @param request 메시지 내용
-     * @return 발행된 메시지 DTO
+     * @return 저장된 메시지 DTO
      */
     suspend fun sendMessage(
         chatRoomId: Long,
@@ -93,25 +96,30 @@ class ChatService(
         }
 
         // 현재 시간 설정
-        chatMessage.createdAt = LocalDateTime.now()
+        chatMessage.createdAt = Instant.now()
 
-        // DTO 변환
-        val messageDto = ChatMessageDto.from(chatMessage)
+        // 1. MongoDB에 저장 (영구 저장) - withContext로 blocking I/O 처리
+        val savedMessage = withContext(Dispatchers.IO) {
+            chatMessageRepository.save(chatMessage)
+        }
 
-        // Redis Stream에 발행
-        val streamId = redisStreamPublisher.publish(messageDto)
+        // 2. DTO 변환
+        val messageDto = ChatMessageDto.from(savedMessage)
+
+        // 3. Redis Pub/Sub로 발행 (실시간 전달)
+        redisPubSubPublisher.publish(messageDto)
 
         logger.info(
-            "메시지 전송 완료: streamId={}, chatRoomId={}, senderId={}",
-            streamId,
+            "메시지 전송 완료: messageId={}, chatRoomId={}, senderId={}",
+            savedMessage.id,
             chatRoomId,
             senderId
         )
 
-        // 채팅방의 lastMessage 업데이트 (비동기)
-        runBlocking {
+        // 4. 채팅방의 lastMessage 업데이트
+        withContext(Dispatchers.IO) {
             try {
-                chatRoom.updateLastMessage(chatMessage.content, chatMessage.createdAt!!)
+                chatRoom.updateLastMessage(savedMessage.content, savedMessage.createdAt!!)
                 chatRoomRepository.save(chatRoom)
             } catch (e: Exception) {
                 logger.error("채팅방 lastMessage 업데이트 실패: {}", e.message)

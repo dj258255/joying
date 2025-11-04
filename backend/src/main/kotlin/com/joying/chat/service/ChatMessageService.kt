@@ -1,22 +1,18 @@
 package com.joying.chat.service
 
-import com.joying.chat.document.ChatMessage
 import com.joying.chat.dto.ChatMessageDto
 import com.joying.chat.repository.ChatMessageRepository
-import com.joying.common.exception.BusinessException
-import com.joying.common.exception.ErrorCode
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅 메시지 Service
  *
- * 메시지 조회, 검색 기능 (코루틴)
+ * Blocking Repository + Coroutine withContext 패턴 (현업 표준)
  */
 @Service
 class ChatMessageService(
@@ -31,14 +27,14 @@ class ChatMessageService(
      * @param size 페이지 크기
      * @return 메시지 목록 (최신순)
      */
-    suspend fun getMessages(chatRoomId: Long, page: Int, size: Int): List<ChatMessageDto> {
-        val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+    suspend fun getMessages(chatRoomId: Long, page: Int, size: Int): List<ChatMessageDto> =
+        withContext(Dispatchers.IO) {
+            val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
 
-        return chatMessageRepository
-            .findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, pageable)
-            .map { ChatMessageDto.from(it) }
-            .toList()
-    }
+            chatMessageRepository
+                .findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, pageable)
+                .map { ChatMessageDto.from(it) }
+        }
 
     /**
      * 커서 기반 페이징으로 메시지 조회
@@ -51,12 +47,12 @@ class ChatMessageService(
      */
     suspend fun getMessagesBefore(
         chatRoomId: Long,
-        before: LocalDateTime?,
+        before: Instant?,
         size: Int
-    ): List<ChatMessageDto> {
+    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
         val pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "createdAt"))
 
-        val flow: Flow<ChatMessage> = if (before != null) {
+        val messages = if (before != null) {
             chatMessageRepository.findByChatRoomIdAndIsDeletedFalseAndCreatedAtBeforeOrderByCreatedAtDesc(
                 chatRoomId,
                 before,
@@ -69,7 +65,7 @@ class ChatMessageService(
             )
         }
 
-        return flow.map { ChatMessageDto.from(it) }.toList()
+        messages.map { ChatMessageDto.from(it) }
     }
 
     /**
@@ -86,17 +82,16 @@ class ChatMessageService(
         keyword: String,
         page: Int,
         size: Int
-    ): List<ChatMessageDto> {
+    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
 
-        return chatMessageRepository
+        chatMessageRepository
             .findByChatRoomIdAndIsDeletedFalseAndContentContainingOrderByCreatedAtDesc(
                 chatRoomId,
                 keyword,
                 pageable
             )
             .map { ChatMessageDto.from(it) }
-            .toList()
     }
 
     /**
@@ -106,11 +101,114 @@ class ChatMessageService(
      * @param lastReadAt 마지막으로 읽은 시간
      * @return 안읽은 메시지 개수
      */
-    suspend fun getUnreadCount(chatRoomId: Long, lastReadAt: LocalDateTime?): Long {
-        if (lastReadAt == null) {
-            return 0L
+    suspend fun getUnreadCount(chatRoomId: Long, lastReadAt: Instant?): Long =
+        withContext(Dispatchers.IO) {
+            if (lastReadAt == null) {
+                return@withContext 0L
+            }
+
+            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(chatRoomId, lastReadAt)
         }
 
-        return chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(chatRoomId, lastReadAt)
+    /**
+     * 특정 시간 이후의 메시지 조회 (재연결 시 놓친 메시지 복구용)
+     *
+     * WebSocket 연결이 끊겼다가 재연결될 때,
+     * 마지막으로 받은 메시지 이후의 모든 메시지를 조회
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param after 이 시간 이후의 메시지 조회
+     * @param limit 최대 개수 (기본 100)
+     * @return 놓친 메시지 목록 (오래된 순)
+     */
+    suspend fun getMessagesAfter(
+        chatRoomId: Long,
+        after: Instant,
+        limit: Int = 100
+    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
+        val pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt"))
+
+        chatMessageRepository
+            .findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtAsc(
+                chatRoomId,
+                after,
+                pageable
+            )
+            .map { ChatMessageDto.from(it) }
+    }
+
+    /**
+     * 메시지 삭제 (Soft Delete)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param messageId 메시지 ID
+     * @param memberId 요청한 회원 ID (권한 확인용)
+     */
+    suspend fun deleteMessage(chatRoomId: Long, messageId: String, memberId: Long) =
+        withContext(Dispatchers.IO) {
+            val message = chatMessageRepository.findById(messageId)
+                .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
+
+            // 채팅방 확인
+            if (message.chatRoomId != chatRoomId) {
+                throw IllegalArgumentException("해당 채팅방의 메시지가 아닙니다")
+            }
+
+            // 본인 메시지만 삭제 가능
+            if (message.senderId != memberId) {
+                throw IllegalArgumentException("본인의 메시지만 삭제할 수 있습니다")
+            }
+
+            // Soft Delete
+            message.delete()
+            chatMessageRepository.save(message)
+        }
+
+    /**
+     * 메시지 수정
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param messageId 메시지 ID
+     * @param memberId 요청한 회원 ID (권한 확인용)
+     * @param newContent 수정할 내용
+     * @return 수정된 메시지 DTO
+     */
+    suspend fun updateMessage(
+        chatRoomId: Long,
+        messageId: String,
+        memberId: Long,
+        newContent: String
+    ): ChatMessageDto = withContext(Dispatchers.IO) {
+        val message = chatMessageRepository.findById(messageId)
+            .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
+
+        // 채팅방 확인
+        if (message.chatRoomId != chatRoomId) {
+            throw IllegalArgumentException("해당 채팅방의 메시지가 아닙니다")
+        }
+
+        // 본인 메시지만 수정 가능
+        if (message.senderId != memberId) {
+            throw IllegalArgumentException("본인의 메시지만 수정할 수 있습니다")
+        }
+
+        // 텍스트 메시지만 수정 가능
+        if (message.type != com.joying.chat.document.MessageType.TEXT) {
+            throw IllegalArgumentException("텍스트 메시지만 수정할 수 있습니다")
+        }
+
+        // 삭제된 메시지는 수정 불가
+        if (message.isDeleted) {
+            throw IllegalArgumentException("삭제된 메시지는 수정할 수 없습니다")
+        }
+
+        // 수정 (MongoDB data class는 불변이므로 새 객체 생성)
+        val updatedMessage = message.copy(
+            content = newContent
+        )
+
+        chatMessageRepository.save(updatedMessage)
+
+        ChatMessageDto.from(updatedMessage)
     }
 }
