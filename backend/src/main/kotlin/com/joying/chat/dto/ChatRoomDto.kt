@@ -2,7 +2,7 @@ package com.joying.chat.dto
 
 import com.joying.chat.domain.ChatRoom
 import com.joying.chat.domain.ChatRoomStatus
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅방 목록 응답 DTO
@@ -16,7 +16,7 @@ data class ChatRoomDto(
     val otherMemberNickname: String,
     val otherMemberProfileUrl: String?,
     val lastMessage: String?,
-    val lastMessageAt: LocalDateTime?,
+    val lastMessageAt: Instant?,
     val unreadCount: Long,
     val status: ChatRoomStatus,
     val isPinned: Boolean,

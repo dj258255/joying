@@ -2,7 +2,7 @@ package com.joying.chat.dto
 
 import com.joying.chat.document.ChatMessage
 import com.joying.chat.document.MessageType
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅 메시지 DTO
@@ -20,7 +20,7 @@ data class ChatMessageDto(
     val fileName: String? = null,
     val fileSize: Long? = null,
     val replyToMessageId: String? = null,
-    val createdAt: LocalDateTime?,
+    val createdAt: Instant?,
     val isDeleted: Boolean = false
 ) {
     companion object {

@@ -1,15 +1,15 @@
 package com.joying.chat.websocket
 
-import com.joying.chat.dto.ChatMessageDto
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.service.ChatService
 import com.joying.common.config.security.JwtTokenProvider
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
-import org.springframework.messaging.handler.annotation.SendTo
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Controller
@@ -23,7 +23,8 @@ import org.springframework.stereotype.Controller
 class ChatWebSocketHandler(
     private val chatService: ChatService,
     private val jwtTokenProvider: JwtTokenProvider,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val chatPresenceService: com.joying.chat.service.ChatPresenceService
 ) {
     private val logger = LoggerFactory.getLogger(ChatWebSocketHandler::class.java)
 
@@ -31,20 +32,18 @@ class ChatWebSocketHandler(
      * 메시지 전송
      *
      * SEND /app/chat/{chatRoomId}/send
-     * → SUBSCRIBE /topic/chat/{chatRoomId}
+     * → Redis Pub/Sub를 통해 모든 구독자에게 전달됨
      *
      * @param chatRoomId 채팅방 ID
      * @param request 메시지 내용
      * @param headerAccessor WebSocket 헤더 (JWT 토큰 추출용)
-     * @return 전송된 메시지
      */
     @MessageMapping("/chat/{chatRoomId}/send")
-    @SendTo("/topic/chat/{chatRoomId}")
     fun sendMessage(
         @DestinationVariable chatRoomId: Long,
         @Payload request: SendMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
-    ): ChatMessageDto = runBlocking {
+    ) {
         // JWT 토큰에서 사용자 ID 추출
         val memberId = extractMemberIdFromToken(headerAccessor)
 
@@ -55,17 +54,27 @@ class ChatWebSocketHandler(
             request.type
         )
 
-        // 메시지 전송 (Redis Stream 발행)
-        val message = chatService.sendMessage(chatRoomId, memberId, request)
+        // 비동기로 메시지 전송 (MongoDB 저장 + Redis Pub/Sub 발행)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val message = chatService.sendMessage(chatRoomId, memberId, request)
 
-        logger.info(
-            "메시지 전송 완료: chatRoomId={}, messageId={}, senderId={}",
-            chatRoomId,
-            message.id,
-            memberId
-        )
-
-        message
+                logger.info(
+                    "메시지 전송 완료: chatRoomId={}, messageId={}, senderId={}",
+                    chatRoomId,
+                    message.id,
+                    memberId
+                )
+            } catch (e: Exception) {
+                logger.error(
+                    "메시지 전송 실패: chatRoomId={}, memberId={}, error={}",
+                    chatRoomId,
+                    memberId,
+                    e.message,
+                    e
+                )
+            }
+        }
     }
 
     /**
@@ -125,6 +134,24 @@ class ChatWebSocketHandler(
         )
 
         messagingTemplate.convertAndSend("/topic/chat/$chatRoomId/read", readEvent)
+    }
+
+    /**
+     * 온라인 상태 Heartbeat
+     *
+     * SEND /app/chat/heartbeat
+     * 클라이언트가 주기적으로 호출하여 온라인 상태 유지 (30초마다 권장)
+     *
+     * @param headerAccessor WebSocket 헤더
+     */
+    @MessageMapping("/chat/heartbeat")
+    fun heartbeat(headerAccessor: SimpMessageHeaderAccessor) {
+        val memberId = extractMemberIdFromToken(headerAccessor)
+
+        logger.debug("Heartbeat: memberId={}", memberId)
+
+        // 온라인 상태 갱신
+        chatPresenceService.heartbeat(memberId)
     }
 
     /**

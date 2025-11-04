@@ -5,7 +5,7 @@ import com.joying.member.domain.Member
 import com.joying.product.domain.Product
 import jakarta.persistence.*
 import org.hibernate.annotations.Comment
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅방 엔티티 (MySQL)
@@ -57,25 +57,25 @@ class ChatRoom(
     @Column(name = "last_message", length = 500)
     var lastMessage: String? = null,
 
-    @Comment("마지막 메시지 시간")
+    @Comment("마지막 메시지 시간 (UTC)")
     @Column(name = "last_message_at")
-    var lastMessageAt: LocalDateTime? = null,
+    var lastMessageAt: Instant? = null,
 
     @Comment("채팅방 상태 (ACTIVE, CLOSED, AUTO_CLOSED)")
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     var status: ChatRoomStatus = ChatRoomStatus.ACTIVE,
 
-    @Comment("종료 시간")
+    @Comment("종료 시간 (UTC)")
     @Column(name = "closed_at")
-    var closedAt: LocalDateTime? = null
+    var closedAt: Instant? = null
 
 ) : BaseEntity() {
 
     /**
      * 마지막 메시지 업데이트
      */
-    fun updateLastMessage(message: String, messageAt: LocalDateTime) {
+    fun updateLastMessage(message: String, messageAt: Instant) {
         this.lastMessage = message
         this.lastMessageAt = messageAt
     }
@@ -85,7 +85,7 @@ class ChatRoom(
      */
     fun close() {
         this.status = ChatRoomStatus.CLOSED
-        this.closedAt = LocalDateTime.now()
+        this.closedAt = Instant.now()
     }
 
     /**
@@ -93,7 +93,7 @@ class ChatRoom(
      */
     fun autoClose() {
         this.status = ChatRoomStatus.AUTO_CLOSED
-        this.closedAt = LocalDateTime.now()
+        this.closedAt = Instant.now()
     }
 
     /**

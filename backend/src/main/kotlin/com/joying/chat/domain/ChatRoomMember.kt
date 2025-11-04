@@ -4,7 +4,7 @@ import com.joying.common.entity.BaseEntity
 import com.joying.member.domain.Member
 import jakarta.persistence.*
 import org.hibernate.annotations.Comment
-import java.time.LocalDateTime
+import java.time.Instant
 
 /**
  * 채팅방 참여자 설정 엔티티 (MySQL)
@@ -45,9 +45,9 @@ class ChatRoomMember(
     @JoinColumn(name = "member_id", nullable = false)
     var member: Member,
 
-    @Comment("마지막으로 읽은 시간 (안읽은 메시지 개수 계산용)")
+    @Comment("마지막으로 읽은 시간 (UTC, 안읽은 메시지 개수 계산용)")
     @Column(name = "last_read_at")
-    var lastReadAt: LocalDateTime? = null,
+    var lastReadAt: Instant? = null,
 
     @Comment("채팅방 고정 여부")
     @Column(name = "is_pinned", nullable = false)
@@ -63,13 +63,13 @@ class ChatRoomMember(
      * 읽음 처리 (현재 시간으로 업데이트)
      */
     fun markAsRead() {
-        this.lastReadAt = LocalDateTime.now()
+        this.lastReadAt = Instant.now()
     }
 
     /**
      * 특정 시간으로 읽음 처리
      */
-    fun markAsRead(readAt: LocalDateTime) {
+    fun markAsRead(readAt: Instant) {
         this.lastReadAt = readAt
     }
 

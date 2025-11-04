@@ -1,6 +1,7 @@
 package com.joying.chat.controller
 
 import com.joying.chat.dto.ChatRoomDto
+import com.joying.chat.dto.ChatRoomMemberDto
 import com.joying.chat.dto.CreateChatRoomRequest
 import com.joying.chat.service.ChatRoomService
 import com.joying.chat.service.ChatService
@@ -97,7 +98,7 @@ class ChatRoomController(
      */
     @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 모든 채팅방 목록을 반환합니다")
     @GetMapping
-    fun getMyChatRooms(
+    suspend fun getMyChatRooms(
         @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomDto>>> {
         val memberId = extractMemberIdFromToken(authorization)
@@ -118,7 +119,7 @@ class ChatRoomController(
      */
     @Operation(summary = "채팅방 상세 조회", description = "특정 채팅방의 상세 정보를 반환합니다")
     @GetMapping("/{chatRoomId}")
-    fun getChatRoomDetail(
+    suspend fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
         @RequestHeader("Authorization") authorization: String,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
@@ -207,6 +208,55 @@ class ChatRoomController(
             if (isMuted) "채팅방 알림이 꺼졌습니다" else "채팅방 알림이 켜졌습니다",
             mapOf("isMuted" to isMuted),
         )
+    }
+
+    /**
+     * 전체 안읽은 메시지 개수 조회
+     *
+     * 모든 채팅방의 안읽은 메시지 총 개수 (앱 배지 표시용)
+     *
+     * @param authorization JWT 토큰
+     * @return 안읽은 메시지 총 개수
+     */
+    @Operation(summary = "전체 안읽은 메시지 개수", description = "모든 채팅방의 안읽은 메시지 총 개수를 반환합니다 (앱 배지용)")
+    @GetMapping("/unread-count")
+    suspend fun getTotalUnreadCount(
+        @RequestHeader("Authorization") authorization: String,
+    ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Long>>> {
+        val memberId = extractMemberIdFromToken(authorization)
+
+        logger.info("전체 안읽은 메시지 개수 조회: memberId={}", memberId)
+
+        val unreadCount = chatRoomService.getTotalUnreadCount(memberId)
+
+        return ApiResponse.ok("안읽은 메시지 개수 조회 완료", mapOf("unreadCount" to unreadCount))
+    }
+
+    /**
+     * 채팅방 참여자 정보 조회
+     *
+     * 상대방 정보 + 온라인 상태 + 내 설정 정보 반환
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param authorization JWT 토큰
+     * @return 채팅방 참여자 정보
+     */
+    @Operation(
+        summary = "채팅방 참여자 정보 조회",
+        description = "상대방 정보(닉네임, 프로필), 온라인 상태, 내 채팅방 설정을 반환합니다"
+    )
+    @GetMapping("/{chatRoomId}/member")
+    fun getChatRoomMemberInfo(
+        @PathVariable chatRoomId: Long,
+        @RequestHeader("Authorization") authorization: String,
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomMemberDto>> {
+        val memberId = extractMemberIdFromToken(authorization)
+
+        logger.info("채팅방 참여자 정보 조회: chatRoomId={}, memberId={}", chatRoomId, memberId)
+
+        val memberInfo = chatRoomService.getChatRoomMemberInfo(chatRoomId, memberId)
+
+        return ApiResponse.ok("채팅방 참여자 정보 조회 완료", memberInfo)
     }
 
     /**
