@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import logo from '@/assets/icons/logo.png';
 
 const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onLoadComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -59,17 +60,19 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
         !active ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* 로고 또는 제목 */}
+      {/* 로고 */}
       <div className="mb-8 text-center">
-        <h1 className="text-6xl font-bold text-white mb-2">
-          빌리다
-        </h1>
+        <img 
+          src={logo} 
+          alt="빌려joying" 
+          className="h-32 w-auto object-contain mx-auto"
+        />
       </div>
 
       {/* 프로그레스 바 */}
       <div className="w-80 h-2 bg-gray-800 rounded-full overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-100 ease-out"
+          className="h-full bg-white transition-all duration-100 ease-out"
           style={{ width: `${smoothProgress}%` }}
         />
       </div>
@@ -81,9 +84,9 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
 
       {/* 로딩 애니메이션 (점 3개) */}
       <div className="mt-8 flex gap-2">
-        <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-        <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-        <div className="w-3 h-3 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+        <div className="w-3 h-3 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
       </div>
     </div>
   );
