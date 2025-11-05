@@ -71,11 +71,5 @@ export const API_ENDPOINTS = {
   // File
   FILE: {
     BASE: '/files'
-  },
-
-  // Account
-  ACCOUNT: {
-    VERIFY_START: '/accounts/verify/start',
-    VERIFY_COMPLETE: '/accounts/verify/complete'
   }
 };

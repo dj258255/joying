@@ -15,13 +15,37 @@ const ChatListPage = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const { chatRooms, isLoading, error, refetch } = useChatRooms();
 
-  // 실시간 업데이트를 위한 주기적 새로고침
+  // 실시간 업데이트: localStorage 변경 감지 및 짧은 간격 polling
   useEffect(() => {
+    // storage 이벤트 리스너 (다른 탭에서의 변경 감지)
+    const handleStorageChange = (e) => {
+      if (e.key === 'chatRooms' || e.key === null) {
+        // chatRooms가 변경되면 즉시 새로고침
+        refetch();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // 짧은 간격 polling (1초마다)
     const interval = setInterval(() => {
       refetch();
-    }, 5000); // 5초마다 새로고침
+    }, 1000); // 1초마다 새로고침
 
-    return () => clearInterval(interval);
+    // localStorage 직접 감지를 위한 커스텀 이벤트 리스너
+    // (같은 탭 내에서의 변경 감지)
+    const handleLocalStorageChange = () => {
+      refetch();
+    };
+
+    // 커스텀 이벤트 리스너 추가
+    window.addEventListener('chatRoomsUpdated', handleLocalStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('chatRoomsUpdated', handleLocalStorageChange);
+      clearInterval(interval);
+    };
   }, [refetch]);
 
   const handleChatRoomClick = (chatRoomId) => {

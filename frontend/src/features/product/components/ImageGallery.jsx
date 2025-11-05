@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 
-const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeClick }) => {
+const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeClick, compact = false }) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isZoomed, setIsZoomed] = useState(false);
   const [showMagnifier, setShowMagnifier] = useState(false);
@@ -28,10 +28,14 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
   };
 
   return (
-    <div className="space-y-4">
+    <div className={compact ? "space-y-2" : "space-y-4"}>
       {/* 메인 이미지 */}
       <div 
-        className="relative w-full aspect-[4/3] bg-gray-100 rounded-2xl overflow-hidden max-h-[600px] cursor-crosshair group"
+        className={
+          compact
+            ? "relative w-full h-36 bg-gray-100 rounded-xl overflow-hidden cursor-pointer"
+            : "relative w-full aspect-[4/3] bg-gray-100 rounded-2xl overflow-hidden max-h-[600px] cursor-crosshair group"
+        }
         onMouseEnter={() => setShowMagnifier(true)}
         onMouseLeave={() => setShowMagnifier(false)}
         onMouseMove={handleMouseMove}
@@ -44,7 +48,7 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
         />
         
         {/* 마우스 호버 시 확대된 부분 표시 */}
-        {showMagnifier && (
+        {!compact && showMagnifier && (
           <div 
             className="absolute inset-0 pointer-events-none"
             style={{
@@ -85,12 +89,12 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
 
       {/* 썸네일 갤러리 */}
       {displayImages.length > 1 && (
-        <div className="flex gap-3">
-          {displayImages.slice(0, 4).map((image, index) => (
+        <div className={compact ? "flex gap-2" : "flex gap-3"}>
+          {displayImages.slice(0, compact ? 3 : 4).map((image, index) => (
             <button
               key={index}
               onClick={() => setSelectedImage(index)}
-              className={`relative w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden transition-all duration-200 ${
+              className={`relative ${compact ? 'w-14 h-14' : 'w-20 h-20 md:w-24 md:h-24'} rounded-lg overflow-hidden transition-all duration-200 ${
                 selectedImage === index
                   ? 'ring-2 ring-gray-900'
                   : 'ring-1 ring-gray-200 hover:ring-gray-400 opacity-70 hover:opacity-100'
@@ -107,7 +111,7 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
       )}
 
       {/* 확대 모달 */}
-      {isZoomed && (
+      {!compact && isZoomed && (
         <div 
           className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4"
           onClick={() => setIsZoomed(false)}
