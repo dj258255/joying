@@ -7,9 +7,6 @@ import com.joying.chat.dto.UpdateChatRoomSettingsRequest
 import com.joying.chat.service.ChatRoomService
 import com.joying.chat.service.ChatService
 import com.joying.common.response.ApiResponse
-import com.joying.file.component.FileUrlResolver
-import com.joying.file.repository.ProductFileRepository
-import com.joying.product.domain.Product
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.slf4j.LoggerFactory
@@ -27,9 +24,7 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/chat-rooms")
 class ChatRoomController(
     private val chatRoomService: ChatRoomService,
-    private val chatService: ChatService,
-    private val productFileRepository: ProductFileRepository,
-    private val fileUrlResolver: FileUrlResolver
+    private val chatService: ChatService
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomController::class.java)
 
@@ -51,40 +46,8 @@ class ChatRoomController(
 
         logger.info("채팅방 생성/조회 요청: productId={}, memberId={}", request.productId, memberId)
 
-        val chatRoom = chatRoomService.getOrCreateChatRoom(request.productId, memberId)
-
-        // 채팅방 DTO 변환
-        val chatRoomDto =
-            ChatRoomDto(
-                chatRoomId = chatRoom.chatRoomId!!,
-                productId = chatRoom.product.getProductId()!!,
-                productTitle = chatRoom.product.getTitle(),
-                productImageUrl = getProductThumbnailUrl(chatRoom.product),
-                otherMemberId =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getMemberId()!!
-                    } else {
-                        chatRoom.buyer.getMemberId()!!
-                    },
-                otherMemberNickname =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getNickname()
-                    } else {
-                        chatRoom.buyer.getNickname()
-                    },
-                otherMemberProfileUrl =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getKakaoProfileImageUrl()
-                    } else {
-                        chatRoom.buyer.getKakaoProfileImageUrl()
-                    },
-                lastMessage = chatRoom.lastMessage,
-                lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = 0L, // 새 채팅방이므로 0
-                status = chatRoom.status,
-                isPinned = false,
-                isMuted = false,
-            )
+        // Service에서 DTO까지 완성해서 반환 (lazy loading 문제 방지)
+        val chatRoomDto = chatRoomService.getOrCreateChatRoomDto(request.productId, memberId)
 
         return ApiResponse.ok("채팅방이 생성되었습니다", chatRoomDto)
     }
@@ -218,22 +181,5 @@ class ChatRoomController(
             ?: throw IllegalStateException("인증 정보가 없습니다")
 
         return authentication.name.toLong()
-    }
-
-    /**
-     * 상품 썸네일 이미지 URL 조회
-     *
-     * ProductFileRepository에서 isThumbnail=true인 파일을 찾아 URL 반환
-     *
-     * @param product 상품 엔티티
-     * @return 썸네일 이미지 URL (없으면 null)
-     */
-    private fun getProductThumbnailUrl(product: Product): String? {
-        val productFiles = productFileRepository.findByProduct_ProductId(product.getProductId()!!)
-
-        // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
-        val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
-
-        return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
     }
 }

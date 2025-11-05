@@ -119,6 +119,48 @@ class ChatRoomService(
     }
 
     /**
+     * 채팅방 생성 또는 조회 + DTO 반환
+     * (Service에서 DTO 변환까지 처리하여 lazy loading 문제 방지)
+     *
+     * @param productId 상품 ID
+     * @param buyerId 구매자 ID
+     * @return 채팅방 DTO
+     */
+    @Transactional
+    fun getOrCreateChatRoomDto(productId: Long, buyerId: Long): ChatRoomDto {
+        val chatRoom = getOrCreateChatRoom(productId, buyerId)
+
+        // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
+        return ChatRoomDto(
+            chatRoomId = chatRoom.chatRoomId!!,
+            productId = chatRoom.product.getProductId()!!,
+            productTitle = chatRoom.product.getTitle(),
+            productImageUrl = getProductThumbnailUrl(chatRoom.product),
+            otherMemberId = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getMemberId()!!
+            } else {
+                chatRoom.buyer.getMemberId()!!
+            },
+            otherMemberNickname = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getNickname()
+            } else {
+                chatRoom.buyer.getNickname()
+            },
+            otherMemberProfileUrl = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getKakaoProfileImageUrl()
+            } else {
+                chatRoom.buyer.getKakaoProfileImageUrl()
+            },
+            lastMessage = chatRoom.lastMessage,
+            lastMessageAt = chatRoom.lastMessageAt,
+            unreadCount = 0L,
+            status = chatRoom.status,
+            isPinned = false,
+            isMuted = false
+        )
+    }
+
+    /**
      * 내 채팅방 목록 조회
      * (안읽은 메시지 개수는 Redis 캐시 사용, MongoDB 쿼리 최소화!)
      *
