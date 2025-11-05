@@ -4,11 +4,14 @@ import com.joying.chat.domain.ChatRoom
 import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.domain.ChatRoomStatus
 import com.joying.chat.dto.ChatRoomDto
+import com.joying.chat.dto.ChatRoomMemberDto
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
 import com.joying.chat.repository.ChatRoomRepository
 import com.joying.common.exception.BusinessException
 import com.joying.common.exception.ErrorCode
+import com.joying.file.component.FileUrlResolver
+import com.joying.file.repository.ProductFileRepository
 import com.joying.member.domain.Member
 import com.joying.member.repository.MemberRepository
 import com.joying.product.domain.Product
@@ -36,7 +39,10 @@ class ChatRoomService(
     private val chatMessageRepository: ChatMessageRepository,
     private val memberRepository: MemberRepository,
     private val productRepository: ProductRepository,
-    private val chatPresenceService: ChatPresenceService
+    private val chatPresenceService: ChatPresenceService,
+    private val unreadCountService: UnreadCountService,
+    private val productFileRepository: ProductFileRepository,
+    private val fileUrlResolver: FileUrlResolver
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -114,7 +120,7 @@ class ChatRoomService(
 
     /**
      * 내 채팅방 목록 조회
-     * (안읽은 메시지 개수 포함 - 코루틴 병렬 처리)
+     * (안읽은 메시지 개수는 Redis 캐시 사용, MongoDB 쿼리 최소화!)
      *
      * @param memberId 회원 ID
      * @return 채팅방 목록
@@ -126,51 +132,104 @@ class ChatRoomService(
         // 채팅방별 설정 매핑
         val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoom.chatRoomId }
 
-        // 코루틴으로 각 채팅방의 안읽은 메시지 개수를 병렬로 조회
-        return coroutineScope {
-            chatRooms.map { chatRoom ->
-                async {
-                    val settings = memberSettingsMap[chatRoom.chatRoomId]
-                        ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
+        // Redis에서 안읽은 개수 배치 조회 (Pipeline 사용)
+        val chatRoomIds = chatRooms.map { it.chatRoomId!! }
+        val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
 
-                    // 상대방 정보
-                    val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller
-                    } else {
-                        chatRoom.buyer
-                    }
+        // DTO 변환
+        return chatRooms.map { chatRoom ->
+            val settings = memberSettingsMap[chatRoom.chatRoomId]
+                ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
 
-                    // 안읽은 메시지 개수 계산 (blocking I/O를 withContext로 처리)
-                    val unreadCount = if (settings.lastReadAt != null) {
-                        withContext(Dispatchers.IO) {
-                            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
-                                chatRoom.chatRoomId!!,
-                                settings.lastReadAt!!
-                            )
-                        }
-                    } else {
-                        0L
-                    }
+            // 상대방 정보
+            val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
+                chatRoom.seller
+            } else {
+                chatRoom.buyer
+            }
 
-                    // DTO 변환
-                    ChatRoomDto(
-                        chatRoomId = chatRoom.chatRoomId!!,
-                        productId = chatRoom.product.getProductId()!!,
-                        productTitle = chatRoom.product.getTitle(),
-                        productImageUrl = null,  // TODO: 상품 이미지 추가
-                        otherMemberId = otherMember.getMemberId()!!,
-                        otherMemberNickname = otherMember.getNickname(),
-                        otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
-                        lastMessage = chatRoom.lastMessage,
-                        lastMessageAt = chatRoom.lastMessageAt,
-                        unreadCount = unreadCount,
-                        status = chatRoom.status,
-                        isPinned = settings.isPinned,
-                        isMuted = settings.isMuted
-                    )
-                }
-            }.awaitAll()  // 모든 비동기 작업 완료 대기
+            // DTO 변환 (안읽은 개수는 Redis에서!)
+            ChatRoomDto(
+                chatRoomId = chatRoom.chatRoomId!!,
+                productId = chatRoom.product.getProductId()!!,
+                productTitle = chatRoom.product.getTitle(),
+                productImageUrl = getProductThumbnailUrl(chatRoom.product),
+                otherMemberId = otherMember.getMemberId()!!,
+                otherMemberNickname = otherMember.getNickname(),
+                otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
+                lastMessage = chatRoom.lastMessage,
+                lastMessageAt = chatRoom.lastMessageAt,
+                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,  // ← Redis에서!
+                status = chatRoom.status,
+                isPinned = settings.isPinned,
+                isMuted = settings.isMuted
+            )
         }
+    }
+
+    /**
+     * 채팅방 상세 조회 (단일)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param memberId 회원 ID
+     * @param includeMember 참여자 상세 정보 포함 여부 (온라인 상태 등)
+     * @return 채팅방 상세 정보
+     */
+    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomDto {
+        val chatRoom = chatRoomRepository.findById(chatRoomId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+        // 권한 확인 (구매자 또는 판매자만)
+        if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
+            throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
+        }
+
+        // 내 설정 정보
+        val settings = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+
+        // 상대방 정보
+        val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
+            chatRoom.seller
+        } else {
+            chatRoom.buyer
+        }
+
+        // Redis에서 안읽은 개수 조회
+        val unreadCount = unreadCountService.get(chatRoomId, memberId)
+
+        // 참여자 상세 정보 (선택적)
+        val memberInfo = if (includeMember) {
+            val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
+            val lastSeenAt = if (!isOnline) {
+                chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+            } else {
+                null
+            }
+            ChatRoomDto.MemberInfo(
+                isOnline = isOnline,
+                lastSeenAt = lastSeenAt
+            )
+        } else {
+            null
+        }
+
+        return ChatRoomDto(
+            chatRoomId = chatRoom.chatRoomId!!,
+            productId = chatRoom.product.getProductId()!!,
+            productTitle = chatRoom.product.getTitle(),
+            productImageUrl = getProductThumbnailUrl(chatRoom.product),
+            otherMemberId = otherMember.getMemberId()!!,
+            otherMemberNickname = otherMember.getNickname(),
+            otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
+            lastMessage = chatRoom.lastMessage,
+            lastMessageAt = chatRoom.lastMessageAt,
+            unreadCount = unreadCount,
+            status = chatRoom.status,
+            isPinned = settings.isPinned,
+            isMuted = settings.isMuted,
+            member = memberInfo  // ← 선택적 포함
+        )
     }
 
     /**
@@ -214,31 +273,18 @@ class ChatRoomService(
 
     /**
      * 전체 안읽은 메시지 개수 조회
-     * (앱 배지 표시용)
+     * (앱 배지 표시용, Redis 캐시 사용)
      *
      * @param memberId 회원 ID
      * @return 모든 채팅방의 안읽은 메시지 총 개수
      */
     suspend fun getTotalUnreadCount(memberId: Long): Long {
         val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+        val chatRoomIds = chatRoomMembers.map { it.chatRoom.chatRoomId!! }
 
-        // 각 채팅방의 안읽은 메시지 개수를 병렬로 조회하고 합산
-        return coroutineScope {
-            chatRoomMembers.map { member ->
-                async {
-                    if (member.lastReadAt != null) {
-                        withContext(Dispatchers.IO) {
-                            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
-                                member.chatRoom.chatRoomId!!,
-                                member.lastReadAt!!
-                            )
-                        }
-                    } else {
-                        0L
-                    }
-                }
-            }.awaitAll().sum()
-        }
+        // Redis에서 배치 조회 후 합산
+        val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
+        return unreadCountMap.values.sum()
     }
 
     /**
@@ -249,7 +295,7 @@ class ChatRoomService(
      * @param memberId 요청한 회원 ID
      * @return 채팅방 참여자 정보
      */
-    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): com.joying.chat.dto.ChatRoomMemberDto {
+    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): ChatRoomMemberDto {
         val chatRoom = chatRoomRepository.findById(chatRoomId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
@@ -277,7 +323,7 @@ class ChatRoomService(
             null
         }
 
-        return com.joying.chat.dto.ChatRoomMemberDto(
+        return ChatRoomMemberDto(
             memberId = otherMember.getMemberId()!!,
             nickname = otherMember.getNickname(),
             profileUrl = otherMember.getKakaoProfileImageUrl(),
@@ -290,5 +336,22 @@ class ChatRoomService(
             productId = chatRoom.product.getProductId()!!,
             productTitle = chatRoom.product.getTitle()
         )
+    }
+
+    /**
+     * 상품 썸네일 이미지 URL 조회
+     *
+     * ProductFileRepository에서 isThumbnail=true인 파일을 찾아 URL 반환
+     *
+     * @param product 상품 엔티티
+     * @return 썸네일 이미지 URL (없으면 null)
+     */
+    private fun getProductThumbnailUrl(product: Product): String? {
+        val productFiles = productFileRepository.findByProduct_ProductId(product.getProductId()!!)
+
+        // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
+        val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
+
+        return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
     }
 }
