@@ -12,7 +12,7 @@ public record ReviewRequestDto(
 	String title,
 	String content,
 	UploadType uploadType,
-	float rating,
+	Float rating,
 	Long reviewerId,
 	Long productId,
 	Long reviewedId,
