@@ -3,17 +3,50 @@
  * 결제 성공 페이지 컴포넌트
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { paymentApi } from '../api/paymentApi';
 
 const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   
-  const paymentId = searchParams.get('paymentId');
+  const orderId = searchParams.get('orderId');
+  const paymentKey = searchParams.get('paymentKey');
   const amount = searchParams.get('amount');
 
+  useEffect(() => {
+    // 결제 승인 API 호출 (paymentKey가 있을 때만)
+    if (paymentKey && orderId) {
+      const confirmPayment = async () => {
+        try {
+          // 토스 페이먼츠에서 리다이렉트할 때 전달하는 파라미터 확인
+          // 일반적으로 paymentKey, orderId, amount가 전달됨
+          const confirmData = {
+            orderId: orderId,
+            paymentKey: paymentKey,
+            amount: amount ? parseInt(amount) : undefined
+          };
+
+          console.log('[PaymentSuccessPage] 결제 승인 요청:', confirmData);
+          
+          await paymentApi.confirmPayment(confirmData);
+          console.log('[PaymentSuccessPage] 결제 승인 완료');
+        } catch (error) {
+          console.error('[PaymentSuccessPage] 결제 승인 실패:', error);
+          // 에러 발생 시 사용자에게 알림 (필요시)
+          alert(`결제 승인 중 오류가 발생했습니다: ${error.response?.data?.message || error.message}`);
+        }
+      };
+
+      confirmPayment();
+    } else {
+      console.warn('[PaymentSuccessPage] paymentKey 또는 orderId가 없습니다:', { paymentKey, orderId });
+    }
+  }, [paymentKey, orderId, amount]);
+
   const formatCurrency = (value) => {
+    if (!value) return '0원';
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
       currency: 'KRW'
@@ -26,6 +59,12 @@ const PaymentSuccessPage = () => {
 
   const handleGoToHome = () => {
     navigate('/');
+  };
+
+  const handleGoToChat = () => {
+    // 채팅방으로 돌아가기 (orderId를 이용해 채팅방 찾기)
+    // TODO: orderId로 채팅방 ID 찾기
+    navigate('/chats');
   };
 
   return (
@@ -50,9 +89,14 @@ const PaymentSuccessPage = () => {
         {/* 결제 정보 */}
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <div className="text-sm text-gray-600 mb-2">결제 정보</div>
-          {paymentId && (
+          {orderId && (
             <div className="text-xs text-gray-500 mb-1">
-              결제 ID: {paymentId}
+              주문번호: {orderId}
+            </div>
+          )}
+          {paymentKey && (
+            <div className="text-xs text-gray-500 mb-1">
+              결제 키: {paymentKey.substring(0, 20)}...
             </div>
           )}
           {amount && (

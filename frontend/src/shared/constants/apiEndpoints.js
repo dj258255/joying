@@ -44,6 +44,8 @@ export const API_ENDPOINTS = {
   // Payment
   PAYMENT: {
     BASE: '/payments',
+    CREATE: '/payments',
+    CONFIRM: '/payments/confirm',
     CANCEL: (paymentId) => `/payments/${paymentId}/cancel`,
     REFUND: (paymentId) => `/payments/${paymentId}/refund`,
     STATUS: (paymentId) => `/payments/${paymentId}/status`

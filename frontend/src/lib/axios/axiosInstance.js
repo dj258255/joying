@@ -2,18 +2,41 @@
  * Axios Instance Configuration
  * 쿠키 기반 인증을 위한 Axios 설정
  *
- * 로컬 개발: Vite 프록시를 통해 /api/* → https://k13c202.p.ssafy.io/api/*
- * 운영 배포: Nginx가 /api/* → 백엔드 서버로 라우팅
+ * 개발 환경: Vite 프록시를 통해 /api/v1 → VITE_BACKEND_TARGET (기본: http://localhost:8080)
+ * 프로덕션 환경: Nginx가 /api/v1 → 백엔드 서버로 라우팅
+ *
+ * 환경 변수 설정 (env.example 참고):
+ * - VITE_API_BASE_URL=/api/v1 (상대 경로, Vite 프록시 사용)
+ * - VITE_BACKEND_TARGET=http://localhost:8080 (Vite 프록시 타겟)
  */
 
 import axios from 'axios';
 
+// 환경별 baseURL 설정
+// env.example 참고: VITE_API_BASE_URL=/api/v1 (Vite 프록시 사용)
+// Vite 프록시 설정(vite.config.js)에서 /api → VITE_BACKEND_TARGET으로 전달
+const getBaseURL = () => {
+  // 환경 변수가 설정된 경우 사용 (env.example: VITE_API_BASE_URL=/api/v1)
+  // Vite 프록시를 통해 백엔드로 전달됨
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  
+  // 디버깅: baseURL 확인
+  console.log('[axiosInstance] baseURL 설정:', {
+    'import.meta.env.VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
+    'import.meta.env.DEV': import.meta.env.DEV,
+    'import.meta.env.MODE': import.meta.env.MODE,
+    '최종 baseURL': baseURL
+  });
+  
+  return baseURL;
+};
+
 // 기본 axios 인스턴스 생성
+const baseURL = getBaseURL();
 export const axiosInstance = axios.create({
-  // 개발 환경: /api/v1 (Vite 프록시 사용)
-  // 프로덕션 환경: /api/v1 (Nginx 프록시 사용)
-  // 모든 엔드포인트는 baseURL에 /api/v1가 포함되어 있으므로 경로만 사용 (예: /auth/me)
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  // 개발 환경: /api/v1 (Vite 프록시 → VITE_BACKEND_TARGET)
+  // 프로덕션 환경: /api/v1 (Nginx 프록시)
+  baseURL: baseURL,
   timeout: 10000,
   withCredentials: true, // 쿠키 자동 전송 (SameSite=Lax/Strict 지원)
   headers: {
@@ -50,9 +73,14 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('[axiosInstance] accessToken이 없습니다. 인증이 필요할 수 있습니다.');
     }
     
-    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+      hasToken: !!token,
+      url: config.url
+    });
     return config;
   },
   (error) => {

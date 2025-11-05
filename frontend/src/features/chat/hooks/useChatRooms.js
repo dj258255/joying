@@ -7,20 +7,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatApi } from '../api/chatApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
-export const useChatRooms = (params = {}) => {
+export const useChatRooms = () => {
   const queryClient = useQueryClient();
 
   // 채팅방 목록 조회
   const {
-    data: chatRooms,
+    data: chatRoomsData,
     isLoading,
     error,
     refetch
   } = useQuery({
-    queryKey: [QUERY_KEYS.CHATS, 'rooms', params],
-    queryFn: () => chatApi.getChatRooms(params),
-    staleTime: 1000 * 60 * 2 // 2분
+    queryKey: [QUERY_KEYS.CHATS, 'rooms'],
+    queryFn: async () => {
+      const result = await chatApi.getChatRooms();
+      return result;
+    },
+    staleTime: 1000 * 30, // 30초 (실시간 업데이트를 위해 짧게 설정)
+    refetchInterval: 5000 // 5초마다 자동 새로고침 (WebSocket 연동 전까지)
   });
+
+  // 응답 데이터에서 chatRooms와 totalUnreadCount 추출
+  const chatRooms = chatRoomsData?.chatRooms || [];
+  const totalUnreadCount = chatRoomsData?.totalUnreadCount || 0;
 
   // 채팅방 생성
   const createChatRoomMutation = useMutation({
@@ -56,6 +64,7 @@ export const useChatRooms = (params = {}) => {
 
   return {
     chatRooms: chatRooms || [],
+    totalUnreadCount,
     isLoading,
     error,
     refetch,
