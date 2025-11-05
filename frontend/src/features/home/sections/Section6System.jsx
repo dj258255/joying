@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
+import logo from '@/assets/icons/logo.png';
 
 /**
  * Section 6: 시스템 설명
@@ -16,6 +17,16 @@ const Section6System = () => {
       className="relative min-h-screen flex items-center overflow-hidden"
       style={{ zIndex: 60 }}
     >
+      {/* 로고 - 모바일: 우측 하단, PC: 왼쪽 상단 */}
+      <div className="absolute bottom-8 right-8 md:top-8 md:left-8 md:bottom-auto md:right-auto">
+        <img 
+          src={logo} 
+          alt="빌려joying" 
+          className="h-12 w-auto object-contain cursor-pointer"
+          onClick={() => navigate(ROUTE_PATHS.HOME)}
+        />
+      </div>
+
       <div className="container mx-auto px-4 md:px-8 py-8 md:py-0">
         <h2 className="text-2xl md:text-4xl font-bold text-center mb-4 md:mb-12">
           안전한 거래를 위한 <span className="text-primary-500">3가지 시스템</span>

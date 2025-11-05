@@ -92,6 +92,9 @@ dependencies {
     implementation("software.amazon.awssdk:s3:2.28.23")
     implementation("software.amazon.awssdk:auth:2.28.23")
     implementation("software.amazon.awssdk:regions:2.28.23")
+
+    // Elasticsearch Java API Client
+    implementation("co.elastic.clients:elasticsearch-java:8.18.5")
 }
 
 // Java 소스를 delombok된 소스로 변경

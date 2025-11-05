@@ -886,39 +886,39 @@ const HomePage = () => {
     };
 
     const handleTouchMove = (e) => {
-      // 스크롤 중이 아니고 섹션 기반 스크롤 영역이면 기본 스크롤 방지
-      if (!isNormalScrolling && currentSection < totalSections) {
-        const touchCurrentY = e.touches[0].clientY;
-        const delta = Math.abs(touchStartY - touchCurrentY);
-        
-        // 일정 거리 이상 움직이면 터치 스크롤로 간주
-        if (delta > 30) {
-          isTouchScrolling = true;
-          e.preventDefault();
-        }
+      // 스크롤 중이거나 일반 스크롤 모드면 처리 안 함
+      if (isScrolling || isNormalScrolling) return;
+      
+      const touchCurrentY = e.touches[0].clientY;
+      const delta = Math.abs(touchStartY - touchCurrentY);
+      
+      // 일정 거리 이상 움직이면 터치 스크롤로 간주
+      if (delta > 20) {
+        isTouchScrolling = true;
       }
     };
 
     const handleTouchEnd = (e) => {
+      // 스크롤 중이면 처리 안 함
+      if (isScrolling) return;
+      
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
       const touchDuration = Date.now() - touchStartTime;
 
-      // 빠른 스와이프 또는 충분한 거리 이동 시에만 섹션 전환
+      // 빠른 스와이프 또는 충분한 거리 이동 시 섹션 전환
       const isQuickSwipe = touchDuration < 300 && Math.abs(delta) > 30;
-      const isLongSwipe = Math.abs(delta) > 80;
+      const isLongSwipe = Math.abs(delta) > 50;
 
-      if (isTouchScrolling && (isQuickSwipe || isLongSwipe)) {
+      if (isQuickSwipe || isLongSwipe) {
         if (delta > 0) {
           // 위로 스와이프 (다음 섹션)
           if (currentSection < totalSections - 1) {
-            e.preventDefault();
             goToSection(currentSection + 1);
           }
         } else {
           // 아래로 스와이프 (이전 섹션)
           if (currentSection > 0) {
-            e.preventDefault();
             goToSection(currentSection - 1);
           }
         }

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { kakaoLogin } from '@/features/auth/api/authApi';
+import logo from '@/assets/icons/logo.png';
 
 /**
  * Section 5: Final CTA (삼각 대형)
@@ -21,6 +22,16 @@ const Section5Triangle = () => {
       className="relative min-h-screen flex items-center justify-end"
       style={{ zIndex: 60 }}
     >
+      {/* 왼쪽 상단 로고 */}
+      <div className="absolute top-8 left-8">
+        <img 
+          src={logo} 
+          alt="빌려joying" 
+          className="h-12 w-auto object-contain cursor-pointer"
+          onClick={() => navigate(ROUTE_PATHS.HOME)}
+        />
+      </div>
+
       <div className="container mx-auto px-8">
         <div className="max-w-2xl ml-auto text-right">
           <h2 className="text-7xl font-bold mb-6">

@@ -1,23 +1,60 @@
 package com.joying.search.service;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.joying.file.component.FileUrlResolver;
+import com.joying.file.domain.File;
+import com.joying.file.repository.FileRepository;
 import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import com.joying.product.repository.ProductRepository;
+import com.joying.search.domain.SearchDocument;
 import com.joying.search.dto.HashtagInfo;
-import com.joying.search.dto.SearchResponse;
+import com.joying.search.dto.SearchRequest;
+import com.joying.search.dto.SearchDto;
 import com.joying.search.dto.SearchResponseDto;
+import com.joying.search.exception.ElasticsearchSearchException;
+import com.joying.search.repository.SearchRepository;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.SortOptions;
+import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.DateRangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.NumberRangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.TermsQuery;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.indices.AnalyzeRequest;
+import co.elastic.clients.elasticsearch.indices.AnalyzeResponse;
+import co.elastic.clients.elasticsearch.indices.analyze.AnalyzeToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +65,11 @@ public class SearchService {
 
 	private final ProductRepository productRepository;
 	private final HashtagHistoryRepository hashtagHistoryRepository;
+	private final SearchRepository searchRepository;
+	private final ElasticsearchOperations elasticsearchOperations;
+	private final ElasticsearchClient elasticsearchClient;
+	private final FileUrlResolver fileUrlResolver;
+	private final FileRepository fileRepository;
 
 	@Transactional
 	public SearchResponseDto searchRDB(
@@ -55,30 +97,11 @@ public class SearchService {
 			}
 		}
 
-		List<Product> test = productRepository.findAll();
-		log.info("test: {}", test);
-		log.info("test Size: {}", test.size());
-
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "productId"));
 		Page<Product> products = productRepository.searchProducts(q, priceMin, priceMax, dong, dateFromInstant, dateToInstant,
 				rating, rentMethodEnum, categoryIds, hashtagIds, hashtagCount, pageRequest);
 
-		log.info("================================");
-		log.info(String.valueOf(products.getContent().size()));
-		log.info("q : {}", q);
-		log.info("priceMin : {}", priceMin);
-		log.info("priceMax : {}", priceMax);
-		log.info("dong : {}", dong);
-		log.info("dateFrom : {}", dateFrom);
-		log.info("dateTo : {}", dateTo);
-		log.info("rating : {}", rating);
-		log.info("method : {}", method);
-		log.info("categoryIds : {}", categoryIds);
-		log.info("hashtagIds : {}", hashtagIds);
-		log.info("hashtagCount : {}", hashtagCount);
-		log.info("================================");
-
-		List<SearchResponse> responses = products.stream().map(SearchResponse::fromEntity).toList();
+		List<SearchDto> responses = products.stream().map(SearchDto::fromEntityRDB).toList();
 
 		List<Long> productIds = products.stream()
 			.map(Product::getProductId)
@@ -98,5 +121,300 @@ public class SearchService {
 			.page(page)
 			.size(size)
 			.build();
+	}
+
+	@Transactional(readOnly = true)
+	public SearchResponseDto search(
+		String q,
+		Integer priceMin,
+		Integer priceMax,
+		Long dong,
+		LocalDate dateFrom,
+		LocalDate dateTo,
+		Double rating,
+		String method,
+		List<Long> categoryIds,
+		List<Long> hashtagIds,
+		int page,
+		int size) {
+		Instant dateFromInstant = (dateFrom == null) ? null : Instant.parse(dateFrom + "T00:00:00Z");
+		Instant dateToInstant = (dateTo == null) ? null : Instant.parse(dateTo + "T23:59:59Z");
+
+		List<SearchDocument> available = new ArrayList<>();
+		Long totalHits = 0L;
+		Integer fetchCount = 0;
+
+		while (true) {
+			List<Query> mustQueries = new ArrayList<>();
+			List<Query> shouldQueries = new ArrayList<>();
+
+			// 키워드 검색
+			boolean hasKeyword = (q != null && !q.isBlank());
+			if (hasKeyword) {
+				List<String> tokens = analyzeText(q);
+				if (tokens.size() > 1) {
+					for (String token : tokens) {
+						MatchQuery multiTokenMatch = MatchQuery.of(m -> m
+							.field("title")
+							.query(token)
+						);
+
+						mustQueries.add(MatchQuery.of(m -> m
+							.field("content")
+							.query(token)
+						)._toQuery());
+						mustQueries.add(multiTokenMatch._toQuery());
+					}
+				} else {
+					MatchQuery singleTokenMatch = MatchQuery.of(m -> m
+						.field("title")
+						.query(q)
+					);
+
+					shouldQueries.add(MatchQuery.of(m -> m
+						.field("content")
+						.query(q)
+					)._toQuery());
+					shouldQueries.add(singleTokenMatch._toQuery());
+				}
+			}
+
+			// 가격 필터
+			if (priceMin != null || priceMax != null) {
+				NumberRangeQuery.Builder numberRangeBuilder = new NumberRangeQuery.Builder()
+					.field("rentalFee");
+
+				if (priceMin != null) {
+					numberRangeBuilder.gte(Double.valueOf(priceMin));
+				}
+
+				if (priceMax != null) {
+					numberRangeBuilder.lte(Double.valueOf(priceMax));
+				}
+
+				RangeQuery feeRange = new RangeQuery.Builder()
+					.number(numberRangeBuilder.build())
+					.build();
+
+				mustQueries.add(feeRange._toQuery());
+			}
+
+			// 지역 필터
+			if (dong != null) {
+				TermQuery dongQuery = TermQuery.of(t -> t.field("dongId").value(dong));
+				mustQueries.add(dongQuery._toQuery());
+			}
+
+			// 카테고리 필터
+			if (categoryIds != null && !categoryIds.isEmpty()) {
+				TermsQuery categoryQuery = new TermsQuery.Builder()
+					.field("categoryId")
+					.terms(t -> t.value(
+						categoryIds.stream()
+							.map(FieldValue::of)
+							.toList()
+					))
+					.build();
+
+				mustQueries.add(categoryQuery._toQuery());
+			}
+
+			// 렌트 방식 필터
+			if (method != null && !method.isBlank()) {
+				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(method));
+				mustQueries.add(rentMethodQuery._toQuery());
+			}
+
+			// 날짜 범위 필터
+			if (dateFrom != null && dateTo != null) {
+				RangeQuery dateRangeQuery = new RangeQuery.Builder()
+					.date(new DateRangeQuery.Builder()
+						.field("startRent")
+						.gte(String.valueOf(dateFrom))
+						.lte(String.valueOf(dateTo))
+						.build())
+
+					.build();
+				RangeQuery dateRangeQuery2 = new RangeQuery.Builder()
+					.date(new DateRangeQuery.Builder()
+						.field("endRent")
+						.gte(String.valueOf(dateFrom))
+						.lte(String.valueOf(dateTo))
+						.build())
+					.build();
+				mustQueries.add(dateRangeQuery._toQuery());
+				mustQueries.add(dateRangeQuery2._toQuery());
+			}
+
+			// 해시태그 필터
+			if (hashtagIds != null && !hashtagIds.isEmpty()) {
+				TermsQuery hashtagsQuery = TermsQuery.of(t -> t
+					.field("hashtags")
+					.terms(v -> v.value(hashtagIds.stream().map(FieldValue::of).toList()))
+				);
+				mustQueries.add(hashtagsQuery._toQuery());
+			}
+
+			// BoolQuery 조합
+			BoolQuery.Builder boolBuilder = new BoolQuery.Builder().must(mustQueries);
+			if (hasKeyword) {
+				boolBuilder.should(shouldQueries);
+				boolBuilder.minimumShouldMatch("1");
+			}
+			Query boolQuery = boolBuilder.build()._toQuery();
+
+			// 정렬 조건
+			List<SortOptions> sortOptions = List.of(
+				SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
+				SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
+			);
+
+			// 페이지네이션
+			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
+
+			// NativeQuery 빌드
+			NativeQuery searchQuery = NativeQuery.builder()
+				.withQuery(boolQuery)
+				.withSort(sortOptions)
+				.withPageable(pageable)
+				.build();
+
+			// 검색 실행
+			SearchHits<SearchDocument> hits =
+				elasticsearchOperations.search(searchQuery, SearchDocument.class);
+
+			if (!hits.hasSearchHits()) break;
+
+			List<Long> productIds = hits.stream()
+				.map(hit -> hit.getContent().getProductId())
+				.toList();
+
+			if (dateFrom != null && dateTo != null) {
+				List<Long> unavailableProductIds = productRepository.findUnavailableProductIds(productIds, dateFromInstant, dateToInstant);
+				Set<Long> unavailableSet = new HashSet<>(unavailableProductIds);
+				for (SearchHit<SearchDocument> hit : hits) {
+					SearchDocument doc = hit.getContent();
+					if (!unavailableSet.contains(doc.getProductId())) {
+						available.add(doc);
+					}
+					if (available.size() >= size) {
+						break;
+					}
+				}
+			} else {
+				for (SearchHit<SearchDocument> hit : hits) {
+					available.add(hit.getContent());
+					if (available.size() >= size) {
+						break;
+					}
+				}
+			}
+
+			totalHits = hits.getTotalHits();
+			if (totalHits <= (long)(page + fetchCount) * size) break;
+			if (available.size() < size) break;
+			fetchCount += 1;
+		}
+
+		List<Long> fileIds = available.stream()
+			.map(SearchDocument::getThumbnailFileId)
+			.filter(Objects::nonNull)
+			.toList();
+
+		Map<Long, File> fileMap = fileRepository.findAllById(fileIds).stream()
+			.collect(Collectors.toMap(File::getFileId, Function.identity()));
+
+		List<SearchDto> responses = available.stream()
+			.map(s -> {
+				File file = fileMap.get(s.getThumbnailFileId());
+				if (file == null) return SearchDto.fromEntity(s, null);
+				return SearchDto.fromEntity(s, fileUrlResolver.toPublicUrl(file));
+			})
+			.toList();
+
+		List<Long> productIds = available.stream()
+			.map(SearchDocument::getProductId)
+			.toList();
+
+		List<HashtagInfo> hashtags = hashtagHistoryRepository.findHashtagCountInProducts(productIds).stream()
+			.map(p -> HashtagInfo.builder()
+				.count(p.getCount())
+				.hashtag(p.getHashtag())
+				.build())
+			.toList();
+
+		return SearchResponseDto.builder()
+			.searchResponses(responses)
+			.hashtags(hashtags)
+			.totalElements(totalHits)
+			.page(page)
+			.size(size)
+			.fetchCount(fetchCount)
+			.build();
+	}
+
+	@Transactional
+	public void save(SearchRequest request) {
+		SearchDocument doc = SearchDocument.from(request);
+		searchRepository.save(doc);
+	}
+
+	@Transactional
+	public void bulkSave(List<SearchRequest> requests) {
+		List<SearchDocument> docs = requests.stream()
+			.map(SearchDocument::from)
+			.collect(Collectors.toList());
+		searchRepository.saveAll(docs);
+	}
+
+	public List<String> getAutocompleteSuggestions(String keyword) {
+		if (keyword == null || keyword.isBlank()) {
+			return List.of();
+		}
+
+		Query autocompleteQuery = MatchQuery.of(m -> m
+			.field("title.autocomplete")
+			.query(keyword)
+		)._toQuery();
+
+		SearchResponse<SearchDocument> response = null;
+		try {
+			response = elasticsearchClient.search(s -> s
+					.index("search_product")
+					.size(5)
+					.query(autocompleteQuery)
+					.source(src -> src
+						.filter(f -> f.includes("title"))
+					),
+				SearchDocument.class
+			);
+		} catch (IOException e) {
+			throw new ElasticsearchSearchException("자동완성 검색 중 오류가 발생했습니다.", e);
+		}
+
+		return Objects.requireNonNull(response).hits().hits().stream()
+			.map(Hit::source).filter(Objects::nonNull)
+			.map(SearchDocument::getTitle)
+			.distinct()
+			.collect(Collectors.toList());
+	}
+
+	private List<String> analyzeText(String text) {
+		try {
+			AnalyzeResponse response = elasticsearchClient.indices().analyze(
+				AnalyzeRequest.of(a -> a
+					.index("search_product")
+					.analyzer("korean")
+					.text(text)
+				)
+			);
+
+			return response.tokens().stream()
+				.map(AnalyzeToken::token)
+				.toList();
+
+		} catch (IOException e) {
+			throw new ElasticsearchSearchException("Nori analyzer 실행 중 오류가 발생했습니다.", e);
+		}
 	}
 }

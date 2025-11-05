@@ -33,6 +33,16 @@ const Section1Hero = () => {
       className="relative min-h-screen flex items-center justify-center"
       style={{ zIndex: 60 }}
     >
+      {/* 왼쪽 상단 로고 */}
+      <div className="absolute top-8 left-8">
+        <img 
+          src={logo} 
+          alt="빌려joying" 
+          className="h-12 w-auto object-contain cursor-pointer"
+          onClick={() => navigate(ROUTE_PATHS.HOME)}
+        />
+      </div>
+
       {/* 우측 상단 버튼 - 로그인 상태에서만 표시 */}
       {isAuthenticated && (
         <div className="absolute top-8 right-8 flex items-center gap-4">
@@ -64,7 +74,7 @@ const Section1Hero = () => {
             {/* 검색 아이콘 */}
             <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none z-10">
               <svg 
-                className="w-5 h-5 text-gray-400 group-focus-within:text-primary-400 transition-colors duration-300" 
+                className="w-5 h-5 text-gray-400 group-focus-within:text-white transition-colors duration-300" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -83,7 +93,7 @@ const Section1Hero = () => {
                          bg-white/10 backdrop-blur-xl 
                          border-2 border-white/20 
                          text-white placeholder-gray-400
-                         focus:outline-none focus:border-primary-500 focus:bg-white/15
+                         focus:outline-none focus:border-white focus:bg-white/15
                          transition-all duration-300
                          shadow-2xl shadow-black/20"
             />
@@ -92,11 +102,10 @@ const Section1Hero = () => {
             <button
               type="submit"
               className="absolute right-2 top-1/2 -translate-y-1/2 
-                         bg-gradient-to-r from-primary-500 to-blue-500 
-                         hover:from-primary-600 hover:to-blue-600
-                         text-white px-7 py-2.5 rounded-full font-semibold text-sm
+                         bg-white hover:bg-gray-100
+                         text-black px-7 py-2.5 rounded-full font-semibold text-sm
                          transition-all duration-300 
-                         hover:scale-105 hover:shadow-lg hover:shadow-primary-500/50
+                         hover:scale-105 hover:shadow-lg
                          active:scale-95"
             >
               검색
@@ -104,7 +113,7 @@ const Section1Hero = () => {
 
             {/* 포커스 시 글로우 효과 */}
             <div className="absolute inset-0 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 pointer-events-none -z-10">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary-500/20 via-blue-500/20 to-purple-500/20 blur-2xl" />
+              <div className="absolute inset-0 rounded-full bg-white/20 blur-2xl" />
             </div>
           </div>
 
@@ -123,13 +132,13 @@ const Section1Hero = () => {
                            bg-white/5 backdrop-blur-sm
                            border border-white/10 
                            text-sm text-gray-300 font-medium
-                           hover:bg-white/10 hover:border-primary-500 hover:text-primary-400 
-                           transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-primary-500/20
+                           hover:bg-white/10 hover:border-white hover:text-white 
+                           transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-white/20
                            active:scale-95"
               >
                 <span className="relative z-10">{keyword}</span>
                 {/* 호버 시 배경 그라데이션 */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary-500/0 via-primary-500/10 to-primary-500/0 opacity-0 group-hover/keyword:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 rounded-full bg-white/5 opacity-0 group-hover/keyword:opacity-100 transition-opacity duration-300" />
               </button>
             ))}
           </div>
