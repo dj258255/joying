@@ -27,7 +27,16 @@ export const useChatRooms = () => {
   });
 
   // 응답 데이터에서 chatRooms와 totalUnreadCount 추출
-  const chatRooms = chatRoomsData?.chatRooms || [];
+  const chatRooms = (chatRoomsData?.chatRooms || []).slice().sort((a, b) => {
+    // 고정 채팅방 우선
+    const aPinned = !!a.isPinned;
+    const bPinned = !!b.isPinned;
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+    // 최신 활동 순 (lastMessageAt 내림차순)
+    const aTime = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+    const bTime = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+    return bTime - aTime;
+  });
   const totalUnreadCount = chatRoomsData?.totalUnreadCount || 0;
 
   // 채팅방 생성

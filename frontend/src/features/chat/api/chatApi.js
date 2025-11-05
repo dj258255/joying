@@ -19,9 +19,23 @@ export const chatApi = {
     try {
       console.log('[chatApi] 채팅방 생성 요청:', { productId });
       
-      const response = await axiosInstance.post('/chat-rooms', {
-        productId: Number(productId)
-      });
+      let response;
+      try {
+        response = await axiosInstance.post('/chat-rooms', {
+          productId: Number(productId)
+        });
+      } catch (firstError) {
+        const status = firstError.response?.status;
+        // 경로 차이 또는 메서드 제한 가능성: 404/405면 슬래시 버전으로 재시도
+        if (status === 404 || status === 405) {
+          console.log('[chatApi] /chat-rooms 실패, /chat-rooms/ 재시도');
+          response = await axiosInstance.post('/chat-rooms/', {
+            productId: Number(productId)
+          });
+        } else {
+          throw firstError;
+        }
+      }
       
       console.log('[chatApi] 채팅방 생성 응답:', response.data);
       
@@ -34,7 +48,20 @@ export const chatApi = {
       console.error('[chatApi] 채팅방 생성 실패:', error);
       
       if (error.response) {
-        // 백엔드에서 반환한 에러 메시지
+        const status = error.response.status;
+        // 인증 필요
+        if (status === 401) {
+          throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+        }
+        // 존재하지 않거나 메서드 불가
+        if (status === 404 || status === 405) {
+          throw new Error('채팅방 생성 API를 찾을 수 없습니다. 서버 엔드포인트를 확인해주세요.');
+        }
+        // 서버 오류는 사용자 친화 메시지
+        if (status === 500) {
+          throw new Error('서버 내부 오류로 채팅방을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
+        }
+        
         const errorMessage = error.response.data?.message || error.response.data?.error || '채팅방 생성에 실패했습니다.';
         throw new Error(errorMessage);
       }
@@ -45,14 +72,38 @@ export const chatApi = {
 
   /**
    * 내 채팅방 목록 조회
-   * GET /chat-rooms/
+   * GET /chat-rooms/ (또는 /chat-rooms)
    * @returns {Promise<Object>} { chatRooms: Array, totalUnreadCount: number }
    */
   getChatRooms: async () => {
     try {
       console.log('[chatApi] 채팅방 목록 조회 요청');
       
-      const response = await axiosInstance.get('/chat-rooms/');
+      // 슬래시 없이도 시도
+      let response;
+      try {
+        response = await axiosInstance.get('/chat-rooms/');
+      } catch (firstError) {
+        // 404 에러이고 슬래시가 있는 경우 슬래시 없이 재시도
+        if (firstError.response?.status === 404) {
+          console.log('[chatApi] /chat-rooms/ 실패, /chat-rooms 재시도');
+          try {
+            response = await axiosInstance.get('/chat-rooms');
+          } catch (secondError) {
+            // 두 경로 모두 실패하면 404를 빈 배열로 처리
+            if (secondError.response?.status === 404) {
+              console.warn('[chatApi] 채팅방 목록 API가 아직 구현되지 않았습니다. 빈 배열 반환.');
+              return {
+                chatRooms: [],
+                totalUnreadCount: 0
+              };
+            }
+            throw secondError;
+          }
+        } else {
+          throw firstError;
+        }
+      }
       
       console.log('[chatApi] 채팅방 목록 조회 응답:', response.data);
       
@@ -73,13 +124,23 @@ export const chatApi = {
       };
     } catch (error) {
       console.error('[chatApi] 채팅방 목록 조회 실패:', error);
-      
+
+      // 404 또는 500은 빈 목록으로 graceful degrade
+      const status = error.response?.status;
+      if (status === 404 || status === 500) {
+        console.warn(`[chatApi] 채팅방 목록 API ${status} 응답. 빈 배열 반환.`);
+        return {
+          chatRooms: [],
+          totalUnreadCount: 0
+        };
+      }
+
       if (error.response) {
-        // 백엔드에서 반환한 에러 메시지
+        // 그 외 에러는 메시지 전달
         const errorMessage = error.response.data?.message || error.response.data?.error || '채팅방 목록을 불러올 수 없습니다.';
         throw new Error(errorMessage);
       }
-      
+
       throw error;
     }
   },

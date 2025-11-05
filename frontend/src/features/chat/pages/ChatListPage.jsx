@@ -23,7 +23,8 @@ const ChatListPage = () => {
   };
 
   const handleOpenContextById = (chatRoomId, x, y) => {
-    const room = chatRooms.find(r => r.id === chatRoomId);
+    // chatRoomId로 채팅방 찾기 (id 또는 chatRoomId 모두 확인)
+    const room = chatRooms.find(r => (r.id === chatRoomId) || (r.chatRoomId === chatRoomId));
     if (!room) return;
     setContextMenu({ x: x ?? window.innerWidth / 2, y: y ?? window.innerHeight / 2, chatRoom: room });
   };
@@ -127,15 +128,19 @@ const ChatListPage = () => {
       <div className="flex-1 overflow-y-auto">
         {chatRooms.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {chatRooms.map((chatRoom) => (
-              <div key={chatRoom.id}>
-                <ChatRoomListItem
-                  chatRoom={chatRoom}
-                  onClick={() => handleChatRoomClick(chatRoom.id)}
-                  onContextMenuOpen={handleOpenContextById}
-                />
-              </div>
-            ))}
+            {chatRooms.map((chatRoom) => {
+              // 백엔드 응답 형식에 맞게 ID 추출
+              const roomId = chatRoom.chatRoomId || chatRoom.id;
+              return (
+                <div key={roomId}>
+                  <ChatRoomListItem
+                    chatRoom={chatRoom}
+                    onClick={() => handleChatRoomClick(roomId)}
+                    onContextMenuOpen={handleOpenContextById}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">

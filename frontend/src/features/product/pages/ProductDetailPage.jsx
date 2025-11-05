@@ -209,7 +209,7 @@ const ProductDetailPage = () => {
       }
 
       // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
-      console.log('[ProductDetailPage] 채팅방 생성 요청:', { productId: product.id });
+      console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
       const chatRoomData = await chatApi.createChatRoom(product.id);
       
       console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
@@ -221,11 +221,11 @@ const ProductDetailPage = () => {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
-      // 채팅방으로 이동
+      // 채팅방으로 이동 (대여 요청 메시지 전송은 채팅방에서 처리)
       navigate(`/chats/${chatRoomId}?productId=${product.id}`);
     } catch (error) {
-      console.error('채팅방 생성 실패:', error);
-      alert(`채팅방 생성에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
+      console.error('대여 요청 실패:', error);
+      alert(`대여 요청에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
     }
   };
 
@@ -378,31 +378,6 @@ const ProductDetailPage = () => {
                           className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                           대여 요청하기
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (!isAuthenticated || !user) {
-                              alert('로그인이 필요합니다.');
-                              navigate(ROUTE_PATHS.LOGIN);
-                              return;
-                            }
-                            try {
-                              console.log('[ProductDetailPage] 채팅하기 버튼 클릭:', { productId: product.id });
-                              const chatRoomData = await chatApi.createChatRoom(product.id);
-                              console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
-                              const chatRoomId = chatRoomData.chatRoomId || chatRoomData.id;
-                              if (!chatRoomId) {
-                                throw new Error('채팅방 ID를 받을 수 없습니다.');
-                              }
-                              navigate(`/chats/${chatRoomId}?productId=${product.id}`);
-                            } catch (error) {
-                              console.error('채팅방 생성 실패:', error);
-                              alert(`채팅방 생성에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
-                            }
-                          }}
-                          className="flex-1 bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                        >
-                          채팅하기
                         </button>
                         <button
                           onClick={() => console.log('찜하기')}
