@@ -9,4 +9,5 @@ export { default as Section3Tent } from './Section3Tent';
 export { default as Section4Gamepad } from './Section4Gamepad';
 export { default as Section5Triangle } from './Section5Triangle';
 export { default as Section6System } from './Section6System';
+export { default as Section7Process } from './Section7Process';
 

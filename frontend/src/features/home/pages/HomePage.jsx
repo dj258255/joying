@@ -23,7 +23,7 @@ import { useProducts } from '@/features/product/hooks/useProducts';
 
 import LoadingScreen from '../components/LoadingScreen';
 import ScrollIndicator from '../components/ScrollIndicator';
-import { Section1Hero, Section2Camera, Section3Tent, Section4Gamepad, Section5Triangle, Section6System } from '../sections';
+import { Section1Hero, Section2Camera, Section3Tent, Section4Gamepad, Section5Triangle, Section6System, Section7Process } from '../sections';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -117,15 +117,18 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
     
     // 애니메이션 상태로 위치, 회전, 스케일 업데이트
     if (currentModel === 'all' && triangleGroupRef.current && animationState.current) {
-      // Section 5: 삼각형 그룹 전체에 position만 적용 (스크롤 효과)
-      // ⚠️ 중요: JSX에서 설정한 position, rotation, scale은 유지하고
-      // animationState의 position.y만 추가로 적용하여 스크롤 효과
+      // Section 5, 6, 7: 삼각형 그룹 전체에 position과 scale 적용
       const basePosition = [0, 0, 0]; // JSX에서 설정한 기본 position
       triangleGroupRef.current.position.set(
         basePosition[0] + animationState.current.position.x,
         basePosition[1] + animationState.current.position.y,
         basePosition[2] + animationState.current.position.z
       );
+      
+      // scale 적용 (Section 5: 1, Section 6/7: 100)
+      const baseScale = 0.5; // JSX에서 설정한 기본 scale
+      const finalScale = baseScale * animationState.current.scale;
+      triangleGroupRef.current.scale.set(finalScale, finalScale, finalScale);
     } else if (groupRef.current && animationState.current) {
       // 일반 모드: groupRef 업데이트
       groupRef.current.rotation.set(
@@ -147,15 +150,13 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
 
     // Opacity 업데이트 (각 모델의 모든 메시에 적용)
     // 모든 모델을 항상 렌더링하여 미리 로드 (visible = true 유지)
-    // Section 6일 때는 opacity를 0으로 설정하여 숨김
-    const isSection6 = currentSection === 5; // Section 6 (index 5)
     
     if (cameraGroupRef.current) {
       cameraGroupRef.current.traverse((child) => {
         if (child.isMesh && child.material) {
           child.material.transparent = true;
-          child.material.opacity = isSection6 ? 0 : opacityRef.current.camera;
-          child.material.depthWrite = isSection6 ? false : (opacityRef.current.camera > 0.5);
+          child.material.opacity = opacityRef.current.camera;
+          child.material.depthWrite = opacityRef.current.camera > 0.5;
           child.material.needsUpdate = true;
         }
       });
@@ -176,8 +177,8 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
       tentGroupRef.current.traverse((child) => {
         if (child.isMesh && child.material) {
           child.material.transparent = true;
-          child.material.opacity = isSection6 ? 0 : opacityRef.current.tent;
-          child.material.depthWrite = isSection6 ? false : (opacityRef.current.tent > 0.5);
+          child.material.opacity = opacityRef.current.tent;
+          child.material.depthWrite = opacityRef.current.tent > 0.5;
           child.material.needsUpdate = true;
         }
       });
@@ -199,8 +200,8 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
       gamepadGroupRef.current.traverse((child) => {
         if (child.isMesh && child.material) {
           child.material.transparent = true;
-          child.material.opacity = isSection6 ? 0 : opacityRef.current.gamepad;
-          child.material.depthWrite = isSection6 ? false : (opacityRef.current.gamepad > 0.5);
+          child.material.opacity = opacityRef.current.gamepad;
+          child.material.depthWrite = opacityRef.current.gamepad > 0.5;
           child.material.needsUpdate = true;
         }
       });
@@ -720,7 +721,7 @@ const HomePage = () => {
     const state = animationState.current;
     let isScrolling = false;
     let currentSection = 0;
-    const totalSections = 6;  // 6개 섹션
+    const totalSections = 7;  // 7개 섹션
 
     // 모바일 여부 확인
     const isMobile = window.innerWidth <= 768;
@@ -773,11 +774,17 @@ const HomePage = () => {
         rotation: { x: 0, y: 0, z: 0 },  // 회전 없음
         scale: 1,  // JSX에서 이미 0.5 적용됨
       },
-      // Section 6: 시스템 설명 (삼각형 대형 - 위치 동일, opacity로만 숨김)
+      // Section 6: 시스템 설명 (삼각형을 확대하여 각 오브젝트가 화면 밖으로 흩어짐)
       {
-        position: { x: 0, y: 0, z: 0 },  // Section 5와 동일 (위치 변경 없음)
+        position: { x: 0, y: 0, z: 0 },  // 위치 유지
         rotation: { x: 0, y: 0, z: 0 },  // 회전 없음
-        scale: 1,  // Section 5와 동일
+        scale: 0,  // 5배 확대 → 각 꼭지점 방향으로 흩어짐
+      },
+      // Section 7: 대여 프로세스 (Section 6과 동일 - 변화 없음)
+      {
+        position: { x: 0, y: 0, z: 0 },  // Section 6과 동일
+        rotation: { x: 0, y: 0, z: 0 },
+        scale: 0,  // Section 6과 동일
       }
     ];
 
@@ -796,17 +803,9 @@ const HomePage = () => {
         setCurrentModel('tent');      // Section 3: 텐트
       } else if (index === 3) {
         setCurrentModel('gamepad');   // Section 4: 게임패드
-      } else if (index === 4) {
-        // Section 5: 모든 모델 (삼각형 대형)
-        if (previousSection === 5) {
-          // Section 6→5 전환: currentModel을 명확히 변경하여 useEffect 트리거
-          setCurrentModel('camera');    // 임시로 다른 값 설정
-          setTimeout(() => setCurrentModel('all'), 10); // 즉시 'all'로 변경하여 opacity 효과 트리거
-        } else {
-          setCurrentModel('all');
-        }
-      } else if (index === 5) {
-        setCurrentModel('all');       // Section 6: 모든 모델 (삼각형 대형, opacity 0)
+      } else if (index === 4 || index === 5 || index === 6) {
+        // Section 5, 6, 7: 모든 모델 유지 (위치만 변경)
+        setCurrentModel('all');
       } else {
         setCurrentModel('camera');    // Section 1, 2: 카메라
       }
@@ -880,14 +879,26 @@ const HomePage = () => {
     let isTouchScrolling = false;
     
     const handleTouchStart = (e) => {
+      // 애니메이션 진행 중이면 터치 시작 자체를 무시
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
       touchStartY = e.touches[0].clientY;
       touchStartTime = Date.now();
       isTouchScrolling = false;
     };
 
     const handleTouchMove = (e) => {
-      // 스크롤 중이거나 일반 스크롤 모드면 처리 안 함
-      if (isScrolling || isNormalScrolling) return;
+      // 애니메이션 진행 중이면 모든 터치 동작 차단
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
+      // 일반 스크롤 모드면 처리 안 함
+      if (isNormalScrolling) return;
       
       const touchCurrentY = e.touches[0].clientY;
       const delta = Math.abs(touchStartY - touchCurrentY);
@@ -899,8 +910,11 @@ const HomePage = () => {
     };
 
     const handleTouchEnd = (e) => {
-      // 스크롤 중이면 처리 안 함
-      if (isScrolling) return;
+      // 애니메이션 진행 중이면 터치 종료도 무시
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
       
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
@@ -1048,7 +1062,7 @@ const HomePage = () => {
       />
 
       {/* Lottie 스크롤 인디케이터 (왼쪽 고정) */}
-      <ScrollIndicator currentSection={currentSectionIndex} totalSections={6} />
+      <ScrollIndicator currentSection={currentSectionIndex} totalSections={7} />
 
       {/* 로딩 완료 후에만 섹션 표시 */}
       {isLoaded && (
@@ -1056,20 +1070,23 @@ const HomePage = () => {
           {/* Section 1: Hero */}
           <Section1Hero />
 
-      {/* Section 2: 카메라 */}
-      <Section2Camera products={featuredProducts.camera} />
+          {/* Section 2: 카메라 */}
+          <Section2Camera products={featuredProducts.camera} />
 
-      {/* Section 3: 캠핑용품 */}
-      <Section3Tent products={featuredProducts.camping} />
+          {/* Section 3: 캠핑용품 */}
+          <Section3Tent products={featuredProducts.camping} />
 
-      {/* Section 4: 전자기기 */}
-      <Section4Gamepad products={featuredProducts.electronics} />
+          {/* Section 4: 전자기기 */}
+          <Section4Gamepad products={featuredProducts.electronics} />
 
-      {/* Section 5: Final CTA */}
-      <Section5Triangle />
+          {/* Section 5: Final CTA */}
+          <Section5Triangle />
 
-      {/* Section 6: 시스템 설명 */}
-      <Section6System />
+          {/* Section 6: 시스템 설명 */}
+          <Section6System />
+
+          {/* Section 7: 대여 프로세스 */}
+          <Section7Process />
         </>
       )}
     </div>
