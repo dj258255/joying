@@ -39,11 +39,15 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
     } 
     // 2단계: 종료일 선택 (두 번째 클릭)
     else if (startDate && !endDate) {
-      // 종료일이 시작일보다 이전이면 선택 불가
-      if (date < startDate) {
-        return; // 아무 동작 하지 않음
+      // 최소 1박 2일 보장: 종료일은 시작일 + 1일 이후여야 함
+      const minEndDate = new Date(startDate);
+      minEndDate.setDate(startDate.getDate() + 1);
+      
+      if (date < minEndDate) {
+        return; // 시작일과 같은 날짜 또는 시작일 이전 날짜는 선택 불가
       }
-      // 종료일이 시작일과 같거나 이후인 경우에만 선택
+      
+      // 종료일이 시작일 + 1일 이후인 경우에만 선택
       setEndDate(date);
       const range = getDaysInRange(startDate, date);
       setSelectedRange(range);

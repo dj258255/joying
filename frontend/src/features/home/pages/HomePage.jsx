@@ -916,6 +916,10 @@ const HomePage = () => {
       // 애니메이션 진행 중이면 터치 시작 자체를 무시
       if (isScrolling) {
         e.preventDefault();
+        // 애니메이션 중에는 터치 상태 초기화
+        touchStartY = 0;
+        touchStartTime = 0;
+        isTouchScrolling = false;
         return;
       }
       
@@ -947,6 +951,10 @@ const HomePage = () => {
       // 애니메이션 진행 중이면 터치 종료도 무시
       if (isScrolling) {
         e.preventDefault();
+        // 애니메이션 중에는 터치 상태 초기화
+        touchStartY = 0;
+        touchStartTime = 0;
+        isTouchScrolling = false;
         return;
       }
       
@@ -972,6 +980,9 @@ const HomePage = () => {
         }
       }
       
+      // 터치 종료 시 모든 터치 상태 초기화
+      touchStartY = 0;
+      touchStartTime = 0;
       isTouchScrolling = false;
     };
 
