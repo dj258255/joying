@@ -41,6 +41,12 @@ export const API_ENDPOINTS = {
     UNAVAILABLE_DATES: (productId) => `/products/${productId}/unavailable-dates`
   },
 
+  // Category
+  CATEGORY: {
+    LIST: '/category',
+    DETAIL: (categoryId) => `/category/${categoryId}`
+  },
+
   // Payment
   PAYMENT: {
     BASE: '/payments',

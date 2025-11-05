@@ -52,8 +52,12 @@ public class Member extends BaseEntity {
     private File profileImage;
 
     @Comment("평점")
-    @Column(name = "rating")
-    private Double rating;
+    @Column(name = "rating", nullable = false)
+    private Double rating = 0.0;
+
+    @Comment("평점 개수")
+    @Column(name = "rating_count", nullable = false)
+    private Integer ratingCount = 0;
 
     @Comment("SSAFY 금융망 USER KEY")
     @Column(name = "ssafy_user_key", unique = true)
@@ -116,8 +120,11 @@ public class Member extends BaseEntity {
     /**
      * 평점 업데이트
      */
-    public void updateRating(Double rating) {
-        this.rating = rating;
+    public void updateRating(Float rating) {
+        Double prevTotalRating = this.ratingCount * this.rating;
+        Double totalRating = prevTotalRating + rating;
+        this.ratingCount++;
+        this.rating = Math.round((totalRating / this.ratingCount) * 10) / 10.0;
     }
 
     /**

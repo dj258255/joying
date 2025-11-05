@@ -2,6 +2,7 @@ package com.joying.chat.service
 
 import com.joying.chat.document.ChatMessage
 import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatRoomSettingsDto
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -18,14 +19,15 @@ import java.time.Instant
 /**
  * 채팅 통합 Service
  *
- * MongoDB 직접 저장 + Redis Pub/Sub 메시지 발행
+ * MongoDB 직접 저장 + Redis Pub/Sub 메시지 발행 + Redis 안읽은 개수 관리
  */
 @Service
 class ChatService(
     private val chatRoomRepository: ChatRoomRepository,
     private val chatRoomMemberRepository: ChatRoomMemberRepository,
     private val chatMessageRepository: ChatMessageRepository,
-    private val redisPubSubPublisher: RedisPubSubPublisher
+    private val redisPubSubPublisher: RedisPubSubPublisher,
+    private val unreadCountService: UnreadCountService
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -116,15 +118,25 @@ class ChatService(
             senderId
         )
 
-        // 4. 채팅방의 lastMessage 업데이트
+        // 4. 채팅방의 lastMessage 업데이트 + Redis 안읽은 개수 증가
         withContext(Dispatchers.IO) {
             try {
+                // 4-1. lastMessage 업데이트 (MySQL)
                 chatRoom.updateLastMessage(savedMessage.content, savedMessage.createdAt!!)
                 chatRoomRepository.save(chatRoom)
             } catch (e: Exception) {
                 logger.error("채팅방 lastMessage 업데이트 실패: {}", e.message)
             }
         }
+
+        // 4-2. 상대방 안읽은 개수 증가 (Redis)
+        val receiverId = if (senderId == chatRoom.buyer.getMemberId()) {
+            chatRoom.seller.getMemberId()!!
+        } else {
+            chatRoom.buyer.getMemberId()!!
+        }
+
+        unreadCountService.increment(chatRoomId, receiverId)
 
         return messageDto
     }
@@ -141,46 +153,49 @@ class ChatService(
         val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
+        // MySQL lastReadAt 업데이트
         chatRoomMember.markAsRead()
+
+        // Redis 안읽은 개수 초기화
+        unreadCountService.reset(chatRoomId, memberId)
 
         logger.debug("메시지 읽음 처리: chatRoomId={}, memberId={}", chatRoomId, memberId)
     }
 
     /**
-     * 채팅방 고정/해제 토글
+     * 채팅방 설정 업데이트 (통합)
      *
      * @param chatRoomId 채팅방 ID
      * @param memberId 회원 ID
-     * @return 고정 여부
+     * @param isPinned 고정 여부 (null이면 변경 안함)
+     * @param isMuted 알림 끄기 여부 (null이면 변경 안함)
+     * @return 업데이트된 설정
      */
     @Transactional
-    fun togglePin(chatRoomId: Long, memberId: Long): Boolean {
+    fun updateSettings(
+        chatRoomId: Long,
+        memberId: Long,
+        isPinned: Boolean?,
+        isMuted: Boolean?
+    ): ChatRoomSettingsDto {
         val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
-        chatRoomMember.togglePin()
+        // 고정 설정 업데이트
+        if (isPinned != null && chatRoomMember.isPinned != isPinned) {
+            chatRoomMember.togglePin()
+            logger.info("채팅방 고정 변경: chatRoomId={}, memberId={}, isPinned={}", chatRoomId, memberId, isPinned)
+        }
 
-        logger.info("채팅방 고정 토글: chatRoomId={}, memberId={}, isPinned={}", chatRoomId, memberId, chatRoomMember.isPinned)
+        // 알림 설정 업데이트
+        if (isMuted != null && chatRoomMember.isMuted != isMuted) {
+            chatRoomMember.toggleMute()
+            logger.info("채팅방 알림 변경: chatRoomId={}, memberId={}, isMuted={}", chatRoomId, memberId, isMuted)
+        }
 
-        return chatRoomMember.isPinned
-    }
-
-    /**
-     * 채팅방 알림 끄기/켜기 토글
-     *
-     * @param chatRoomId 채팅방 ID
-     * @param memberId 회원 ID
-     * @return 알림 끄기 여부
-     */
-    @Transactional
-    fun toggleMute(chatRoomId: Long, memberId: Long): Boolean {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
-
-        chatRoomMember.toggleMute()
-
-        logger.info("채팅방 알림 토글: chatRoomId={}, memberId={}, isMuted={}", chatRoomId, memberId, chatRoomMember.isMuted)
-
-        return chatRoomMember.isMuted
+        return ChatRoomSettingsDto(
+            isPinned = chatRoomMember.isPinned,
+            isMuted = chatRoomMember.isMuted
+        )
     }
 }

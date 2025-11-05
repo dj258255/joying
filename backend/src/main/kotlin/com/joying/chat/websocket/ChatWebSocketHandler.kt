@@ -1,6 +1,7 @@
 package com.joying.chat.websocket
 
 import com.joying.chat.dto.SendMessageRequest
+import com.joying.chat.service.ChatPresenceService
 import com.joying.chat.service.ChatService
 import com.joying.common.config.security.JwtTokenProvider
 import kotlinx.coroutines.CoroutineScope
@@ -24,7 +25,7 @@ class ChatWebSocketHandler(
     private val chatService: ChatService,
     private val jwtTokenProvider: JwtTokenProvider,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val chatPresenceService: com.joying.chat.service.ChatPresenceService
+    private val chatPresenceService: ChatPresenceService
 ) {
     private val logger = LoggerFactory.getLogger(ChatWebSocketHandler::class.java)
 

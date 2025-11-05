@@ -7,24 +7,7 @@ import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
-
-const CATEGORIES = [
-  { id: 1, name: "게임 / 오락", children: ["콘솔 (닌텐도 스위치, PS5, Xbox)", "보드게임", "오락기 / 아케이드 머신", "VR 기기 (Meta Quest, PS VR)", "게임 컨트롤러 / 조이스틱", "게임 타이틀 (소프트웨어)"] },
-  { id: 2, name: "촬영 / 영상", children: ["카메라 (DSLR, 미러리스, 필름)", "캠코더", "액션캠 (고프로, DJI Osmo)", "삼각대 / 짐벌 / 스테디캠", "조명 / 소프트박스", "드론 (항공촬영용)", "마이크 / 오디오레코더", "촬영 소품 (배경천, 반사판 등)"] },
-  { id: 3, name: "음악 / 악기", children: ["기타 (통기타, 일렉기타)", "피아노 / 키보드", "바이올린 / 첼로", "드럼 / 전자드럼", "마이크 / 오디오 인터페이스", "앰프 / 스피커", "DJ 장비 / 믹서"] },
-  { id: 4, name: "미술 / 공예", children: ["캔버스 / 도화지 / 붓세트", "아크릴 / 수채화 물감", "조소 도구 / 점토", "미술용 이젤 / 작업대", "3D 펜 / 레진 공예 도구", "목공 공구 (톱, 사포, 전동드릴)", "DIY 키트 (모형 만들기, 비즈공예 등)"] },
-  { id: 5, name: "독서 / 글쓰기", children: ["자기계발 / 경제서", "소설 / 에세이 / 시집", "전문서적 (IT, 디자인, 경영 등)", "독서 조명 / 독서대", "전자책 리더기 (Kindle, 리디페이퍼)", "필기구 / 노트세트"] },
-  { id: 6, name: "요리 / 제과제빵", children: ["오븐 / 에어프라이어 / 전자레인지", "믹서기 / 블렌더 / 푸드프로세서", "빵틀 / 케이크 몰드", "커피 머신 / 드립 세트", "캠핑용 버너 / 코펠세트", "아이스크림 제조기 / 젤라또 머신", "주방 저울 / 계량컵 세트"] },
-  { id: 7, name: "스포츠 / 피트니스", children: ["자전거 / MTB", "헬스 기구 (덤벨, 요가매트, 폼롤러)", "러닝화 / 트레이닝복", "인라인 / 킥보드 / 전동스쿠터", "캠핑용 의자 / 테이블", "낚싯대 / 낚시 장비", "배드민턴 / 테니스 라켓", "스키 / 스노보드 / 부츠", "축구공 / 농구공 / 배구공", "수영용품 (오리발, 고글, 수영복)"] },
-  { id: 8, name: "공연 / 연기 / 무대", children: ["의상 / 코스튬 / 소품", "무대 조명 / 스탠드", "무선마이크 / 스피커", "스모그 머신 / 조명 필터", "대본 / 악보 스탠드"] },
-  { id: 9, name: "영상 편집 / 디자인", children: ["노트북 (영상편집용)", "그래픽 태블릿", "외장 SSD / 메모리카드", "편집용 모니터", "프리미어 / 애프터이펙트 단축키 키보드", "컬러 캘리브레이터"] },
-  { id: 10, name: "캠핑 / 여행", children: ["텐트 / 타프", "캠핑 의자 / 테이블", "랜턴 / 조명", "침낭 / 매트 / 에어베드", "휴대용 버너 / 코펠", "아이스박스 / 쿨러", "캠핑용 전기장비 (히터, 선풍기)", "카라반 / 캠핑카", "여행용 캐리어 / 가방"] },
-  { id: 11, name: "레저 / 액티비티", children: ["서핑보드 / 웻수트", "카약 / 패들보트", "스쿠버다이빙 장비", "패러글라이딩 장비", "인라인 / 롤러", "스케이트보드 / 롱보드"] },
-  { id: 12, name: "패션 / 스타일", children: ["정장 / 드레스", "구두 / 하이힐", "한복 / 전통의상", "코스튬 / 캐릭터복", "가방 / 시계 / 악세서리", "패션촬영용 소품"] },
-  { id: 13, name: "교육 / 학습", children: ["전자칠판 / 빔프로젝터", "학습용 태블릿 / 노트북", "학습교재 / 문제집", "VR 교육기기", "마이크로비트 / 라즈베리파이 키트"] },
-  { id: 14, name: "아웃도어 / 여행용품", children: ["카라반용 장비 / 휴대 발전기", "차량용 냉장고", "트렁크 정리함 / 루프박스", "자외선 차단 텐트", "접이식 자전거"] },
-  { id: 15, name: "힐링", children: ["아로마 디퓨저 / 향초", "마사지건 / 안마기", "퍼즐 / 조립 블록", "수공예 키트 (뜨개질, 십자수)", "화분 / 식물 키트", "반려동물용 카메라 / 장난감"] }
-];
+import { useCategoryTree } from '@/features/category';
 
 const SEOUL_DISTRICTS = [
   { id: 'gangnam', name: '강남구', areas: ['역삼동', '개포동', '청담동', '삼성동'] },
@@ -60,6 +43,7 @@ const ProductListMain = () => {
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   
+  // 필터 상태
   const [activeTab, setActiveTab] = useState('lend');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -69,13 +53,23 @@ const ProductListMain = () => {
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
   const [showCategoryPopover, setShowCategoryPopover] = useState(false);
-  const [activeCategoryId, setActiveCategoryId] = useState(1);
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
   const [selectedDistricts, setSelectedDistricts] = useState([]);
   const [selectedAreas, setSelectedAreas] = useState([]);
   const [rating, setRating] = useState(0);
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // 카테고리 API 조회
+  const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
+  
+  // 카테고리 로드 후 첫 번째 카테고리 자동 선택
+  React.useEffect(() => {
+    if (categories.length > 0 && !activeCategoryId) {
+      setActiveCategoryId(categories[0].categoryId);
+    }
+  }, [categories, activeCategoryId]);
 
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
@@ -494,36 +488,42 @@ const ProductListMain = () => {
              <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
                {/* 상위 카테고리 */}
                <div className="w-2/5 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                  {CATEGORIES.map(category => (
-                    <button
-                      key={category.id}
-                      onClick={() => setActiveCategoryId(category.id)}
-                      className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
-                        activeCategoryId === category.id
-                          ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
-                          : 'text-gray-600 hover:bg-white/50'
-                      }`}
-                    >
-                      {category.name}
-                    </button>
-                  ))}
+                  {isCategoriesLoading ? (
+                    <div className="p-4 text-center text-xs text-gray-500">카테고리 로딩 중...</div>
+                  ) : categories.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-gray-500">카테고리가 없습니다</div>
+                  ) : (
+                    categories.map(category => (
+                      <button
+                        key={category.categoryId}
+                        onClick={() => setActiveCategoryId(category.categoryId)}
+                        className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                          activeCategoryId === category.categoryId
+                            ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
+                            : 'text-gray-600 hover:bg-white/50'
+                        }`}
+                      >
+                        {category.categoryName}
+                      </button>
+                    ))
+                  )}
                 </div>
 
                  {/* 하위 카테고리 */}
                  <div className="w-3/5 overflow-y-auto scrollbar-hide p-2">
                   <div className="grid grid-cols-1 gap-1">
-                    {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                    {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                       <button
-                        key={idx}
-                        onClick={() => toggleSubcategory(sub)}
+                        key={sub.categoryId}
+                        onClick={() => toggleSubcategory(sub.categoryName)}
                         className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
-                          selectedSubcategories.includes(sub)
+                          selectedSubcategories.includes(sub.categoryName)
                             ? 'bg-gray-900 text-white'
                             : 'hover:bg-gray-100 text-gray-700'
                         }`}
                       >
-                        <span className="leading-tight">{sub}</span>
-                        {selectedSubcategories.includes(sub) && (
+                        <span className="leading-tight">{sub.categoryName}</span>
+                        {selectedSubcategories.includes(sub.categoryName) && (
                           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
@@ -1175,33 +1175,39 @@ const ProductListMain = () => {
                   <div className="flex" style={{ height: '320px' }}>
                     {/* 상위 카테고리 */}
                     <div className="w-1/2 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                      {CATEGORIES.map(category => (
-                        <button
-                          key={category.id}
-                          onClick={() => setActiveCategoryId(category.id)}
-                          className={`w-full text-left py-3 px-4 transition-all duration-200 ${
-                           activeCategoryId === category.id
-                             ? 'bg-gray-900 text-white border-r-2 border-gray-900'
-                             : 'hover:bg-gray-50'
-                         }`}
-                        >
-                          <span className={`text-sm font-medium ${activeCategoryId === category.id ? 'text-white' : 'text-gray-800'}`}>{category.name}</span>
-                        </button>
-                      ))}
+                      {isCategoriesLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">카테고리 로딩 중...</div>
+                      ) : categories.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">카테고리가 없습니다</div>
+                      ) : (
+                        categories.map(category => (
+                          <button
+                            key={category.categoryId}
+                            onClick={() => setActiveCategoryId(category.categoryId)}
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                             activeCategoryId === category.categoryId
+                               ? 'bg-gray-900 text-white border-r-2 border-gray-900'
+                               : 'hover:bg-gray-50'
+                           }`}
+                          >
+                            <span className={`text-sm font-medium ${activeCategoryId === category.categoryId ? 'text-white' : 'text-gray-800'}`}>{category.categoryName}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                     {/* 하위 카테고리 */}
                     <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
-                      {CATEGORIES.find(c => c.id === activeCategoryId)?.children.map((sub, idx) => (
+                      {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                         <button
-                          key={idx}
-                          onClick={() => toggleSubcategory(sub)}
+                          key={sub.categoryId}
+                          onClick={() => toggleSubcategory(sub.categoryName)}
                           className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                           selectedSubcategories.includes(sub)
+                           selectedSubcategories.includes(sub.categoryName)
                              ? 'bg-gray-900 text-white border border-gray-900'
                              : 'hover:bg-gray-50'
                          }`}
                         >
-                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub) ? 'text-white' : 'text-gray-800'}`}>{sub}</span>
+                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub.categoryName) ? 'text-white' : 'text-gray-800'}`}>{sub.categoryName}</span>
                         </button>
                       ))}
                     </div>

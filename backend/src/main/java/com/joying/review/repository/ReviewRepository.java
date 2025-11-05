@@ -19,6 +19,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.productId = :productId")
     Double avgRatingByProductId(Long productId);
 
+    @EntityGraph(attributePaths = {"reviewer", "reviewFiles"})
     @Query(
         value = """
         SELECT r FROM Review r
@@ -34,18 +35,18 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     )
     Page<Review> findProductReviews(Long productId, UploadType uploadType, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"reviewer"})
+    @EntityGraph(attributePaths = {"reviewer", "reviewFiles"})
     @Query("""
     SELECT r FROM Review r
     JOIN r.rentalHistory rh
     WHERE rh.rentalHisId = :rentalId
     AND (
-        (:type = 'rent' AND r.reviewed = rh.member)
-        OR (:type = 'borrow' AND r.reviewer = rh.member)
+        (:uploadType = 'RENT' AND r.reviewer = rh.member)
+        OR (:uploadType = 'BORROW' AND r.reviewed = rh.member)
     )
     """)
-    Review findRentalReview(Long rentalId, String type);
+    Review findRentalReview(Long rentalId, String uploadType);
 
-    @EntityGraph(attributePaths = {"reviewer", "product"})
+    @EntityGraph(attributePaths = {"reviewer", "product", "reviewFiles"})
     Page<Review> findByReviewed_MemberId(Long memberId, Pageable pageable);
 }

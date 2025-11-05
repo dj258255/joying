@@ -22,7 +22,8 @@ import org.springframework.web.socket.config.annotation.WebSocketTransportRegist
 @EnableWebSocketMessageBroker
 class WebSocketConfig(
     @Value("\${cors.allowed-origins}")
-    private val allowedOrigins: List<String>
+    private val allowedOrigins: List<String>,
+    private val webSocketAuthInterceptor: WebSocketAuthInterceptor
 ) : WebSocketMessageBrokerConfigurer {
 
     /**
@@ -97,7 +98,10 @@ class WebSocketConfig(
      * - keepAlive 짧게 (30초) - 유휴 시 빠른 해제
      */
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
-        registration.taskExecutor()
+        registration
+            // 쿠키 기반 인증 인터셉터 등록
+            .interceptors(webSocketAuthInterceptor)
+            .taskExecutor()
             .corePoolSize(5)  // 기본 5개 (유휴 시 최소 스레드)
             .maxPoolSize(20)  // 최대 20개 (사용자 입력은 느림)
             .queueCapacity(200)  // 대기 큐 200개 (갑작스러운 동시 전송 대비)
