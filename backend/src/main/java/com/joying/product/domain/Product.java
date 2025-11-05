@@ -97,8 +97,12 @@ public class Product extends BaseEntity {
     private Instant endRent;
 
     @Comment("평점")
-    @Column(name = "rating")
-    private Double rating;
+    @Column(name = "rating", nullable = false)
+    private Double rating = 0.0;
+
+    @Comment("평점 개수")
+    @Column(name = "rating_count", nullable = false)
+    private Integer ratingCount = 0;
 
     @Builder
     private Product(Member writer,
@@ -154,4 +158,10 @@ public class Product extends BaseEntity {
         if (endRent != null) this.endRent = endRent;
     }
 
+    public void updateRating(Float rating) {
+        Double prevTotalRating = this.ratingCount * this.rating;
+        Double totalRating = prevTotalRating + rating;
+        this.ratingCount++;
+        this.rating = Math.round((totalRating / this.ratingCount) * 10) / 10.0;
+    }
 }
