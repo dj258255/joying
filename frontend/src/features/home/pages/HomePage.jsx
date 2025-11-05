@@ -84,6 +84,46 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
     gamepad: 0,
   });
 
+  // 메시 캐싱 (traverse 최적화)
+  const cachedMeshes = useRef({
+    camera: [],
+    tent: [],
+    gamepad: []
+  });
+
+  // 모델 로드 시 메시 캐싱 (초기화 시 1회만)
+  React.useEffect(() => {
+    // 카메라 메시 캐싱
+    if (cameraGroupRef.current && cachedMeshes.current.camera.length === 0) {
+      cameraGroupRef.current.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.transparent = true; // 최초 1회만 설정
+          cachedMeshes.current.camera.push(child);
+        }
+      });
+    }
+    
+    // 텐트 메시 캐싱
+    if (tentGroupRef.current && cachedMeshes.current.tent.length === 0) {
+      tentGroupRef.current.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.transparent = true; // 최초 1회만 설정
+          cachedMeshes.current.tent.push(child);
+        }
+      });
+    }
+    
+    // 게임패드 메시 캐싱
+    if (gamepadGroupRef.current && cachedMeshes.current.gamepad.length === 0) {
+      gamepadGroupRef.current.traverse((child) => {
+        if (child.isMesh && child.material) {
+          child.material.transparent = true; // 최초 1회만 설정
+          cachedMeshes.current.gamepad.push(child);
+        }
+      });
+    }
+  }, [cameraModel, tentModel, gamepadModel]);
+
   useFrame((state, delta) => {
     // Section 5: 삼각형 대형은 고정, 각 모델만 Y축으로 회전
     if (currentModel === 'all') {
@@ -148,17 +188,13 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
       );
     }
 
-    // Opacity 업데이트 (각 모델의 모든 메시에 적용)
-    // 모든 모델을 항상 렌더링하여 미리 로드 (visible = true 유지)
+    // Opacity 업데이트 (캐싱된 메시 사용 - 성능 최적화)
     
-    if (cameraGroupRef.current) {
-      cameraGroupRef.current.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.transparent = true;
-          child.material.opacity = opacityRef.current.camera;
-          child.material.depthWrite = opacityRef.current.camera > 0.5;
-          child.material.needsUpdate = true;
-        }
+    // 카메라 메시 opacity 업데이트
+    if (cameraGroupRef.current && cachedMeshes.current.camera.length > 0) {
+      cachedMeshes.current.camera.forEach(mesh => {
+        mesh.material.opacity = opacityRef.current.camera;
+        mesh.material.depthWrite = opacityRef.current.camera > 0.5;
       });
       
       // ✨ 항상 렌더링 (딜레이 방지)
@@ -173,14 +209,11 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
       }
     }
 
-    if (tentGroupRef.current) {
-      tentGroupRef.current.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.transparent = true;
-          child.material.opacity = opacityRef.current.tent;
-          child.material.depthWrite = opacityRef.current.tent > 0.5;
-          child.material.needsUpdate = true;
-        }
+    // 텐트 메시 opacity 업데이트
+    if (tentGroupRef.current && cachedMeshes.current.tent.length > 0) {
+      cachedMeshes.current.tent.forEach(mesh => {
+        mesh.material.opacity = opacityRef.current.tent;
+        mesh.material.depthWrite = opacityRef.current.tent > 0.5;
       });
       
       // ✨ 항상 렌더링 (딜레이 방지)
@@ -196,14 +229,11 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
       }
     }
 
-    if (gamepadGroupRef.current) {
-      gamepadGroupRef.current.traverse((child) => {
-        if (child.isMesh && child.material) {
-          child.material.transparent = true;
-          child.material.opacity = opacityRef.current.gamepad;
-          child.material.depthWrite = opacityRef.current.gamepad > 0.5;
-          child.material.needsUpdate = true;
-        }
+    // 게임패드 메시 opacity 업데이트
+    if (gamepadGroupRef.current && cachedMeshes.current.gamepad.length > 0) {
+      cachedMeshes.current.gamepad.forEach(mesh => {
+        mesh.material.opacity = opacityRef.current.gamepad;
+        mesh.material.depthWrite = opacityRef.current.gamepad > 0.5;
       });
       
       // ✨ 항상 렌더링 (딜레이 방지)
@@ -429,7 +459,7 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
  */
 const StarlightParticles = ({ currentSection }) => {
   const particlesRef = useRef();
-  const particleCount = 200;
+  const particleCount = 100;  // 200 → 100으로 감소 (성능 개선)
   
   // 파티클 초기 위치 생성
   const positions = React.useMemo(() => {
@@ -486,7 +516,8 @@ const StarlightParticles = ({ currentSection }) => {
  */
 const FallingLeaves = ({ currentSection }) => {
   const leavesRef = useRef();
-  const leafCount = 100;
+  const leafCount = 50;  // 100 → 50으로 감소 (성능 개선)
+  const frameCounter = useRef(0); // 프레임 카운터 추가
   
   // 나뭇잎 초기 위치 및 속성 생성
   const { positions, speeds, rotations } = React.useMemo(() => {
@@ -510,9 +541,12 @@ const FallingLeaves = ({ currentSection }) => {
     return { positions: pos, speeds: spd, rotations: rot };
   }, []);
   
-  // 나뭇잎 애니메이션
+  // 나뭇잎 애니메이션 (2프레임마다 업데이트 - 성능 최적화)
   useFrame((state) => {
     if (leavesRef.current && currentSection === 2) { // Section 3
+      frameCounter.current++;
+      if (frameCounter.current % 2 !== 0) return; // 2프레임마다 1번만 업데이트
+      
       const time = state.clock.getElapsedTime();
       const posArray = leavesRef.current.geometry.attributes.position.array;
       
