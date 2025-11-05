@@ -289,25 +289,28 @@ public class SearchService {
 				.map(hit -> hit.getContent().getProductId())
 				.toList();
 
+			Set<Long> excludeSet = new HashSet<>();
+
 			if (dateFrom != null && dateTo != null) {
-				List<Long> unavailableProductIds = productRepository.findUnavailableProductIds(productIds, dateFromInstant, dateToInstant);
-				Set<Long> unavailableSet = new HashSet<>(unavailableProductIds);
-				for (SearchHit<SearchDocument> hit : hits) {
-					SearchDocument doc = hit.getContent();
-					if (!unavailableSet.contains(doc.getProductId())) {
-						available.add(doc);
-					}
-					if (available.size() >= size) {
-						break;
-					}
+				List<Long> unavailableIds = productRepository.findUnavailableProductIds(
+					productIds, dateFromInstant, dateToInstant
+				);
+				excludeSet.addAll(unavailableIds);
+			}
+
+			if (rating != null) {
+				List<Long> lowRatedIds = productRepository.findProductIdsWithRatingLessThan(
+					productIds, rating
+				);
+				excludeSet.addAll(lowRatedIds);
+			}
+
+			for (SearchHit<SearchDocument> hit : hits) {
+				SearchDocument doc = hit.getContent();
+				if (!excludeSet.contains(doc.getProductId())) {
+					available.add(doc);
 				}
-			} else {
-				for (SearchHit<SearchDocument> hit : hits) {
-					available.add(hit.getContent());
-					if (available.size() >= size) {
-						break;
-					}
-				}
+				if (available.size() >= size) break;
 			}
 
 			totalHits = hits.getTotalHits();
