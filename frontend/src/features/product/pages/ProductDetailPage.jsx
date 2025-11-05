@@ -204,65 +204,24 @@ const ProductDetailPage = () => {
       
       if (!isAuthenticated || !user) {
         alert('로그인이 필요합니다.');
+        navigate(ROUTE_PATHS.LOGIN);
         return;
       }
 
-      // user.id 또는 user.memberId 중 하나는 있어야 함
-      // API 응답 구조에 따라 다를 수 있음: { id }, { memberId }, { member_id }, { data: { memberId } }
-      const currentUserId = user.id || user.memberId || user.member_id || user.data?.memberId || user.data?.id;
-      if (!currentUserId) {
-        console.error('사용자 ID를 찾을 수 없습니다. user 객체:', user);
-        alert('사용자 정보를 불러올 수 없습니다. 다시 시도해주세요.');
-        return;
-      }
+      // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
+      console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
+      const chatRoomData = await chatApi.createChatRoom(product.id);
       
-      console.log('✅ 사용자 ID 확인:', currentUserId);
+      console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
+      
+      // 채팅방 ID 추출
+      const chatRoomId = chatRoomData.chatRoomId || chatRoomData.id;
+      
+      if (!chatRoomId) {
+        throw new Error('채팅방 ID를 받을 수 없습니다.');
+      }
 
-      // TODO: 나중에 자신의 상품에 대한 대여 요청 방지 로직 추가
-      // const sellerId = product.sellerId || product.seller?.id || product.seller?.memberId;
-      // if (Number(sellerId) === Number(currentUserId)) {
-      //   alert('자신의 상품에는 대여 요청을 보낼 수 없습니다.');
-      //   return;
-      // }
-
-      const currentUserInfo = {
-        id: currentUserId,
-        username: user.nickname || user.name || '사용자',
-        profileImageUrl: user.profileImage || user.profileImageUrl || null
-      };
-
-      // 대여 요청 정보 구성
-      const rentalInfo = {
-        productTitle: product.title,
-        productImage: product.images?.[0],
-        productId: product.id,
-        startDate: new Date(dateRange.start),
-        endDate: new Date(dateRange.end),
-        days: calculateDays(),
-        dailyPrice: product.price,
-        deposit: product.deposit,
-        totalPrice: (product.price * calculateDays()) + product.deposit,        
-        requesterName: currentUserInfo.username,
-        requesterProfile: currentUserInfo.profileImageUrl
-      };
-
-      // 채팅방 생성 또는 기존 채팅방 찾기
-      const sellerInfo = {
-        name: product.seller?.name || product.seller?.nickname || '판매자',
-        nickname: product.seller?.nickname || product.seller?.name || '판매자'
-      };
-      const chatRoomId = await chatApi.createChatRoom(product.sellerId, currentUserInfo, sellerInfo);        
-
-      // 대여 요청 메시지 전송
-      await messageApi.sendRentalRequest(chatRoomId, {
-        productId: product.id,
-        startDate: dateRange.start instanceof Date ? dateRange.start.toISOString() : new Date(dateRange.start).toISOString(),
-        endDate: dateRange.end instanceof Date ? dateRange.end.toISOString() : new Date(dateRange.end).toISOString(),
-        rentalInfo: rentalInfo,
-        sender: currentUserInfo
-      });
-
-      // 채팅방으로 이동
+      // 채팅방으로 이동 (대여 요청 메시지 전송은 채팅방에서 처리)
       navigate(`/chats/${chatRoomId}?productId=${product.id}`);
     } catch (error) {
       console.error('대여 요청 실패:', error);
@@ -418,7 +377,7 @@ const ProductDetailPage = () => {
                           onClick={handleRentRequest}
                           className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                          채팅 시작하기
+                          대여 요청하기
                         </button>
                         <button
                           onClick={() => console.log('찜하기')}
@@ -714,7 +673,7 @@ const ProductDetailPage = () => {
                     onClick={handleRentRequest}
                     className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    빌려주세요
+                    대여 요청하기
                   </button>
                 </div>
               </div>

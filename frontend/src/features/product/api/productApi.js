@@ -241,9 +241,19 @@ export const getUnavailableDates = async (productId) => {
     });
   }
 
-  // 실제 API 호출
-  const response = await axiosInstance.get(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId));
-  return response.data;
+  try {
+    // 실제 API 호출
+    const response = await axiosInstance.get(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId));
+    return response.data;
+  } catch (error) {
+    // 404 에러는 조용히 처리 (API가 구현되지 않았을 수 있음)
+    if (error.response?.status === 404) {
+      console.log(`[productApi] unavailable-dates API가 구현되지 않음 (productId: ${productId})`);
+      return { data: [] };
+    }
+    // 다른 에러는 그대로 throw
+    throw error;
+  }
 };
 
 /**

@@ -20,16 +20,37 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   const pressTimerRef = useRef(null);
   const lastTouchPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
   const rootRef = useRef(null);
+  
+  // 백엔드 API 응답 형식에 맞게 데이터 추출
   const {
     id,
+    chatRoomId, // 백엔드 응답 형식
     name,
-    lastMessage,
+    productTitle, // 백엔드 응답: 상품 제목
+    productImageUrl, // 백엔드 응답: 상품 이미지
+    otherMemberId, // 백엔드 응답: 상대방 ID
+    otherMemberNickname, // 백엔드 응답: 상대방 닉네임
+    otherMemberProfileUrl, // 백엔드 응답: 상대방 프로필 이미지
+    lastMessage, // 백엔드 응답: 마지막 메시지 내용
+    lastMessageAt, // 백엔드 응답: 마지막 메시지 시간
     unreadCount,
-    participants,
+    participants, // 로컬 스토리지 형식 (호환성 유지)
     updatedAt,
     isPinned = false,
     isMuted = false
   } = chatRoom;
+  
+  // 채팅방 ID (백엔드 형식 우선)
+  const roomId = chatRoomId || id;
+  
+  // 채팅방 이름 (상품 제목 또는 기존 name)
+  const roomName = productTitle || name || otherMemberNickname || '채팅방';
+  
+  // 프로필 이미지 (상대방 프로필 또는 상품 이미지)
+  const profileImage = otherMemberProfileUrl || productImageUrl || participants?.find(p => p.id !== 101)?.profileImage;
+  
+  // 마지막 메시지 시간 (백엔드 형식 우선)
+  const lastMessageTime = lastMessageAt || updatedAt;
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
@@ -54,17 +75,28 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   };
 
   const getLastMessageContent = () => {
+    // 백엔드 응답: lastMessage는 문자열일 수 있음
     if (!lastMessage) return '메시지가 없습니다';
     
-    if (lastMessage.type === 'image') {
-      return '📷 사진';
-    } else if (lastMessage.type === 'file') {
-      return '📎 파일';
-    } else if (lastMessage.type === 'rental_request') {
-      return '🏠 대여 요청';
-    } else {
-      return lastMessage.content || '메시지가 없습니다';
+    // 문자열인 경우 그대로 반환
+    if (typeof lastMessage === 'string') {
+      return lastMessage;
     }
+    
+    // 객체인 경우 (로컬 스토리지 형식 호환)
+    if (typeof lastMessage === 'object') {
+      if (lastMessage.type === 'image') {
+        return '📷 사진';
+      } else if (lastMessage.type === 'file') {
+        return '📎 파일';
+      } else if (lastMessage.type === 'rental_request') {
+        return '🏠 대여 요청';
+      } else {
+        return lastMessage.content || '메시지가 없습니다';
+      }
+    }
+    
+    return '메시지가 없습니다';
   };
 
   // 롱프레스 시작/취소
@@ -72,7 +104,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
     if (!onContextMenuOpen) return;
     clearTimeout(pressTimerRef.current);
     pressTimerRef.current = setTimeout(() => {
-      onContextMenuOpen(id, x ?? lastTouchPosRef.current.x, y ?? lastTouchPosRef.current.y);
+      onContextMenuOpen(roomId, x ?? lastTouchPosRef.current.x, y ?? lastTouchPosRef.current.y);
     }, 400);
   };
   const cancelPressTimer = () => {
@@ -85,12 +117,12 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   return (
     <div
       ref={rootRef}
-      onClick={() => onClick(id)}
+      onClick={() => onClick(roomId)}
       onContextMenu={(e) => {
         if (!onContextMenuOpen) return;
         e.preventDefault();
         e.stopPropagation();
-        onContextMenuOpen(id, e.clientX, e.clientY);
+        onContextMenuOpen(roomId, e.clientX, e.clientY);
       }}
       onTouchStart={(e) => {
         const t = e.touches?.[0];
@@ -118,20 +150,15 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
         {/* 프로필 이미지 */}
         <div className="flex-shrink-0 relative">
           <ProfileImage 
-            src={participants?.find(p => p.id !== 101)?.profileImage}
-            alt={name}
+            src={profileImage}
+            alt={roomName}
             size={48}
             className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
             onClick={(e) => {
               e.stopPropagation();
-              const opponent = participants?.find(p => p.id !== 101);
-              console.log('ChatRoomListItem - participants:', participants);
-              console.log('ChatRoomListItem - opponent:', opponent);
-              if (opponent?.id) {
-                console.log('ChatRoomListItem - navigating to:', `/members/${opponent.id}`);
-                navigate(`/members/${opponent.id}`);
-              } else {
-                console.log('ChatRoomListItem - opponent not found');
+              const opponentId = otherMemberId || participants?.find(p => p.id !== 101)?.id;
+              if (opponentId) {
+                navigate(`/members/${opponentId}`);
               }
             }}
           />
@@ -150,7 +177,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-medium text-gray-900 truncate">
-                {name}
+                {roomName}
               </h3>
               {/* 알림 꺼짐 표시 */}
               {isMuted && (
@@ -161,7 +188,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">
-                {formatTime(updatedAt)}
+                {lastMessageTime ? formatTime(lastMessageTime) : ''}
               </span>
               {/* 읽지 않은 메시지 수 */}
               {unreadCount > 0 && (

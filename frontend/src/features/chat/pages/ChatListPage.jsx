@@ -13,47 +13,18 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 const ChatListPage = () => {
   const navigate = useNavigate();
   const [contextMenu, setContextMenu] = useState(null);
-  const { chatRooms, isLoading, error, refetch } = useChatRooms();
+  const { chatRooms, totalUnreadCount, isLoading, error, refetch } = useChatRooms();
 
-  // 실시간 업데이트: localStorage 변경 감지 및 짧은 간격 polling
-  useEffect(() => {
-    // storage 이벤트 리스너 (다른 탭에서의 변경 감지)
-    const handleStorageChange = (e) => {
-      if (e.key === 'chatRooms' || e.key === null) {
-        // chatRooms가 변경되면 즉시 새로고침
-        refetch();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    // 짧은 간격 polling (1초마다)
-    const interval = setInterval(() => {
-      refetch();
-    }, 1000); // 1초마다 새로고침
-
-    // localStorage 직접 감지를 위한 커스텀 이벤트 리스너
-    // (같은 탭 내에서의 변경 감지)
-    const handleLocalStorageChange = () => {
-      refetch();
-    };
-
-    // 커스텀 이벤트 리스너 추가
-    window.addEventListener('chatRoomsUpdated', handleLocalStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('chatRoomsUpdated', handleLocalStorageChange);
-      clearInterval(interval);
-    };
-  }, [refetch]);
+  // React Query의 refetchInterval이 이미 설정되어 있으므로
+  // 추가 polling은 필요 없음 (나중에 WebSocket으로 대체 예정)
 
   const handleChatRoomClick = (chatRoomId) => {
     navigate(`/chats/${chatRoomId}`);
   };
 
   const handleOpenContextById = (chatRoomId, x, y) => {
-    const room = chatRooms.find(r => r.id === chatRoomId);
+    // chatRoomId로 채팅방 찾기 (id 또는 chatRoomId 모두 확인)
+    const room = chatRooms.find(r => (r.id === chatRoomId) || (r.chatRoomId === chatRoomId));
     if (!room) return;
     setContextMenu({ x: x ?? window.innerWidth / 2, y: y ?? window.innerHeight / 2, chatRoom: room });
   };
@@ -157,15 +128,19 @@ const ChatListPage = () => {
       <div className="flex-1 overflow-y-auto">
         {chatRooms.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {chatRooms.map((chatRoom) => (
-              <div key={chatRoom.id}>
-                <ChatRoomListItem
-                  chatRoom={chatRoom}
-                  onClick={() => handleChatRoomClick(chatRoom.id)}
-                  onContextMenuOpen={handleOpenContextById}
-                />
-              </div>
-            ))}
+            {chatRooms.map((chatRoom) => {
+              // 백엔드 응답 형식에 맞게 ID 추출
+              const roomId = chatRoom.chatRoomId || chatRoom.id;
+              return (
+                <div key={roomId}>
+                  <ChatRoomListItem
+                    chatRoom={chatRoom}
+                    onClick={() => handleChatRoomClick(roomId)}
+                    onContextMenuOpen={handleOpenContextById}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">
