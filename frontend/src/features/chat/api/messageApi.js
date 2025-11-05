@@ -56,10 +56,16 @@ export const messageApi = {
    * @returns {Promise<Object>}
    */
   sendMessage: async (chatRoomId, data) => {
+    const sender = data.sender || {
+      id: DUMMY_USERS.currentUser.id,
+      username: DUMMY_USERS.currentUser.username,
+      profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
+    };
+
     const newMessage = {
       id: `msg_${Date.now()}`,
       content: data.content,
-      sender: DUMMY_USERS.currentUser,
+      sender: sender,
       timestamp: new Date().toISOString(),
       type: data.type || 'text',
       replyTo: data.replyTo ? await messageApi.getMessageById(chatRoomId, data.replyTo) : null,
@@ -84,7 +90,14 @@ export const messageApi = {
         type: newMessage.type
       };
       chatRoom.updatedAt = newMessage.timestamp;
+      // 읽지 않은 메시지 수 업데이트 (본인이 보낸 메시지가 아닌 경우)
+      if (newMessage.sender?.id !== DUMMY_USERS.currentUser.id) {
+        chatRoom.unreadCount = (chatRoom.unreadCount || 0) + 1;
+      }
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생 (같은 탭 내 실시간 업데이트)
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
     }
 
     return newMessage;
@@ -136,6 +149,9 @@ export const messageApi = {
     if (chatRoom) {
       chatRoom.unreadCount = 0;
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
     }
   },
 
@@ -150,23 +166,33 @@ export const messageApi = {
    * @returns {Promise<Object>}
    */
   sendRentalRequest: async (chatRoomId, data) => {
+    const sender = data.sender || {
+      id: DUMMY_USERS.currentUser.id,
+      username: DUMMY_USERS.currentUser.username,
+      profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
+    };
+
     const rentalMessage = {
       id: `msg_${Date.now()}`,
       content: `${data.rentalInfo.productTitle} 대여를 요청합니다.`,
-      sender: DUMMY_USERS.currentUser,
+      sender: sender,
       timestamp: new Date().toISOString(),
       type: 'rental_request',
+      productId: data.productId,
+      startDate: data.startDate,
+      endDate: data.endDate,
       rentalInfo: data.rentalInfo,
+      status: 'pending', // 'pending', 'approved', 'rejected'
       isRead: false
     };
 
     // 로컬 스토리지에 메시지 저장
-    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');
+    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');                                                                        
     messages.push(rentalMessage);
-    localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));
+    localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));   
 
     // 채팅방 목록의 마지막 메시지 업데이트
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
+    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');    
     const chatRoom = chatRooms.find(room => room.id === chatRoomId);
     if (chatRoom) {
       chatRoom.lastMessage = {
@@ -177,9 +203,83 @@ export const messageApi = {
         type: rentalMessage.type
       };
       chatRoom.updatedAt = rentalMessage.timestamp;
+      // 읽지 않은 메시지 수는 채팅방을 열었을 때만 증가 (로컬 스토리지에서는 제한적)
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생 (같은 탭 내 실시간 업데이트)
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
     }
 
     return rentalMessage;
+  },
+
+  /**
+   * 메시지 업데이트 (승인/거절 등)
+   * @param {string} chatRoomId - 채팅방 ID
+   * @param {string} messageId - 메시지 ID
+   * @param {Object} updates - 업데이트할 내용
+   * @returns {Promise<Object>}
+   */
+  updateMessage: async (chatRoomId, messageId, updates) => {
+    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');                                                                        
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    
+    if (messageIndex === -1) {
+      throw new Error('메시지를 찾을 수 없습니다.');
+    }
+
+    // 메시지 업데이트
+    messages[messageIndex] = {
+      ...messages[messageIndex],
+      ...updates
+    };
+
+    // 승인/거절 시 추가 메시지 생성 (선택사항)
+    if (updates.status === 'approved' || updates.status === 'rejected') {
+      // 기존 메시지에서 발신자 정보 가져오기 (현재 사용자가 승인/거절하는 경우)
+      const currentSender = updates.sender || {
+        id: DUMMY_USERS.currentUser.id,
+        username: DUMMY_USERS.currentUser.username,
+        profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
+      };
+
+      const responseMessage = {
+        id: `msg_${Date.now()}`,
+        content: updates.status === 'approved' 
+          ? '대여 요청을 승인했습니다.' 
+          : '대여 요청을 거절했습니다.',
+        sender: currentSender,
+        timestamp: new Date().toISOString(),
+        type: updates.status === 'approved' ? 'rental_approved' : 'rental_rejected',
+        replyTo: messageId,
+        isRead: false
+      };
+      messages.push(responseMessage);
+    }
+
+    localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));   
+
+    // 채팅방 목록의 마지막 메시지도 업데이트 (승인/거절 메시지가 추가된 경우)
+    if (updates.status === 'approved' || updates.status === 'rejected') {
+      const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
+      const chatRoom = chatRooms.find(room => room.id === chatRoomId);
+      if (chatRoom && messages.length > 0) {
+        const lastMsg = messages[messages.length - 1];
+        chatRoom.lastMessage = {
+          id: lastMsg.id,
+          content: lastMsg.content,
+          sender: lastMsg.sender,
+          timestamp: lastMsg.timestamp,
+          type: lastMsg.type
+        };
+        chatRoom.updatedAt = lastMsg.timestamp;
+        localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+        
+        // 커스텀 이벤트 발생
+        window.dispatchEvent(new Event('chatRoomsUpdated'));
+      }
+    }
+
+    return messages[messageIndex];
   }
 };

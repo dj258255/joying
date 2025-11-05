@@ -11,13 +11,21 @@ import { DUMMY_CHAT_ROOMS, DUMMY_MESSAGES, DUMMY_USERS } from '@/shared/constant
 export const chatApi = {
   /**
    * 채팅방 생성
-   * @param {string} sellerId - 판매자 ID
+   * @param {string|number} sellerId - 판매자 ID
+   * @param {Object} currentUser - 현재 사용자 정보 { id, nickname, profileImage }
+   * @param {Object} [sellerInfo] - 판매자 정보 { name, nickname }
    * @returns {Promise<string>} 채팅방 ID
    */
-  createChatRoom: async (sellerId) => {
-    // 로컬 스토리지에서 기존 채팅방 목록 가져오기
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
+  createChatRoom: async (sellerId, currentUser, sellerInfo = null) => {
+    if (!currentUser || !currentUser.id) {
+      throw new Error('현재 사용자 정보가 필요합니다.');
+    }
+
+    const currentUserId = currentUser.id || currentUser.memberId;
     
+    // 로컬 스토리지에서 기존 채팅방 목록 가져오기
+    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');    
+
     // 로컬 스토리지가 비어있으면 더미 데이터 사용
     if (chatRooms.length === 0) {
       chatRooms.push(...DUMMY_CHAT_ROOMS);
@@ -27,8 +35,8 @@ export const chatApi = {
     // 같은 사람과의 기존 채팅방이 있는지 확인
     const existingChatRoom = chatRooms.find(room => {
       const participantIds = room.participants.map(p => p.id);
-      return participantIds.includes(101) && 
-             participantIds.includes(sellerId) &&
+      return participantIds.includes(Number(currentUserId)) && 
+             participantIds.includes(Number(sellerId)) &&
              participantIds.length === 2;
     });
 
@@ -39,18 +47,15 @@ export const chatApi = {
 
     // 새로운 채팅방 생성
     const newChatRoomId = `chat_${Date.now()}`;
-    const seller = DUMMY_USERS.others.find(user => user.userId === sellerId) || DUMMY_USERS.currentUser;
-    
-    if (!seller) {
-      throw new Error('판매자를 찾을 수 없습니다.');
-    }
+    // 채팅방 이름은 판매자 이름
+    const chatRoomName = sellerInfo?.name || sellerInfo?.nickname || `판매자 ${sellerId}`;
 
     const newChatRoom = {
       id: newChatRoomId,
-      name: seller.username,
+      name: chatRoomName,
       participants: [
-        { id: 101, profileImage: null },
-        { id: sellerId, profileImage: null }
+        { id: Number(currentUserId), profileImage: currentUser.profileImage || null },
+        { id: Number(sellerId), profileImage: null }
       ],
       lastMessage: null,
       unreadCount: 0,
@@ -62,6 +67,9 @@ export const chatApi = {
     
     chatRooms.unshift(newChatRoom);
     localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+    
+    // 커스텀 이벤트 발생 (같은 탭 내 실시간 업데이트)
+    window.dispatchEvent(new Event('chatRoomsUpdated'));
     
     return newChatRoomId;
   },
@@ -132,6 +140,10 @@ export const chatApi = {
     if (chatRoom) {
       chatRoom.isPinned = !chatRoom.isPinned;
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
+      
       return { pinned: chatRoom.isPinned };
     }
     
@@ -150,6 +162,10 @@ export const chatApi = {
     if (chatRoom) {
       chatRoom.isMuted = !chatRoom.isMuted;
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
+      
       return { muted: chatRoom.isMuted };
     }
     
@@ -165,5 +181,8 @@ export const chatApi = {
     const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
     const filteredRooms = chatRooms.filter(room => room.id !== chatRoomId);
     localStorage.setItem('chatRooms', JSON.stringify(filteredRooms));
+    
+    // 커스텀 이벤트 발생
+    window.dispatchEvent(new Event('chatRoomsUpdated'));
   }
 };
