@@ -92,4 +92,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         Instant dateFrom,
         Instant dateTo
     );
+
+    @Query("""
+    SELECT p.productId
+    FROM Product p
+    WHERE p.productId IN :productIds
+    AND p.rating < :rating
+    """)
+    List<Long> findProductIdsWithRatingLessThan(
+        List<Long> productIds,
+        double rating
+    );
 }

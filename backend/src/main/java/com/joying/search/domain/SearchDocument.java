@@ -134,6 +134,7 @@ public class SearchDocument {
 			.startRent(searchRequest.startRent().toLocalDateTime())
 			.endRent(searchRequest.endRent().toLocalDateTime())
 			.rating(searchRequest.rating())
+			.thumbnailFileId(searchRequest.thumbnailFileId())
 			.build();
 	}
 }
