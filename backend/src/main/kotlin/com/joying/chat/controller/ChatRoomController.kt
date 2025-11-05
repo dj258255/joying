@@ -1,17 +1,20 @@
 package com.joying.chat.controller
 
 import com.joying.chat.dto.ChatRoomDto
-import com.joying.chat.dto.ChatRoomMemberDto
+import com.joying.chat.dto.ChatRoomSettingsDto
 import com.joying.chat.dto.CreateChatRoomRequest
+import com.joying.chat.dto.UpdateChatRoomSettingsRequest
 import com.joying.chat.service.ChatRoomService
 import com.joying.chat.service.ChatService
-import com.joying.common.config.security.JwtTokenProvider
 import com.joying.common.response.ApiResponse
+import com.joying.file.component.FileUrlResolver
+import com.joying.file.repository.ProductFileRepository
+import com.joying.product.domain.Product
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.slf4j.LoggerFactory
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 
 /**
@@ -21,11 +24,12 @@ import org.springframework.web.bind.annotation.*
  */
 @Tag(name = "Chat Room", description = "채팅방 API")
 @RestController
-@RequestMapping("/api/chat-rooms")
+@RequestMapping("/api/v1/chat-rooms")
 class ChatRoomController(
     private val chatRoomService: ChatRoomService,
     private val chatService: ChatService,
-    private val jwtTokenProvider: JwtTokenProvider,
+    private val productFileRepository: ProductFileRepository,
+    private val fileUrlResolver: FileUrlResolver
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomController::class.java)
 
@@ -36,16 +40,14 @@ class ChatRoomController(
      * (상품 + 구매자 + 판매자 조합으로 유일성 보장)
      *
      * @param request 채팅방 생성 요청 (productId)
-     * @param authorization JWT 토큰
      * @return 생성/조회된 채팅방 정보
      */
     @Operation(summary = "채팅방 생성 또는 조회", description = "상품에 대한 채팅방을 생성하거나 기존 채팅방을 반환합니다")
     @PostMapping
     fun createOrGetChatRoom(
-        @RequestBody request: CreateChatRoomRequest,
-        @RequestHeader("Authorization") authorization: String,
+        @RequestBody request: CreateChatRoomRequest
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
-        val memberId = extractMemberIdFromToken(authorization)
+        val memberId = getCurrentMemberId()
 
         logger.info("채팅방 생성/조회 요청: productId={}, memberId={}", request.productId, memberId)
 
@@ -57,7 +59,7 @@ class ChatRoomController(
                 chatRoomId = chatRoom.chatRoomId!!,
                 productId = chatRoom.product.getProductId()!!,
                 productTitle = chatRoom.product.getTitle(),
-                productImageUrl = null, // TODO: 상품 이미지 추가
+                productImageUrl = getProductThumbnailUrl(chatRoom.product),
                 otherMemberId =
                     if (chatRoom.buyer.getMemberId() == memberId) {
                         chatRoom.seller.getMemberId()!!
@@ -91,47 +93,57 @@ class ChatRoomController(
      * 내 채팅방 목록 조회
      *
      * 내가 참여 중인 모든 채팅방 목록 반환
-     * (안읽은 메시지 개수 포함)
+     * (안읽은 메시지 개수 포함, 응답 헤더로 총 안읽은 개수 제공)
      *
-     * @param authorization JWT 토큰
-     * @return 채팅방 목록
+     * @return 채팅방 목록 (+ 헤더: X-Total-Unread-Count)
      */
-    @Operation(summary = "내 채팅방 목록 조회", description = "내가 참여 중인 모든 채팅방 목록을 반환합니다")
+    @Operation(
+        summary = "내 채팅방 목록 조회",
+        description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다."
+    )
     @GetMapping
-    suspend fun getMyChatRooms(
-        @RequestHeader("Authorization") authorization: String,
-    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomDto>>> {
-        val memberId = extractMemberIdFromToken(authorization)
+    suspend fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomDto>>> {
+        val memberId = getCurrentMemberId()
 
         logger.info("채팅방 목록 조회 요청: memberId={}", memberId)
 
         val chatRooms = chatRoomService.getMyChatRooms(memberId)
 
-        return ApiResponse.ok("채팅방 목록 조회 완료", chatRooms)
+        // 총 안읽은 개수 계산 (헤더로 전달)
+        val totalUnreadCount = chatRooms.sumOf { it.unreadCount }
+
+        val response = ApiResponse.ok("채팅방 목록 조회 완료", chatRooms)
+
+        return ResponseEntity.ok()
+            .header("X-Total-Unread-Count", totalUnreadCount.toString())
+            .body(response.body)
     }
 
     /**
      * 채팅방 상세 조회
      *
      * @param chatRoomId 채팅방 ID
-     * @param authorization JWT 토큰
+     * @param include 포함할 추가 정보 (member: 참여자 온라인 상태 등)
      * @return 채팅방 상세 정보
      */
-    @Operation(summary = "채팅방 상세 조회", description = "특정 채팅방의 상세 정보를 반환합니다")
+    @Operation(
+        summary = "채팅방 상세 조회",
+        description = "특정 채팅방의 상세 정보를 반환합니다. include=member 파라미터로 참여자 온라인 상태를 포함할 수 있습니다."
+    )
     @GetMapping("/{chatRoomId}")
     suspend fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String,
+        @RequestParam(required = false) include: String?
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
-        val memberId = extractMemberIdFromToken(authorization)
+        val memberId = getCurrentMemberId()
 
-        logger.info("채팅방 상세 조회 요청: chatRoomId={}, memberId={}", chatRoomId, memberId)
+        logger.info("채팅방 상세 조회 요청: chatRoomId={}, memberId={}, include={}", chatRoomId, memberId, include)
 
-        // 채팅방 목록에서 해당 채팅방만 필터링
-        val chatRooms = chatRoomService.getMyChatRooms(memberId)
-        val chatRoom =
-            chatRooms.find { it.chatRoomId == chatRoomId }
-                ?: throw IllegalArgumentException("채팅방을 찾을 수 없습니다")
+        // include 파라미터 파싱 (쉼표로 구분된 값)
+        val includes = include?.split(",")?.map { it.trim() } ?: emptyList()
+        val includeMember = includes.contains("member")
+
+        val chatRoom = chatRoomService.getChatRoomDetail(chatRoomId, memberId, includeMember)
 
         return ApiResponse.ok("채팅방 상세 조회 완료", chatRoom)
     }
@@ -142,16 +154,14 @@ class ChatRoomController(
      * 채팅방 상태를 CLOSED로 변경
      *
      * @param chatRoomId 채팅방 ID
-     * @param authorization JWT 토큰
      * @return 성공 메시지
      */
     @Operation(summary = "채팅방 나가기", description = "채팅방을 나가고 상태를 종료로 변경합니다")
     @DeleteMapping("/{chatRoomId}")
     fun leaveChatRoom(
-        @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String,
+        @PathVariable chatRoomId: Long
     ): ResponseEntity<Void> {
-        val memberId = extractMemberIdFromToken(authorization)
+        val memberId = getCurrentMemberId()
 
         logger.info("채팅방 나가기 요청: chatRoomId={}, memberId={}", chatRoomId, memberId)
 
@@ -161,112 +171,69 @@ class ChatRoomController(
     }
 
     /**
-     * 채팅방 고정/해제 토글
+     * 채팅방 설정 업데이트 (통합)
+     *
+     * 고정/알림 설정을 한번에 업데이트합니다.
+     * null로 전달하면 해당 설정은 변경하지 않습니다.
      *
      * @param chatRoomId 채팅방 ID
-     * @param authorization JWT 토큰
-     * @return 고정 여부
-     */
-    @Operation(summary = "채팅방 고정/해제", description = "채팅방 고정 상태를 토글합니다")
-    @PatchMapping("/{chatRoomId}/pin")
-    fun togglePin(
-        @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String,
-    ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Boolean>>> {
-        val memberId = extractMemberIdFromToken(authorization)
-
-        logger.info("채팅방 고정 토글 요청: chatRoomId={}, memberId={}", chatRoomId, memberId)
-
-        val isPinned = chatService.togglePin(chatRoomId, memberId)
-
-        return ApiResponse.ok(
-            if (isPinned) "채팅방이 고정되었습니다" else "채팅방 고정이 해제되었습니다",
-            mapOf("isPinned" to isPinned),
-        )
-    }
-
-    /**
-     * 채팅방 알림 끄기/켜기 토글
-     *
-     * @param chatRoomId 채팅방 ID
-     * @param authorization JWT 토큰
-     * @return 알림 끄기 여부
-     */
-    @Operation(summary = "채팅방 알림 끄기/켜기", description = "채팅방 알림 상태를 토글합니다")
-    @PatchMapping("/{chatRoomId}/mute")
-    fun toggleMute(
-        @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String,
-    ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Boolean>>> {
-        val memberId = extractMemberIdFromToken(authorization)
-
-        logger.info("채팅방 알림 토글 요청: chatRoomId={}, memberId={}", chatRoomId, memberId)
-
-        val isMuted = chatService.toggleMute(chatRoomId, memberId)
-
-        return ApiResponse.ok(
-            if (isMuted) "채팅방 알림이 꺼졌습니다" else "채팅방 알림이 켜졌습니다",
-            mapOf("isMuted" to isMuted),
-        )
-    }
-
-    /**
-     * 전체 안읽은 메시지 개수 조회
-     *
-     * 모든 채팅방의 안읽은 메시지 총 개수 (앱 배지 표시용)
-     *
-     * @param authorization JWT 토큰
-     * @return 안읽은 메시지 총 개수
-     */
-    @Operation(summary = "전체 안읽은 메시지 개수", description = "모든 채팅방의 안읽은 메시지 총 개수를 반환합니다 (앱 배지용)")
-    @GetMapping("/unread-count")
-    suspend fun getTotalUnreadCount(
-        @RequestHeader("Authorization") authorization: String,
-    ): ResponseEntity<ApiResponse.SuccessBody<Map<String, Long>>> {
-        val memberId = extractMemberIdFromToken(authorization)
-
-        logger.info("전체 안읽은 메시지 개수 조회: memberId={}", memberId)
-
-        val unreadCount = chatRoomService.getTotalUnreadCount(memberId)
-
-        return ApiResponse.ok("안읽은 메시지 개수 조회 완료", mapOf("unreadCount" to unreadCount))
-    }
-
-    /**
-     * 채팅방 참여자 정보 조회
-     *
-     * 상대방 정보 + 온라인 상태 + 내 설정 정보 반환
-     *
-     * @param chatRoomId 채팅방 ID
-     * @param authorization JWT 토큰
-     * @return 채팅방 참여자 정보
+     * @param request 업데이트할 설정 (isPinned, isMuted)
+     * @return 업데이트된 설정
      */
     @Operation(
-        summary = "채팅방 참여자 정보 조회",
-        description = "상대방 정보(닉네임, 프로필), 온라인 상태, 내 채팅방 설정을 반환합니다"
+        summary = "채팅방 설정 업데이트",
+        description = "채팅방 고정/알림 설정을 업데이트합니다. null로 전달하면 해당 설정은 변경하지 않습니다."
     )
-    @GetMapping("/{chatRoomId}/member")
-    fun getChatRoomMemberInfo(
+    @PatchMapping("/{chatRoomId}/settings")
+    fun updateSettings(
         @PathVariable chatRoomId: Long,
-        @RequestHeader("Authorization") authorization: String,
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomMemberDto>> {
-        val memberId = extractMemberIdFromToken(authorization)
+        @RequestBody request: UpdateChatRoomSettingsRequest
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomSettingsDto>> {
+        val memberId = getCurrentMemberId()
 
-        logger.info("채팅방 참여자 정보 조회: chatRoomId={}, memberId={}", chatRoomId, memberId)
+        logger.info(
+            "채팅방 설정 업데이트 요청: chatRoomId={}, memberId={}, isPinned={}, isMuted={}",
+            chatRoomId,
+            memberId,
+            request.isPinned,
+            request.isMuted
+        )
 
-        val memberInfo = chatRoomService.getChatRoomMemberInfo(chatRoomId, memberId)
+        val settings = chatService.updateSettings(chatRoomId, memberId, request.isPinned, request.isMuted)
 
-        return ApiResponse.ok("채팅방 참여자 정보 조회 완료", memberInfo)
+        return ApiResponse.ok("채팅방 설정이 업데이트되었습니다", settings)
     }
 
     /**
-     * Authorization 헤더에서 JWT 토큰 추출 후 사용자 ID 반환
+     * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
-     * @param authorization Authorization 헤더 (Bearer {token})
+     * JwtAuthenticationFilter가 쿠키 또는 Authorization 헤더에서
+     * JWT 토큰을 추출하고 SecurityContext에 인증 정보를 설정합니다.
+     *
      * @return 사용자 ID
+     * @throws IllegalStateException 인증되지 않은 경우
      */
-    private fun extractMemberIdFromToken(authorization: String): Long {
-        val token = authorization.replace("Bearer ", "")
-        return jwtTokenProvider.getMemberId(token)
+    private fun getCurrentMemberId(): Long {
+        val authentication = SecurityContextHolder.getContext().authentication
+            ?: throw IllegalStateException("인증 정보가 없습니다")
+
+        return authentication.name.toLong()
+    }
+
+    /**
+     * 상품 썸네일 이미지 URL 조회
+     *
+     * ProductFileRepository에서 isThumbnail=true인 파일을 찾아 URL 반환
+     *
+     * @param product 상품 엔티티
+     * @return 썸네일 이미지 URL (없으면 null)
+     */
+    private fun getProductThumbnailUrl(product: Product): String? {
+        val productFiles = productFileRepository.findByProduct_ProductId(product.getProductId()!!)
+
+        // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
+        val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
+
+        return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
     }
 }
