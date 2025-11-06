@@ -60,6 +60,9 @@
     },
     "thumbnailFileId": {
       "type": "long"
+    },
+    "uploadType": {
+      "type": "keyword"
     }
   }
 }

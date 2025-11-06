@@ -52,6 +52,7 @@ public class SearchController {
 
 	@GetMapping
 	public ResponseEntity<?> search(
+		@RequestParam String uploadType,
 		@RequestParam(required = false) String q,
 		@RequestParam(required = false, name = "price-min") Integer priceMin,
 		@RequestParam(required = false, name = "price-max") Integer priceMax,
@@ -65,6 +66,7 @@ public class SearchController {
 		@RequestParam(required = false, defaultValue = "1") int page,
 		@RequestParam(required = false, defaultValue = "14") int size) {
 		var result = searchService.search(
+			uploadType,
 			q,
 			priceMin, priceMax,
 			dong,

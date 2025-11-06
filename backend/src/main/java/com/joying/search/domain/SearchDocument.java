@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
-import org.springframework.data.elasticsearch.annotations.Alias;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -28,6 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 public class SearchDocument {
 	@Id
 	private Long productId;
+
+	@Field(type = FieldType.Keyword)
+	private String uploadType;
 
 	@Field(type = FieldType.Text)
 	private String title;
@@ -95,7 +97,8 @@ public class SearchDocument {
 		LocalDateTime endRent,
 		List<String> hashtags,
 		Double rating,
-		Long thumbnailFileId) {
+		Long thumbnailFileId,
+		String uploadType) {
 		this.productId = productId;
 		this.title = title;
 		this.content = content;
@@ -113,6 +116,7 @@ public class SearchDocument {
 		this.endRent = endRent;
 		this.rating = rating;
 		this.thumbnailFileId = thumbnailFileId;
+		this.uploadType = uploadType;
 	}
 
 	public static SearchDocument from(SearchRequest searchRequest) {
@@ -134,6 +138,7 @@ public class SearchDocument {
 			.endRent(searchRequest.endRent().toLocalDateTime())
 			.rating(searchRequest.rating())
 			.thumbnailFileId(searchRequest.thumbnailFileId())
+			.uploadType(searchRequest.uploadType())
 			.build();
 	}
 }
