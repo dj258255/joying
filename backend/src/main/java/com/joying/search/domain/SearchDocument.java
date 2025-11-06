@@ -21,11 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@Document(indexName = "search_product")
+@Document(indexName = "search_product_init")
 @Setting(settingPath = "elasticsearch/search-setting.json")
 @Mapping(mappingPath = "elasticsearch/search-mapping.json")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Alias("search_product")
 public class SearchDocument {
 	@Id
 	private Long productId;
