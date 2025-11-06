@@ -45,7 +45,9 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.DateRangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.NumberRangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
@@ -151,31 +153,28 @@ public class SearchService {
 			// 키워드 검색
 			boolean hasKeyword = (q != null && !q.isBlank());
 			if (hasKeyword) {
+				mustQueries.add(
+					MultiMatchQuery.of(m -> m
+						.fields("title^2", "content")
+						.query(q)
+						.operator(Operator.Or)
+					)._toQuery()
+				);
+
 				List<String> tokens = analyzeText(q);
 				if (tokens.size() > 1) {
 					for (String token : tokens) {
-						MatchQuery multiTokenMatch = MatchQuery.of(m -> m
-							.field("title")
-							.query(token)
+						List<Query> tokenShould = new ArrayList<>();
+						tokenShould.add(MatchQuery.of(m -> m.field("title").query(token))._toQuery());
+						tokenShould.add(MatchQuery.of(m -> m.field("content").query(token))._toQuery());
+
+						shouldQueries.add(
+							BoolQuery.of(b -> b
+								.should(tokenShould)
+								.minimumShouldMatch("1")
+							)._toQuery()
 						);
-
-						mustQueries.add(MatchQuery.of(m -> m
-							.field("content")
-							.query(token)
-						)._toQuery());
-						mustQueries.add(multiTokenMatch._toQuery());
 					}
-				} else {
-					MatchQuery singleTokenMatch = MatchQuery.of(m -> m
-						.field("title")
-						.query(q)
-					);
-
-					shouldQueries.add(MatchQuery.of(m -> m
-						.field("content")
-						.query(q)
-					)._toQuery());
-					shouldQueries.add(singleTokenMatch._toQuery());
 				}
 			}
 
@@ -259,15 +258,15 @@ public class SearchService {
 			BoolQuery.Builder boolBuilder = new BoolQuery.Builder().must(mustQueries);
 			if (hasKeyword) {
 				boolBuilder.should(shouldQueries);
-				boolBuilder.minimumShouldMatch("1");
+				// boolBuilder.minimumShouldMatch("1");
 			}
 			Query boolQuery = boolBuilder.build()._toQuery();
 
-			// 정렬 조건
-			List<SortOptions> sortOptions = List.of(
-				SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
-				SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
-			);
+			// 정렬
+			// List<SortOptions> sortOptions = List.of(
+			// 	SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
+			// 	SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
+			// );
 
 			// 페이지네이션
 			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
@@ -275,7 +274,7 @@ public class SearchService {
 			// NativeQuery 빌드
 			NativeQuery searchQuery = NativeQuery.builder()
 				.withQuery(boolQuery)
-				.withSort(sortOptions)
+				//.withSort(sortOptions)
 				.withPageable(pageable)
 				.build();
 
