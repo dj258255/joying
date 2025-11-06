@@ -146,10 +146,39 @@ public class SearchReindexService {
 
 	private void createIndexWithRetry(IndexOperations indexOps, String indexName) {
 		int maxRetries = 2;
+
+		Map<String, Object> settings = Map.of(
+			"analysis", Map.of(
+				"tokenizer", Map.of(
+					"edge_ngram_tokenizer", Map.of(
+						"type", "edge_ngram",
+						"min_gram", 2,
+						"max_gram", 5,
+						"token_chars", List.of("letter", "digit", "whitespace")
+					),
+					"nori_tokenizer", Map.of(
+						"type", "nori_tokenizer"
+					)
+				),
+				"analyzer", Map.of(
+					"korean", Map.of(
+						"type", "custom",
+						"tokenizer", "nori_tokenizer",
+						"filter", List.of("nori_part_of_speech", "nori_readingform", "lowercase")
+					),
+					"korean_autocomplete", Map.of(
+						"type", "custom",
+						"tokenizer", "edge_ngram_tokenizer",
+						"filter", List.of("lowercase")
+					)
+				)
+			)
+		);
+
 		for (int attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
 				if (!indexOps.exists()) {
-					indexOps.create();
+					indexOps.create(settings);
 					indexOps.putMapping(indexOps.createMapping(SearchDocument.class));
 				}
 				log.info("인덱스 [{}] 생성 완료", indexName);
