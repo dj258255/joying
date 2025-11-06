@@ -1,8 +1,10 @@
 package com.joying.product.controller;
 
 import com.joying.member.domain.Member;
+import com.joying.product.dto.ProductLikeResponseDto;
 import com.joying.product.dto.ProductRequestDto;
 import com.joying.product.dto.ProductResponseDto;
+import com.joying.product.service.ProductLikeService;
 import com.joying.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductLikeService productLikeService;
 
     @Operation(summary = "상품 조회", description = "물품의 상세 정보를 조회합니다.")
     @GetMapping("/{productId}")
@@ -211,4 +214,59 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "상품 찜하기", description = "상품을 찜합니다.")
+    @PostMapping("/{productId}/likes")
+    public ResponseEntity<?> likeProduct(@PathVariable Long productId, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ErrorResponse.of(401, "UNAUTHORIZED", "로그인이 필요합니다."));
+            }
+            Long memberId = Long.parseLong(authentication.getName());
+            productLikeService.like(memberId, productId);
+
+            ProductLikeResponseDto.LikeResponse data =
+                    ProductLikeResponseDto.LikeResponse.builder()
+                            .productId(productId)
+                            .liked(true)
+                            .build();
+            return ResponseEntity.ok(ApiResponse.ok("상품을 찜했습니다.", data));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ErrorResponse.of(400, "INVALID_INPUT", e.getMessage() != null ? e.getMessage() : "잘못된 요청입니다"));
+        } catch (Exception e) {
+            log.error("[likeProduct] 서버 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
+        }
+    }
+
+    @Operation(summary = "상품 찜 해제", description = "상품 찜을 해제합니다.")
+    @DeleteMapping("/{productId}/likes")
+    public ResponseEntity<?> unlikeProduct(@PathVariable Long productId, Authentication authentication) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ErrorResponse.of(401, "UNAUTHORIZED", "로그인이 필요합니다."));
+            }
+            Long memberId = Long.parseLong(authentication.getName());
+            productLikeService.unlike(memberId, productId);
+
+            ProductLikeResponseDto.LikeResponse data =
+                    ProductLikeResponseDto.LikeResponse.builder()
+                            .productId(productId)
+                            .liked(false)
+                            .build();
+            return ResponseEntity.ok(ApiResponse.ok("상품 찜을 해제했습니다.", data));
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ErrorResponse.of(400, "INVALID_INPUT", e.getMessage() != null ? e.getMessage() : "잘못된 요청입니다"));
+        } catch (Exception e) {
+            log.error("[unlikeProduct] 서버 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
+        }
+    }
 }

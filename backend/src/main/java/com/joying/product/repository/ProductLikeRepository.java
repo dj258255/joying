@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProductLikeRepository extends JpaRepository<ProductLike,String> {
     boolean existsByProduct_ProductIdAndMember_MemberId(Long productId, Long memberId);
     void  deleteByProduct_ProductId(Long productId);
+    void deleteByProduct_ProductIdAndMember_MemberId(Long productId, Long memberId);
 }
