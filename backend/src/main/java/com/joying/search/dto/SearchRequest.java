@@ -28,7 +28,8 @@ public record SearchRequest(
 	Timestamp startRent,
 	Timestamp endRent,
 	Double rating,
-	Long thumbnailFileId) {
+	Long thumbnailFileId,
+	String uploadType) {
 	public static SearchRequest ofProduct(
 		Product product,
 		List<String> hashtags,
@@ -57,6 +58,7 @@ public record SearchRequest(
 			.endRent(Timestamp.from(product.getEndRent()))
 			.rating(product.getRating())
 			.thumbnailFileId(thumbnailFileId)
+			.uploadType(product.getUploadType().name())
 			.build();
 	}
 }

@@ -29,6 +29,7 @@ import com.joying.file.repository.FileRepository;
 import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
+import com.joying.product.domain.UploadType;
 import com.joying.product.repository.ProductRepository;
 import com.joying.search.domain.SearchDocument;
 import com.joying.search.dto.HashtagInfo;
@@ -127,6 +128,7 @@ public class SearchService {
 
 	@Transactional(readOnly = true)
 	public SearchResponseDto search(
+		String uploadTypeStr,
 		String q,
 		Integer priceMin,
 		Integer priceMax,
@@ -139,8 +141,24 @@ public class SearchService {
 		List<Long> hashtagIds,
 		int page,
 		int size) {
+		UploadType uploadType = null;
+		if (uploadTypeStr != null) {
+			try {
+				uploadType = UploadType.valueOf(uploadTypeStr.toUpperCase());
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
+			}
+		}
 		Instant dateFromInstant = (dateFrom == null) ? null : Instant.parse(dateFrom + "T00:00:00Z");
 		Instant dateToInstant = (dateTo == null) ? null : Instant.parse(dateTo + "T23:59:59Z");
+		RentMethod rentMethod = null;
+		if (method != null) {
+			try {
+				rentMethod = RentMethod.valueOf(method.toUpperCase());
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
+			}
+		}
 
 		List<SearchDocument> available = new ArrayList<>();
 		Long totalHits = 0L;
@@ -177,6 +195,11 @@ public class SearchService {
 					}
 				}
 			}
+
+			// 업로드 타입 필터
+			UploadType finalUploadType = uploadType;
+			TermQuery uploadTypeQuery = TermQuery.of(t -> t.field("uploadType").value(finalUploadType.name()));
+			mustQueries.add(uploadTypeQuery._toQuery());
 
 			// 가격 필터
 			if (priceMin != null || priceMax != null) {
@@ -220,7 +243,8 @@ public class SearchService {
 
 			// 렌트 방식 필터
 			if (method != null && !method.isBlank()) {
-				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(method));
+				RentMethod finalRentMethod = rentMethod;
+				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(finalRentMethod.name()));
 				mustQueries.add(rentMethodQuery._toQuery());
 			}
 
