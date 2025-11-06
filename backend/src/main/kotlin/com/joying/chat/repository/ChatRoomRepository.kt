@@ -62,4 +62,17 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
         @Param("status") status: ChatRoomStatus,
         @Param("threshold") threshold: Instant
     ): List<ChatRoom>
+
+    /**
+     * 채팅방 ID로 조회 (Fetch Join 적용)
+     * Product, Buyer, Seller를 한 번에 조회
+     */
+    @Query("""
+        SELECT cr FROM ChatRoom cr
+        LEFT JOIN FETCH cr.product p
+        LEFT JOIN FETCH cr.buyer b
+        LEFT JOIN FETCH cr.seller s
+        WHERE cr.chatRoomId = :chatRoomId
+    """)
+    fun findByIdWithFetchJoin(@Param("chatRoomId") chatRoomId: Long): Optional<ChatRoom>
 }
