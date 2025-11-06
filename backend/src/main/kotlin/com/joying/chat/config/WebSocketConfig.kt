@@ -30,7 +30,12 @@ class WebSocketConfig(
      * Message Broker 설정
      *
      * - Application Prefix: /app (클라이언트 → 서버)
-     * - Simple Broker: /topic, /queue (서버 → 클라이언트)
+     * - Redis Pub/Sub: 서버 간 메시지 전달
+     *
+     * SimpleBroker 제거 이유:
+     * - SimpleBroker는 구독 정보를 서버 메모리에 저장
+     * - 서버 확장 시 다른 서버의 구독자에게 메시지 전달 불가
+     * - Redis Pub/Sub으로 직접 구독 관리하여 확장성 확보
      */
     override fun configureMessageBroker(registry: MessageBrokerRegistry) {
         // Application Destination Prefix
@@ -38,11 +43,9 @@ class WebSocketConfig(
         // 예: SEND /app/chat/123/send
         registry.setApplicationDestinationPrefixes("/app")
 
-        // Simple Broker
-        // 서버가 클라이언트에게 메시지를 브로드캐스트할 때 사용
-        // /topic: 1:N (채팅방 전체)
-        // /queue: 1:1 (개인 메시지)
-        registry.enableSimpleBroker("/topic", "/queue")
+        // SimpleBroker 제거 (Redis Pub/Sub으로 대체)
+        // - 기존: registry.enableSimpleBroker("/topic", "/queue")
+        // - 변경: ChatMessageListener에서 직접 WebSocket 전송
 
         // User Destination Prefix
         // 특정 사용자에게만 메시지 전송 시 사용
