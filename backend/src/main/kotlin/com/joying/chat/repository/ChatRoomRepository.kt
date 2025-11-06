@@ -29,8 +29,19 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
 
     /**
      * 회원이 참여한 모든 채팅방 조회 (구매자 또는 판매자)
+     *
+     * Fetch Join으로 Lazy Loading 방지
+     * - Product, Buyer, Seller를 한 번에 조회하여 N+1 문제 해결
+     * - Coroutine에서 Hibernate Session 종료 후 Lazy Loading 시도 시 발생하는 LazyInitializationException 방지
      */
-    @Query("SELECT cr FROM ChatRoom cr WHERE cr.buyer.memberId = :memberId OR cr.seller.memberId = :memberId")
+    @Query("""
+        SELECT DISTINCT cr FROM ChatRoom cr
+        LEFT JOIN FETCH cr.product p
+        LEFT JOIN FETCH cr.buyer b
+        LEFT JOIN FETCH cr.seller s
+        WHERE cr.buyer.memberId = :memberId OR cr.seller.memberId = :memberId
+        ORDER BY cr.lastMessageAt DESC NULLS LAST
+    """)
     fun findByMemberId(@Param("memberId") memberId: Long): List<ChatRoom>
 
     /**
