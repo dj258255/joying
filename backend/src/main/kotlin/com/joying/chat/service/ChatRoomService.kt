@@ -16,10 +16,12 @@ import com.joying.member.domain.Member
 import com.joying.member.repository.MemberRepository
 import com.joying.product.domain.Product
 import com.joying.product.repository.ProductRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -42,7 +44,8 @@ class ChatRoomService(
     private val chatPresenceService: ChatPresenceService,
     private val unreadCountService: UnreadCountService,
     private val productFileRepository: ProductFileRepository,
-    private val fileUrlResolver: FileUrlResolver
+    private val fileUrlResolver: FileUrlResolver,
+    private val permissionCache: ChatRoomPermissionCache
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -115,12 +118,67 @@ class ChatRoomService(
             seller.getMemberId()
         )
 
+        // 권한 캐시 Warmup (비동기)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                permissionCache.warmupPermissions(savedChatRoom.chatRoomId!!)
+            } catch (e: Exception) {
+                logger.error("권한 캐시 Warmup 실패: chatRoomId={}", savedChatRoom.chatRoomId, e)
+            }
+        }
+
         return savedChatRoom
+    }
+
+    /**
+     * 채팅방 생성 또는 조회 + DTO 반환
+     * (Service에서 DTO 변환까지 처리하여 lazy loading 문제 방지)
+     *
+     * @param productId 상품 ID
+     * @param buyerId 구매자 ID
+     * @return 채팅방 DTO
+     */
+    @Transactional
+    fun getOrCreateChatRoomDto(productId: Long, buyerId: Long): ChatRoomDto {
+        val chatRoom = getOrCreateChatRoom(productId, buyerId)
+
+        // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
+        return ChatRoomDto(
+            chatRoomId = chatRoom.chatRoomId!!,
+            productId = chatRoom.product.getProductId()!!,
+            productTitle = chatRoom.product.getTitle(),
+            productImageUrl = getProductThumbnailUrl(chatRoom.product),
+            otherMemberId = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getMemberId()!!
+            } else {
+                chatRoom.buyer.getMemberId()!!
+            },
+            otherMemberNickname = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getNickname()
+            } else {
+                chatRoom.buyer.getNickname()
+            },
+            otherMemberProfileUrl = if (chatRoom.buyer.getMemberId() == buyerId) {
+                chatRoom.seller.getKakaoProfileImageUrl()
+            } else {
+                chatRoom.buyer.getKakaoProfileImageUrl()
+            },
+            lastMessage = chatRoom.lastMessage,
+            lastMessageAt = chatRoom.lastMessageAt,
+            unreadCount = 0L,
+            status = chatRoom.status,
+            isPinned = false,
+            isMuted = false
+        )
     }
 
     /**
      * 내 채팅방 목록 조회
      * (안읽은 메시지 개수는 Redis 캐시 사용, MongoDB 쿼리 최소화!)
+     *
+     * 최적화:
+     * - ProductFile N+1 제거: 배치 조회로 변경
+     * - Redis MGET: 안읽은 개수 한 번에 조회
      *
      * @param memberId 회원 ID
      * @return 채팅방 목록
@@ -135,6 +193,15 @@ class ChatRoomService(
         // Redis에서 안읽은 개수 배치 조회 (Pipeline 사용)
         val chatRoomIds = chatRooms.map { it.chatRoomId!! }
         val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
+
+        // ProductFile N+1 제거: 전체 상품의 썸네일을 한 번에 조회
+        val productIds = chatRooms.map { it.product.getProductId()!! }
+        val thumbnailMap = withContext(Dispatchers.IO) {
+            productFileRepository.findByProduct_ProductIdIn(productIds)
+                .filter { it.isThumbnail }
+                .associateBy { it.product.getProductId()!! }
+                .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
+        }
 
         // DTO 변환
         return chatRooms.map { chatRoom ->
@@ -153,13 +220,13 @@ class ChatRoomService(
                 chatRoomId = chatRoom.chatRoomId!!,
                 productId = chatRoom.product.getProductId()!!,
                 productTitle = chatRoom.product.getTitle(),
-                productImageUrl = getProductThumbnailUrl(chatRoom.product),
+                productImageUrl = thumbnailMap[chatRoom.product.getProductId()],  // 배치 조회 결과 사용
                 otherMemberId = otherMember.getMemberId()!!,
                 otherMemberNickname = otherMember.getNickname(),
                 otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
                 lastMessage = chatRoom.lastMessage,
                 lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,  // ← Redis에서!
+                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,  // Redis에서!
                 status = chatRoom.status,
                 isPinned = settings.isPinned,
                 isMuted = settings.isMuted
@@ -250,6 +317,9 @@ class ChatRoomService(
         }
 
         chatRoom.close()
+
+        // 권한 캐시 무효화
+        permissionCache.invalidate(chatRoomId, memberId)
 
         logger.info("채팅방 나가기: chatRoomId={}, memberId={}", chatRoomId, memberId)
     }

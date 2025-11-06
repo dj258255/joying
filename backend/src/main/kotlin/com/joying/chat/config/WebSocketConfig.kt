@@ -111,24 +111,24 @@ class WebSocketConfig(
     /**
      * Outbound Channel 설정 (서버 → 클라이언트)
      *
-     * Redis Pub/Sub에서 받은 메시지를 여러 클라이언트에게 브로드캐스트
+     * Redis Pub/Sub에서 받은 메시지를 클라이언트에게 전송
      *
      * 부하 특성:
-     * - 1개 메시지 → N명 클라이언트에게 전송 (Fan-out)
+     * - 1:1 채팅: 1개 메시지 → 2명에게 전송 (본인 + 상대방)
      * - 네트워크 I/O 위주 (CPU는 낮음)
-     * - 동시 접속자 많을수록 부하 증가
-     * - 초당 100-1000개 메시지 전송 가능
+     * - 처리 속도 빠름 (5ms/건)
+     * - 동시에 여러 채팅방에서 메시지 발생 시 순간 폭증
      *
      * 최적화 전략:
-     * - 큰 Thread Pool (100개) - 많은 클라이언트에게 빠르게 전송
-     * - 큰 큐 (1000개) - 브로드캐스트 병목 방지
+     * - Inbound 대비 2.5배 Thread Pool (50개) - 메시지 2건 + 버스트 대비
+     * - 큰 큐 (1000개) - 동시 브로드캐스트 병목 방지
      * - keepAlive 길게 (60초) - 스레드 재사용 극대화
      */
     override fun configureClientOutboundChannel(registration: ChannelRegistration) {
         registration.taskExecutor()
-            .corePoolSize(20)  // 기본 20개 (항상 대기)
-            .maxPoolSize(100)  // 최대 100개 (브로드캐스트 폭증 대비)
-            .queueCapacity(1000)  // 큐 1000개 (많은 클라이언트 동시 전송)
+            .corePoolSize(10)  // 기본 10개 (항상 대기)
+            .maxPoolSize(50)  // 최대 50개 (Inbound 대비 2.5배, 1:1 채팅 + 버스트 대비)
+            .queueCapacity(1000)  // 큐 1000개 (동시 브로드캐스트 병목 방지)
             .keepAliveSeconds(60)  // 60초 유지 (재사용 극대화)
     }
 }
