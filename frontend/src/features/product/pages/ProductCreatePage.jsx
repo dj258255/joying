@@ -17,7 +17,7 @@ import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
-  { label: '빌려줘', value: 'LEND' },
+  { label: '빌려줘', value: 'RENT' },  // 백엔드 API: RENT
   { label: '구해요', value: 'BORROW' },
 ];
 
@@ -40,7 +40,7 @@ function ProductCreatePage() {
 
   // 폼 상태
   const [form, setForm] = useState({
-    uploadType: 'LEND',  // 기본값: 빌려줘
+    uploadType: 'RENT',  // 기본값: 빌려줘 (백엔드: RENT)
     title: '',
     content: '',
     deposit: '',
@@ -464,7 +464,7 @@ function ProductCreatePage() {
     endRent: form.endRent ? new Date(form.endRent).toISOString() : null,
     fileIds,
     hashtags,
-    rentalRefs,
+    rentalRefuses: rentalRefs,  // 백엔드 API 명세에 맞춰 rentalRefuses로 변경
   });
 
   const handleSubmit = async () => {
@@ -472,6 +472,8 @@ function ProductCreatePage() {
     setSubmitting(true);
     try {
       const payload = buildPayload();
+      console.log('📦 전송 데이터:', JSON.stringify(payload, null, 2));
+      
       if (USE_FAKE_API) {
         navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(Date.now())));
         return;
@@ -497,7 +499,9 @@ function ProductCreatePage() {
         setErrorMessage('상품 등록은 성공했지만 상품 ID를 가져올 수 없습니다.');
       }
     } catch (err) {
-      console.error(err);
+      console.error('❌ 에러:', err);
+      console.error('📋 에러 응답:', err?.response?.data);
+      
       setErrorMessage(
         err?.response?.data?.message ||
         err?.response?.data?.error ||
@@ -543,21 +547,21 @@ function ProductCreatePage() {
             <div className="relative">
               <button
                 type="button"
-                onClick={() => updateField('uploadType', form.uploadType === 'LEND' ? 'BORROW' : 'LEND')}
+                onClick={() => updateField('uploadType', form.uploadType === 'RENT' ? 'BORROW' : 'RENT')}
                 className="relative w-full h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
               >
                 {/* 슬라이더 */}
                 <div
                   className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
                   style={{
-                    left: form.uploadType === 'LEND' ? '4px' : 'calc(50% + 0px)'
+                    left: form.uploadType === 'RENT' ? '4px' : 'calc(50% + 0px)'
                   }}
                 />
                 
                 {/* 텍스트 레이어 */}
                 <div className="absolute inset-0 flex items-center pointer-events-none">
                   <div className="w-1/2 flex items-center justify-center">
-                    <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'LEND' ? 'text-white' : 'text-gray-600'}`}>
+                    <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'RENT' ? 'text-white' : 'text-gray-600'}`}>
                       빌려줘
                     </span>
                   </div>
@@ -1042,7 +1046,7 @@ function ProductCreatePage() {
         </div>
         
         <div className="pt-4">
-          <p className="text-sm text-gray-500">← 왼쪽 미리보기에서 입력하신 정보를 확인해주세요</p>
+          <p className="hidden lg:block text-sm text-gray-500">← 왼쪽 미리보기에서 입력하신 정보를 확인해주세요</p>
         </div>
       </div>
     </div>
@@ -1079,10 +1083,10 @@ function ProductCreatePage() {
       </div>
 
       {/* 메인 콘텐츠 - 좌우 레이아웃 */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-40 h-[calc(100vh-64px-56px)] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-auto lg:h-[calc(100vh-64px-56px)] lg:overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* 좌측: 미리보기 */}
-          <div className="order-2 lg:order-1 lg:col-span-4">
+          {/* 좌측: 미리보기 (모바일에서 숨김) */}
+          <div className="hidden lg:block lg:col-span-4">
             <div className="sticky top-24 bg-white border-2 border-gray-300 rounded-2xl p-3 shadow-lg" style={{ height: 'calc(100vh - 200px)' }}>
               <div className="space-y-2 overflow-y-auto scrollbar-hide" style={{ maxHeight: '100%', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                 <ImageGallery 
@@ -1146,13 +1150,17 @@ function ProductCreatePage() {
             </div>
           </div>
 
-          {/* 우측: 입력 폼 */}
-          <div className="order-1 lg:order-2 lg:col-span-8 flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
+          {/* 우측: 입력 폼 (모바일에서 전체 너비) */}
+          <div className="lg:col-span-8 flex flex-col">
             {/* 스크롤 가능한 콘텐츠 영역 */}
             <div 
               ref={rightFormRef} 
-              className={`flex-1 scrollbar-hide pb-4 ${currentStep === 4 ? 'overflow-hidden' : 'overflow-y-auto'}`} 
-              style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+              className={`flex-1 scrollbar-hide overflow-y-auto pb-10 lg:pb-4 ${currentStep === 4 ? 'lg:overflow-hidden' : ''}`} 
+              style={{ 
+                msOverflowStyle: 'none', 
+                scrollbarWidth: 'none',
+                maxHeight: 'calc(100vh - 200px)'
+              }}
             >
               {errorMessage && (
                 <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-xl text-red-700 text-sm">
@@ -1165,9 +1173,10 @@ function ProductCreatePage() {
               </div>
             </div>
 
-            {/* 네비게이션 버튼 - 고정 위치 */}
-            <div className="flex-shrink-0 bg-white pt-3 border-t-2 border-gray-300 z-10">
-              <div className="flex items-center justify-between gap-4">
+            {/* 네비게이션 버튼 - 모바일: 진행도 바 위 고정, PC: 폼 하단에 자연스럽게 배치 */}
+            <div className="fixed lg:static bottom-16 sm:bottom-20 lg:bottom-auto left-0 right-0 lg:left-auto lg:right-auto flex-shrink-0 bg-white py-3 border-t-2 border-gray-300 z-30 lg:z-10">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 lg:px-0">
+                <div className="flex items-center justify-between gap-4">
                 <button
                   type="button"
                   onClick={handlePrevious}
@@ -1210,6 +1219,7 @@ function ProductCreatePage() {
                     {submitting ? '등록 중...' : '상품 등록'}
                   </button>
                 )}
+                </div>
               </div>
             </div>
           </div>
@@ -1218,12 +1228,13 @@ function ProductCreatePage() {
 
       {/* 하단 진행도 */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-1.5 sm:py-2">
+          <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 lg:gap-6">
             {STEP_NAMES.map((name, index) => (
-              <div key={index} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold mb-1 border-2 transition-all ${
+              <React.Fragment key={index}>
+                {/* 단계 원형 및 이름 */}
+                <div className="flex flex-col items-center">
+                  <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold mb-1 border-2 transition-all ${
                     index + 1 < currentStep
                       ? 'bg-black text-white border-black'
                       : index + 1 === currentStep
@@ -1232,18 +1243,20 @@ function ProductCreatePage() {
                   }`}>
                     {index + 1 < currentStep ? '✓' : index + 1}
                   </div>
-                  <span className={`text-[11px] font-medium ${
+                  <span className={`text-[10px] sm:text-[11px] font-medium whitespace-nowrap ${
                     index + 1 <= currentStep ? 'text-black' : 'text-gray-400'
                   }`}>
                     {name}
                   </span>
                 </div>
+                
+                {/* 연결선 */}
                 {index < STEP_NAMES.length - 1 && (
-                  <div className={`h-0.5 flex-1 mx-2 mb-5 transition-all ${
+                  <div className={`h-0.5 w-4 sm:w-8 md:w-16 lg:w-24 flex-shrink-0 mb-5 transition-all ${
                     index + 1 < currentStep ? 'bg-black' : 'bg-gray-300'
                   }`} />
                 )}
-              </div>
+              </React.Fragment>
             ))}
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
@@ -70,6 +70,22 @@ const ProductListMain = () => {
       setActiveCategoryId(categories[0].categoryId);
     }
   }, [categories, activeCategoryId]);
+
+  // 모달 열릴 때 body 스크롤 방지
+  useEffect(() => {
+    if (isFilterOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [isFilterOpen]);
 
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
@@ -930,8 +946,11 @@ const ProductListMain = () => {
            backdropFilter: 'blur(40px) saturate(180%)',
            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
            border: '1px solid rgba(255, 255, 255, 0.6)',
-           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
+           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+           touchAction: 'pan-y',
+           overscrollBehavior: 'contain'
          }}
+         onTouchMove={(e) => e.stopPropagation()}
        >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 drop-shadow-sm">필터</h2>
