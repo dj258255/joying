@@ -123,8 +123,8 @@ class ChatFileController(
     /**
      * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
-     * JwtAuthenticationFilter가 쿠키 또는 Authorization 헤더에서
-     * JWT 토큰을 추출하고 SecurityContext에 인증 정보를 설정합니다.
+     * JwtAuthenticationFilter가 쿠키에서 JWT 토큰을 추출하고
+     * SecurityContext에 인증 정보를 설정합니다.
      *
      * @return 사용자 ID
      * @throws IllegalStateException 인증되지 않은 경우

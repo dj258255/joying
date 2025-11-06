@@ -3,7 +3,6 @@ package com.joying.chat.websocket
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.service.ChatPresenceService
 import com.joying.chat.service.ChatService
-import com.joying.common.config.security.JwtTokenProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -23,7 +22,6 @@ import org.springframework.stereotype.Controller
 @Controller
 class ChatWebSocketHandler(
     private val chatService: ChatService,
-    private val jwtTokenProvider: JwtTokenProvider,
     private val messagingTemplate: SimpMessagingTemplate,
     private val chatPresenceService: ChatPresenceService
 ) {
@@ -37,7 +35,7 @@ class ChatWebSocketHandler(
      *
      * @param chatRoomId 채팅방 ID
      * @param request 메시지 내용
-     * @param headerAccessor WebSocket 헤더 (JWT 토큰 추출용)
+     * @param headerAccessor WebSocket 헤더 (인증 정보 추출용)
      */
     @MessageMapping("/chat/{chatRoomId}/send")
     fun sendMessage(
@@ -45,7 +43,7 @@ class ChatWebSocketHandler(
         @Payload request: SendMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ) {
-        // JWT 토큰에서 사용자 ID 추출
+        // 인증된 사용자 ID 추출
         val memberId = extractMemberIdFromToken(headerAccessor)
 
         logger.debug(
@@ -156,20 +154,20 @@ class ChatWebSocketHandler(
     }
 
     /**
-     * WebSocket 헤더에서 JWT 토큰 추출 후 사용자 ID 반환
+     * WebSocket 세션에서 인증된 사용자 ID 반환
+     *
+     * WebSocketAuthInterceptor가 CONNECT 시점에 쿠키에서 JWT를 추출하여
+     * headerAccessor.user에 인증 정보를 저장합니다.
      *
      * @param headerAccessor WebSocket 헤더
      * @return 사용자 ID
      */
     private fun extractMemberIdFromToken(headerAccessor: SimpMessageHeaderAccessor): Long {
-        // native headers에서 Authorization 헤더 추출
-        val authHeader = headerAccessor.getNativeHeader("Authorization")?.firstOrNull()
-            ?: throw IllegalArgumentException("Authorization 헤더가 없습니다")
+        // WebSocketAuthInterceptor에서 설정한 인증 정보 가져오기
+        val authentication = headerAccessor.user
+            ?: throw IllegalArgumentException("인증되지 않은 사용자입니다")
 
-        // "Bearer " 제거
-        val token = authHeader.replace("Bearer ", "")
-
-        // JWT에서 사용자 ID 추출
-        return jwtTokenProvider.getMemberId(token)
+        // Authentication.name에 memberId가 문자열로 저장되어 있음
+        return authentication.name.toLong()
     }
 }
