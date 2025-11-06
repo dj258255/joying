@@ -91,4 +91,17 @@ public class ProductResponseDto {
         private String name;
         private String profileImageUrl;
     }
+
+    @Getter @Builder @AllArgsConstructor
+    public static class ProductListItem {
+        private Long productId;
+        private String title;
+        private Integer rentalFee;
+        private Integer deposit;
+        private Double rating;
+        private RegionDto region;
+        private String thumbnailUrl;
+        private Boolean liked;
+        private String uploadType;
+    }
 }
