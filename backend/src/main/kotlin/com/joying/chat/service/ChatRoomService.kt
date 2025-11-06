@@ -245,9 +245,10 @@ class ChatRoomService(
      * @param includeMember 참여자 상세 정보 포함 여부 (온라인 상태 등)
      * @return 채팅방 상세 정보
      */
-    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse {
+    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse = coroutineScope {
+        // 1. ChatRoom 조회 (Fetch Join으로 Product, Buyer, Seller 한 번에 로드)
         val chatRoom = withContext(Dispatchers.IO) {
-            chatRoomRepository.findById(chatRoomId)
+            chatRoomRepository.findByIdWithFetchJoin(chatRoomId)
                 .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
         }
 
@@ -256,19 +257,24 @@ class ChatRoomService(
             throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
         }
 
-        // 내 설정 정보
-        val settings = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+        // 2. Settings와 Redis 병렬 조회 (의존성 없음)
+        val settingsDeferred = async(Dispatchers.IO) {
+            chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+        }
+        val unreadCountDeferred = async(Dispatchers.Default) {
+            unreadCountService.get(chatRoomId, memberId)
+        }
 
-        // 상대방 정보
+        val settings = settingsDeferred.await()
+        val unreadCount = unreadCountDeferred.await()
+
+        // 상대방 정보 (Fetch Join으로 이미 로드됨)
         val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
             chatRoom.seller
         } else {
             chatRoom.buyer
         }
-
-        // Redis에서 안읽은 개수 조회
-        val unreadCount = unreadCountService.get(chatRoomId, memberId)
 
         // 참여자 상세 정보 (선택적)
         val memberInfo = if (includeMember) {
@@ -286,7 +292,7 @@ class ChatRoomService(
             null
         }
 
-        return ChatRoomResponse(
+        ChatRoomResponse(
             chatRoomId = chatRoom.chatRoomId!!,
             productId = chatRoom.product.getProductId()!!,
             productTitle = chatRoom.product.getTitle(),
