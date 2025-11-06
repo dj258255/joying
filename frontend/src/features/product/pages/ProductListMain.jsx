@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
@@ -70,22 +70,6 @@ const ProductListMain = () => {
       setActiveCategoryId(categories[0].categoryId);
     }
   }, [categories, activeCategoryId]);
-
-  // 모달 열릴 때 body 스크롤 방지
-  useEffect(() => {
-    if (isFilterOpen) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.touchAction = 'none';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    }
-    
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-    };
-  }, [isFilterOpen]);
 
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
@@ -946,11 +930,8 @@ const ProductListMain = () => {
            backdropFilter: 'blur(40px) saturate(180%)',
            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
            border: '1px solid rgba(255, 255, 255, 0.6)',
-           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-           touchAction: 'pan-y',
-           overscrollBehavior: 'contain'
+           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
          }}
-         onTouchMove={(e) => e.stopPropagation()}
        >
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-gray-900 drop-shadow-sm">필터</h2>
@@ -1133,14 +1114,14 @@ const ProductListMain = () => {
              <div className="space-y-3">
                <h3 className="text-base font-extrabold text-gray-900">가격 범위</h3>
                
-               <div className="flex gap-2">
+               <div className="flex gap-1">
                  <input
                    type="text"
                    placeholder="최소 금액"
                    value={priceRange.min}
                    onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value.replace(/[^0-9]/g, '') }))}
                    onBlur={() => handlePriceBlur('min')}
-                   className="flex-1 px-4 py-3 text-sm text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
+                   className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(20px)',
@@ -1155,7 +1136,7 @@ const ProductListMain = () => {
                    value={priceRange.max}
                    onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value.replace(/[^0-9]/g, '') }))}
                    onBlur={() => handlePriceBlur('max')}
-                   className="flex-1 px-4 py-3 text-sm text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
+                   className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(20px)',
