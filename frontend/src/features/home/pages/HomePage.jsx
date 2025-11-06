@@ -756,6 +756,7 @@ const HomePage = () => {
     let isScrolling = false;
     let currentSection = 0;
     const totalSections = 7;  // 7개 섹션
+    let isNormalScrolling = false;  // 일반 스크롤 모드 플래그
 
     // 모바일 여부 확인
     const isMobile = window.innerWidth <= 768;
@@ -996,13 +997,13 @@ const HomePage = () => {
 
       if (isScrolling) return;
 
-      // Section 5에서 아래로 키보드 스크롤 시 일반 스크롤로 전환
+      // Section 7(마지막 섹션)에서 아래로 키보드 스크롤 시 일반 스크롤로 전환
       const isAtEnd = currentSection === totalSections - 1;
       const scrollingDownKey = e.key === 'ArrowDown' || e.key === 'PageDown';
 
       if (isAtEnd && scrollingDownKey) {
         isNormalScrolling = true;
-        handleNormalScroll();
+        // 마지막 섹션에서는 일반 스크롤 허용
         return;
       }
 

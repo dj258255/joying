@@ -6,6 +6,7 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Lottie from 'lottie-react';
 import { ROUTE_PATHS } from '@/shared/constants/routePaths';
 import { API_ENDPOINTS } from '@/shared/constants/apiEndpoints';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
@@ -13,9 +14,10 @@ import { FiChevronLeft, FiChevronRight, FiX, FiTrash2, FiUpload, FiImage } from 
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
+import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
-  { label: '빌려줘', value: 'RENT' },
+  { label: '빌려줘', value: 'LEND' },
   { label: '구해요', value: 'BORROW' },
 ];
 
@@ -38,12 +40,12 @@ function ProductCreatePage() {
 
   // 폼 상태
   const [form, setForm] = useState({
-    uploadType: 'RENT',
+    uploadType: 'LEND',  // 기본값: 빌려줘
     title: '',
     content: '',
     deposit: '',
     rentalFee: '',
-    rentMethod: 'BOTH',
+    rentMethod: 'BOTH',  // 기본값: 모두 가능
     videoNecessary: false,
     categoryId: null,
     sidoId: '',
@@ -64,6 +66,7 @@ function ProductCreatePage() {
   const fileInputRef = useRef(null);
   const dragItemIndex = useRef(null);
   const rightFormRef = useRef(null);
+  const hashtagInputRef = useRef(null);
 
   // 날짜 관리
   const [rentalRefs, setRentalRefs] = useState([]);
@@ -105,6 +108,10 @@ function ProductCreatePage() {
     if (!t || hashtags.includes(t)) return;
     setHashtags((prev) => [...prev, t]);
     setHashtagInput('');
+    // 입력창에 자동 포커스
+    setTimeout(() => {
+      hashtagInputRef.current?.focus();
+    }, 0);
   };
 
   const removeHashtag = (t) => setHashtags((prev) => prev.filter((x) => x !== t));
@@ -301,40 +308,35 @@ function ProductCreatePage() {
 
   const shiftMonth = (delta) => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
 
-  // 달력 클릭 로직: 첫 클릭 -> 시작일, 두 번째 클릭 -> 종료일, 세 번째 클릭 -> 초기화
+  // 달력 클릭 로직: 첫 클릭 -> 시작일, 두 번째 클릭 -> 종료일, 중복 클릭 -> 취소
   const onCalendarClick = (date) => {
     if (!date) return;
 
-    // 가능 기간이 설정되어 있고 불가 기간 모드일 때, 가능 기간 범위 내에서만 선택 가능
-    if (calendarMode === 'refuse' && form.startRent) {
-      const startRentDate = new Date(form.startRent);
-      const endRentDate = form.endRent && form.endRent !== '' ? new Date(form.endRent) : null;
-      const clickedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const startDate = new Date(startRentDate.getFullYear(), startRentDate.getMonth(), startRentDate.getDate());
-      
-      if (endRentDate) {
-        const endDate = new Date(endRentDate.getFullYear(), endRentDate.getMonth(), endRentDate.getDate());
-        if (clickedDate < startDate || clickedDate > endDate) {
-          // 가능 기간 범위 밖이면 선택 불가
-          return;
-        }
-      } else {
-        // 종료일이 없으면 시작일 이후만 가능
-        if (clickedDate < startDate) {
-          return;
-        }
-      }
-    }
-
+    // 가능 기간 모드: 이미 설정된 가능 기간 내의 날짜를 클릭하면 초기화
     if (calendarMode === 'available') {
+      const isInRange = isInAvailableRange(date);
+      if (isInRange && calClickState === 'none') {
+        // 이미 설정된 가능 기간을 클릭한 경우 → 초기화
+        setCalStart(null);
+        setCalEnd(null);
+        setCalClickState('none');
+        updateField('startRent', '');
+        updateField('endRent', '');
+        return;
+      }
+
       if (calClickState === 'none') {
         // 첫 클릭: 시작일 설정
         setCalStart(date);
         setCalEnd(null);
         setCalClickState('start');
       } else if (calClickState === 'start') {
-        // 두 번째 클릭: 종료일 설정 (같은 날짜면 하루 선택)
-        if (date >= calStart) {
+        // 두 번째 클릭: 종료일 설정 (최소 1일 차이 필요)
+        const nextDay = new Date(calStart);
+        nextDay.setDate(calStart.getDate() + 1);
+        
+        if (date >= nextDay) {
+          // 시작일 다음 날 이후인 경우에만 종료일로 설정
           setCalEnd(date);
           setCalClickState('end');
           // 자동 적용
@@ -347,7 +349,7 @@ function ProductCreatePage() {
             }
           }, 0);
         } else {
-          // 이전 날짜 선택 시 시작일을 새로 설정
+          // 같은 날짜 또는 이전 날짜 선택 시 시작일을 새로 설정
           setCalStart(date);
           setCalEnd(null);
           setCalClickState('start');
@@ -360,40 +362,51 @@ function ProductCreatePage() {
         updateField('startRent', '');
         updateField('endRent', '');
       }
-    } else if (calendarMode === 'refuse') {
-      // 불가 기간도 동일한 로직
-      if (calClickState === 'none') {
-        // 첫 클릭: 시작일 설정
-        setCalStart(date);
-        setCalEnd(null);
-        setCalClickState('start');
-      } else if (calClickState === 'start') {
-        // 두 번째 클릭: 종료일 설정 (같은 날짜면 하루 선택)
-        if (date >= calStart) {
-          setCalEnd(date);
-          setCalClickState('end');
-          // 자동 적용
-          setTimeout(() => {
-            const startIso = new Date(calStart.getTime() - calStart.getTimezoneOffset()*60000).toISOString();
-            const endIso = new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString();
-            setRentalRefs((prev) => [...prev, { startRef: startIso, endRef: endIso }]);
-            // 초기화
-            setCalStart(null);
-            setCalEnd(null);
-            setCalClickState('none');
-          }, 0);
+      return;
+    }
+
+    // 불가 기간 모드: 하루씩 개별 선택
+    if (calendarMode === 'refuse') {
+      // 가능 기간이 설정되어 있을 때, 가능 기간 범위 내에서만 선택 가능
+      if (form.startRent) {
+        const startRentDate = new Date(form.startRent);
+        const endRentDate = form.endRent && form.endRent !== '' ? new Date(form.endRent) : null;
+        const clickedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const startDate = new Date(startRentDate.getFullYear(), startRentDate.getMonth(), startRentDate.getDate());
+        
+        if (endRentDate) {
+          const endDate = new Date(endRentDate.getFullYear(), endRentDate.getMonth(), endRentDate.getDate());
+          if (clickedDate < startDate || clickedDate > endDate) {
+            // 가능 기간 범위 밖이면 선택 불가
+            return;
+          }
         } else {
-          // 이전 날짜 선택 시 시작일을 새로 설정
-          setCalStart(date);
-          setCalEnd(null);
-          setCalClickState('start');
+          // 종료일이 없으면 시작일 이후만 가능
+          if (clickedDate < startDate) {
+            return;
+          }
         }
-      } else if (calClickState === 'end') {
-        // 세 번째 클릭: 초기화하고 새로 시작
-        setCalStart(null);
-        setCalEnd(null);
-        setCalClickState('none');
       }
+
+      // 이미 설정된 불가 기간의 날짜를 클릭하면 해당 날짜만 삭제
+      const clickedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const clickedInRefuseRange = rentalRefs.findIndex((r) => {
+        const rs = new Date(r.startRef);
+        const re = new Date(r.endRef);
+        const rsDay = new Date(rs.getFullYear(), rs.getMonth(), rs.getDate());
+        const reDay = new Date(re.getFullYear(), re.getMonth(), re.getDate());
+        return clickedDate >= rsDay && clickedDate <= reDay;
+      });
+
+      if (clickedInRefuseRange !== -1) {
+        // 이미 설정된 불가 기간을 클릭한 경우 → 해당 날짜만 삭제
+        setRentalRefs((prev) => prev.filter((_, idx) => idx !== clickedInRefuseRange));
+        return;
+      }
+
+      // 새로운 불가 날짜 추가 (하루만)
+      const dateIso = new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString();
+      setRentalRefs((prev) => [...prev, { startRef: dateIso, endRef: dateIso }]);
     }
   };
 
@@ -521,140 +534,195 @@ function ProductCreatePage() {
         <p className="text-gray-600">상품의 기본 정보를 입력해주세요</p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">업로드 타입</label>
-          <div className="grid grid-cols-2 gap-3">
-            {enumUploadTypes.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => updateField('uploadType', opt.value)}
-                className={`px-4 py-3 rounded-xl font-medium transition-all border-2 ${
-                  form.uploadType === opt.value
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-black border-gray-300 hover:border-black'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">대여 방법</label>
-          <div className="grid grid-cols-3 gap-2">
-            {enumRentMethods.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => updateField('rentMethod', m.value)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
-                  form.rentMethod === m.value
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-black border-gray-300 hover:border-black'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">제목</label>
-          <input
-            value={form.title}
-            onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
-            placeholder="상품 제목을 입력하세요"
-            className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-          />
-          <div className="text-right text-xs text-gray-500 mt-1">{form.title.length}/50</div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">내용</label>
-          <textarea
-            value={form.content}
-            onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
-            rows={6}
-            placeholder="상세 내용을 입력하세요"
-            className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
-          />
-          <div className="text-right text-xs text-gray-500 mt-1">{form.content.length}/2000</div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      {/* 좌우 레이아웃 */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* 왼쪽: 업로드 타입, 대여 방법, 영상 필수, 해시태그 */}
+        <div className="w-full lg:w-1/3 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-black mb-2">보증금</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={form.deposit}
-              onChange={(e) => handlePriceChange('deposit', e.target.value)}
-              placeholder="300,000원"
-              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-            />
+            <label className="block text-sm font-medium text-black mb-1.5">업로드 타입</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => updateField('uploadType', form.uploadType === 'LEND' ? 'BORROW' : 'LEND')}
+                className="relative w-full h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
+              >
+                {/* 슬라이더 */}
+                <div
+                  className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
+                  style={{
+                    left: form.uploadType === 'LEND' ? '4px' : 'calc(50% + 0px)'
+                  }}
+                />
+                
+                {/* 텍스트 레이어 */}
+                <div className="absolute inset-0 flex items-center pointer-events-none">
+                  <div className="w-1/2 flex items-center justify-center">
+                    <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'LEND' ? 'text-white' : 'text-gray-600'}`}>
+                      빌려줘
+                    </span>
+                  </div>
+                  <div className="w-1/2 flex items-center justify-center">
+                    <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'BORROW' ? 'text-white' : 'text-gray-600'}`}>
+                      구해요
+                    </span>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-black mb-2">일일요금</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={form.rentalFee}
-              onChange={(e) => handlePriceChange('rentalFee', e.target.value)}
-              placeholder="35,000원"
-              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-            />
+            <label className="block text-sm font-medium text-black mb-1.5">대여 방법</label>
+            <div className="relative">
+              <div className="relative w-full h-12 rounded-lg p-1 bg-gray-200">
+                {/* 슬라이더 */}
+                <div
+                  className="absolute top-1 h-10 rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
+                  style={{
+                    width: 'calc(33.33% - 5.33px)',
+                    left: form.rentMethod === 'BOTH' 
+                      ? '4px' 
+                      : form.rentMethod === 'ONLY_OFFLINE'
+                      ? 'calc(33.33% + 1.33px)'
+                      : 'calc(66.66% - 1.33px)'
+                  }}
+                />
+                
+                {/* 텍스트 레이어 */}
+                <div className="absolute inset-0 flex items-center pointer-events-none">
+                  {enumRentMethods.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => updateField('rentMethod', m.value)}
+                      className="w-1/3 flex items-center justify-center pointer-events-auto"
+                    >
+                      <span className={`text-xs font-bold transition-colors duration-300 ${form.rentMethod === m.value ? 'text-white' : 'text-gray-600'}`}>
+                        {m.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between p-4 bg-gray-50 border-2 border-gray-300 rounded-xl">
-          <span className="text-sm font-medium text-black">거래 시 영상 필수</span>
-          <button
-            type="button"
-            onClick={() => updateField('videoNecessary', !form.videoNecessary)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              form.videoNecessary ? 'bg-black' : 'bg-gray-300'
-            }`}
-          >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              form.videoNecessary ? 'translate-x-6' : 'translate-x-1'
-            }`} />
-          </button>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-black mb-2">해시태그</label>
-          <div className="flex gap-2">
-            <input
-              value={hashtagInput}
-              onChange={(e) => setHashtagInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-              placeholder="예: 카메라"
-              className="flex-1 px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-            />
+          <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg">
+            <span className="text-sm font-medium text-black">거래 시 영상 필수</span>
             <button
               type="button"
-              onClick={addHashtag}
-              className="px-4 py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors"
+              onClick={() => updateField('videoNecessary', !form.videoNecessary)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                form.videoNecessary ? 'bg-black' : 'bg-gray-300'
+              }`}
             >
-              추가
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                form.videoNecessary ? 'translate-x-5' : 'translate-x-0.5'
+              }`} />
             </button>
           </div>
-          {hashtags.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
-              {hashtags.map((t) => (
-                <span key={t} className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-black rounded-full text-sm border border-gray-300">
-                  #{t}
-                  <button type="button" onClick={() => removeHashtag(t)} className="hover:text-gray-600">
-                    <FiX className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
+
+          <div>
+            <label className="block text-sm font-medium text-black mb-1.5">해시태그</label>
+            <div className="flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
+              {/* 입력창 */}
+              <input
+                ref={hashtagInputRef}
+                value={hashtagInput}
+                onChange={(e) => setHashtagInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
+                placeholder="예: 카메라"
+                className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
+              />
+              
+              {/* 추가 버튼 */}
+              <button
+                type="button"
+                onClick={addHashtag}
+                className="w-10 h-10 flex items-center justify-center bg-black text-white text-xl font-bold hover:bg-gray-800 transition-colors flex-shrink-0"
+              >
+                +
+              </button>
             </div>
-          )}
+            
+            {/* 모바일용 해시태그 표시 (데스크톱에서는 미리보기에 표시) */}
+            {hashtags.length > 0 && (
+              <div className="lg:hidden mt-2 flex flex-wrap gap-1.5">
+                {hashtags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-900 text-white"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => removeHashtag(tag)}
+                      className="hover:opacity-70 transition-opacity"
+                    >
+                      <FiX className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 오른쪽: 제목, 내용, 보증금, 일일요금 */}
+        <div className="flex-1 space-y-1.5">
+          {/* 제목 */}
+          <div>
+            <label className="block text-sm font-medium text-black mb-1.5">제목</label>
+            <input
+              value={form.title}
+              onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
+              placeholder="상품 제목을 입력하세요"
+              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            <div className="text-right text-xs text-gray-500 mt-1">{form.title.length}/50</div>
+          </div>
+
+          {/* 내용 + 보증금/일일요금 */}
+          <div className="flex gap-4">
+            {/* 왼쪽: 내용 */}
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-black mb-1.5">내용</label>
+              <textarea
+                value={form.content}
+                onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
+                rows={5}
+                placeholder="상세 내용을 입력하세요"
+                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
+              />
+              <div className="text-right text-xs text-gray-500 mt-1">{form.content.length}/2000</div>
+            </div>
+
+            {/* 오른쪽: 보증금 + 일일요금 */}
+            <div className="w-48 space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-black mb-1.5">보증금</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.deposit}
+                  onChange={(e) => handlePriceChange('deposit', e.target.value)}
+                  placeholder="300,000원"
+                  className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black mb-1.5">일일요금</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={form.rentalFee}
+                  onChange={(e) => handlePriceChange('rentalFee', e.target.value)}
+                  placeholder="35,000원"
+                  className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -662,74 +730,83 @@ function ProductCreatePage() {
 
   // Step 2: 이미지 업로드
   const renderStep2 = () => (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
-        <h2 className="text-2xl font-bold text-black mb-2">이미지 업로드</h2>
-        <p className="text-gray-600">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
+        <h2 className="text-xl font-bold text-black mb-1">이미지 업로드</h2>
+        <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
       </div>
 
-      <div
-        ref={dndZoneRef}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
-        className="w-full h-64 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors bg-gray-50"
-      >
-        <FiUpload className="w-12 h-12 text-gray-400 mb-3" />
-        <p className="text-black font-medium mb-1">여기로 드래그 또는 클릭하여 이미지 추가</p>
-        <p className="text-gray-600 text-sm">여러 이미지를 한번에 업로드할 수 있습니다</p>
-        <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading} />
-        {uploading && <p className="text-gray-600 text-sm mt-2">업로드 중...</p>}
-      </div>
-
-      {filePreviews.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {filePreviews.map((src, idx) => (
-            <div
-              key={idx}
-              className="relative group"
-              draggable
-              onDragStart={onThumbDragStart(idx)}
-              onDrop={onThumbDrop(idx)}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-300">
-                <img src={src} alt={`preview-${idx}`} className="w-full h-full object-cover" />
-                {idx === 0 && (
-                  <div className="absolute top-2 left-2 bg-black text-white text-xs px-2 py-1 rounded-full">
-                    대표
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => removeImageAt(idx)}
-                className="absolute top-2 right-2 bg-black/80 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <FiTrash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+      {/* 드래그 영역과 미리보기를 가로로 배치 */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* 왼쪽: 드래그 영역 (정사각형) */}
+        <div className="flex-shrink-0">
+          <div
+            ref={dndZoneRef}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
+            className="w-full lg:w-80 aspect-square border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors bg-gray-50"
+          >
+            <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
+            <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
+            <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading} />
+            {uploading && <p className="text-gray-600 text-xs mt-1">업로드 중...</p>}
+          </div>
         </div>
-      )}
 
-      {filePreviews.length > 0 && (
-        <p className="text-gray-600 text-sm">💡 이미지를 드래그하여 순서를 변경할 수 있습니다</p>
-      )}
+        {/* 오른쪽: 미리보기 그리드 */}
+        {filePreviews.length > 0 && (
+          <div className="flex-1 flex flex-col">
+            <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '320px' }}>
+              <div className="grid grid-cols-4 gap-2">
+                {filePreviews.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group"
+                    draggable
+                    onDragStart={onThumbDragStart(idx)}
+                    onDrop={onThumbDrop(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
+                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-300">
+                      <img src={src} alt={`preview-${idx}`} className="w-full h-full object-cover" />
+                      {idx === 0 && (
+                        <div className="absolute top-1 left-1 bg-black text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                          대표
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeImageAt(idx)}
+                      className="absolute top-1 right-1 bg-black/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <FiTrash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p className="hidden lg:block text-gray-600 text-xs mt-2">💡 이미지를 드래그하여 순서를 변경할 수 있습니다</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 
   // Step 3: 분류 및 지역
   const renderStep3 = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-black mb-2">분류 및 지역</h2>
-        <p className="text-gray-600">상품의 카테고리와 지역을 선택해주세요</p>
+        <h2 className="text-xl font-bold text-black mb-1">분류 및 지역</h2>
+        <p className="text-gray-600 text-sm">상품의 카테고리와 지역을 선택해주세요</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
+        {/* 카테고리 */}
         <div>
-          <label className="block text-sm font-medium text-black mb-2">카테고리 ID</label>
+          <label className="block text-sm font-medium text-black mb-1.5">카테고리 ID</label>
           <input
             value={form.categoryId ?? ''}
             onChange={(e) => updateField('categoryId', e.target.value)}
@@ -738,34 +815,35 @@ function ProductCreatePage() {
           />
         </div>
 
+        {/* 지역 */}
         <div>
-          <label className="block text-sm font-medium text-black mb-2">지역</label>
+          <label className="block text-sm font-medium text-black mb-1.5">지역</label>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs text-gray-600 mb-1">시도 ID</label>
+              <label className="block text-xs text-gray-600 mb-1">시도</label>
               <input
                 value={form.sidoId}
                 onChange={(e) => updateField('sidoId', e.target.value)}
                 placeholder="시도"
-                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">군구 ID</label>
+              <label className="block text-xs text-gray-600 mb-1">군구</label>
               <input
                 value={form.gunguId}
                 onChange={(e) => updateField('gunguId', e.target.value)}
                 placeholder="군구"
-                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">동 ID</label>
+              <label className="block text-xs text-gray-600 mb-1">동</label>
               <input
                 value={form.dongId}
                 onChange={(e) => updateField('dongId', e.target.value)}
                 placeholder="동"
-                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
               />
             </div>
           </div>
@@ -776,26 +854,27 @@ function ProductCreatePage() {
 
   // Step 4: 날짜 설정
   const renderStep4 = () => (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-black mb-2">대여 가능 기간</h2>
-        <p className="text-gray-600">대여 가능한 기간과 불가 기간을 설정해주세요</p>
+        <h2 className="text-xl font-bold text-black mb-1">대여 가능 기간</h2>
+        <p className="text-gray-600 text-sm">대여 가능한 기간과 불가 기간을 설정해주세요</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
+        {/* 왼쪽: 캘린더 */}
         <div className="lg:w-1/2">
-          <div className="flex items-center justify-between mb-4">
-            <button type="button" onClick={() => shiftMonth(-1)} className="p-2 text-black hover:bg-gray-100 rounded-lg">
-              <FiChevronLeft className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-3">
+            <button type="button" onClick={() => shiftMonth(-1)} className="p-1.5 text-black hover:bg-gray-100 rounded-lg">
+              <FiChevronLeft className="w-4 h-4" />
             </button>
-            <div className="text-black font-semibold">{monthLabel}</div>
-            <button type="button" onClick={() => shiftMonth(1)} className="p-2 text-black hover:bg-gray-100 rounded-lg">
-              <FiChevronRight className="w-5 h-5" />
+            <div className="text-black font-semibold text-sm">{monthLabel}</div>
+            <button type="button" onClick={() => shiftMonth(1)} className="p-1.5 text-black hover:bg-gray-100 rounded-lg">
+              <FiChevronRight className="w-4 h-4" />
             </button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-600 mb-2">
             {['일','월','화','수','목','금','토'].map(d => (
-              <div key={d} className="py-2">{d}</div>
+              <div key={d} className="h-8 flex items-center justify-center">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -804,28 +883,17 @@ function ProductCreatePage() {
               const inAvailable = isInAvailableRange(d);
               const inRefuse = isInRefuseRanges(d);
               
-              // 불가 기간 모드에서 선택 중인 날짜 표시
-              let isRefuseSelecting = false;
-              if (calendarMode === 'refuse' && calStart && d) {
-                if (calEnd) {
-                  isRefuseSelecting = d >= calStart && d <= calEnd;
-                } else {
-                  isRefuseSelecting = sameDay(d, calStart);
-                }
-              }
-              
               return (
                 <button
                   key={idx}
                   type="button"
                   disabled={!d}
                   onClick={() => d && onCalendarClick(d)}
-                  className={`h-10 w-10 rounded-lg text-sm transition-all border-2 ${
+                  className={`h-8 w-full aspect-square rounded-lg text-xs transition-all ${
                     !d ? 'invisible' : 
-                    inRefuse ? 'bg-red-500 text-white border-red-500' :
-                    isRefuseSelecting ? 'bg-red-500 text-white border-red-500' :
-                    selected || inAvailable ? 'bg-black text-white border-black font-semibold' :
-                    'bg-white text-black border-gray-300 hover:border-black'
+                    inRefuse ? 'bg-red-500 text-white' :
+                    selected || inAvailable ? 'bg-black text-white font-bold' :
+                    'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   {d && d.getDate()}
@@ -834,101 +902,121 @@ function ProductCreatePage() {
             })}
           </div>
           <div className="mt-4 text-sm text-gray-600">
-            {calClickState === 'start' && '시작일을 선택하세요'}
-            {calClickState === 'end' && '종료일을 선택하세요 (다음 클릭 시 초기화)'}
-            {calClickState === 'none' && '날짜를 선택하세요'}
+            {calendarMode === 'available' && (
+              <>
+                {calClickState === 'start' && '시작일을 선택하세요'}
+                {calClickState === 'end' && '종료일을 선택하세요 (다음 클릭 시 초기화)'}
+                {calClickState === 'none' && '날짜를 선택하세요'}
+              </>
+            )}
+            {calendarMode === 'refuse' && '불가 날짜를 클릭하여 추가하거나 삭제하세요'}
           </div>
         </div>
 
-        <div className="lg:w-1/2 space-y-4">
-          <div className="flex gap-2">
+        {/* 오른쪽: 설정 패널 (스크롤 적용) */}
+        <div className="lg:w-1/2 flex flex-col" style={{ maxHeight: '320px' }}>
+          <div 
+            className="space-y-4 overflow-y-auto scrollbar-hide pr-2 pb-2" 
+            style={{ 
+              msOverflowStyle: 'none',
+              scrollbarWidth: 'none'
+            }}
+          >
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCalendarMode('available');
+                  setCalStart(null);
+                  setCalEnd(null);
+                  setCalClickState('none');
+                }}
+                className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
+                  calendarMode === 'available'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-black border-gray-300 hover:border-black'
+                }`}
+              >
+                가능 기간
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCalendarMode('refuse');
+                  setCalStart(null);
+                  setCalEnd(null);
+                  setCalClickState('none');
+                }}
+                className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
+                  calendarMode === 'refuse'
+                    ? 'bg-red-500 text-white border-red-500'
+                    : 'bg-white text-black border-gray-300 hover:border-red-500'
+                }`}
+              >
+                불가 기간
+              </button>
+            </div>
+
+            {calendarMode === 'available' && (
+              <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-xl">
+                <label className="flex items-center gap-2 text-black mb-3">
+                  <input
+                    type="checkbox"
+                    checked={noEndDate}
+                    onChange={(e) => setNoEndDate(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm">종료일 없음</span>
+                </label>
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div>시작: {form.startRent ? new Date(form.startRent).toLocaleDateString('ko-KR') : '-'}</div>
+                  <div>종료: {form.endRent === '' ? '종료일 없음' : (form.endRent ? new Date(form.endRent).toLocaleDateString('ko-KR') : '-')}</div>
+                </div>
+              </div>
+            )}
+
+            {calendarMode === 'refuse' && rentalRefs.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-black mb-2">불가 날짜 목록</div>
+                {rentalRefs.map((r, i) => {
+                  const startDate = new Date(r.startRef).toLocaleDateString('ko-KR');
+                  const endDate = new Date(r.endRef).toLocaleDateString('ko-KR');
+                  const isSameDay = startDate === endDate;
+                  
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 bg-gray-50 border-2 border-gray-300 rounded-xl">
+                      <span className="text-sm text-black">
+                        {isSameDay ? startDate : `${startDate} ~ ${endDate}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRentalRefs((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {
-                setCalendarMode('available');
                 setCalStart(null);
                 setCalEnd(null);
+                setNoEndDate(false);
                 setCalClickState('none');
+                updateField('startRent', '');
+                updateField('endRent', '');
+                setRentalRefs([]);
               }}
-              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
-                calendarMode === 'available'
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white text-black border-gray-300 hover:border-black'
-              }`}
+              className="w-full px-4 py-2 bg-white text-black border-2 border-gray-300 rounded-xl hover:border-black transition-colors"
             >
-              가능 기간
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCalendarMode('refuse');
-                setCalStart(null);
-                setCalEnd(null);
-                setCalClickState('none');
-              }}
-              className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
-                calendarMode === 'refuse'
-                  ? 'bg-red-500 text-white border-red-500'
-                  : 'bg-white text-black border-gray-300 hover:border-red-500'
-              }`}
-            >
-              불가 기간
+              초기화
             </button>
           </div>
-
-          {calendarMode === 'available' && (
-            <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-xl">
-              <label className="flex items-center gap-2 text-black mb-3">
-                <input
-                  type="checkbox"
-                  checked={noEndDate}
-                  onChange={(e) => setNoEndDate(e.target.checked)}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="text-sm">종료일 없음</span>
-              </label>
-              <div className="space-y-2 text-sm text-gray-700">
-                <div>시작: {form.startRent ? new Date(form.startRent).toLocaleDateString('ko-KR') : '-'}</div>
-                <div>종료: {form.endRent === '' ? '종료일 없음' : (form.endRent ? new Date(form.endRent).toLocaleDateString('ko-KR') : '-')}</div>
-              </div>
-            </div>
-          )}
-
-          {calendarMode === 'refuse' && rentalRefs.length > 0 && (
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-black mb-2">불가 기간 목록</div>
-              {rentalRefs.map((r, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 border-2 border-gray-300 rounded-xl">
-                  <span className="text-sm text-black">
-                    {new Date(r.startRef).toLocaleDateString('ko-KR')} ~ {new Date(r.endRef).toLocaleDateString('ko-KR')}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setRentalRefs((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <FiX className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setCalStart(null);
-              setCalEnd(null);
-              setNoEndDate(false);
-              setCalClickState('none');
-              updateField('startRent', '');
-              updateField('endRent', '');
-              setRentalRefs([]);
-            }}
-            className="w-full px-4 py-2 bg-white text-black border-2 border-gray-300 rounded-xl hover:border-black transition-colors"
-          >
-            초기화
-          </button>
         </div>
       </div>
     </div>
@@ -936,74 +1024,25 @@ function ProductCreatePage() {
 
   // Step 5: 최종 확인
   const renderStep5 = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-black mb-2">최종 확인</h2>
-        <p className="text-gray-600">입력하신 정보를 확인하고 등록해주세요</p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="p-6 bg-gray-50 border-2 border-gray-300 rounded-2xl">
-          <h3 className="text-lg font-semibold text-black mb-4">기본 정보</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">타입</span>
-              <span className="text-black font-medium">{enumUploadTypes.find(u => u.value === form.uploadType)?.label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">대여 방법</span>
-              <span className="text-black font-medium">{enumRentMethods.find(r => r.value === form.rentMethod)?.label}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">제목</span>
-              <span className="text-black font-medium">{form.title || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">보증금</span>
-              <span className="text-black font-medium">{form.deposit || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">일일요금</span>
-              <span className="text-black font-medium">{form.rentalFee || '-'}</span>
-            </div>
-          </div>
+    <div className="flex items-center justify-center min-h-[calc(100vh-400px)]">
+      <div className="text-center space-y-6 max-w-md px-4">
+        {/* Lottie 애니메이션 */}
+        <div className="flex justify-center">
+          <Lottie
+            animationData={celebrationAnimation}
+            loop={true}
+            autoplay={true}
+            style={{ width: 200, height: 200 }}
+          />
         </div>
-
-        <div className="p-6 bg-gray-50 border-2 border-gray-300 rounded-2xl">
-          <h3 className="text-lg font-semibold text-black mb-4">이미지</h3>
-          <div className="text-sm text-black">{fileIds.length}개 업로드됨</div>
+        
+        <div className="space-y-3">
+          <h2 className="text-2xl font-bold text-black">모든 설정이 완료되었습니다</h2>
+          <p className="text-lg text-gray-700">지금 보이는 내용으로 바로 등록할까요?</p>
         </div>
-
-        <div className="p-6 bg-gray-50 border-2 border-gray-300 rounded-2xl">
-          <h3 className="text-lg font-semibold text-black mb-4">분류 및 지역</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">카테고리 ID</span>
-              <span className="text-black font-medium">{form.categoryId || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">지역</span>
-              <span className="text-black font-medium">{form.sidoId} {form.gunguId} {form.dongId}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 bg-gray-50 border-2 border-gray-300 rounded-2xl">
-          <h3 className="text-lg font-semibold text-black mb-4">대여 기간</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">시작일</span>
-              <span className="text-black font-medium">{form.startRent ? new Date(form.startRent).toLocaleDateString('ko-KR') : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">종료일</span>
-              <span className="text-black font-medium">{form.endRent === '' ? '종료일 없음' : (form.endRent ? new Date(form.endRent).toLocaleDateString('ko-KR') : '-')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">불가 기간</span>
-              <span className="text-black font-medium">{rentalRefs.length}개</span>
-            </div>
-          </div>
+        
+        <div className="pt-4">
+          <p className="text-sm text-gray-500">← 왼쪽 미리보기에서 입력하신 정보를 확인해주세요</p>
         </div>
       </div>
     </div>
@@ -1070,6 +1109,7 @@ function ProductCreatePage() {
                   hashtags={previewProduct.hashtags}
                   description={previewProduct.description}
                   compact
+                  onRemoveHashtag={removeHashtag}
                 />
                 
                 <div className="p-2 bg-gray-50 rounded-xl border border-gray-300">
@@ -1107,61 +1147,70 @@ function ProductCreatePage() {
           </div>
 
           {/* 우측: 입력 폼 */}
-          <div ref={rightFormRef} className="order-1 lg:order-2 lg:col-span-8 max-h-[calc(100vh-200px)] overflow-y-auto scrollbar-hide" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-            {errorMessage && (
-              <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-xl text-red-700 text-sm">
-                {errorMessage}
-              </div>
-            )}
+          <div className="order-1 lg:order-2 lg:col-span-8 flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
+            {/* 스크롤 가능한 콘텐츠 영역 */}
+            <div 
+              ref={rightFormRef} 
+              className={`flex-1 scrollbar-hide pb-4 ${currentStep === 4 ? 'overflow-hidden' : 'overflow-y-auto'}`} 
+              style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+            >
+              {errorMessage && (
+                <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-xl text-red-700 text-sm">
+                  {errorMessage}
+                </div>
+              )}
 
-            <div className="mb-8">
-              {renderCurrentStep()}
+              <div className="mb-3">
+                {renderCurrentStep()}
+              </div>
             </div>
 
-            {/* 네비게이션 버튼 */}
-            <div className="flex items-center justify-between gap-4 pt-6 border-t-2 border-gray-300">
-              <button
-                type="button"
-                onClick={handlePrevious}
-                disabled={currentStep === 1}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all border-2 ${
-                  currentStep === 1
-                    ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
-                    : 'bg-white text-black border-gray-300 hover:border-black'
-                }`}
-              >
-                <FiChevronLeft className="w-5 h-5" />
-                이전
-              </button>
+            {/* 네비게이션 버튼 - 고정 위치 */}
+            <div className="flex-shrink-0 bg-white pt-3 border-t-2 border-gray-300 z-10">
+              <div className="flex items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all border-2 ${
+                    currentStep === 1
+                      ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                      : 'bg-white text-black border-gray-300 hover:border-black'
+                  }`}
+                >
+                  <FiChevronLeft className="w-5 h-5" />
+                  이전
+                </button>
 
-              {currentStep < TOTAL_STEPS ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!canGoNext}
-                  className={`flex-1 max-w-xs mx-auto px-6 py-3 rounded-xl font-semibold transition-all border-2 ${
-                    canGoNext
-                      ? 'bg-black text-white border-black hover:bg-gray-800'
-                      : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  다음
-                  <FiChevronRight className="w-5 h-5 ml-2 inline" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting || !canGoNext}
-                  className={`flex-1 max-w-xs mx-auto px-6 py-3 rounded-xl font-semibold transition-all border-2 ${
-                    !submitting && canGoNext
-                      ? 'bg-black text-white border-black hover:bg-gray-800'
-                      : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  {submitting ? '등록 중...' : '상품 등록'}
-                </button>
-              )}
+                {currentStep < TOTAL_STEPS ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!canGoNext}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all border-2 ${
+                      canGoNext
+                        ? 'bg-black text-white border-black hover:bg-gray-800'
+                        : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    다음
+                    <FiChevronRight className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting || !canGoNext}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all border-2 ${
+                      !submitting && canGoNext
+                        ? 'bg-black text-white border-black hover:bg-gray-800'
+                        : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    {submitting ? '등록 중...' : '상품 등록'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
