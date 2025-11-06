@@ -25,11 +25,18 @@ public class EscrowController {
      * 에스크로 홀드 생성
      *
      * POST /escrow/holds
+     *
+     * @deprecated 이 API는 더 이상 사용하지 않습니다.
+     * Escrow는 PaymentService.confirmPayment() 시 자동으로 생성됩니다.
+     * 중복 생성을 방지하기 위해 이 엔드포인트를 사용하지 마세요.
      */
+    @Deprecated
     @PostMapping("/holds")
     public ResponseEntity<EscrowResponse> createHold(
             @Valid @RequestBody EscrowCreateRequest request) {
 
+        log.warn("[DEPRECATED] POST /escrow/holds 호출됨. 이 API는 deprecated되었습니다. " +
+                "Escrow는 결제 확인 시 자동 생성됩니다.");
         log.info("[POST /escrow/holds] 에스크로 생성 요청: rentalHisId={}, paymentId={}",
                 request.getRentalHisId(), request.getPaymentId());
 

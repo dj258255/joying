@@ -1,11 +1,21 @@
 package com.joying.rental.service;
 
+import com.joying.account.domain.Account;
+import com.joying.common.config.ssafy.FinanceApiProperties;
+import com.joying.escrow.domain.Escrow;
+import com.joying.escrow.repository.EscrowRepository;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
+import com.joying.payment.domain.Payment;
+import com.joying.payment.domain.PaymentStatus;
+import com.joying.payment.dto.request.PaymentCancelRequest;
+import com.joying.payment.repository.PaymentRepository;
+import com.joying.payment.service.PaymentService;
 import com.joying.product.domain.Product;
 import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalCancel;
 import com.joying.rental.domain.RentalHistory;
+import com.joying.ssafy.service.FinanceApiService;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
 import com.joying.rental.dto.response.ConfirmReceiveResponse;
@@ -16,6 +26,8 @@ import com.joying.rental.repository.RentalCancelRepository;
 import com.joying.rental.repository.RentalHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +48,11 @@ public class RentalService {
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
     private final RentalCancelRepository rentalCancelRepository;
+    private final EscrowRepository escrowRepository;
+    private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
+    private final FinanceApiService financeApiService;
+    private final FinanceApiProperties financeApiProperties;
 
     /**
      * 대여 생성 (예약)
@@ -362,7 +379,7 @@ public class RentalService {
      * @param rentalHisId 대여 내역 ID
      * @param request 연장 요청 (새 종료일, 추가 대여료)
      * @param memberId 요청한 회원 ID
-     * @return 연장 응답
+     * @return 연장 응답 (결제 정보 포함)
      */
     @Transactional
     public com.joying.rental.dto.response.ExtendResponse extendRental(
@@ -388,11 +405,36 @@ public class RentalService {
             throw new IllegalStateException("대여 중인 상태에서만 연장할 수 있습니다");
         }
 
-        // 4. 기존 종료일 저장 (응답용)
+        // 4. 연장일 검증
+        if (request.getNewEndRen().isBefore(rental.getEndRen().toLocalDateTime())) {
+            throw new IllegalArgumentException("연장 종료일은 현재 종료일보다 이후여야 합니다");
+        }
+
+        // 5. 기존 종료일 저장 (응답용)
         java.time.LocalDateTime originalEndRen = rental.getEndRen().toLocalDateTime();
         Integer originalFee = rental.getFee();
 
-        // 5. 연장 처리
+        // 6. 연장 결제용 Payment 생성
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        String orderId = "JOYING_EXTENSION_" + rentalHisId + "_" + System.currentTimeMillis();
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+
+        Payment extensionPayment = Payment.create(
+                rental,
+                rental.getRentalProduct(),
+                member,
+                com.joying.payment.domain.PaymentType.EXTENSION
+        );
+        extensionPayment.markReady(orderId, request.getAdditionalFee(), now);
+
+        Payment savedPayment = paymentRepository.save(extensionPayment);
+        log.info("[연장 결제 생성] rentalHisId={}, orderId={}, amount={}",
+                rentalHisId, orderId, request.getAdditionalFee());
+
+        // 7. 연장 처리 - 결제 완료 후 적용되도록 상태는 변경하지 않음
+        // TODO: PaymentService.confirmPayment에서 PaymentType.EXTENSION인 경우 RentalHistory.extend() 호출하도록 수정 필요
         rental.extend(
                 java.sql.Timestamp.valueOf(request.getNewEndRen()),
                 request.getAdditionalFee()
@@ -401,7 +443,7 @@ public class RentalService {
         log.info("[대여 기간 연장 완료] rentalHisId={}, extensionCount={}, newEndRen={}",
                 rentalHisId, rental.getExtensionCount(), rental.getEndRen());
 
-        // 6. 응답 생성
+        // 8. 응답 생성
         return com.joying.rental.dto.response.ExtendResponse.builder()
                 .rentalHisId(rental.getRentalHisId())
                 .status(rental.getStatus().name())
@@ -411,7 +453,8 @@ public class RentalService {
                 .additionalFee(request.getAdditionalFee())
                 .totalFee(rental.getFee())
                 .extensionCount(rental.getExtensionCount())
-                .message("대여 기간이 연장되었습니다. 추가 대여료를 결제해주세요.")
+                .orderId(savedPayment.getOrderId()) // 결제용 orderId 반환
+                .message("대여 기간 연장 요청이 완료되었습니다. 추가 대여료(" + request.getAdditionalFee() + "원)를 결제해주세요.")
                 .build();
     }
 
@@ -539,13 +582,81 @@ public class RentalService {
         // 4. 승인 처리
         cancel.approve(member);
 
-        // 4. 양측 모두 승인 시 거래 취소 처리
+        // 5. 양측 모두 승인 시 거래 취소 처리
         if (cancel.isBothApproved()) {
+            Long rentalHisId = cancel.getRentalHistory().getRentalHisId();
+
+            // 5-1. RentalHistory 취소
             cancel.getRentalHistory().cancel();
-            // TODO: Escrow 환불 처리
-            // TODO: Payment 취소 처리
-            log.info("[취소 양측 승인 완료] cancelId={}, rentalHisId={}",
-                    cancelId, cancel.getRentalHistory().getRentalHisId());
+
+            // 5-2. Escrow 조회 및 환불 처리
+            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                    .orElseThrow(() -> new IllegalStateException("에스크로를 찾을 수 없습니다: rentalHisId=" + rentalHisId));
+
+            // 5-3. 계좌 정보 조회
+            Member lender = rental.getRentalProduct().getWriter();
+            Member renter = rental.getMember();
+
+            Account lenderAccount = lender.getAccounts().stream()
+                    .filter(Account::isUsable)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("대여자의 사용 가능한 계좌가 없습니다: memberId=" + lender.getMemberId()));
+
+            Account renterAccount = renter.getAccounts().stream()
+                    .filter(Account::isUsable)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("차용자의 사용 가능한 계좌가 없습니다: memberId=" + renter.getMemberId()));
+
+            // 5-4. Joying 중개 계좌 정보
+            String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
+            String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
+
+            // 5-5. SSAFY 금융망으로 환불 분배
+            try {
+                // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
+                long renterRefundAmt = escrow.getRentalFee() + cancel.getDepositRenterAmt();
+                String renterTxNo = financeApiService.transferMoney(
+                        escrowAccountNo,
+                        renterAccount.getAccountNo(),
+                        renterRefundAmt,
+                        "Joying 취소 환불 (대여료+보증금)",
+                        escrowUserKey
+                );
+                log.info("[차용자 환불 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                        rentalHisId, renterTxNo, renterRefundAmt, renterAccount.getAccountNo());
+
+                // 대여자 보증금 몫 → 대여자에게 지급
+                if (cancel.getDepositOwnerAmt() > 0) {
+                    String lenderTxNo = financeApiService.transferMoney(
+                            escrowAccountNo,
+                            lenderAccount.getAccountNo(),
+                            cancel.getDepositOwnerAmt().longValue(),
+                            "Joying 취소 보증금 분배",
+                            escrowUserKey
+                    );
+                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                            rentalHisId, lenderTxNo, cancel.getDepositOwnerAmt(), lenderAccount.getAccountNo());
+                }
+            } catch (Exception e) {
+                log.error("[SSAFY 금융망 환불 실패] rentalHisId={}", rentalHisId, e);
+                throw new IllegalStateException("환불 처리 중 오류가 발생했습니다", e);
+            }
+
+            // 5-6. Escrow 상태 변경
+            escrow.refund();
+            log.info("[Escrow 환불 처리] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            // 5-7. Payment 상태 변경 (DONE → CANCELLED)
+            List<Payment> payments = paymentRepository.findByRentalHistory_RentalHisId(rentalHisId);
+            for (Payment payment : payments) {
+                if (payment.getStatus() == PaymentStatus.DONE) {
+                    payment.cancel();
+                    log.info("[Payment 상태 변경] rentalHisId={}, orderId={}, status=CANCELLED",
+                            rentalHisId, payment.getOrderId());
+                }
+            }
+
+            log.info("[취소 양측 승인 완료] cancelId={}, rentalHisId={}", cancelId, rentalHisId);
         }
 
         log.info("[취소 승인 완료] cancelId={}, status={}", cancelId, cancel.getStatus());
@@ -641,17 +752,27 @@ public class RentalService {
      * - 읽기 전용 트랜잭션으로 성능 최적화
      * - Fetch Join으로 N+1 문제 해결
      * - Pagination으로 대용량 데이터 처리
+     * - 정렬: rentalHisId 내림차순 (최신순)
      *
      * @param memberId 요청한 회원 ID
-     * @param pageable 페이지 정보 (page, size, sort)
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지 크기
      * @return 대여 내역 페이지
      */
     public org.springframework.data.domain.Page<com.joying.rental.dto.response.RentalHistoryListResponse> getBorrowedHistory(
             Long memberId,
-            org.springframework.data.domain.Pageable pageable) {
+            int page,
+            int size) {
 
         log.info("[나의 대여 내역 조회] memberId={}, page={}, size={}",
-                memberId, pageable.getPageNumber(), pageable.getPageSize());
+                memberId, page, size);
+
+        // 정렬을 rentalHisId DESC로 고정
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "rentalHisId")
+        );
 
         // Repository에서 Fetch Join으로 한번에 조회 (N+1 방지)
         org.springframework.data.domain.Page<RentalHistory> rentalPage =
@@ -666,17 +787,27 @@ public class RentalService {
      * - 읽기 전용 트랜잭션으로 성능 최적화
      * - Fetch Join으로 N+1 문제 해결
      * - Pagination으로 대용량 데이터 처리
+     * - 정렬: rentalHisId 내림차순 (최신순)
      *
      * @param ownerId 요청한 회원 ID (상품 소유자)
-     * @param pageable 페이지 정보 (page, size, sort)
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지 크기
      * @return 대여 내역 페이지
      */
     public org.springframework.data.domain.Page<com.joying.rental.dto.response.RentalHistoryListResponse> getLendHistory(
             Long ownerId,
-            org.springframework.data.domain.Pageable pageable) {
+            int page,
+            int size) {
 
         log.info("[내가 대여해준 내역 조회] ownerId={}, page={}, size={}",
-                ownerId, pageable.getPageNumber(), pageable.getPageSize());
+                ownerId, page, size);
+
+        // 정렬을 rentalHisId DESC로 고정
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "rentalHisId")
+        );
 
         // Repository에서 Fetch Join으로 한번에 조회 (N+1 방지)
         org.springframework.data.domain.Page<RentalHistory> rentalPage =

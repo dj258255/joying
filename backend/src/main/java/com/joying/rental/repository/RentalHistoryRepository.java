@@ -55,18 +55,19 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
      * 나의 대여 내역 조회 (내가 빌린 내역)
      * - Fetch Join으로 N+1 문제 해결
      * - Pageable로 성능 최적화
-     * - 최신순 정렬 (rentalHisId DESC)
+     * - 정렬은 Pageable을 통해 지정
      *
      * @param memberId 회원 ID (빌린 사람)
      * @param pageable 페이지 정보
      * @return 대여 내역 페이지
      */
-    @Query("SELECT DISTINCT r FROM RentalHistory r " +
+    @Query(value = "SELECT r FROM RentalHistory r " +
            "LEFT JOIN FETCH r.rentalProduct p " +
            "LEFT JOIN FETCH p.writer w " +
            "LEFT JOIN FETCH r.member m " +
-           "WHERE r.member.memberId = :memberId " +
-           "ORDER BY r.rentalHisId DESC")
+           "WHERE r.member.memberId = :memberId",
+           countQuery = "SELECT COUNT(r) FROM RentalHistory r " +
+           "WHERE r.member.memberId = :memberId")
     Page<RentalHistory> findBorrowedHistoryByMember(
             @Param("memberId") Long memberId,
             Pageable pageable
@@ -76,34 +77,24 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
      * 내가 대여해준 내역 조회 (내가 빌려준 내역)
      * - Fetch Join으로 N+1 문제 해결
      * - Pageable로 성능 최적화
-     * - 최신순 정렬 (rentalHisId DESC)
+     * - 정렬은 Pageable을 통해 지정
      *
      * @param ownerId 상품 소유자 ID
      * @param pageable 페이지 정보
      * @return 대여 내역 페이지
      */
-    @Query("SELECT DISTINCT r FROM RentalHistory r " +
+    @Query(value = "SELECT r FROM RentalHistory r " +
            "LEFT JOIN FETCH r.rentalProduct p " +
            "LEFT JOIN FETCH p.writer w " +
            "LEFT JOIN FETCH r.member m " +
-           "WHERE p.writer.memberId = :ownerId " +
-           "ORDER BY r.rentalHisId DESC")
+           "WHERE p.writer.memberId = :ownerId",
+           countQuery = "SELECT COUNT(r) FROM RentalHistory r " +
+           "WHERE r.rentalProduct.writer.memberId = :ownerId")
     Page<RentalHistory> findLendHistoryByOwner(
             @Param("ownerId") Long ownerId,
             Pageable pageable
     );
 
-    /**
-     * CountQuery for Pagination (Spring Data JPA uses this automatically)
-     * Fetch Join이 포함된 쿼리의 경우 별도의 count 쿼리 필요
-     */
-    @Query("SELECT COUNT(DISTINCT r) FROM RentalHistory r " +
-           "WHERE r.member.memberId = :memberId")
-    long countBorrowedHistoryByMember(@Param("memberId") Long memberId);
-
-    @Query("SELECT COUNT(DISTINCT r) FROM RentalHistory r " +
-           "WHERE r.rentalProduct.writer.memberId = :ownerId")
-    long countLendHistoryByOwner(@Param("ownerId") Long ownerId);
 
     /**
      * 날짜 겹침 체크용 - 비관적 락 적용

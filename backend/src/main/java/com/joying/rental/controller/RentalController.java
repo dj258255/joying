@@ -18,11 +18,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -335,24 +330,29 @@ public class RentalController {
      * - Pagination으로 대용량 데이터 처리
      * - 읽기 전용 트랜잭션으로 성능 향상
      *
+     * 정렬:
+     * - rentalHisId 내림차순 고정 (최신순)
+     *
      * 보안:
      * - JWT 인증 필수
      * - 본인 데이터만 조회 가능
      *
      * @param authentication JWT 인증 정보
-     * @param pageable 페이지 정보 (default: page=0, size=20, sort=createdAt,DESC)
+     * @param page 페이지 번호 (0부터 시작, default: 0)
+     * @param size 페이지 크기 (default: 20)
      * @return 대여 내역 페이지
      */
     @GetMapping("/borrowed/history")
     public ResponseEntity<ApiResponse.SuccessBody<Page<RentalHistoryListResponse>>> getBorrowedHistory(
             Authentication authentication,
-            @PageableDefault(size = 20, sort = "rentalHisId", direction = Sort.Direction.DESC) Pageable pageable
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
         Long memberId = Long.parseLong(authentication.getName());
         log.info("[GET /rentals/borrowed/history] 나의 대여 내역 조회 : memberId={}, page={}, size={}",
-                memberId, pageable.getPageNumber(), pageable.getPageSize());
+                memberId, page, size);
 
-        Page<RentalHistoryListResponse> borrowedHistory = rentalService.getBorrowedHistory(memberId, pageable);
+        Page<RentalHistoryListResponse> borrowedHistory = rentalService.getBorrowedHistory(memberId, page, size);
 
         return ApiResponse.ok(borrowedHistory);
     }
@@ -367,24 +367,29 @@ public class RentalController {
      * - Pagination으로 대용량 데이터 처리
      * - 읽기 전용 트랜잭션으로 성능 향상
      *
+     * 정렬:
+     * - rentalHisId 내림차순 고정 (최신순)
+     *
      * 보안:
      * - JWT 인증 필수
      * - 본인이 소유한 상품의 대여 내역만 조회 가능
      *
      * @param authentication JWT 인증 정보
-     * @param pageable 페이지 정보 (default: page=0, size=20, sort=createdAt,DESC)
+     * @param page 페이지 번호 (0부터 시작, default: 0)
+     * @param size 페이지 크기 (default: 20)
      * @return 대여 내역 페이지
      */
     @GetMapping("/lend/history")
     public ResponseEntity<ApiResponse.SuccessBody<Page<RentalHistoryListResponse>>> getLendHistory(
             Authentication authentication,
-            @PageableDefault(size = 20, sort = "rentalHisId", direction = Sort.Direction.DESC) Pageable pageable
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
         Long memberId = Long.parseLong(authentication.getName());
         log.info("[GET /rentals/lend/history] 내가 대여해준 내역 조회 : memberId={}, page={}, size={}",
-                memberId, pageable.getPageNumber(), pageable.getPageSize());
+                memberId, page, size);
 
-        Page<RentalHistoryListResponse> lendHistory = rentalService.getLendHistory(memberId, pageable);
+        Page<RentalHistoryListResponse> lendHistory = rentalService.getLendHistory(memberId, page, size);
 
         return ApiResponse.ok(lendHistory);
     }

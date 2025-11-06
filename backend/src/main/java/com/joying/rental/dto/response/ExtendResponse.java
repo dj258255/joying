@@ -24,5 +24,6 @@ public class ExtendResponse {
     private Integer additionalFee;
     private Integer totalFee;
     private Integer extensionCount;
+    private String orderId; // 연장 결제용 주문번호
     private String message;
 }
