@@ -1,7 +1,7 @@
 package com.joying.chat.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.Message
 import org.springframework.data.redis.connection.MessageListener
@@ -32,8 +32,8 @@ class ChatMessageListener(
      */
     override fun onMessage(message: Message, pattern: ByteArray?) {
         try {
-            // JSON 바이트 배열 → ChatMessageDto
-            val messageDto = objectMapper.readValue(message.body, ChatMessageDto::class.java)
+            // JSON 바이트 배열 → ChatMessageResponse
+            val messageDto = objectMapper.readValue(message.body, ChatMessageResponse::class.java)
 
             logger.debug(
                 "Redis 메시지 수신: chatRoomId={}, senderId={}, messageId={}",

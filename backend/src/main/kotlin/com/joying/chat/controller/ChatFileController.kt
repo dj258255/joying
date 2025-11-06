@@ -1,7 +1,7 @@
 package com.joying.chat.controller
 
 import com.joying.chat.dto.FileType
-import com.joying.chat.dto.FileUploadDto
+import com.joying.chat.dto.FileUploadResponse
 import com.joying.common.response.ApiResponse
 import com.joying.file.component.FileUrlResolver
 import com.joying.file.service.FileService
@@ -49,7 +49,7 @@ class ChatFileController(
     fun upload(
         @PathVariable chatRoomId: Long,
         @RequestPart("file") file: MultipartFile
-    ): ResponseEntity<ApiResponse.SuccessBody<FileUploadDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<FileUploadResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info(
@@ -70,7 +70,7 @@ class ChatFileController(
         // 파일 저장 (기존 FileService 사용)
         val savedFile = fileService.saveFile(file)
 
-        val response = FileUploadDto(
+        val response = FileUploadResponse(
             fileId = savedFile.fileId!!,
             url = fileUrlResolver.toPublicUrl(savedFile),
             fileName = file.originalFilename ?: if (isImage) "image" else "file",

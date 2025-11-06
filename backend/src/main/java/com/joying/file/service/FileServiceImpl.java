@@ -22,10 +22,17 @@ public class FileServiceImpl implements FileService {
     private final FileRepository fileRepository;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
+            // 이미지
             "image/png",
             "image/jpeg",
             "image/jpg",
-            "image/gif"
+            "image/gif",
+
+            // 영상
+            "video/mp4",
+            "video/quicktime",   // .mov
+            "video/x-msvideo",   // .avi
+            "video/webm"
     );
 
     @Value("${cloudflare.r2.bucket}")

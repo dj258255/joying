@@ -1,8 +1,8 @@
 package com.joying.chat.service
 
 import com.joying.chat.document.ChatMessage
-import com.joying.chat.dto.ChatMessageDto
-import com.joying.chat.dto.ChatRoomSettingsDto
+import com.joying.chat.dto.ChatMessageResponse
+import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -55,7 +55,7 @@ class ChatService(
         chatRoomId: Long,
         senderId: Long,
         request: SendMessageRequest
-    ): ChatMessageDto {
+    ): ChatMessageResponse {
         // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms ⭐
         if (!permissionCache.hasPermission(chatRoomId, senderId)) {
             throw BusinessException(ErrorCode.FORBIDDEN, "메시지 전송 권한이 없습니다")
@@ -118,7 +118,7 @@ class ChatService(
         }
 
         // 4. DTO 변환
-        val messageDto = ChatMessageDto.from(savedMessage)
+        val messageDto = ChatMessageResponse.from(savedMessage)
 
         // 5. Redis Pub/Sub로 발행 (실시간 전달)
         redisPubSubPublisher.publish(messageDto)
@@ -203,7 +203,7 @@ class ChatService(
         memberId: Long,
         isPinned: Boolean?,
         isMuted: Boolean?
-    ): ChatRoomSettingsDto {
+    ): ChatRoomSettingsResponse {
         val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
@@ -219,7 +219,7 @@ class ChatService(
             logger.info("채팅방 알림 변경: chatRoomId={}, memberId={}, isMuted={}", chatRoomId, memberId, isMuted)
         }
 
-        return ChatRoomSettingsDto(
+        return ChatRoomSettingsResponse(
             isPinned = chatRoomMember.isPinned,
             isMuted = chatRoomMember.isMuted
         )

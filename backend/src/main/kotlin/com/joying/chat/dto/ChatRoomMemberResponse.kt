@@ -3,11 +3,11 @@ package com.joying.chat.dto
 import java.time.Instant
 
 /**
- * 채팅방 참여자 정보 DTO
+ * 채팅방 참여자 정보 Response DTO
  *
  * 상대방 정보 + 온라인 상태 + 내 설정
  */
-data class ChatRoomMemberDto(
+data class ChatRoomMemberResponse(
     // 상대방 기본 정보
     val memberId: Long,
     val nickname: String,

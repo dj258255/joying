@@ -3,8 +3,8 @@ package com.joying.chat.service
 import com.joying.chat.domain.ChatRoom
 import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.domain.ChatRoomStatus
-import com.joying.chat.dto.ChatRoomDto
-import com.joying.chat.dto.ChatRoomMemberDto
+import com.joying.chat.dto.ChatRoomResponse
+import com.joying.chat.dto.ChatRoomMemberResponse
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
 import com.joying.chat.repository.ChatRoomRepository
@@ -139,11 +139,11 @@ class ChatRoomService(
      * @return 채팅방 DTO
      */
     @Transactional
-    fun getOrCreateChatRoomDto(productId: Long, buyerId: Long): ChatRoomDto {
+    fun getOrCreateChatRoomResponse(productId: Long, buyerId: Long): ChatRoomResponse {
         val chatRoom = getOrCreateChatRoom(productId, buyerId)
 
         // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
-        return ChatRoomDto(
+        return ChatRoomResponse(
             chatRoomId = chatRoom.chatRoomId!!,
             productId = chatRoom.product.getProductId()!!,
             productTitle = chatRoom.product.getTitle(),
@@ -183,9 +183,15 @@ class ChatRoomService(
      * @param memberId 회원 ID
      * @return 채팅방 목록
      */
-    suspend fun getMyChatRooms(memberId: Long): List<ChatRoomDto> {
-        val chatRooms = chatRoomRepository.findByMemberId(memberId)
-        val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+    suspend fun getMyChatRooms(memberId: Long): List<ChatRoomResponse> {
+        // IMPORTANT: Blocking Repository 호출은 반드시 withContext로 감싸야 함
+        // "여러 요청이 스레드를 공유하기 때문에 작은 블로킹 코드로 인해 전체 서비스가 멈출 수 있습니다"
+        val chatRooms = withContext(Dispatchers.IO) {
+            chatRoomRepository.findByMemberId(memberId)
+        }
+        val chatRoomMembers = withContext(Dispatchers.IO) {
+            chatRoomMemberRepository.findByMemberId(memberId)
+        }
 
         // 채팅방별 설정 매핑
         val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoom.chatRoomId }
@@ -216,7 +222,7 @@ class ChatRoomService(
             }
 
             // DTO 변환 (안읽은 개수는 Redis에서!)
-            ChatRoomDto(
+            ChatRoomResponse(
                 chatRoomId = chatRoom.chatRoomId!!,
                 productId = chatRoom.product.getProductId()!!,
                 productTitle = chatRoom.product.getTitle(),
@@ -242,7 +248,7 @@ class ChatRoomService(
      * @param includeMember 참여자 상세 정보 포함 여부 (온라인 상태 등)
      * @return 채팅방 상세 정보
      */
-    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomDto {
+    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse {
         val chatRoom = chatRoomRepository.findById(chatRoomId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
@@ -273,7 +279,7 @@ class ChatRoomService(
             } else {
                 null
             }
-            ChatRoomDto.MemberInfo(
+            ChatRoomResponse.MemberInfo(
                 isOnline = isOnline,
                 lastSeenAt = lastSeenAt
             )
@@ -281,7 +287,7 @@ class ChatRoomService(
             null
         }
 
-        return ChatRoomDto(
+        return ChatRoomResponse(
             chatRoomId = chatRoom.chatRoomId!!,
             productId = chatRoom.product.getProductId()!!,
             productTitle = chatRoom.product.getTitle(),
@@ -365,7 +371,7 @@ class ChatRoomService(
      * @param memberId 요청한 회원 ID
      * @return 채팅방 참여자 정보
      */
-    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): ChatRoomMemberDto {
+    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): ChatRoomMemberResponse {
         val chatRoom = chatRoomRepository.findById(chatRoomId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
@@ -393,7 +399,7 @@ class ChatRoomService(
             null
         }
 
-        return ChatRoomMemberDto(
+        return ChatRoomMemberResponse(
             memberId = otherMember.getMemberId()!!,
             nickname = otherMember.getNickname(),
             profileUrl = otherMember.getKakaoProfileImageUrl(),

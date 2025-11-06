@@ -5,11 +5,11 @@ import com.joying.chat.document.MessageType
 import java.time.Instant
 
 /**
- * 채팅 메시지 DTO
+ * 채팅 메시지 Response DTO
  *
  * WebSocket 메시지 전송 및 REST API 응답용
  */
-data class ChatMessageDto(
+data class ChatMessageResponse(
     val id: String?,
     val chatRoomId: Long,
     val senderId: Long,
@@ -25,10 +25,10 @@ data class ChatMessageDto(
 ) {
     companion object {
         /**
-         * ChatMessage → ChatMessageDto 변환
+         * ChatMessage → ChatMessageResponse 변환
          */
-        fun from(message: ChatMessage): ChatMessageDto {
-            return ChatMessageDto(
+        fun from(message: ChatMessage): ChatMessageResponse {
+            return ChatMessageResponse(
                 id = message.id,
                 chatRoomId = message.chatRoomId,
                 senderId = message.senderId,
