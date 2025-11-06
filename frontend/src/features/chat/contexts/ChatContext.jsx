@@ -74,12 +74,25 @@ export const ChatProvider = ({ children }) => {
   }, [state.currentChatRoom?.id]); // 의존성을 chatRoomId로만 제한
 
   // 채팅방 설정
-  const setCurrentChatRoom = useCallback(async (chatRoomId) => {
+  // setCurrentChatRoom(chatRoomId) - API 호출하여 조회
+  // setCurrentChatRoom(chatRoomId, chatRoomData) - 전달된 데이터 사용 (생성 직후 등)
+  const setCurrentChatRoom = useCallback(async (chatRoomId, chatRoomData = null) => {
     if (!chatRoomId) return;
     
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      const chatRoom = await chatApi.getChatRoomDetail(chatRoomId);
+      
+      // 전달된 채팅방 데이터가 있으면 사용, 없으면 API 호출
+      let chatRoom;
+      if (chatRoomData) {
+        console.log('[ChatContext] 생성된 채팅방 데이터 사용 (조회 API 호출 생략):', chatRoomData);
+        chatRoom = chatRoomData;
+      } else {
+        console.log('[ChatContext] 채팅방 상세 조회 API 호출:', chatRoomId);
+        chatRoom = await chatApi.getChatRoomDetail(chatRoomId);
+      }
+      
+      // 메시지 목록 조회 (백엔드 API 호출)
       const messages = await messageApi.getMessages(chatRoomId);
       
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: chatRoom });

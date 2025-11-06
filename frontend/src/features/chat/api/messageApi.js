@@ -1,48 +1,107 @@
 /**
  * Message API functions
- * 메시지 송수신 관련 API (더미 데이터 사용)
+ * 메시지 조회, 수정, 삭제 관련 API (백엔드 연동)
+ * 메시지 전송은 WebSocket을 통해 처리됩니다.
  */
 
-import { DUMMY_MESSAGES, DUMMY_USERS } from '@/shared/constants/dummyData';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 /**
  * 메시지 관련 API
  */
 export const messageApi = {
   /**
-   * 메시지 목록 조회 (채팅 내역)
-   * @param {string} chatRoomId - 채팅방 ID
-   * @param {Object} [params]
-   * @param {number} [params.page=1] - 페이지 번호
-   * @param {number} [params.size=50] - 페이지 크기
-   * @param {string} [params.before_message_id] - 커서 (이전 메시지 ID)
-   * @returns {Promise<Array>}
+   * 메시지 목록 조회 및 검색
+   * GET /api/v1/chat-rooms/{chatRoomId}/messages
+   * 
+   * 백엔드 스펙:
+   * - Query Parameters:
+   *   - keyword (optional): 검색 키워드 (있으면 검색 모드)
+   *   - before (optional): ISO8601 형식 - 이 시간 이전의 메시지 조회 (과거 방향, 최신순)
+   *   - after (optional): ISO8601 형식 - 이 시간 이후의 메시지 조회 (놓친 메시지, 오래된 순)
+   *   - page (optional, default: 0): 페이지 번호 (검색 모드에서만 사용)
+   *   - size (optional, default: 20): 가져올 개수
+   * - 응답: ApiResponse.SuccessBody<List<ChatMessageResponse>>
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @param {Object} [params] - 조회 파라미터
+   * @param {string} [params.keyword] - 검색 키워드 (있으면 검색 모드)
+   * @param {string|Date} [params.before] - 이 시간 이전의 메시지 조회 (ISO8601 형식, 과거 방향)
+   * @param {string|Date} [params.after] - 이 시간 이후의 메시지 조회 (ISO8601 형식, 놓친 메시지)
+   * @param {number} [params.page=0] - 페이지 번호 (검색 모드에서만 사용)
+   * @param {number} [params.size=20] - 가져올 개수
+   * @returns {Promise<Array>} 메시지 목록
    */
   getMessages: async (chatRoomId, params = {}) => {
-    // 로컬 스토리지에서 메시지 가져오기
-    let messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');
-    
-    // 로컬 스토리지가 비어있으면 더미 데이터 사용
-    if (messages.length === 0 && DUMMY_MESSAGES[chatRoomId]) {
-      messages = [...DUMMY_MESSAGES[chatRoomId]];
-      localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));
-    }
-
-    // before_message_id가 있으면 해당 메시지 이전의 메시지들만 반환
-    if (params.before_message_id) {
-      const beforeIndex = messages.findIndex(msg => msg.id === params.before_message_id);
-      if (beforeIndex !== -1) {
-        messages = messages.slice(0, beforeIndex);
+    try {
+      const { keyword, before, after, page = 0, size = 20 } = params;
+      
+      const queryParams = {};
+      
+      if (keyword) {
+        // 검색 모드
+        queryParams.keyword = keyword;
+        queryParams.page = page;
+        queryParams.size = size;
+      } else {
+        // 일반 조회 모드
+        if (before) {
+          // ISO8601 형식으로 변환
+          const beforeDate = before instanceof Date ? before.toISOString() : before;
+          queryParams.before = beforeDate;
+        }
+        if (after) {
+          // ISO8601 형식으로 변환
+          const afterDate = after instanceof Date ? after.toISOString() : after;
+          queryParams.after = afterDate;
+        }
+        queryParams.size = size;
       }
+      
+      console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId, queryParams });
+      
+      const response = await axiosInstance.get(`/chat-rooms/${chatRoomId}/messages`, {
+        params: queryParams
+      });
+      
+      console.log('[messageApi] 메시지 목록 조회 응답:', {
+        status: response.status,
+        messageCount: response.data?.data?.length || 0
+      });
+      
+      // 백엔드 응답 형식: ApiResponse.SuccessBody<List<ChatMessageResponse>>
+      // { status, message, data: [...], timestamp }
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      }
+      
+      // 응답이 배열 형식이 아닌 경우 빈 배열 반환
+      console.warn('[messageApi] 메시지 목록 응답 형식이 예상과 다릅니다:', response.data);
+      return [];
+    } catch (error) {
+      console.error('[messageApi] 메시지 목록 조회 실패:', {
+        chatRoomId,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // 404 에러는 빈 배열 반환 (채팅방에 메시지가 없는 경우)
+      if (error.response?.status === 404) {
+        console.warn('[messageApi] 메시지를 찾을 수 없습니다. 빈 배열 반환.');
+        return [];
+      }
+      
+      // 401 에러는 인증 문제
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+      }
+      
+      // 기타 에러는 빈 배열 반환하여 UI가 깨지지 않도록 함
+      console.warn('[messageApi] 메시지 목록 조회 실패. 빈 배열 반환.');
+      return [];
     }
-
-    // 페이지네이션 적용
-    const page = params.page || 1;
-    const size = params.size || 50;
-    const startIndex = (page - 1) * size;
-    const endIndex = startIndex + size;
-
-    return messages.slice(startIndex, endIndex);
   },
 
   /**
