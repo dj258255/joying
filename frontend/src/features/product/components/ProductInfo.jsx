@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
+import { FiX } from 'react-icons/fi';
 
-const ProductInfo = ({ title = '', hashtags = [], description = '', compact = false }) => {
+const ProductInfo = ({ title = '', hashtags = [], description = '', compact = false, onRemoveHashtag = null }) => {
   return (
     <div className={compact ? "p-1.5 space-y-1.5" : "glass-card p-4 md:p-6 space-y-4 md:space-y-6"}>
       {/* 상품명 */}
@@ -19,14 +20,23 @@ const ProductInfo = ({ title = '', hashtags = [], description = '', compact = fa
           {hashtags.map((tag, index) => (
             <span
               key={index}
-              className={compact ? "px-2 py-1 rounded-full text-[11px] font-medium" : "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium glass-button-ghost"}
-              style={{
+              className={compact ? "inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium bg-gray-900 text-white" : "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium glass-button-ghost"}
+              style={compact ? {} : {
                 background: 'rgba(0, 122, 204, 0.1)',
                 color: '#007AFF',
                 border: '1px solid rgba(0, 122, 204, 0.2)'
               }}
             >
               #{tag}
+              {compact && onRemoveHashtag && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveHashtag(tag)}
+                  className="hover:opacity-70 transition-opacity"
+                >
+                  <FiX className="w-3 h-3" />
+                </button>
+              )}
             </span>
           ))}
         </div>
