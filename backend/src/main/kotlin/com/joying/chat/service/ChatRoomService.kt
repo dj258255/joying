@@ -174,20 +174,18 @@ class ChatRoomService(
 
     /**
      * 내 채팅방 목록 조회
-     * (안읽은 메시지 개수는 Redis 캐시 사용, MongoDB 쿼리 최소화!)
      *
      * 최적화:
-     * - ProductFile N+1 제거: 배치 조회로 변경
-     * - Redis MGET: 안읽은 개수 한 번에 조회
+     * - Fetch Join으로 Product, Buyer, Seller 한 번에 조회 (N+1 방지)
+     * - ProductFile은 배치 조회 (1:N 관계라 Fetch Join 불가)
+     * - Redis MGET으로 안읽은 개수 배치 조회
      *
      * @param memberId 회원 ID
      * @return 채팅방 목록
      */
     suspend fun getMyChatRooms(memberId: Long): List<ChatRoomResponse> {
-        // IMPORTANT: Blocking Repository 호출은 반드시 withContext로 감싸야 함
-        // "여러 요청이 스레드를 공유하기 때문에 작은 블로킹 코드로 인해 전체 서비스가 멈출 수 있습니다"
         val chatRooms = withContext(Dispatchers.IO) {
-            chatRoomRepository.findByMemberId(memberId)
+            chatRoomRepository.findByMemberId(memberId)  // Fetch Join으로 Product, Buyer, Seller 이미 로드됨
         }
         val chatRoomMembers = withContext(Dispatchers.IO) {
             chatRoomMemberRepository.findByMemberId(memberId)
@@ -196,11 +194,11 @@ class ChatRoomService(
         // 채팅방별 설정 매핑
         val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoom.chatRoomId }
 
-        // Redis에서 안읽은 개수 배치 조회 (Pipeline 사용)
+        // Redis에서 안읽은 개수 배치 조회
         val chatRoomIds = chatRooms.map { it.chatRoomId!! }
         val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
 
-        // ProductFile N+1 제거: 전체 상품의 썸네일을 한 번에 조회
+        // ProductFile 배치 조회 (1:N 관계라 Fetch Join 불가)
         val productIds = chatRooms.map { it.product.getProductId()!! }
         val thumbnailMap = withContext(Dispatchers.IO) {
             productFileRepository.findByProduct_ProductIdIn(productIds)
@@ -214,25 +212,24 @@ class ChatRoomService(
             val settings = memberSettingsMap[chatRoom.chatRoomId]
                 ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
 
-            // 상대방 정보
+            // 상대방 정보 (Fetch Join으로 이미 로드됨)
             val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
                 chatRoom.seller
             } else {
                 chatRoom.buyer
             }
 
-            // DTO 변환 (안읽은 개수는 Redis에서!)
             ChatRoomResponse(
                 chatRoomId = chatRoom.chatRoomId!!,
                 productId = chatRoom.product.getProductId()!!,
                 productTitle = chatRoom.product.getTitle(),
-                productImageUrl = thumbnailMap[chatRoom.product.getProductId()],  // 배치 조회 결과 사용
+                productImageUrl = thumbnailMap[chatRoom.product.getProductId()],
                 otherMemberId = otherMember.getMemberId()!!,
                 otherMemberNickname = otherMember.getNickname(),
                 otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
                 lastMessage = chatRoom.lastMessage,
                 lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,  // Redis에서!
+                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
                 status = chatRoom.status,
                 isPinned = settings.isPinned,
                 isMuted = settings.isMuted
