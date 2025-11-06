@@ -191,8 +191,8 @@ class ChatRoomService(
             chatRoomMemberRepository.findByMemberId(memberId)
         }
 
-        // 채팅방별 설정 매핑
-        val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoom.chatRoomId }
+        // 채팅방별 설정 매핑 (Lazy Loading 방지를 위해 chatRoomId 직접 접근)
+        val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoomId }
 
         // Redis에서 안읽은 개수 배치 조회
         val chatRoomIds = chatRooms.map { it.chatRoomId!! }
@@ -246,8 +246,10 @@ class ChatRoomService(
      * @return 채팅방 상세 정보
      */
     suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse {
-        val chatRoom = chatRoomRepository.findById(chatRoomId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+        val chatRoom = withContext(Dispatchers.IO) {
+            chatRoomRepository.findById(chatRoomId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+        }
 
         // 권한 확인 (구매자 또는 판매자만)
         if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
@@ -352,8 +354,10 @@ class ChatRoomService(
      * @return 모든 채팅방의 안읽은 메시지 총 개수
      */
     suspend fun getTotalUnreadCount(memberId: Long): Long {
-        val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
-        val chatRoomIds = chatRoomMembers.map { it.chatRoom.chatRoomId!! }
+        val chatRoomMembers = withContext(Dispatchers.IO) {
+            chatRoomMemberRepository.findByMemberId(memberId)
+        }
+        val chatRoomIds = chatRoomMembers.map { it.chatRoomId!! }  // FK 직접 접근
 
         // Redis에서 배치 조회 후 합산
         val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
