@@ -66,10 +66,8 @@ class ChatRoomController(
         description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다."
     )
     @GetMapping
-    suspend fun getMyChatRooms(
-        authentication: Authentication
-    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
-        val memberId = authentication.name.toLong()
+    suspend fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
+        val memberId = getCurrentMemberId()
 
         logger.info("채팅방 목록 조회 요청: memberId={}", memberId)
 
@@ -99,10 +97,9 @@ class ChatRoomController(
     @GetMapping("/{chatRoomId}")
     suspend fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
-        @RequestParam(required = false) include: String?,
-        authentication: Authentication
+        @RequestParam(required = false) include: String?
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomResponse>> {
-        val memberId = authentication.name.toLong()
+        val memberId = getCurrentMemberId()
 
         logger.info("채팅방 상세 조회 요청: chatRoomId={}, memberId={}, include={}", chatRoomId, memberId, include)
 
