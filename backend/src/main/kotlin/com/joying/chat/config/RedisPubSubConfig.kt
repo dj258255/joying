@@ -1,7 +1,7 @@
 package com.joying.chat.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.service.ChatMessageListener
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -32,18 +32,18 @@ class RedisPubSubConfig {
     }
 
     /**
-     * RedisTemplate<String, ChatMessageDto> 설정
+     * RedisTemplate<String, ChatMessageResponse> 설정
      *
-     * Redis Pub/Sub로 ChatMessageDto를 발행하기 위한 템플릿
+     * Redis Pub/Sub로 ChatMessageResponse를 발행하기 위한 템플릿
      * - Key: String (채널 이름)
-     * - Value: ChatMessageDto (JSON 직렬화)
+     * - Value: ChatMessageResponse (JSON 직렬화)
      */
     @Bean
     fun chatMessageRedisTemplate(
         connectionFactory: RedisConnectionFactory,
         objectMapper: ObjectMapper
-    ): RedisTemplate<String, ChatMessageDto> {
-        val template = RedisTemplate<String, ChatMessageDto>()
+    ): RedisTemplate<String, ChatMessageResponse> {
+        val template = RedisTemplate<String, ChatMessageResponse>()
         template.connectionFactory = connectionFactory
 
         // Key Serializer
@@ -52,7 +52,7 @@ class RedisPubSubConfig {
         template.hashKeySerializer = stringSerializer
 
         // Value Serializer (JSON)
-        val jsonSerializer = Jackson2JsonRedisSerializer(objectMapper, ChatMessageDto::class.java)
+        val jsonSerializer = Jackson2JsonRedisSerializer(objectMapper, ChatMessageResponse::class.java)
         template.valueSerializer = jsonSerializer
         template.hashValueSerializer = jsonSerializer
 

@@ -1,6 +1,6 @@
 package com.joying.chat.service
 
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomRepository
 import com.joying.common.exception.BusinessException
@@ -48,13 +48,13 @@ class ChatMessageService(
      * @param size 페이지 크기
      * @return 메시지 목록 (최신순)
      */
-    suspend fun getMessages(chatRoomId: Long, page: Int, size: Int): List<ChatMessageDto> =
+    suspend fun getMessages(chatRoomId: Long, page: Int, size: Int): List<ChatMessageResponse> =
         withContext(Dispatchers.IO) {
             val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
 
             chatMessageRepository
                 .findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, pageable)
-                .map { ChatMessageDto.from(it) }
+                .map { ChatMessageResponse.from(it) }
         }
 
     /**
@@ -76,7 +76,7 @@ class ChatMessageService(
         after: Instant? = null,
         size: Int,
         memberId: Long
-    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
 
@@ -114,7 +114,7 @@ class ChatMessageService(
             }
         }
 
-        messages.map { ChatMessageDto.from(it) }
+        messages.map { ChatMessageResponse.from(it) }
     }
 
     /**
@@ -133,7 +133,7 @@ class ChatMessageService(
         page: Int,
         size: Int,
         memberId: Long
-    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -144,7 +144,7 @@ class ChatMessageService(
                 keyword,
                 pageable
             )
-            .map { ChatMessageDto.from(it) }
+            .map { ChatMessageResponse.from(it) }
     }
 
     /**
@@ -180,7 +180,7 @@ class ChatMessageService(
         after: Instant,
         limit: Int = 100,
         memberId: Long
-    ): List<ChatMessageDto> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
         val pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt"))
@@ -191,7 +191,7 @@ class ChatMessageService(
                 after,
                 pageable
             )
-            .map { ChatMessageDto.from(it) }
+            .map { ChatMessageResponse.from(it) }
     }
 
     /**
@@ -235,7 +235,7 @@ class ChatMessageService(
         messageId: String,
         memberId: Long,
         newContent: String
-    ): ChatMessageDto = withContext(Dispatchers.IO) {
+    ): ChatMessageResponse = withContext(Dispatchers.IO) {
         val message = chatMessageRepository.findById(messageId)
             .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
 
@@ -266,6 +266,6 @@ class ChatMessageService(
 
         chatMessageRepository.save(updatedMessage)
 
-        ChatMessageDto.from(updatedMessage)
+        ChatMessageResponse.from(updatedMessage)
     }
 }

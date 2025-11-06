@@ -1,5 +1,6 @@
 package com.joying.rental.domain;
 
+import com.joying.common.entity.BaseEntity;
 import com.joying.file.domain.File;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +11,7 @@ import org.hibernate.annotations.Comment;
 @Table(name = "rental_video")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "rentalVideoId", callSuper = false)
-public class RentalVideo {
+public class RentalVideo extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

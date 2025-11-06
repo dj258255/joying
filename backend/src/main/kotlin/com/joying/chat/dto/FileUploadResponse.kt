@@ -3,7 +3,7 @@ package com.joying.chat.dto
 /**
  * 파일 업로드 Response
  */
-data class FileUploadDto(
+data class FileUploadResponse(
     val fileId: Long,
     val url: String,
     val fileName: String,

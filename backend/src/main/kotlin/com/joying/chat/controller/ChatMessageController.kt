@@ -1,6 +1,6 @@
 package com.joying.chat.controller
 
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.UpdateMessageRequest
 import com.joying.chat.service.ChatMessageService
 import com.joying.common.response.ApiResponse
@@ -69,7 +69,7 @@ class ChatMessageController(
         after: Instant?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
-    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageDto>>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageResponse>>> {
         val memberId = getCurrentMemberId()
 
         val messages = if (keyword != null) {
@@ -148,7 +148,7 @@ class ChatMessageController(
         @PathVariable chatRoomId: Long,
         @PathVariable messageId: String,
         @RequestBody request: UpdateMessageRequest
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatMessageDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatMessageResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info(
