@@ -182,14 +182,16 @@ public class SearchReindexService {
 				builder.actions(Action.of(a -> a.remove(r -> r.index(oldIndex).alias(aliasName))));
 				log.info("기존 인덱스 [{}]의 alias [{}] 제거", oldIndex, aliasName);
 			}
-
 			builder.actions(Action.of(a -> a.add(add -> add.index(newIndexName).alias(aliasName))));
 			log.info("새 인덱스 [{}]에 alias [{}] 추가", newIndexName, aliasName);
 
 			esClient.indices().updateAliases(builder.build());
-
 			log.info("Alias [{}] → [{}] 전환 완료", aliasName, newIndexName);
 
+			if (oldIndex != null && !oldIndex.equals(newIndexName)) {
+				esClient.indices().delete(d -> d.index(oldIndex));
+				log.info("이전 인덱스 [{}] 삭제 완료", oldIndex);
+			}
 		} catch (Exception e) {
 			log.error("Alias 전환 중 오류 발생", e);
 		}
