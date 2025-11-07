@@ -7,12 +7,15 @@ import com.joying.rental.dto.request.ExtendRequest;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
 import com.joying.rental.dto.response.CancelResponse;
+import com.joying.rental.dto.request.VideoUploadRequest;
 import com.joying.rental.dto.response.ConfirmReceiveResponse;
 import com.joying.rental.dto.response.ExtendResponse;
 import com.joying.rental.dto.response.RentalDetailResponse;
 import com.joying.rental.dto.response.RentalHistoryListResponse;
 import com.joying.rental.dto.response.ReservationCreateResponse;
 import com.joying.rental.dto.response.ShipResponse;
+import com.joying.rental.dto.response.VideoListResponse;
+import com.joying.rental.dto.response.VideoResponse;
 import com.joying.rental.service.RentalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -165,6 +168,52 @@ public class RentalController {
                 rentalHisId, memberId);
 
         ConfirmReceiveResponse response = rentalService.confirmReturn(
+                rentalHisId,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 영상 업로드
+     *
+     * POST /rental-histories/{rentalHisId}/video
+     */
+    @PostMapping("/rental-histories/{rentalHisId}/video")
+    public ResponseEntity<ApiResponse.SuccessBody<VideoResponse>> uploadVideo(
+            @PathVariable Long rentalHisId,
+            @Valid @RequestBody VideoUploadRequest request,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[POST /rental-histories/{}/video] 영상 업로드: memberId={}, videoType={}",
+                rentalHisId, memberId, request.getVideoType());
+
+        VideoResponse response = rentalService.uploadVideo(
+                rentalHisId,
+                request,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 영상 조회
+     *
+     * GET /rental-histories/{rentalHisId}/video
+     */
+    @GetMapping("/rental-histories/{rentalHisId}/video")
+    public ResponseEntity<ApiResponse.SuccessBody<VideoListResponse>> getVideos(
+            @PathVariable Long rentalHisId,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /rental-histories/{}/video] 영상 조회: memberId={}",
+                rentalHisId, memberId);
+
+        VideoListResponse response = rentalService.getVideos(
                 rentalHisId,
                 memberId
         );

@@ -1,5 +1,6 @@
 package com.joying.rental.domain;
 
+import com.joying.common.entity.BaseEntity;
 import com.joying.file.domain.File;
 import com.joying.member.domain.Member;
 import com.joying.product.domain.Product;
@@ -15,7 +16,7 @@ import java.sql.Timestamp;
 @Table(name = "rental_video")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "rentalVideoId", callSuper = false)
-public class RentalVideo {
+public class RentalVideo extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

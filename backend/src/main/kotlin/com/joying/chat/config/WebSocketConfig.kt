@@ -22,14 +22,20 @@ import org.springframework.web.socket.config.annotation.WebSocketTransportRegist
 @EnableWebSocketMessageBroker
 class WebSocketConfig(
     @Value("\${cors.allowed-origins}")
-    private val allowedOrigins: List<String>
+    private val allowedOrigins: List<String>,
+    private val webSocketAuthInterceptor: WebSocketAuthInterceptor
 ) : WebSocketMessageBrokerConfigurer {
 
     /**
      * Message Broker 설정
      *
      * - Application Prefix: /app (클라이언트 → 서버)
-     * - Simple Broker: /topic, /queue (서버 → 클라이언트)
+     * - Redis Pub/Sub: 서버 간 메시지 전달
+     *
+     * SimpleBroker 제거 이유:
+     * - SimpleBroker는 구독 정보를 서버 메모리에 저장
+     * - 서버 확장 시 다른 서버의 구독자에게 메시지 전달 불가
+     * - Redis Pub/Sub으로 직접 구독 관리하여 확장성 확보
      */
     override fun configureMessageBroker(registry: MessageBrokerRegistry) {
         // Application Destination Prefix
@@ -37,11 +43,9 @@ class WebSocketConfig(
         // 예: SEND /app/chat/123/send
         registry.setApplicationDestinationPrefixes("/app")
 
-        // Simple Broker
-        // 서버가 클라이언트에게 메시지를 브로드캐스트할 때 사용
-        // /topic: 1:N (채팅방 전체)
-        // /queue: 1:1 (개인 메시지)
-        registry.enableSimpleBroker("/topic", "/queue")
+        // SimpleBroker 제거 (Redis Pub/Sub으로 대체)
+        // - 기존: registry.enableSimpleBroker("/topic", "/queue")
+        // - 변경: ChatMessageListener에서 직접 WebSocket 전송
 
         // User Destination Prefix
         // 특정 사용자에게만 메시지 전송 시 사용
@@ -97,7 +101,10 @@ class WebSocketConfig(
      * - keepAlive 짧게 (30초) - 유휴 시 빠른 해제
      */
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
-        registration.taskExecutor()
+        registration
+            // 쿠키 기반 인증 인터셉터 등록
+            .interceptors(webSocketAuthInterceptor)
+            .taskExecutor()
             .corePoolSize(5)  // 기본 5개 (유휴 시 최소 스레드)
             .maxPoolSize(20)  // 최대 20개 (사용자 입력은 느림)
             .queueCapacity(200)  // 대기 큐 200개 (갑작스러운 동시 전송 대비)
@@ -107,24 +114,24 @@ class WebSocketConfig(
     /**
      * Outbound Channel 설정 (서버 → 클라이언트)
      *
-     * Redis Pub/Sub에서 받은 메시지를 여러 클라이언트에게 브로드캐스트
+     * Redis Pub/Sub에서 받은 메시지를 클라이언트에게 전송
      *
      * 부하 특성:
-     * - 1개 메시지 → N명 클라이언트에게 전송 (Fan-out)
+     * - 1:1 채팅: 1개 메시지 → 2명에게 전송 (본인 + 상대방)
      * - 네트워크 I/O 위주 (CPU는 낮음)
-     * - 동시 접속자 많을수록 부하 증가
-     * - 초당 100-1000개 메시지 전송 가능
+     * - 처리 속도 빠름 (5ms/건)
+     * - 동시에 여러 채팅방에서 메시지 발생 시 순간 폭증
      *
      * 최적화 전략:
-     * - 큰 Thread Pool (100개) - 많은 클라이언트에게 빠르게 전송
-     * - 큰 큐 (1000개) - 브로드캐스트 병목 방지
+     * - Inbound 대비 2.5배 Thread Pool (50개) - 메시지 2건 + 버스트 대비
+     * - 큰 큐 (1000개) - 동시 브로드캐스트 병목 방지
      * - keepAlive 길게 (60초) - 스레드 재사용 극대화
      */
     override fun configureClientOutboundChannel(registration: ChannelRegistration) {
         registration.taskExecutor()
-            .corePoolSize(20)  // 기본 20개 (항상 대기)
-            .maxPoolSize(100)  // 최대 100개 (브로드캐스트 폭증 대비)
-            .queueCapacity(1000)  // 큐 1000개 (많은 클라이언트 동시 전송)
+            .corePoolSize(10)  // 기본 10개 (항상 대기)
+            .maxPoolSize(50)  // 최대 50개 (Inbound 대비 2.5배, 1:1 채팅 + 버스트 대비)
+            .queueCapacity(1000)  // 큐 1000개 (동시 브로드캐스트 병목 방지)
             .keepAliveSeconds(60)  // 60초 유지 (재사용 극대화)
     }
 }

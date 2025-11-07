@@ -1,7 +1,7 @@
 package com.joying.chat.service
 
 import com.joying.chat.config.RedisPubSubConfig
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class RedisPubSubPublisher(
-    private val chatMessageRedisTemplate: RedisTemplate<String, ChatMessageDto>
+    private val chatMessageRedisTemplate: RedisTemplate<String, ChatMessageResponse>
 ) {
     private val logger = LoggerFactory.getLogger(RedisPubSubPublisher::class.java)
 
@@ -27,7 +27,7 @@ class RedisPubSubPublisher(
      *
      * @param message 발행할 메시지
      */
-    suspend fun publish(message: ChatMessageDto) {
+    suspend fun publish(message: ChatMessageResponse) {
         withContext(Dispatchers.IO) {
             try {
                 // Redis Pub/Sub로 발행 (PUBLISH 명령)

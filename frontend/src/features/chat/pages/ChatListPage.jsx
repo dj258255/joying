@@ -13,23 +13,18 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 const ChatListPage = () => {
   const navigate = useNavigate();
   const [contextMenu, setContextMenu] = useState(null);
-  const { chatRooms, isLoading, error, refetch } = useChatRooms();
+  const { chatRooms, totalUnreadCount, isLoading, error, refetch } = useChatRooms();
 
-  // 실시간 업데이트를 위한 주기적 새로고침
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 5000); // 5초마다 새로고침
-
-    return () => clearInterval(interval);
-  }, [refetch]);
+  // React Query의 refetchInterval이 이미 설정되어 있으므로
+  // 추가 polling은 필요 없음 (나중에 WebSocket으로 대체 예정)
 
   const handleChatRoomClick = (chatRoomId) => {
     navigate(`/chats/${chatRoomId}`);
   };
 
   const handleOpenContextById = (chatRoomId, x, y) => {
-    const room = chatRooms.find(r => r.id === chatRoomId);
+    // chatRoomId로 채팅방 찾기 (id 또는 chatRoomId 모두 확인)
+    const room = chatRooms.find(r => (r.id === chatRoomId) || (r.chatRoomId === chatRoomId));
     if (!room) return;
     setContextMenu({ x: x ?? window.innerWidth / 2, y: y ?? window.innerHeight / 2, chatRoom: room });
   };
@@ -133,15 +128,19 @@ const ChatListPage = () => {
       <div className="flex-1 overflow-y-auto">
         {chatRooms.length > 0 ? (
           <div className="divide-y divide-gray-100">
-            {chatRooms.map((chatRoom) => (
-              <div key={chatRoom.id}>
-                <ChatRoomListItem
-                  chatRoom={chatRoom}
-                  onClick={() => handleChatRoomClick(chatRoom.id)}
-                  onContextMenuOpen={handleOpenContextById}
-                />
-              </div>
-            ))}
+            {chatRooms.map((chatRoom) => {
+              // 백엔드 응답 형식에 맞게 ID 추출
+              const roomId = chatRoom.chatRoomId || chatRoom.id;
+              return (
+                <div key={roomId}>
+                  <ChatRoomListItem
+                    chatRoom={chatRoom}
+                    onClick={() => handleChatRoomClick(roomId)}
+                    onContextMenuOpen={handleOpenContextById}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center px-8">

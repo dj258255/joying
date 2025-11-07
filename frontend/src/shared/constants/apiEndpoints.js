@@ -41,9 +41,17 @@ export const API_ENDPOINTS = {
     UNAVAILABLE_DATES: (productId) => `/products/${productId}/unavailable-dates`
   },
 
+  // Category
+  CATEGORY: {
+    LIST: '/category',
+    DETAIL: (categoryId) => `/category/${categoryId}`
+  },
+
   // Payment
   PAYMENT: {
     BASE: '/payments',
+    CREATE: '/payments',
+    CONFIRM: '/payments/confirm',
     CANCEL: (paymentId) => `/payments/${paymentId}/cancel`,
     REFUND: (paymentId) => `/payments/${paymentId}/refund`,
     STATUS: (paymentId) => `/payments/${paymentId}/status`
@@ -71,11 +79,5 @@ export const API_ENDPOINTS = {
   // File
   FILE: {
     BASE: '/files'
-  },
-
-  // Account
-  ACCOUNT: {
-    VERIFY_START: '/accounts/verify/start',
-    VERIFY_COMPLETE: '/accounts/verify/complete'
   }
 };

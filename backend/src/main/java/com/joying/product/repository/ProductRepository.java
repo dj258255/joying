@@ -105,4 +105,21 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
         Instant dateFrom,
         Instant dateTo
     );
+
+    @Query("""
+    SELECT p.productId
+    FROM Product p
+    WHERE p.productId IN :productIds
+    AND p.rating < :rating
+    """)
+    List<Long> findProductIdsWithRatingLessThan(
+        List<Long> productIds,
+        double rating
+    );
+
+    @EntityGraph(attributePaths = {"sido", "gungu", "dong"})
+    Page<Product> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"sido", "gungu", "dong", "category", "writer"})
+    Page<Product> findByWriter_MemberId(Long memberId, Pageable pageable);
 }

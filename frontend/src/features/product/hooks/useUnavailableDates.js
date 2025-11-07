@@ -10,16 +10,33 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 export const useUnavailableDates = (productId) => {
   const queryClient = useQueryClient();
 
-  // 대여 불가 날짜 조회
+  // 대여 불가 날짜 조회 (404 에러는 조용히 처리)
   const {
     data: unavailableDates,
     isLoading,
     error
   } = useQuery({
     queryKey: [QUERY_KEYS.PRODUCTS, 'unavailable-dates', productId],
-    queryFn: () => productApi.getUnavailableDates(productId),
+    queryFn: async () => {
+      try {
+        return await productApi.getUnavailableDates(productId);
+      } catch (err) {
+        // 404 에러는 빈 배열로 처리 (API가 구현되지 않았을 수 있음)
+        if (err.response?.status === 404) {
+          return { data: [] };
+        }
+        throw err;
+      }
+    },
     enabled: !!productId,
-    staleTime: 1000 * 60 * 5 // 5분
+    staleTime: 1000 * 60 * 5, // 5분
+    retry: (failureCount, error) => {
+      // 404 에러는 재시도하지 않음
+      if (error?.response?.status === 404) {
+        return false;
+      }
+      return failureCount < 3;
+    }
   });
 
   // 대여 불가 날짜 설정

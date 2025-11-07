@@ -51,10 +51,10 @@ public class ReviewService {
 	}
 
 	@Transactional(readOnly = true)
-	public ReviewResponseDto getRentalReview(Long rentalId, String type) {
+	public ReviewResponseDto getRentalReview(Long rentalId, UploadType uploadType) {
 		Review review;
 
-		if (type.equals("rent")) {
+		if (uploadType.equals(UploadType.RENT)) {
 			review = reviewRepository.findRentalReview(rentalId, UploadType.RENT.name());
 		} else {
 			review = reviewRepository.findRentalReview(rentalId, UploadType.BORROW.name());
@@ -63,13 +63,15 @@ public class ReviewService {
 		return ReviewResponseDto.fromEntity(review, fileUrlResolver);
 	}
 
+	@Transactional
 	public Long createReview(ReviewRequestDto dto, Long authId) {
 		if (dto == null)
 			throw new IllegalArgumentException("리뷰 요청 데이터가 비어 있습니다.");
 		if (dto.reviewerId() == null)
 			throw new IllegalArgumentException("리뷰 작성자 ID가 필요합니다.");
-		if (dto.uploadType() == null)
-			throw new IllegalArgumentException("리뷰 타입(uploadType)이 필요합니다.");
+		if (dto.uploadType() == null
+			|| !(dto.uploadType() == UploadType.BORROW || dto.uploadType() == UploadType.RENT))
+			throw new IllegalArgumentException("적절한 리뷰 타입(uploadType)이 필요합니다.");
 		if (dto.productId() == null)
 			throw new IllegalArgumentException("리뷰 대상 상품 ID가 필요합니다.");
 		if (dto.rentalHistoryId() == null)
@@ -78,6 +80,10 @@ public class ReviewService {
 		if (!dto.reviewerId().equals(authId)) {
 			throw new UnauthorizedReviewAccessException("리뷰 작성 권한이 없습니다.");
 		}
+
+		// if (dto.reviewerId().equals(dto.reviewedId())) {
+		// 	throw new UnauthorizedReviewAccessException("본인에 대한 리뷰를 작성할 수 없습니다.");
+		// }
 
 		Member reviewer = memberRepository.findById(dto.reviewerId())
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 작성자입니다."));
@@ -89,12 +95,14 @@ public class ReviewService {
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 대여 이력입니다."));
 
 		Member reviewed = null;
-		if (dto.uploadType() == UploadType.RENT || dto.uploadType() == UploadType.BORROW) {
+		if (dto.uploadType().equals(UploadType.RENT)) {
 			if (dto.reviewedId() == null)
 				throw new IllegalArgumentException("대여자/차용자 리뷰에는 대상 사용자 ID가 필요합니다.");
-
-			reviewed = memberRepository.findById(dto.reviewedId())
-				.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 대상 사용자입니다."));
+			reviewed = memberRepository.findById(dto.reviewerId())
+				.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 작성자입니다."));
+			reviewed.updateRating(dto.rating());
+		} else {
+			product.updateRating(dto.rating());
 		}
 
 		Review review = reviewRepository.save(Review.builder()

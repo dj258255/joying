@@ -52,7 +52,7 @@ public class Review extends BaseEntity {
 
     @Comment("평점")
     @Column(name = "rating")
-    private float rating;
+    private Float rating;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reviewer_id", referencedColumnName = "member_id", nullable = false)
@@ -92,7 +92,7 @@ public class Review extends BaseEntity {
         this.rentalHistory = rentalHistory;
     }
 
-    public void updateReview(String title, String content, float rating) {
+    public void updateReview(String title, String content, Float rating) {
         if (title != null) this.title = title;
         if (content != null) this.content = content;
         if (rating >= 0) this.rating = rating;

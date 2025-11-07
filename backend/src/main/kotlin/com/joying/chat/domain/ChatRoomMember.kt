@@ -40,6 +40,10 @@ class ChatRoomMember(
     @JoinColumn(name = "chat_room_id", nullable = false)
     var chatRoom: ChatRoom,
 
+    @Comment("채팅방 ID (FK 직접 접근용)")
+    @Column(name = "chat_room_id", insertable = false, updatable = false)
+    var chatRoomId: Long? = null,
+
     @Comment("회원")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)

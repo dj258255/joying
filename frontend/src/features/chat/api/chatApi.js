@@ -1,107 +1,148 @@
 /**
  * Chat API functions
- * 채팅방 CRUD 관련 API (더미 데이터 사용)
+ * 채팅방 CRUD 관련 API (백엔드 연동)
  */
 
-import { DUMMY_CHAT_ROOMS, DUMMY_MESSAGES, DUMMY_USERS } from '@/shared/constants/dummyData';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 /**
  * 채팅방 관련 API
  */
 export const chatApi = {
   /**
-   * 채팅방 생성
-   * @param {string} sellerId - 판매자 ID
-   * @returns {Promise<string>} 채팅방 ID
+   * 채팅방 생성 또는 조회
+   * POST /chat-rooms
+   * @param {number|string} productId - 상품 ID
+   * @returns {Promise<Object>} 채팅방 정보 { chatRoomId, productId, ... }
    */
-  createChatRoom: async (sellerId) => {
-    // 로컬 스토리지에서 기존 채팅방 목록 가져오기
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    
-    // 로컬 스토리지가 비어있으면 더미 데이터 사용
-    if (chatRooms.length === 0) {
-      chatRooms.push(...DUMMY_CHAT_ROOMS);
-      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+  createChatRoom: async (productId) => {
+    try {
+      console.log('[chatApi] 채팅방 생성 요청:', { productId });
+      
+      let response;
+      try {
+        response = await axiosInstance.post('/chat-rooms', {
+          productId: Number(productId)
+        });
+      } catch (firstError) {
+        const status = firstError.response?.status;
+        // 경로 차이 또는 메서드 제한 가능성: 404/405면 슬래시 버전으로 재시도
+        if (status === 404 || status === 405) {
+          console.log('[chatApi] /chat-rooms 실패, /chat-rooms/ 재시도');
+          response = await axiosInstance.post('/chat-rooms/', {
+            productId: Number(productId)
+          });
+        } else {
+          throw firstError;
+        }
+      }
+      
+      console.log('[chatApi] 채팅방 생성 응답:', response.data);
+      
+      if (response.data && response.data.data) {
+        return response.data.data;
+      }
+      
+      throw new Error('채팅방 생성 응답 형식이 올바르지 않습니다.');
+    } catch (error) {
+      console.error('[chatApi] 채팅방 생성 실패:', error);
+      
+      if (error.response) {
+        const status = error.response.status;
+        // 인증 필요
+        if (status === 401) {
+          throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+        }
+        // 존재하지 않거나 메서드 불가
+        if (status === 404 || status === 405) {
+          throw new Error('채팅방 생성 API를 찾을 수 없습니다. 서버 엔드포인트를 확인해주세요.');
+        }
+        // 서버 오류는 사용자 친화 메시지
+        if (status === 500) {
+          throw new Error('서버 내부 오류로 채팅방을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
+        }
+        
+        const errorMessage = error.response.data?.message || error.response.data?.error || '채팅방 생성에 실패했습니다.';
+        throw new Error(errorMessage);
+      }
+      
+      throw error;
     }
-
-    // 같은 사람과의 기존 채팅방이 있는지 확인
-    const existingChatRoom = chatRooms.find(room => {
-      const participantIds = room.participants.map(p => p.id);
-      return participantIds.includes(101) && 
-             participantIds.includes(sellerId) &&
-             participantIds.length === 2;
-    });
-
-    // 기존 채팅방이 있으면 해당 채팅방 ID 반환
-    if (existingChatRoom) {
-      return existingChatRoom.id;
-    }
-
-    // 새로운 채팅방 생성
-    const newChatRoomId = `chat_${Date.now()}`;
-    const seller = DUMMY_USERS.others.find(user => user.userId === sellerId) || DUMMY_USERS.currentUser;
-    
-    if (!seller) {
-      throw new Error('판매자를 찾을 수 없습니다.');
-    }
-
-    const newChatRoom = {
-      id: newChatRoomId,
-      name: seller.username,
-      participants: [
-        { id: 101, profileImage: null },
-        { id: sellerId, profileImage: null }
-      ],
-      lastMessage: null,
-      unreadCount: 0,
-      isPinned: false,
-      isMuted: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    chatRooms.unshift(newChatRoom);
-    localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-    
-    return newChatRoomId;
   },
 
   /**
    * 내 채팅방 목록 조회
-   * @param {Object} [params]
-   * @param {number} [params.page=1] - 페이지 번호
-   * @param {number} [params.size=20] - 페이지 크기
-   * @param {string} [params.search] - 검색어
-   * @returns {Promise<Array>}
+   * GET /chat-rooms/ (또는 /chat-rooms)
+   * @returns {Promise<Object>} { chatRooms: Array, totalUnreadCount: number }
    */
-  getChatRooms: async (params = {}) => {
-    // 로컬 스토리지 초기화 (테스트용)
-    localStorage.removeItem('chatRooms');
-    
-    // 로컬 스토리지에서 채팅방 목록 가져오기
-    let chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    
-    // 로컬 스토리지가 비어있으면 더미 데이터 사용
-    if (chatRooms.length === 0) {
-      chatRooms = [...DUMMY_CHAT_ROOMS];
-      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-      console.log('더미 채팅방 데이터 로드:', chatRooms);
+  getChatRooms: async () => {
+    try {
+      console.log('[chatApi] 채팅방 목록 조회 요청');
+      
+      // 슬래시 없이도 시도
+      let response;
+      try {
+        response = await axiosInstance.get('/chat-rooms/');
+      } catch (firstError) {
+        // 404 에러이고 슬래시가 있는 경우 슬래시 없이 재시도
+        if (firstError.response?.status === 404) {
+          console.log('[chatApi] /chat-rooms/ 실패, /chat-rooms 재시도');
+          try {
+            response = await axiosInstance.get('/chat-rooms');
+          } catch (secondError) {
+            // 두 경로 모두 실패하면 404를 빈 배열로 처리
+            if (secondError.response?.status === 404) {
+              console.warn('[chatApi] 채팅방 목록 API가 아직 구현되지 않았습니다. 빈 배열 반환.');
+              return {
+                chatRooms: [],
+                totalUnreadCount: 0
+              };
+            }
+            throw secondError;
+          }
+        } else {
+          throw firstError;
+        }
+      }
+      
+      console.log('[chatApi] 채팅방 목록 조회 응답:', response.data);
+      
+      // 응답 헤더에서 총 안읽은 메시지 개수 추출
+      const totalUnreadCount = Number(response.headers['x-total-unread-count']) || 0;
+      
+      if (response.data && Array.isArray(response.data.data)) {
+        return {
+          chatRooms: response.data.data,
+          totalUnreadCount
+        };
+      }
+      
+      // 응답 형식이 다를 경우 빈 배열 반환
+      return {
+        chatRooms: [],
+        totalUnreadCount: 0
+      };
+    } catch (error) {
+      console.error('[chatApi] 채팅방 목록 조회 실패:', error);
+
+      // 404 또는 500은 빈 목록으로 graceful degrade
+      const status = error.response?.status;
+      if (status === 404 || status === 500) {
+        console.warn(`[chatApi] 채팅방 목록 API ${status} 응답. 빈 배열 반환.`);
+        return {
+          chatRooms: [],
+          totalUnreadCount: 0
+        };
+      }
+
+      if (error.response) {
+        // 그 외 에러는 메시지 전달
+        const errorMessage = error.response.data?.message || error.response.data?.error || '채팅방 목록을 불러올 수 없습니다.';
+        throw new Error(errorMessage);
+      }
+
+      throw error;
     }
-
-    // 고정된 채팅방을 먼저 정렬
-    chatRooms.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.updatedAt) - new Date(a.updatedAt);
-    });
-
-    // 페이지네이션 적용
-    const page = params.page || 1;
-    const size = params.size || 20;
-    const startIndex = (page - 1) * size;
-    const endIndex = startIndex + size;
-
-    return chatRooms.slice(startIndex, endIndex);
   },
 
   /**
@@ -132,6 +173,10 @@ export const chatApi = {
     if (chatRoom) {
       chatRoom.isPinned = !chatRoom.isPinned;
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
+      
       return { pinned: chatRoom.isPinned };
     }
     
@@ -150,6 +195,10 @@ export const chatApi = {
     if (chatRoom) {
       chatRoom.isMuted = !chatRoom.isMuted;
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
+      
+      // 커스텀 이벤트 발생
+      window.dispatchEvent(new Event('chatRoomsUpdated'));
+      
       return { muted: chatRoom.isMuted };
     }
     
@@ -165,5 +214,8 @@ export const chatApi = {
     const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
     const filteredRooms = chatRooms.filter(room => room.id !== chatRoomId);
     localStorage.setItem('chatRooms', JSON.stringify(filteredRooms));
+    
+    // 커스텀 이벤트 발생
+    window.dispatchEvent(new Event('chatRoomsUpdated'));
   }
 };

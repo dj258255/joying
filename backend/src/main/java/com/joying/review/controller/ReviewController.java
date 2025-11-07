@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.joying.common.dto.PagedResponse;
 import com.joying.common.response.ApiResponse;
-import com.joying.member.domain.Member;
+import com.joying.product.domain.UploadType;
 import com.joying.review.dto.request.ReviewRequestDto;
 import com.joying.review.dto.response.ReviewResponseDto;
 import com.joying.review.service.ReviewService;
@@ -54,13 +54,13 @@ public class ReviewController {
 	@GetMapping("/rental/{rentalId}")
 	public ResponseEntity<?> getRentalReviews(
 		@PathVariable Long rentalId,
-		@RequestParam String type) {
+		@RequestParam UploadType uploadType) {
 
-		if (!type.equals("rent") && !type.equals("borrow")) {
-			throw new IllegalArgumentException("type은 rent 또는 borrow 중 하나여야 합니다.");
+		if (!uploadType.equals(UploadType.RENT) && !uploadType.equals(UploadType.BORROW)) {
+			throw new IllegalArgumentException("type은 RENT 또는 BORROW 중 하나여야 합니다.");
 		}
 
-		ReviewResponseDto reviewResponseDto = reviewService.getRentalReview(rentalId, type);
+		ReviewResponseDto reviewResponseDto = reviewService.getRentalReview(rentalId, uploadType);
 		return ApiResponse.ok("리뷰 조회 성공", reviewResponseDto);
 	}
 

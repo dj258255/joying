@@ -9,8 +9,14 @@ import java.util.concurrent.TimeUnit
  * 채팅 온라인 상태 관리 Service
  *
  * Redis를 사용하여 사용자의 온라인 상태 추적
- * - WebSocket 연결 시 온라인 상태 설정
- * - 일정 시간 heartbeat 없으면 오프라인 처리
+ *
+ * 온라인 상태 설정 시점:
+ * 1. WebSocket 연결 시 즉시 (WebSocketEventListener)
+ * 2. Heartbeat 전송 시 (30초마다 TTL 갱신)
+ *
+ * 오프라인 상태 설정 시점:
+ * 1. WebSocket 해제 시 즉시 (WebSocketEventListener)
+ * 2. 5분간 heartbeat 없으면 자동 (Redis TTL 만료)
  */
 @Service
 class ChatPresenceService(

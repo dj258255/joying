@@ -46,6 +46,7 @@ dependencies {
 
     // Kotlin Coroutines (비동기 처리 - 채팅 기능용)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:1.9.0") // Spring MVC suspend fun 지원
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 
 	// WebClient (외부 API 호출용 - Toss Payments 등)
@@ -72,6 +73,10 @@ dependencies {
     // Database Drivers
     runtimeOnly("com.mysql:mysql-connector-j")
     testRuntimeOnly("com.h2database:h2")
+
+    // Flyway (Database Migration)
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
 
     // Development Tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")

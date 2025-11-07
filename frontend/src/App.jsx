@@ -21,10 +21,13 @@ const ProductCreatePage = React.lazy(() => import('@/features/product/pages/Prod
 const ChatListPage = React.lazy(() => import('@/features/chat/pages/ChatListPage'))
 const ChatRoomPage = React.lazy(() => import('@/features/chat/pages/ChatRoomPage'))
 const PaymentCheckoutPage = React.lazy(() => import('@/features/payment/pages/PaymentCheckoutPage'))
+const PaymentSuccessPage = React.lazy(() => import('@/features/payment/pages/PaymentSuccessPage'))
+const PaymentFailPage = React.lazy(() => import('@/features/payment/pages/PaymentFailPage'))
 const MyPageMain = React.lazy(() => import('@/features/mypage/pages/MyPageMain'))
 const UserProfilePage = React.lazy(() => import('@/features/mypage/pages/UserProfilePage'))
 const BorrowedHistoryPage = React.lazy(() => import('@/features/mypage/pages/BorrowedHistoryPage'))
 const LentHistoryPage = React.lazy(() => import('@/features/mypage/pages/LentHistoryPage'))
+const RentalApiTestPage = React.lazy(() => import('@/features/rental/pages/RentalApiTestPage'))
 
 function App() {
   return (
@@ -68,6 +71,16 @@ function App() {
                 <PaymentCheckoutPage />
               </ProtectedRoute>
             } />
+            <Route path={ROUTE_PATHS.PAYMENT_SUCCESS} element={
+              <ProtectedRoute>
+                <PaymentSuccessPage />
+              </ProtectedRoute>
+            } />
+            <Route path={ROUTE_PATHS.PAYMENT_FAIL} element={
+              <ProtectedRoute>
+                <PaymentFailPage />
+              </ProtectedRoute>
+            } />
             <Route path={ROUTE_PATHS.MYPAGE} element={
               <ProtectedRoute>
                 <MyPageMain />
@@ -86,6 +99,13 @@ function App() {
             <Route path="/mypage/lent/:rentalId" element={
               <ProtectedRoute>
                 <LentHistoryPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* API 테스트 페이지 (개발용) */}
+            <Route path="/test/rental-api" element={
+              <ProtectedRoute>
+                <RentalApiTestPage />
               </ProtectedRoute>
             } />
             

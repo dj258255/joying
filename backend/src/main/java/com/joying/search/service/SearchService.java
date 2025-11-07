@@ -29,6 +29,7 @@ import com.joying.file.repository.FileRepository;
 import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
+import com.joying.product.domain.UploadType;
 import com.joying.product.repository.ProductRepository;
 import com.joying.search.domain.SearchDocument;
 import com.joying.search.dto.HashtagInfo;
@@ -45,7 +46,9 @@ import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.DateRangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.NumberRangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.TermQuery;
@@ -125,6 +128,7 @@ public class SearchService {
 
 	@Transactional(readOnly = true)
 	public SearchResponseDto search(
+		String uploadTypeStr,
 		String q,
 		Integer priceMin,
 		Integer priceMax,
@@ -137,8 +141,24 @@ public class SearchService {
 		List<Long> hashtagIds,
 		int page,
 		int size) {
+		UploadType uploadType = null;
+		if (uploadTypeStr != null) {
+			try {
+				uploadType = UploadType.valueOf(uploadTypeStr.toUpperCase());
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
+			}
+		}
 		Instant dateFromInstant = (dateFrom == null) ? null : Instant.parse(dateFrom + "T00:00:00Z");
 		Instant dateToInstant = (dateTo == null) ? null : Instant.parse(dateTo + "T23:59:59Z");
+		RentMethod rentMethod = null;
+		if (method != null) {
+			try {
+				rentMethod = RentMethod.valueOf(method.toUpperCase());
+			} catch (IllegalArgumentException e) {
+				throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
+			}
+		}
 
 		List<SearchDocument> available = new ArrayList<>();
 		Long totalHits = 0L;
@@ -151,33 +171,35 @@ public class SearchService {
 			// 키워드 검색
 			boolean hasKeyword = (q != null && !q.isBlank());
 			if (hasKeyword) {
+				mustQueries.add(
+					MultiMatchQuery.of(m -> m
+						.fields("title^2", "content")
+						.query(q)
+						.operator(Operator.Or)
+					)._toQuery()
+				);
+
 				List<String> tokens = analyzeText(q);
 				if (tokens.size() > 1) {
 					for (String token : tokens) {
-						MatchQuery multiTokenMatch = MatchQuery.of(m -> m
-							.field("title")
-							.query(token)
+						List<Query> tokenShould = new ArrayList<>();
+						tokenShould.add(MatchQuery.of(m -> m.field("title").query(token))._toQuery());
+						tokenShould.add(MatchQuery.of(m -> m.field("content").query(token))._toQuery());
+
+						shouldQueries.add(
+							BoolQuery.of(b -> b
+								.should(tokenShould)
+								.minimumShouldMatch("1")
+							)._toQuery()
 						);
-
-						mustQueries.add(MatchQuery.of(m -> m
-							.field("content")
-							.query(token)
-						)._toQuery());
-						mustQueries.add(multiTokenMatch._toQuery());
 					}
-				} else {
-					MatchQuery singleTokenMatch = MatchQuery.of(m -> m
-						.field("title")
-						.query(q)
-					);
-
-					shouldQueries.add(MatchQuery.of(m -> m
-						.field("content")
-						.query(q)
-					)._toQuery());
-					shouldQueries.add(singleTokenMatch._toQuery());
 				}
 			}
+
+			// 업로드 타입 필터
+			UploadType finalUploadType = uploadType;
+			TermQuery uploadTypeQuery = TermQuery.of(t -> t.field("uploadType").value(finalUploadType.name()));
+			mustQueries.add(uploadTypeQuery._toQuery());
 
 			// 가격 필터
 			if (priceMin != null || priceMax != null) {
@@ -221,7 +243,8 @@ public class SearchService {
 
 			// 렌트 방식 필터
 			if (method != null && !method.isBlank()) {
-				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(method));
+				RentMethod finalRentMethod = rentMethod;
+				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(finalRentMethod.name()));
 				mustQueries.add(rentMethodQuery._toQuery());
 			}
 
@@ -259,15 +282,15 @@ public class SearchService {
 			BoolQuery.Builder boolBuilder = new BoolQuery.Builder().must(mustQueries);
 			if (hasKeyword) {
 				boolBuilder.should(shouldQueries);
-				boolBuilder.minimumShouldMatch("1");
+				// boolBuilder.minimumShouldMatch("1");
 			}
 			Query boolQuery = boolBuilder.build()._toQuery();
 
-			// 정렬 조건
-			List<SortOptions> sortOptions = List.of(
-				SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
-				SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
-			);
+			// 정렬
+			// List<SortOptions> sortOptions = List.of(
+			// 	SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
+			// 	SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
+			// );
 
 			// 페이지네이션
 			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
@@ -275,7 +298,7 @@ public class SearchService {
 			// NativeQuery 빌드
 			NativeQuery searchQuery = NativeQuery.builder()
 				.withQuery(boolQuery)
-				.withSort(sortOptions)
+				//.withSort(sortOptions)
 				.withPageable(pageable)
 				.build();
 
@@ -289,25 +312,28 @@ public class SearchService {
 				.map(hit -> hit.getContent().getProductId())
 				.toList();
 
+			Set<Long> excludeSet = new HashSet<>();
+
 			if (dateFrom != null && dateTo != null) {
-				List<Long> unavailableProductIds = productRepository.findUnavailableProductIds(productIds, dateFromInstant, dateToInstant);
-				Set<Long> unavailableSet = new HashSet<>(unavailableProductIds);
-				for (SearchHit<SearchDocument> hit : hits) {
-					SearchDocument doc = hit.getContent();
-					if (!unavailableSet.contains(doc.getProductId())) {
-						available.add(doc);
-					}
-					if (available.size() >= size) {
-						break;
-					}
+				List<Long> unavailableIds = productRepository.findUnavailableProductIds(
+					productIds, dateFromInstant, dateToInstant
+				);
+				excludeSet.addAll(unavailableIds);
+			}
+
+			if (rating != null) {
+				List<Long> lowRatedIds = productRepository.findProductIdsWithRatingLessThan(
+					productIds, rating
+				);
+				excludeSet.addAll(lowRatedIds);
+			}
+
+			for (SearchHit<SearchDocument> hit : hits) {
+				SearchDocument doc = hit.getContent();
+				if (!excludeSet.contains(doc.getProductId())) {
+					available.add(doc);
 				}
-			} else {
-				for (SearchHit<SearchDocument> hit : hits) {
-					available.add(hit.getContent());
-					if (available.size() >= size) {
-						break;
-					}
-				}
+				if (available.size() >= size) break;
 			}
 
 			totalHits = hits.getTotalHits();

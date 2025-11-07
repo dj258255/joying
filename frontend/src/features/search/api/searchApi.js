@@ -28,7 +28,21 @@ export const searchApi = {
    */
   search: async (params) => {
     return await axiosInstance.get('/search', { params });
-  }
+  },
+
+  /**
+   * 자동완성 검색
+   * @param {string} q - 검색어
+   * @param {number} [limit=5] - 가져올 추천 개수
+   * @returns {Promise<string[]>} 자동완성 추천어 리스트
+   */
+  autocomplete: async (q) => {
+    if (!q?.trim()) return [];
+    const res = await axiosInstance.get('/search/autocomplete', {
+      params: { q },
+    });
+    return res.data;
+  },
 };
 
 // Hashtag API

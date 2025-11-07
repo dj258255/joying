@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.joying.common.response.ApiResponse;
 import com.joying.search.dto.SearchRequest;
 import com.joying.search.dto.SearchResponseDto;
+import com.joying.search.service.SearchReindexService;
 import com.joying.search.service.SearchService;
 
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SearchController {
 
 	private final SearchService searchService;
+	private final SearchReindexService searchReindexService;
 
 	@GetMapping("/rdb")
 	public ResponseEntity<?> searchRDB(
@@ -50,6 +52,7 @@ public class SearchController {
 
 	@GetMapping
 	public ResponseEntity<?> search(
+		@RequestParam String uploadType,
 		@RequestParam(required = false) String q,
 		@RequestParam(required = false, name = "price-min") Integer priceMin,
 		@RequestParam(required = false, name = "price-max") Integer priceMax,
@@ -63,6 +66,7 @@ public class SearchController {
 		@RequestParam(required = false, defaultValue = "1") int page,
 		@RequestParam(required = false, defaultValue = "14") int size) {
 		var result = searchService.search(
+			uploadType,
 			q,
 			priceMin, priceMax,
 			dong,
@@ -86,5 +90,11 @@ public class SearchController {
 	@GetMapping("/autocomplete")
 	public ResponseEntity<?> autocomplete(@RequestParam String q) {
 		return ResponseEntity.ok(searchService.getAutocompleteSuggestions(q));
+	}
+
+	@GetMapping("/test/reindex")
+	public ResponseEntity<?> reindex() {
+		searchReindexService.reindexProducts();
+		return ResponseEntity.ok().build();
 	}
 }

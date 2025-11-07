@@ -3,7 +3,9 @@
  * 상품 관련 API 호출 함수
  */
 
-import { DUMMY_LEND_PRODUCTS, DUMMY_BORROW_PRODUCTS, PRODUCT_TYPES } from '@/shared/constants/dummyData';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
+import { API_ENDPOINTS } from '@/shared/constants';
+import { DUMMY_LEND_PRODUCTS, DUMMY_BORROW_PRODUCTS, PRODUCT_TYPES } from '@/shared/constants/dummyData';                                                       
 
 // 환경 변수로 Mock 모드 제어
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -220,6 +222,71 @@ export const deleteProduct = async (id) => {
 
   // 실제 API 호출
   // await axiosInstance.delete(`/products/${id}`);
-  
-  throw new Error('API not implemented yet. Set VITE_USE_MOCK=true in .env');
+
+  throw new Error('API not implemented yet. Set VITE_USE_MOCK=true in .env');   
+};
+
+/**
+ * 대여 불가 날짜 조회
+ * @param {string|number} productId - 상품 ID
+ * @returns {Promise<Array<string>} 대여 불가 날짜 배열 (YYYY-MM-DD 형식)
+ */
+export const getUnavailableDates = async (productId) => {
+  if (USE_MOCK) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Mock 데이터: 빈 배열 반환
+        resolve({ data: [] });
+      }, 200);
+    });
+  }
+
+  try {
+    // 실제 API 호출
+    const response = await axiosInstance.get(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId));
+    return response.data;
+  } catch (error) {
+    // 404 에러는 조용히 처리 (API가 구현되지 않았을 수 있음)
+    if (error.response?.status === 404) {
+      console.log(`[productApi] unavailable-dates API가 구현되지 않음 (productId: ${productId})`);
+      return { data: [] };
+    }
+    // 다른 에러는 그대로 throw
+    throw error;
+  }
+};
+
+/**
+ * 대여 불가 날짜 설정
+ * @param {string|number} productId - 상품 ID
+ * @param {Object} data - 대여 불가 날짜 데이터
+ * @param {Array<string>} data.dates - 대여 불가 날짜 배열 (YYYY-MM-DD 형식)
+ * @returns {Promise<Object>}
+ */
+export const setUnavailableDates = async (productId, data) => {
+  if (USE_MOCK) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ data: { dates: data.dates } });
+      }, 300);
+    });
+  }
+
+  // 실제 API 호출
+  const response = await axiosInstance.post(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId), data);
+  return response.data;
+};
+
+/**
+ * Product API 객체
+ * 모든 함수를 객체로 묶어서 export
+ */
+export const productApi = {
+  getProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getUnavailableDates,
+  setUnavailableDates
 };

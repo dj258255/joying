@@ -1,9 +1,14 @@
 package com.joying.rental.service;
 
+import com.joying.file.component.FileUrlResolver;
+import com.joying.file.domain.File;
+import com.joying.file.repository.FileRepository;
 import com.joying.account.domain.Account;
 import com.joying.common.config.ssafy.FinanceApiProperties;
+import com.joying.common.config.DevModeProperties;
 import com.joying.escrow.domain.Escrow;
 import com.joying.escrow.repository.EscrowRepository;
+import com.joying.escrow.service.EscrowService;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.payment.domain.Payment;
@@ -15,15 +20,22 @@ import com.joying.product.domain.Product;
 import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalCancel;
 import com.joying.rental.domain.RentalHistory;
+import com.joying.rental.domain.RentalStatus;
+import com.joying.rental.domain.RentalVideo;
+import com.joying.rental.domain.VideoType;
 import com.joying.ssafy.service.FinanceApiService;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
+import com.joying.rental.dto.request.VideoUploadRequest;
 import com.joying.rental.dto.response.ConfirmReceiveResponse;
 import com.joying.rental.dto.response.RentalDetailResponse;
 import com.joying.rental.dto.response.ReservationCreateResponse;
 import com.joying.rental.dto.response.ShipResponse;
+import com.joying.rental.dto.response.VideoListResponse;
+import com.joying.rental.dto.response.VideoResponse;
 import com.joying.rental.repository.RentalCancelRepository;
 import com.joying.rental.repository.RentalHistoryRepository;
+import com.joying.rental.repository.RentalVideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +44,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,14 +59,19 @@ import java.util.Optional;
 public class RentalService {
 
     private final RentalHistoryRepository rentalHistoryRepository;
+    private final RentalVideoRepository rentalVideoRepository;
     private final ProductRepository productRepository;
     private final MemberRepository memberRepository;
+    private final FileRepository fileRepository;
+    private final FileUrlResolver fileUrlResolver;
     private final RentalCancelRepository rentalCancelRepository;
     private final EscrowRepository escrowRepository;
+    private final EscrowService escrowService;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final FinanceApiService financeApiService;
     private final FinanceApiProperties financeApiProperties;
+    private final DevModeProperties devModeProperties;
 
     /**
      * 대여 생성 (예약)
@@ -105,10 +124,14 @@ public class RentalService {
         Member renter = memberRepository.findById(renterId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + renterId));
 
-        // 3. 본인 상품은 빌릴 수 없음
-//        if (product.getWriter().getMemberId().equals(renterId)) {
-//            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
-//        }
+        // 3. 본인 상품 대여 검증 (개발 모드에서는 허용)
+        if (!devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
+            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
+        }
+
+        if (devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
+            log.warn("[개발 모드] 본인 상품 대여 허용: productId={}, memberId={}", productId, renterId);
+        }
 
         // 4. 기본 날짜 검증
         if (request.getEndRen().isBefore(request.getStartRen())) {
@@ -337,7 +360,7 @@ public class RentalService {
     }
 
     /**
-     * 회수 확인 (상품 회수)
+     * 회수 확인 (상품 회수) + 자동 정산
      *
      * @param rentalHisId 대여 내역 ID
      * @param memberId 요청한 회원 ID
@@ -361,13 +384,195 @@ public class RentalService {
 
         log.info("[회수 확인 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
-        return ConfirmReceiveResponse.builder()
-                .rentalHisId(rental.getRentalHisId())
-                .status(rental.getStatus().name())
-                .startRen(rental.getStartRen().toLocalDateTime())
-                .endRen(rental.getEndRen().toLocalDateTime())
-                .message("회수가 확인되었습니다. 정산을 진행해주세요")
+        // 자동 정산 처리
+        try {
+            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                    .orElseThrow(() -> new IllegalStateException("에스크로를 찾을 수 없습니다: rentalHisId=" + rentalHisId));
+
+            log.info("[자동 정산 시작] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            escrowService.settleEscrow(escrow.getHoldId());
+
+            log.info("[자동 정산 완료] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            return ConfirmReceiveResponse.builder()
+                    .rentalHisId(rental.getRentalHisId())
+                    .status(rental.getStatus().name())
+                    .startRen(rental.getStartRen().toLocalDateTime())
+                    .endRen(rental.getEndRen().toLocalDateTime())
+                    .message("회수가 확인되었습니다. 자동 정산이 완료되었습니다 (대여료 지급 + 보증금 반환)")
+                    .build();
+        } catch (Exception e) {
+            log.error("[자동 정산 실패] rentalHisId={}", rentalHisId, e);
+            throw new IllegalStateException("정산 처리 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 영상 업로드
+     *
+     * @param rentalHisId 대여 내역 ID
+     * @param request 영상 업로드 요청 (fileId, videoType)
+     * @param memberId 요청한 회원 ID
+     * @return 영상 응답
+     */
+    @Transactional
+    public VideoResponse uploadVideo(Long rentalHisId, VideoUploadRequest request, Long memberId) {
+        log.info("[영상 업로드] rentalHisId={}, videoType={}, fileId={}, memberId={}",
+                rentalHisId, request.getVideoType(), request.getFileId(), memberId);
+
+        // 1. 거래 내역 조회
+        RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
+
+        // 2. 파일 조회
+        File file = fileRepository.findById(request.getFileId())
+                .orElseThrow(() -> new IllegalArgumentException("파일을 찾을 수 없습니다: " + request.getFileId()));
+
+        // 3. 권한 및 상태 검증
+        validateVideoUpload(rental, request.getVideoType(), memberId);
+
+        // 4. 중복 업로드 확인
+        if (rentalVideoRepository.existsByRentalHistory_RentalHisIdAndVideoType(rentalHisId, request.getVideoType())) {
+            throw new IllegalStateException("이미 해당 타입의 영상이 업로드되어 있습니다");
+        }
+
+        // 5. RentalVideo 생성 및 저장
+        RentalVideo rentalVideo = RentalVideo.builder()
+                .file(file)
+                .rentalHistory(rental)
+                .videoType(request.getVideoType())
                 .build();
+
+        RentalVideo saved = rentalVideoRepository.save(rentalVideo);
+
+        log.info("[영상 업로드 완료] rentalVideoId={}", saved.getRentalVideoId());
+
+        // 6. 응답 생성
+        return VideoResponse.builder()
+                .rentalVideoId(saved.getRentalVideoId())
+                .rentalHisId(rentalHisId)
+                .videoType(saved.getVideoType())
+                .videoTypeDescription(saved.getVideoType().getDescription())
+                .fileId(file.getFileId())
+                .fileUrl(fileUrlResolver.toPublicUrl(file))
+                .uploadedAt(saved.getCreatedAt())
+                .build();
+    }
+
+    /**
+     * 영상 목록 조회
+     *
+     * @param rentalHisId 대여 내역 ID
+     * @param memberId 요청한 회원 ID
+     * @return 영상 목록 응답
+     */
+    public VideoListResponse getVideos(Long rentalHisId, Long memberId) {
+        log.info("[영상 목록 조회] rentalHisId={}, memberId={}", rentalHisId, memberId);
+
+        // 1. 거래 내역 조회
+        RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
+
+        // 2. 권한 검증 (Owner 또는 Renter만 조회 가능)
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+
+        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+            throw new IllegalArgumentException("권한이 없습니다");
+        }
+
+        // 3. 영상 목록 조회 (N+1 방지)
+        List<RentalVideo> rentalVideos = rentalVideoRepository.findByRentalHisIdWithFile(rentalHisId);
+
+        // 4. DTO 변환
+        List<VideoResponse> videoResponses = rentalVideos.stream()
+                .map(rv -> VideoResponse.builder()
+                        .rentalVideoId(rv.getRentalVideoId())
+                        .rentalHisId(rentalHisId)
+                        .videoType(rv.getVideoType())
+                        .videoTypeDescription(rv.getVideoType().getDescription())
+                        .fileId(rv.getFile().getFileId())
+                        .fileUrl(fileUrlResolver.toPublicUrl(rv.getFile()))
+                        .uploadedAt(rv.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        // 5. 각 타입별 업로드 여부 확인
+        boolean hasOwnerSend = rentalVideos.stream().anyMatch(rv -> rv.getVideoType() == VideoType.OWNER_SEND);
+        boolean hasRenterReceive = rentalVideos.stream().anyMatch(rv -> rv.getVideoType() == VideoType.RENTER_RECEIVE);
+        boolean hasRenterReturn = rentalVideos.stream().anyMatch(rv -> rv.getVideoType() == VideoType.RENTER_RETURN);
+        boolean hasOwnerReceive = rentalVideos.stream().anyMatch(rv -> rv.getVideoType() == VideoType.OWNER_RECEIVE);
+
+        return VideoListResponse.builder()
+                .rentalHisId(rentalHisId)
+                .videos(videoResponses)
+                .totalCount(videoResponses.size())
+                .hasOwnerSendVideo(hasOwnerSend)
+                .hasRenterReceiveVideo(hasRenterReceive)
+                .hasRenterReturnVideo(hasRenterReturn)
+                .hasOwnerReceiveVideo(hasOwnerReceive)
+                .build();
+    }
+
+    /**
+     * 영상 업로드 검증
+     * - 권한: Owner/Renter 구분
+     * - 상태: 현재 RentalStatus에 따라 업로드 가능한 VideoType 제한
+     */
+    private void validateVideoUpload(RentalHistory rental, VideoType videoType, Long memberId) {
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+        RentalStatus status = rental.getStatus();
+
+        switch (videoType) {
+            case OWNER_SEND:
+                // Owner만 가능
+                if (!memberId.equals(ownerId)) {
+                    throw new IllegalArgumentException("상품 소유자만 발송 영상을 업로드할 수 있습니다");
+                }
+                // ESCROW 상태에서만 가능
+                if (status != RentalStatus.ESCROW) {
+                    throw new IllegalStateException("ESCROW 상태에서만 발송 영상을 업로드할 수 있습니다 (현재: " + status.getDescription() + ")");
+                }
+                break;
+
+            case RENTER_RECEIVE:
+                // Renter만 가능
+                if (!memberId.equals(renterId)) {
+                    throw new IllegalArgumentException("빌린 사람만 수령 영상을 업로드할 수 있습니다");
+                }
+                // SHIPPED 상태에서만 가능
+                if (status != RentalStatus.SHIPPED) {
+                    throw new IllegalStateException("SHIPPED 상태에서만 수령 영상을 업로드할 수 있습니다 (현재: " + status.getDescription() + ")");
+                }
+                break;
+
+            case RENTER_RETURN:
+                // Renter만 가능
+                if (!memberId.equals(renterId)) {
+                    throw new IllegalArgumentException("빌린 사람만 반납 영상을 업로드할 수 있습니다");
+                }
+                // RENTING 상태에서만 가능
+                if (status != RentalStatus.RENTING) {
+                    throw new IllegalStateException("RENTING 상태에서만 반납 영상을 업로드할 수 있습니다 (현재: " + status.getDescription() + ")");
+                }
+                break;
+
+            case OWNER_RECEIVE:
+                // Owner만 가능
+                if (!memberId.equals(ownerId)) {
+                    throw new IllegalArgumentException("상품 소유자만 회수 영상을 업로드할 수 있습니다");
+                }
+                // RETURN_REQUESTED 상태에서만 가능
+                if (status != RentalStatus.RETURN_REQUESTED) {
+                    throw new IllegalStateException("RETURN_REQUESTED 상태에서만 회수 영상을 업로드할 수 있습니다 (현재: " + status.getDescription() + ")");
+                }
+                break;
+
+            default:
+                throw new IllegalArgumentException("유효하지 않은 영상 타입입니다");
+        }
     }
 
     /**
@@ -414,12 +619,13 @@ public class RentalService {
         java.time.LocalDateTime originalEndRen = rental.getEndRen().toLocalDateTime();
         Integer originalFee = rental.getFee();
 
-        // 6. 연장 결제용 Payment 생성
+        // 6. 연장 결제용 Payment 생성 (PaymentType.EXTENSION)
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
 
         String orderId = "JOYING_EXTENSION_" + rentalHisId + "_" + System.currentTimeMillis();
         Timestamp now = new Timestamp(System.currentTimeMillis());
+        Timestamp newEndTimestamp = java.sql.Timestamp.valueOf(request.getNewEndRen());
 
         Payment extensionPayment = Payment.create(
                 rental,
@@ -427,34 +633,28 @@ public class RentalService {
                 member,
                 com.joying.payment.domain.PaymentType.EXTENSION
         );
-        extensionPayment.markReady(orderId, request.getAdditionalFee(), now);
+        // 연장 정보를 Payment에 저장 (결제 승인 시 사용)
+        extensionPayment.markReadyForExtension(orderId, request.getAdditionalFee(), now, newEndTimestamp);
 
         Payment savedPayment = paymentRepository.save(extensionPayment);
-        log.info("[연장 결제 생성] rentalHisId={}, orderId={}, amount={}",
-                rentalHisId, orderId, request.getAdditionalFee());
+        log.info("[연장 결제 생성] rentalHisId={}, orderId={}, amount={}, newEndDate={}",
+                rentalHisId, orderId, request.getAdditionalFee(), request.getNewEndRen());
 
-        // 7. 연장 처리 - 결제 완료 후 적용되도록 상태는 변경하지 않음
-        // TODO: PaymentService.confirmPayment에서 PaymentType.EXTENSION인 경우 RentalHistory.extend() 호출하도록 수정 필요
-        rental.extend(
-                java.sql.Timestamp.valueOf(request.getNewEndRen()),
-                request.getAdditionalFee()
-        );
-
-        log.info("[대여 기간 연장 완료] rentalHisId={}, extensionCount={}, newEndRen={}",
-                rentalHisId, rental.getExtensionCount(), rental.getEndRen());
+        // 7. 실제 연장은 결제 승인 후 PaymentService.confirmPayment()에서 처리됨
+        log.info("[연장 결제 대기 중] rentalHisId={}, orderId={} - 결제 완료 후 연장이 적용됩니다", rentalHisId, orderId);
 
         // 8. 응답 생성
         return com.joying.rental.dto.response.ExtendResponse.builder()
                 .rentalHisId(rental.getRentalHisId())
                 .status(rental.getStatus().name())
                 .originalEndRen(originalEndRen)
-                .newEndRen(rental.getEndRen().toLocalDateTime())
+                .newEndRen(request.getNewEndRen()) // 요청한 새 종료일
                 .originalFee(originalFee)
                 .additionalFee(request.getAdditionalFee())
-                .totalFee(rental.getFee())
-                .extensionCount(rental.getExtensionCount())
+                .totalFee(originalFee + request.getAdditionalFee()) // 예상 총 대여료
+                .extensionCount(rental.getExtensionCount()) // 아직 증가 안 함
                 .orderId(savedPayment.getOrderId()) // 결제용 orderId 반환
-                .message("대여 기간 연장 요청이 완료되었습니다. 추가 대여료(" + request.getAdditionalFee() + "원)를 결제해주세요.")
+                .message("대여 기간 연장 요청이 완료되었습니다. 추가 대여료(" + request.getAdditionalFee() + "원)를 결제해주세요. 결제 완료 후 연장이 적용됩니다.")
                 .build();
     }
 

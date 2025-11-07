@@ -194,40 +194,38 @@ const ProductDetailPage = () => {
 
   const handleRentRequest = async () => {
     try {
-      // 대여 요청 정보 구성
-      const rentalInfo = {
-        productTitle: product.title,
-        productImage: product.images?.[0],
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        days: calculateDays(),
-        dailyPrice: product.price,
-        deposit: product.deposit,
-        totalPrice: (product.price * calculateDays()) + product.deposit,
-        requesterName: DUMMY_USERS.currentUser.username,
-        requesterProfile: DUMMY_USERS.currentUser.profileImageUrl
-      };
+      if (!dateRange || !dateRange.start || !dateRange.end) {
+        alert('대여 기간을 선택해주세요.');
+        return;
+      }
 
-      // 채팅방 생성
-      const chatRoomId = await chatApi.createChatRoom(product.sellerId);
+      // 현재 사용자 정보 확인
+      console.log('🔍 사용자 정보 확인:', { isAuthenticated, user });
       
-      // 대여 요청 메시지 전송
-      await messageApi.sendRentalRequest(chatRoomId, {
-        productId: product.id,
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        rentalInfo: rentalInfo
-      });
+      if (!isAuthenticated || !user) {
+        alert('로그인이 필요합니다.');
+        navigate(ROUTE_PATHS.LOGIN);
+        return;
+      }
 
-      // 채팅방으로 이동
-      navigate(`/chats/${chatRoomId}`, { 
-        state: { 
-          rentalInfo: rentalInfo
-        } 
-      });
+      // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
+      console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
+      const chatRoomData = await chatApi.createChatRoom(product.id);
+      
+      console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
+      
+      // 채팅방 ID 추출
+      const chatRoomId = chatRoomData.chatRoomId || chatRoomData.id;
+      
+      if (!chatRoomId) {
+        throw new Error('채팅방 ID를 받을 수 없습니다.');
+      }
+
+      // 채팅방으로 이동 (대여 요청 메시지 전송은 채팅방에서 처리)
+      navigate(`/chats/${chatRoomId}?productId=${product.id}`);
     } catch (error) {
       console.error('대여 요청 실패:', error);
-      alert('대여 요청에 실패했습니다. 다시 시도해주세요.');
+      alert(`대여 요청에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
     }
   };
 
@@ -249,7 +247,7 @@ const ProductDetailPage = () => {
             {/* 헤더: 뒤로가기 버튼 + 프로필 */}
             <div className="flex items-center justify-between mb-6 flex-shrink-0">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,7 +377,7 @@ const ProductDetailPage = () => {
                           onClick={handleRentRequest}
                           className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                          채팅 시작하기
+                          대여 요청하기
                         </button>
                         <button
                           onClick={() => console.log('찜하기')}
@@ -463,7 +461,7 @@ const ProductDetailPage = () => {
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
                 className="flex items-center gap-2 text-gray-600"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -675,7 +673,7 @@ const ProductDetailPage = () => {
                     onClick={handleRentRequest}
                     className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    빌려주세요
+                    대여 요청하기
                   </button>
                 </div>
               </div>

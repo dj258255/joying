@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { kakaoLogin } from '@/features/auth/api/authApi';
 import logo from '@/assets/icons/logo.png';
+import kakaoLoginBtn from '../assets/kakao_login.png';
 
 /**
  * Section 5: Final CTA (삼각 대형)
@@ -44,18 +45,16 @@ const Section5Triangle = () => {
             믿을 수 있는 렌탈 서비스를 경험하세요
           </p>
           <div className="flex items-center justify-end gap-4">
-            <button
+            <img
+              src={kakaoLoginBtn}
+              alt="카카오로 로그인하기"
               onClick={handleKakaoLogin}
-              className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black px-12 py-4 rounded-full text-lg font-semibold transition-all hover:scale-105 shadow-lg shadow-yellow-500/20 hover:shadow-yellow-500/40 flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11L5.526 21.83c-.5.5-1.3.5-1.8 0s-.5-1.3 0-1.8l4.746-4.746A13.5 13.5 0 0 1 1.5 11.185C1.5 6.664 6.201 3 12 3z"/>
-              </svg>
-              카카오로 로그인하기
-            </button>
+              className="h-12 w-auto object-contain cursor-pointer transition-all hover:scale-105"
+              style={{ imageRendering: 'crisp-edges' }}
+            />
             <button
               onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
-              className="bg-white text-black px-12 py-4 rounded-full text-lg font-semibold transition-all hover:scale-105"
+              className="bg-white text-black px-8 py-3 rounded-lg text-base font-semibold transition-all hover:scale-105"
             >
               둘러보기
             </button>
