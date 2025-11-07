@@ -171,6 +171,18 @@ const RegisteredProductList = ({
 
   if (error) {
     return (
+<<<<<<< HEAD
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
+          <button 
+            onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
+          >
+            첫 상품 등록하기
+          </button>
+        </div>
+=======
       <div className="text-center py-12">
         <div className="text-red-500 mb-4">{error}</div>
         <button 
@@ -197,6 +209,7 @@ const RegisteredProductList = ({
         >
           첫 상품 등록하기
         </button>
+>>>>>>> 8f75ec83a855bd19e1a9c684d4f147fc8ae99b43
       </div>
     );
   }

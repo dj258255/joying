@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import { DUMMY_RENTAL_HISTORY, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 
 /**
  * @param {Object} props
@@ -139,11 +140,16 @@ const LentHistoryList = ({
 
   if (displayHistory.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-500 mb-4">빌려준 내역이 없습니다.</div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-          상품 둘러보기
-        </button>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="text-gray-500 mb-4">빌려준 내역이 없습니다.</div>
+          <button 
+            onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
+          >
+            상품 등록하기
+          </button>
+        </div>
       </div>
     );
   }
