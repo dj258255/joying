@@ -74,6 +74,10 @@ dependencies {
     runtimeOnly("com.mysql:mysql-connector-j")
     testRuntimeOnly("com.h2database:h2")
 
+    // Flyway (Database Migration)
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
+
     // Development Tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     // developmentOnly("org.springframework.boot:spring-boot-docker-compose") // Docker Compose 미사용으로 주석 처리

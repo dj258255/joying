@@ -4,7 +4,7 @@
  * 좌측: 상품 상세 미리보기, 우측: 입력 폼, 하단: 진행도
  */
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import { ROUTE_PATHS } from '@/shared/constants/routePaths';
@@ -14,6 +14,7 @@ import { FiChevronLeft, FiChevronRight, FiX, FiTrash2, FiUpload, FiImage } from 
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
+import { useCategoryTree } from '@/features/category';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
@@ -79,12 +80,40 @@ function ProductCreatePage() {
   const [calEnd, setCalEnd] = useState(null);
   const [noEndDate, setNoEndDate] = useState(false);
 
+  // 카테고리 관련 상태
+  const [showCategoryPopover, setShowCategoryPopover] = useState(false);
+  const [activeCategoryId, setActiveCategoryId] = useState(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  
+  // 카테고리 API 조회
+  const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
+
   // 기타 상태
   const [uploading, setUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  // 카테고리 첫 번째 항목 자동 선택
+  useEffect(() => {
+    if (categories.length > 0 && !activeCategoryId) {
+      setActiveCategoryId(categories[0].categoryId);
+    }
+  }, [categories, activeCategoryId]);
+
+  // 카테고리 모달 열릴 때 body 스크롤 방지
+  useEffect(() => {
+    if (showCategoryPopover) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showCategoryPopover]);
 
   const parseNumber = (value) => {
     if (!value) return 0;
@@ -532,7 +561,7 @@ function ProductCreatePage() {
 
   // Step 1: 기본 정보
   const renderStep1 = () => (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div>
         <h2 className="text-2xl font-bold text-black mb-2">기본 정보</h2>
         <p className="text-gray-600">상품의 기본 정보를 입력해주세요</p>
@@ -540,7 +569,7 @@ function ProductCreatePage() {
 
       {/* 좌우 레이아웃 */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* 왼쪽: 업로드 타입, 대여 방법, 영상 필수, 해시태그 */}
+        {/* 왼쪽: 업로드 타입, 대여 방법, 영상 필수, 카테고리 */}
         <div className="w-full lg:w-1/3 space-y-3">
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">업로드 타입</label>
@@ -626,6 +655,34 @@ function ProductCreatePage() {
             </button>
           </div>
 
+          {/* 카테고리 선택 */}
+          <div className="category-popover-container">
+            <label className="block text-sm font-medium text-black mb-1.5">카테고리</label>
+            <button
+              type="button"
+              onClick={() => setShowCategoryPopover(!showCategoryPopover)}
+              className="w-full px-4 py-3 text-left text-sm bg-white border-2 border-gray-300 rounded-xl text-black hover:border-black transition-colors overflow-hidden whitespace-nowrap text-ellipsis"
+            >
+              {selectedCategoryName || '카테고리를 선택하세요'}
+            </button>
+          </div>
+        </div>
+
+        {/* 오른쪽: 제목, 해시태그, 내용, 보증금, 일일요금 */}
+        <div className="flex-1 space-y-1.5">
+          {/* 제목 */}
+          <div>
+            <label className="block text-sm font-medium text-black mb-1.5">제목</label>
+            <input
+              value={form.title}
+              onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
+              placeholder="상품 제목을 입력하세요"
+              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            <div className="text-right text-xs text-gray-500 mt-1">{form.title.length}/50</div>
+          </div>
+
+          {/* 해시태그 */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">해시태그</label>
             <div className="flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
@@ -670,21 +727,6 @@ function ProductCreatePage() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* 오른쪽: 제목, 내용, 보증금, 일일요금 */}
-        <div className="flex-1 space-y-1.5">
-          {/* 제목 */}
-          <div>
-            <label className="block text-sm font-medium text-black mb-1.5">제목</label>
-            <input
-              value={form.title}
-              onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
-              placeholder="상품 제목을 입력하세요"
-              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-            />
-            <div className="text-right text-xs text-gray-500 mt-1">{form.title.length}/50</div>
-          </div>
 
           {/* 내용 + 보증금/일일요금 */}
           <div className="flex gap-4">
@@ -694,35 +736,35 @@ function ProductCreatePage() {
               <textarea
                 value={form.content}
                 onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
-                rows={5}
+                rows={3}
                 placeholder="상세 내용을 입력하세요"
                 className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
               />
-              <div className="text-right text-xs text-gray-500 mt-1">{form.content.length}/2000</div>
+              <div className="text-right text-xs text-gray-500">{form.content.length}/2000</div>
             </div>
 
             {/* 오른쪽: 보증금 + 일일요금 */}
-            <div className="w-48 space-y-2">
+            <div className="w-48 space-y-0.5">
               <div>
-                <label className="block text-sm font-medium text-black mb-1.5">보증금</label>
+                <label className="block text-sm font-medium text-black mb-1">보증금</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={form.deposit}
                   onChange={(e) => handlePriceChange('deposit', e.target.value)}
                   placeholder="300,000원"
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-black mb-1.5">일일요금</label>
+                <label className="block text-sm font-medium text-black mb-1">일일요금</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={form.rentalFee}
                   onChange={(e) => handlePriceChange('rentalFee', e.target.value)}
                   placeholder="35,000원"
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+                  className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
               </div>
             </div>
@@ -1087,7 +1129,7 @@ function ProductCreatePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* 좌측: 미리보기 (모바일에서 숨김) */}
           <div className="hidden lg:block lg:col-span-4">
-            <div className="sticky top-24 bg-white border-2 border-gray-300 rounded-2xl p-3 shadow-lg" style={{ height: 'calc(100vh - 200px)' }}>
+            <div className="bg-white border-2 border-gray-300 rounded-2xl p-3 shadow-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
               <div className="space-y-2 overflow-y-auto scrollbar-hide" style={{ maxHeight: '100%', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                 <ImageGallery 
                   images={previewProduct.images}
@@ -1155,7 +1197,7 @@ function ProductCreatePage() {
             {/* 스크롤 가능한 콘텐츠 영역 */}
             <div 
               ref={rightFormRef} 
-              className={`flex-1 scrollbar-hide overflow-y-auto pb-10 lg:pb-4 ${currentStep === 4 ? 'lg:overflow-hidden' : ''}`} 
+              className={`flex-1 scrollbar-hide overflow-y-auto pb-12 lg:pb-4 ${currentStep === 4 ? 'lg:overflow-hidden' : ''}`} 
               style={{ 
                 msOverflowStyle: 'none', 
                 scrollbarWidth: 'none',
@@ -1168,7 +1210,7 @@ function ProductCreatePage() {
                 </div>
               )}
 
-              <div className="mb-3">
+              <div>
                 {renderCurrentStep()}
               </div>
             </div>
@@ -1261,6 +1303,81 @@ function ProductCreatePage() {
           </div>
         </div>
       </div>
+
+      {/* 카테고리 선택 모달 */}
+      {showCategoryPopover && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center category-popover-container animate-fadeIn">
+          {/* 백드롭 */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setShowCategoryPopover(false)}
+          />
+          
+          {/* 모달 콘텐츠 */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-slideUp">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+              <h3 className="text-base font-bold text-gray-900">카테고리 선택</h3>
+              <button
+                type="button"
+                onClick={() => setShowCategoryPopover(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <FiX className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            {/* 카테고리 선택 영역 */}
+            <div className="flex" style={{ height: '320px' }}>
+              {/* 상위 카테고리 */}
+              <div className="w-1/2 overflow-y-auto scrollbar-hide border-r border-gray-200">
+                {isCategoriesLoading ? (
+                  <div className="p-3 text-center text-xs text-gray-500">로딩 중...</div>
+                ) : categories.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-500">카테고리가 없습니다</div>
+                ) : (
+                  categories.map(category => (
+                    <button
+                      key={category.categoryId}
+                      type="button"
+                      onClick={() => setActiveCategoryId(category.categoryId)}
+                      className={`w-full text-left py-2.5 px-3 text-sm transition-all ${
+                        activeCategoryId === category.categoryId
+                          ? 'bg-gray-900 text-white'
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      {category.categoryName}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* 하위 카테고리 */}
+              <div className="w-1/2 overflow-y-auto scrollbar-hide p-2">
+                {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
+                  <button
+                    key={sub.categoryId}
+                    type="button"
+                    onClick={() => {
+                      updateField('categoryId', sub.categoryId);
+                      setSelectedCategoryName(sub.categoryName);
+                      setShowCategoryPopover(false);
+                    }}
+                    className={`w-full text-left py-2 px-2.5 rounded text-sm transition-all mb-1 ${
+                      form.categoryId === sub.categoryId
+                        ? 'bg-gray-900 text-white'
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {sub.categoryName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

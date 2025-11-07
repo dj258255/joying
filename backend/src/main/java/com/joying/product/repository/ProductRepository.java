@@ -106,4 +106,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @EntityGraph(attributePaths = {"sido", "gungu", "dong"})
     Page<Product> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"sido", "gungu", "dong", "category", "writer"})
+    Page<Product> findByWriter_MemberId(Long memberId, Pageable pageable);
 }

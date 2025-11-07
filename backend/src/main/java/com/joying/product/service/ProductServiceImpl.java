@@ -32,6 +32,8 @@ import com.joying.search.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -488,4 +490,48 @@ public class ProductServiceImpl implements ProductService {
 
     }
 
+    @Override
+    public Page<ProductResponseDto.ProductListItem> getMyItems(Long memberId, Pageable pageable) {
+        Page<Product> page = productRepository.findByWriter_MemberId(memberId, pageable);
+        return page.map(p -> toListItem(p, false, memberId));
+    }
+
+    @Override
+    public Page<ProductResponseDto.ProductListItem> getMyLikes(Long memberId, Pageable pageable) {
+        Page<Product> page = productLikeRepository.findLikedProductsByMemberId(memberId, pageable);
+        return page.map(p -> toListItem(p, /*likedPrefetched*/ true, memberId));
+    }
+
+    private ProductResponseDto.ProductListItem toListItem(Product p, boolean likedPrefetched, Long memberId) {
+        // 썸네일
+        String thumbUrl = productFileRepository
+                .findFirstByProduct_ProductIdAndIsThumbnailTrueOrderBySortOrderAsc(p.getProductId())
+                .map(pf -> fileUrlResolver.toPublicUrl(pf.getFile()))
+                .orElse(null);
+
+        // 지역 DTO
+        ProductResponseDto.RegionDto regionDto = ProductResponseDto.RegionDto.builder()
+                .sido(p.getSido() != null ? p.getSido().getName() : null)
+                .gungu(p.getGungu() != null ? p.getGungu().getName() : null)
+                .dong(p.getDong() != null ? p.getDong().getName() : null)
+                .build();
+
+        // liked (myitems는 별도 조회 필요)
+        boolean liked = likedPrefetched;
+        if (!likedPrefetched && memberId != null) {
+            liked = productLikeRepository.existsByProduct_ProductIdAndMember_MemberId(p.getProductId(), memberId);
+        }
+
+        return ProductResponseDto.ProductListItem.builder()
+                .productId(p.getProductId())
+                .title(p.getTitle())
+                .rentalFee(p.getRentalFee())
+                .deposit(p.getDeposit())
+                .rating(p.getRating())
+                .region(regionDto)
+                .thumbnailUrl(thumbUrl)
+                .liked(liked)
+                .uploadType(p.getUploadType() != null ? p.getUploadType().name() : null)
+                .build();
+    }
 }

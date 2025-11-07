@@ -8,6 +8,8 @@ import com.joying.product.service.ProductLikeService;
 import com.joying.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import com.joying.common.exception.ErrorResponse;
 import com.joying.common.response.ApiResponse;
@@ -265,6 +267,42 @@ public class ProductController {
                     .body(ErrorResponse.of(400, "INVALID_INPUT", e.getMessage() != null ? e.getMessage() : "잘못된 요청입니다"));
         } catch (Exception e) {
             log.error("[unlikeProduct] 서버 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
+        }
+    }
+
+    @Operation(summary = "내가 등록한 물품 조회", description = "로그인 사용자가 등록한 상품 목록을 조회합니다.")
+    @GetMapping("/myitems")
+    public ResponseEntity<?> getMyItems(Authentication authentication, Pageable pageable) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ErrorResponse.of(401, "UNAUTHORIZED", "로그인이 필요합니다."));
+            }
+            Long memberId = Long.parseLong(authentication.getName());
+            Page<ProductResponseDto.ProductListItem> page = productService.getMyItems(memberId, pageable);
+            return ResponseEntity.ok(ApiResponse.ok(page));
+        } catch (Exception e) {
+            log.error("[getMyItems] 서버 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
+        }
+    }
+
+    @Operation(summary = "내가 찜한 상품 조회", description = "로그인 사용자가 찜한 상품 목록을 조회합니다.")
+    @GetMapping("/mylikes")
+    public ResponseEntity<?> getMyLikes(Authentication authentication, Pageable pageable) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ErrorResponse.of(401, "UNAUTHORIZED", "로그인이 필요합니다."));
+            }
+            Long memberId = Long.parseLong(authentication.getName());
+            Page<ProductResponseDto.ProductListItem> page = productService.getMyLikes(memberId, pageable);
+            return ResponseEntity.ok(ApiResponse.ok(page));
+        } catch (Exception e) {
+            log.error("[getMyLikes] 서버 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
         }

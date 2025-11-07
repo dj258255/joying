@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import logo from '@/assets/icons/logo.png';
+import { searchApi } from '@/features/search/api/searchApi';
 
 /**
  * Section 1: Hero
@@ -14,6 +15,9 @@ import logo from '@/assets/icons/logo.png';
 const Section1Hero = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const debounceRef = useRef(null);
   const { isAuthenticated, user } = useAuth();
 
   const handleSearch = (e) => {
@@ -25,6 +29,32 @@ const Section1Hero = () => {
       // 검색어 없으면 전체 상품 목록으로 이동
       navigate(ROUTE_PATHS.PRODUCTS);
     }
+  };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await searchApi.autocomplete(searchQuery);
+        setSuggestions(data);
+      } catch (err) {
+        console.error('자동완성 요청 실패:', err);
+      }
+    }, 400);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery]);
+
+  const handleSelectSuggestion = (keyword) => {
+    setSearchQuery(keyword);
+    setSuggestions([]);
+    navigate(`${ROUTE_PATHS.PRODUCTS}?q=${encodeURIComponent(keyword)}`);
   };
 
   return (
@@ -88,6 +118,8 @@ const Section1Hero = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setTimeout(() => setIsFocused(false), 150)} // 클릭 시 바로 안 닫히게 살짝 delay
               placeholder="무엇이든 빌려보세요! 카메라, 캠핑용품, 게임기..."
               className="w-full pl-14 pr-32 py-4 rounded-full text-base 
                          bg-white/10 backdrop-blur-xl 
@@ -97,6 +129,43 @@ const Section1Hero = () => {
                          transition-all duration-300
                          shadow-2xl shadow-black/20"
             />
+
+            {/* 자동완성 드롭다운 */}
+          {isFocused && suggestions.length > 0 && (
+            <ul
+              className="absolute left-0 right-0 mt-2 
+                bg-white/95 backdrop-blur-xl 
+                rounded-2xl shadow-xl border border-white/20 
+                z-50 overflow-hidden animate-fadeIn max-h-60 overflow-y-auto"
+            >
+              {suggestions.map((item, idx) => (
+                <li
+                  key={idx}
+                  onMouseDown={() => handleSelectSuggestion(item)}
+                  className="flex items-center gap-2 px-5 py-3 
+                            text-gray-800 text-sm font-medium 
+                            hover:bg-gray-200 cursor-pointer
+                            transition-all duration-200"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <span className="truncate">{item}</span>
+                </li>
+              ))}
+            </ul>
+          )}
 
             {/* 검색 버튼 */}
             <button
