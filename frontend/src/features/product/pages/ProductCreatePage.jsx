@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Lottie from 'lottie-react';
 import { ROUTE_PATHS } from '@/shared/constants/routePaths';
 import { API_ENDPOINTS } from '@/shared/constants/apiEndpoints';
@@ -15,6 +15,8 @@ import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import { useCategoryTree } from '@/features/category';
+import { useProductDetail } from '../hooks/useProductDetail';
+import { productApi } from '../api/productApi';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
@@ -33,8 +35,18 @@ const STEP_NAMES = ['이미지', '기본 정보', '분류/지역', '날짜 설�
 
 function ProductCreatePage() {
   const navigate = useNavigate();
+  const { id: productIdParam } = useParams();
   const { user } = useAuth();
   const USE_FAKE_API = false;
+  
+  // 수정 모드 확인
+  const isEditMode = !!productIdParam;
+  const productId = isEditMode ? Number(productIdParam) : null;
+  
+  // 수정 모드일 때 상품 상세 정보 조회
+  const { product: existingProduct, isLoading: isProductLoading } = useProductDetail(
+    isEditMode ? productId : null
+  );
 
   // 단계 관리
   const [currentStep, setCurrentStep] = useState(1);
@@ -102,6 +114,16 @@ function ProductCreatePage() {
     }
   }, [categories, activeCategoryId]);
 
+  const parseNumber = (value) => {
+    if (!value) return 0;
+    return Number(String(value).replace(/[^0-9]/g, '')) || 0;
+  };
+
+  const formatCurrency = (num) => {
+    const n = Number(num) || 0;
+    return `${n.toLocaleString()}원`;
+  };
+
   // 카테고리 모달 열릴 때 body 스크롤 방지
   useEffect(() => {
     if (showCategoryPopover) {
@@ -115,15 +137,62 @@ function ProductCreatePage() {
     };
   }, [showCategoryPopover]);
 
-  const parseNumber = (value) => {
-    if (!value) return 0;
-    return Number(String(value).replace(/[^0-9]/g, '')) || 0;
-  };
-
-  const formatCurrency = (num) => {
-    const n = Number(num) || 0;
-    return `${n.toLocaleString()}원`;
-  };
+  // 수정 모드일 때 기존 상품 정보를 폼에 채우기
+  useEffect(() => {
+    if (isEditMode && existingProduct && !isProductLoading) {
+      console.log('[ProductCreatePage] 기존 상품 정보 로드:', existingProduct);
+      
+      // 기본 정보
+      setForm(prev => ({
+        ...prev,
+        uploadType: existingProduct.uploadType || 'RENT',
+        title: existingProduct.title || '',
+        content: existingProduct.content || '',
+        deposit: existingProduct.deposit ? formatCurrency(existingProduct.deposit) : '',
+        rentalFee: existingProduct.rentalFee ? formatCurrency(existingProduct.rentalFee) : '',
+        rentMethod: existingProduct.rentMethod || 'BOTH',
+        videoNecessary: existingProduct.videoNecessary || false,
+        categoryId: existingProduct.category?.categoryId || null,
+        sidoId: existingProduct.sido?.sidoId || null,
+        gunguId: existingProduct.gungu?.gunguId || null,
+        dongId: existingProduct.dong?.dongId || null,
+        startRent: existingProduct.startRent || '',
+        endRent: existingProduct.endRent || '',
+      }));
+      
+      // 카테고리 설정
+      if (existingProduct.category?.categoryId) {
+        setActiveCategoryId(existingProduct.category.categoryId);
+        setSelectedCategoryName(existingProduct.category.categoryName || '');
+      }
+      
+      // 해시태그
+      if (existingProduct.hashtags && Array.isArray(existingProduct.hashtags)) {
+        setHashtags(existingProduct.hashtags);
+      }
+      
+      // 파일 정보
+      if (existingProduct.files && Array.isArray(existingProduct.files)) {
+        const fileIdList = existingProduct.files.map(f => f.fileId).filter(Boolean);
+        const fileUrlList = existingProduct.files.map(f => f.url).filter(Boolean);
+        setFileIds(fileIdList);
+        setFilePreviews(fileUrlList);
+      }
+      
+      // 대여 불가 날짜
+      if (existingProduct.rentalRefuses && Array.isArray(existingProduct.rentalRefuses)) {
+        setRentalRefs(existingProduct.rentalRefuses.map(ref => ({
+          startRef: ref.startRef || ref.startRefuse,
+          endRef: ref.endRef || ref.endRefuse
+        })));
+      }
+      
+      // 종료일 없음 여부
+      if (!existingProduct.endRent) {
+        setNoEndDate(true);
+      }
+    }
+  }, [isEditMode, existingProduct, isProductLoading]);
 
   const handlePriceChange = (key, raw) => {
     const onlyDigits = raw.replace(/[^0-9]/g, '');
@@ -504,28 +573,42 @@ function ProductCreatePage() {
       console.log('📦 전송 데이터:', JSON.stringify(payload, null, 2));
       
       if (USE_FAKE_API) {
-        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(Date.now())));
+        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(isEditMode ? productId : Date.now())));
         return;
       }
-      const res = await axiosInstance.post('/products', payload);
       
-      let productId = null;
-      if (res?.data) {
-        if (typeof res.data === 'number') {
-          productId = res.data;
-        } else if (res.data?.data !== undefined) {
-          productId = res.data.data;
-        } else if (res.data?.body?.data !== undefined) {
-          productId = res.data.body.data;
-        } else if (res.data?.productId !== undefined) {
-          productId = res.data.productId;
+      let res;
+      if (isEditMode) {
+        // 수정 모드: PATCH API 호출
+        console.log('[ProductCreatePage] 상품 수정 요청:', { productId, payload });
+        res = await productApi.updateProduct(productId, payload);
+        console.log('[ProductCreatePage] 상품 수정 성공:', res);
+      } else {
+        // 생성 모드: POST API 호출
+        res = await axiosInstance.post('/products', payload);
+      }
+      
+      let productIdResult = productId; // 수정 모드면 기존 productId 사용
+      
+      if (!isEditMode && res) {
+        // 생성 모드일 때만 productId 추출
+        if (typeof res === 'number') {
+          productIdResult = res;
+        } else if (res?.data !== undefined) {
+          productIdResult = res.data;
+        } else if (res?.body?.data !== undefined) {
+          productIdResult = res.body.data;
+        } else if (res?.productId !== undefined) {
+          productIdResult = res.productId;
         }
       }
       
-      if (productId) {
-        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productId)));
+      if (productIdResult) {
+        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productIdResult)));
       } else {
-        setErrorMessage('상품 등록은 성공했지만 상품 ID를 가져올 수 없습니다.');
+        setErrorMessage(isEditMode 
+          ? '상품 수정은 성공했지만 상품 ID를 가져올 수 없습니다.'
+          : '상품 등록은 성공했지만 상품 ID를 가져올 수 없습니다.');
       }
     } catch (err) {
       console.error('❌ 에러:', err);
@@ -534,7 +617,7 @@ function ProductCreatePage() {
       setErrorMessage(
         err?.response?.data?.message ||
         err?.response?.data?.error ||
-        '상품 등록 중 오류가 발생했습니다.'
+        (isEditMode ? '상품 수정 중 오류가 발생했습니다.' : '상품 등록 중 오류가 발생했습니다.')
       );
     } finally {
       setSubmitting(false);
@@ -1118,13 +1201,26 @@ function ProductCreatePage() {
             >
               <FiX className="w-5 h-5 text-black" />
             </button>
-            <h1 className="text-xl font-bold text-black">상품 등록</h1>
+            <h1 className="text-xl font-bold text-black">
+              {isEditMode ? '상품 수정' : '상품 등록'}
+            </h1>
             <div className="w-10" />
           </div>
         </div>
       </div>
 
+      {/* 수정 모드일 때 상품 정보 로딩 중 */}
+      {isEditMode && isProductLoading && (
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+            <div className="text-gray-600">상품 정보를 불러오는 중...</div>
+          </div>
+        </div>
+      )}
+
       {/* 메인 콘텐츠 - 좌우 레이아웃 */}
+      {(!isEditMode || !isProductLoading) && (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-auto lg:h-[calc(100vh-64px-56px)] lg:overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* 좌측: 미리보기 (모바일에서 숨김) */}
@@ -1258,7 +1354,9 @@ function ProductCreatePage() {
                         : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {submitting ? '등록 중...' : '상품 등록'}
+                    {submitting 
+                      ? (isEditMode ? '수정 중...' : '등록 중...') 
+                      : (isEditMode ? '상품 수정' : '상품 등록')}
                   </button>
                 )}
                 </div>
@@ -1267,8 +1365,10 @@ function ProductCreatePage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* 하단 진행도 */}
+      {/* 하단 진행도 - 항상 표시 */}
+      {(!isEditMode || !isProductLoading) && (
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-300">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-1.5 sm:py-2">
           <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 lg:gap-6">
@@ -1303,6 +1403,7 @@ function ProductCreatePage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* 카테고리 선택 모달 */}
       {showCategoryPopover && (

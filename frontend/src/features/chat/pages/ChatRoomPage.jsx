@@ -54,16 +54,20 @@ const ChatRoomPage = () => {
   // 대여 불가 날짜 조회 (404 에러는 hook 내부에서 처리됨)
   const { unavailableDates } = useUnavailableDates(productId);
 
+  // 생성된 채팅방 데이터 (location.state에서 가져옴)
+  const existingChatRoomData = location.state?.chatRoomData || null;
+  
   useEffect(() => {
     // 채팅방 로드 (chatRoomId가 변경될 때만)
-    if (chatRoomId && currentChatRoom?.id !== chatRoomId) {
+    if (chatRoomId && currentChatRoom?.chatRoomId !== chatRoomId && currentChatRoom?.id !== chatRoomId) {
       try {
-        setCurrentChatRoom(chatRoomId);
+        // 생성된 채팅방 데이터가 있으면 함께 전달 (조회 API 호출 생략)
+        setCurrentChatRoom(chatRoomId, existingChatRoomData);
       } catch (error) {
         console.error('채팅방 로드 실패:', error);
       }
     }
-  }, [chatRoomId, currentChatRoom?.id]); // chatRoomId와 currentChatRoom.id가 변경될 때만 실행
+  }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom]); // chatRoomId와 currentChatRoom.id가 변경될 때만 실행
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
