@@ -21,14 +21,14 @@ data class ChatMessageResponse(
     val fileSize: Long? = null,
     val replyToMessageId: String? = null,
     val createdAt: Instant?,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
 ) {
     companion object {
         /**
          * ChatMessage → ChatMessageResponse 변환
          */
-        fun from(message: ChatMessage): ChatMessageResponse {
-            return ChatMessageResponse(
+        fun from(message: ChatMessage): ChatMessageResponse =
+            ChatMessageResponse(
                 id = message.id,
                 chatRoomId = message.chatRoomId,
                 senderId = message.senderId,
@@ -40,8 +40,7 @@ data class ChatMessageResponse(
                 fileSize = message.fileSize,
                 replyToMessageId = message.replyToMessageId,
                 createdAt = message.createdAt,
-                isDeleted = message.isDeleted
+                isDeleted = message.isDeleted,
             )
-        }
     }
 }
