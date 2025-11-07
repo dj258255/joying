@@ -27,14 +27,18 @@ public class CategoryService {
 	private final CategoryRepository categoryRepository;
 
 	public List<CategoryResponseDto> getCategoryTree(int maxDepth) {
+		if (maxDepth > 2) {
+			maxDepth = 2;
+		}
 		List<Category> all = categoryRepository.findAll();
 
 		List<Category> roots = all.stream()
 			.filter(c -> c.getParent() == null)
 			.toList();
 
+		int finalMaxDepth = maxDepth;
 		return roots.stream()
-			.map(root -> buildTree(root, all, 1, maxDepth))
+			.map(root -> buildTree(root, all, 1, finalMaxDepth))
 			.toList();
 	}
 
