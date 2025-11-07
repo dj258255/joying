@@ -49,6 +49,11 @@ function App() {
                 <ProductCreatePage />
               </ProtectedRoute>
             } />
+            <Route path="/products/:id/edit" element={
+              <ProtectedRoute>
+                <ProductCreatePage />
+              </ProtectedRoute>
+            } />
             <Route path="/products/:id" element={
               <ProtectedRoute>
                 <ProductDetailPage />

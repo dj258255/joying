@@ -92,14 +92,17 @@ export const ChatProvider = ({ children }) => {
         chatRoom = await chatApi.getChatRoomDetail(chatRoomId);
       }
       
+      // chatRoomId 추출 (백엔드 응답에서 chatRoomId 필드 사용)
+      const roomId = chatRoom?.chatRoomId || chatRoomId;
+      
       // 메시지 목록 조회 (백엔드 API 호출)
-      const messages = await messageApi.getMessages(chatRoomId);
+      const messages = await messageApi.getMessages(roomId);
       
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: chatRoom });
       dispatch({ type: 'SET_MESSAGES', payload: messages });
       
       // 메시지 읽음 처리
-      await messageApi.markAllAsRead(chatRoomId);
+      await messageApi.markAllAsRead(roomId);
     } catch (error) {
       console.error('채팅방 로드 실패:', error);
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });

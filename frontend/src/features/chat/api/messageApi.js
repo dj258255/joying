@@ -33,6 +33,13 @@ export const messageApi = {
    * @returns {Promise<Array>} 메시지 목록
    */
   getMessages: async (chatRoomId, params = {}) => {
+    // chatRoomId를 숫자로 변환 (백엔드는 Long 타입을 기대)
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      console.error('[messageApi] 유효하지 않은 채팅방 ID:', chatRoomId);
+      return [];
+    }
+    
     try {
       const { keyword, before, after, page = 0, size = 20 } = params;
       
@@ -58,9 +65,9 @@ export const messageApi = {
         queryParams.size = size;
       }
       
-      console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId, queryParams });
+      console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId: chatRoomIdNum, queryParams });
       
-      const response = await axiosInstance.get(`/chat-rooms/${chatRoomId}/messages`, {
+      const response = await axiosInstance.get(`/chat-rooms/${chatRoomIdNum}/messages`, {
         params: queryParams
       });
       
@@ -80,7 +87,7 @@ export const messageApi = {
       return [];
     } catch (error) {
       console.error('[messageApi] 메시지 목록 조회 실패:', {
-        chatRoomId,
+        chatRoomId: chatRoomIdNum,
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
