@@ -63,6 +63,7 @@ public class SearchController {
 		@RequestParam(required = false) String method,
 		@RequestParam(required = false) List<Long> category,
 		@RequestParam(required = false) List<Long> hashtag,
+		@RequestParam(required = false) Boolean sameDayRental,
 		@RequestParam(required = false, defaultValue = "1") int page,
 		@RequestParam(required = false, defaultValue = "14") int size) {
 		var result = searchService.search(
@@ -76,6 +77,7 @@ public class SearchController {
 			method,
 			category,
 			hashtag,
+			sameDayRental,
 			page,
 			size
 		);
