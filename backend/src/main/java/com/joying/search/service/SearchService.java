@@ -309,11 +309,19 @@ public class SearchService {
 			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
 
 			// NativeQuery 빌드
-			NativeQuery searchQuery = NativeQuery.builder()
-				.withQuery(boolQuery)
-				.withSort(sortOptions)
-				.withPageable(pageable)
-				.build();
+			NativeQuery searchQuery = null;
+			if (sortOptions.isEmpty()) {
+				searchQuery = NativeQuery.builder()
+					.withQuery(boolQuery)
+					.withPageable(pageable)
+					.build();
+			} else {
+				searchQuery = NativeQuery.builder()
+					.withQuery(boolQuery)
+					.withSort(sortOptions)
+					.withPageable(pageable)
+					.build();
+			}
 
 			// 검색 실행
 			SearchHits<SearchDocument> hits =
