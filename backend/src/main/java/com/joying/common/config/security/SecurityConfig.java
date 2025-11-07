@@ -93,7 +93,9 @@ public class SecurityConfig {
 					"/webjars/**",
 					"/api-docs/**",
 					"/api/v1/products/**",
-					"/api/v1/search/**"
+					"/api/v1/search/**",
+					"/api/v1/category/**",
+					"/api/v1/hashtag/**"
 				).permitAll()
 				// OAuth2 로그인 엔드포인트
 				.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
