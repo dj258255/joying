@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Alias;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @Setting(settingPath = "elasticsearch/search-setting.json")
 @Mapping(mappingPath = "elasticsearch/search-mapping.json")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Alias("search_product")
 public class SearchDocument {
 	@Id
 	private Long productId;
@@ -76,6 +78,9 @@ public class SearchDocument {
 	@Field(type = FieldType.Double)
 	private Double rating;
 
+	@Field(type = FieldType.Integer)
+	private Integer reviewCount;
+
 	@Field(type = FieldType.Long)
 	private Long thumbnailFileId;
 
@@ -97,6 +102,7 @@ public class SearchDocument {
 		LocalDateTime endRent,
 		List<String> hashtags,
 		Double rating,
+		Integer reviewCount,
 		Long thumbnailFileId,
 		String uploadType) {
 		this.productId = productId;
@@ -115,6 +121,7 @@ public class SearchDocument {
 		this.startRent = startRent;
 		this.endRent = endRent;
 		this.rating = rating;
+		this.reviewCount = reviewCount;
 		this.thumbnailFileId = thumbnailFileId;
 		this.uploadType = uploadType;
 	}
@@ -137,6 +144,7 @@ public class SearchDocument {
 			.startRent(searchRequest.startRent().toLocalDateTime())
 			.endRent(searchRequest.endRent().toLocalDateTime())
 			.rating(searchRequest.rating())
+			.reviewCount(0)
 			.thumbnailFileId(searchRequest.thumbnailFileId())
 			.uploadType(searchRequest.uploadType())
 			.build();
