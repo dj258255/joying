@@ -5,7 +5,6 @@ import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -180,36 +179,18 @@ public class RentalHistory {
         this.status = RentalStatus.RETURNED;
     }
 
-    @Builder
-    public RentalHistory(
-        Product rentalProduct,
-        Member member,
-        RentalStatus status,
-        Long deposit,
-        Integer fee,
-        Timestamp startRen,
-        Timestamp endRen,
-        String outboundTrackingNo,
-        String returnTrackingNo,
-        String outboundCarrierCode,
-        String returnCarrierCode,
-        RentMethod rentMethod,
-        VideoStatus videoStatus,
-        Integer extensionCount
-    ) {
-        this.rentalProduct = rentalProduct;
-        this.member = member;
-        this.status = status;
-        this.deposit = deposit;
-        this.fee = fee;
-        this.startRen = startRen;
-        this.endRen = endRen;
-        this.outboundTrackingNo = outboundTrackingNo;
-        this.returnTrackingNo = returnTrackingNo;
-        this.outboundCarrierCode = outboundCarrierCode;
-        this.returnCarrierCode = returnCarrierCode;
-        this.rentMethod = rentMethod;
-        this.videoStatus = videoStatus;
-        this.extensionCount = extensionCount;
+    /**
+     * 대여 기간 연장
+     */
+    public void extend(Timestamp newEndRen, Integer additionalFee) {
+        if (this.status != RentalStatus.RENTING) {
+            throw new IllegalStateException("RENTING 상태에서만 연장할 수 있습니다");
+        }
+        if (newEndRen.before(this.endRen)) {
+            throw new IllegalArgumentException("연장 종료일은 기존 종료일보다 늦어야 합니다");
+        }
+        this.endRen = newEndRen;
+        this.fee += additionalFee;
+        this.extensionCount++;
     }
 }

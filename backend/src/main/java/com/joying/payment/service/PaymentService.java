@@ -282,6 +282,7 @@ public class PaymentService {
     /**
      * 결제 승인 완료 처리 (공통 로직)
      * - confirmPayment와 webhook에서 공통으로 사용
+     * - PaymentType에 따라 다른 처리 (INITIAL: Escrow 생성, EXTENSION: 연장 처리)
      */
     private void completePaymentApproval(Payment payment, TossConfirmResponse tossResponse) {
         // Payment 상태 업데이트
@@ -292,18 +293,36 @@ public class PaymentService {
                 tossResponse.getReceiptUrl()
         );
 
-        // RentalHistory 상태 업데이트 (ESCROW)
         RentalHistory rentalHistory = payment.getRentalHistory();
-        rentalHistory.markAsEscrow();
 
-        // Escrow 생성 (보증금 예치) - 중복 생성 방지
-        if (escrowRepository.findByPayment_PaymentId(payment.getPaymentId()).isEmpty()) {
-            Integer rentalFee = rentalHistory.getFee();  // 대여료
-            Integer depositAmount = rentalHistory.getDeposit().intValue();  // 보증금
+        // PaymentType에 따라 분기 처리
+        if (payment.getPaymentType() == PaymentType.INITIAL) {
+            // 최초 결제: RentalHistory 상태 업데이트 (ESCROW) + Escrow 생성
+            rentalHistory.markAsEscrow();
 
-            Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
-            escrowRepository.save(escrow);
-            log.info("Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), payment.getPaymentId());
+            // Escrow 생성 (보증금 예치) - 중복 생성 방지
+            if (escrowRepository.findByPayment_PaymentId(payment.getPaymentId()).isEmpty()) {
+                Integer rentalFee = rentalHistory.getFee();  // 대여료
+                Integer depositAmount = rentalHistory.getDeposit().intValue();  // 보증금
+
+                Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
+                escrowRepository.save(escrow);
+                log.info("Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), payment.getPaymentId());
+            }
+
+        } else if (payment.getPaymentType() == PaymentType.EXTENSION) {
+            // 연장 결제: RentalHistory.extend() 호출
+            if (payment.getExtensionEndDate() == null) {
+                log.error("연장 결제인데 extensionEndDate가 null입니다: paymentId={}", payment.getPaymentId());
+                throw new IllegalStateException("연장 종료일 정보가 없습니다");
+            }
+
+            rentalHistory.extend(payment.getExtensionEndDate(), payment.getTotalAmount());
+            log.info("대여 기간 연장 완료: rentalHisId={}, newEndDate={}, additionalFee={}, extensionCount={}",
+                    rentalHistory.getRentalHisId(),
+                    payment.getExtensionEndDate(),
+                    payment.getTotalAmount(),
+                    rentalHistory.getExtensionCount());
         }
     }
 

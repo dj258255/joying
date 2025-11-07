@@ -113,6 +113,7 @@ public class SearchReindexService {
 					.startRent(toLocalDateTime(p.getStartRent()))
 					.endRent(toLocalDateTime(p.getEndRent()))
 					.rating(p.getRating() != null ? p.getRating() : null)
+					.reviewCount(p.getRatingCount())
 					.thumbnailFileId(thumbnailMap.get(p.getProductId()))
 					.build())
 				.toList();

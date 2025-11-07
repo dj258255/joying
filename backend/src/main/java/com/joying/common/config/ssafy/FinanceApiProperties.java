@@ -33,4 +33,23 @@ public class FinanceApiProperties {
 	 * 핀테크 앱 번호 (고정값: 001)
 	 */
 	private String fintechAppNo = "001";
+
+	/**
+	 * Joying 중개 계좌 정보 (에스크로)
+	 */
+	private Escrow escrow = new Escrow();
+
+	@Getter
+	@Setter
+	public static class Escrow {
+		/**
+		 * 중개 계좌번호
+		 */
+		private String accountNo;
+
+		/**
+		 * 중개 계좌 사용자 KEY
+		 */
+		private String userKey;
+	}
 }

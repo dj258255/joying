@@ -8,8 +8,10 @@ import org.springframework.context.event.EventListener;
 /**
  * Flyway 설정
  * JPA가 테이블을 생성한 후 Flyway가 데이터를 INSERT하도록 순서 보장
+ *
+ * 현재 Flyway는 비활성화되어 있어 이 설정도 비활성화되었습니다
  */
-@Configuration
+//@Configuration
 public class FlywayConfig {
 
     private final Flyway flyway;
