@@ -3,6 +3,7 @@ package com.joying.common.config.security;
 import com.joying.auth.handler.OAuth2AuthenticationFailureHandler;
 import com.joying.auth.handler.OAuth2AuthenticationSuccessHandler;
 import com.joying.auth.service.CustomOAuth2UserService;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -47,6 +49,17 @@ public class SecurityConfig {
 	 */
 	@Value("${cors.allowed-origins}")
 	private List<String> allowedOrigins;
+
+	/**
+	 * SecurityContext 전략을 InheritableThreadLocal로 설정
+	 *
+	 * Kotlin 코루틴(suspend 함수)에서도 SecurityContext를 유지하기 위해
+	 * MODE_INHERITABLETHREADLOCAL을 사용합니다.
+	 */
+	@PostConstruct
+	public void setSecurityContextStrategy() {
+		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
+	}
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

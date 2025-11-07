@@ -42,9 +42,10 @@ interface ChatMessageRepository : MongoRepository<ChatMessage, String> {
 
     /**
      * 채팅방 ID와 생성 시간 이후 메시지 개수 조회 (안읽은 메시지 개수)
+     *
+     * 결과가 없으면 0 반환
      */
-    @Query("{ 'chatRoomId': ?0, 'isDeleted': false, 'createdAt': { \$gt: ?1 } }")
-    fun countByChatRoomIdAndCreatedAtAfter(
+    fun countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(
         chatRoomId: Long,
         after: Instant
     ): Long

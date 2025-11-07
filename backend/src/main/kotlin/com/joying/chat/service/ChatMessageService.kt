@@ -58,10 +58,14 @@ class ChatMessageService(
         }
 
     /**
-     * 커서 기반 페이징으로 메시지 조회 (통합)
+     * 커서 기반 페이징으로 메시지 조회 (통합) - runBlocking 방식
      *
      * - before 파라미터: 과거 메시지 조회 (무한 스크롤)
      * - after 파라미터: 놓친 메시지 조회 (재연결 시)
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param before 이 시간 이전의 메시지 조회 (과거 방향, 최신순 정렬)
@@ -70,13 +74,13 @@ class ChatMessageService(
      * @param memberId 요청한 회원 ID (권한 확인용)
      * @return 메시지 목록
      */
-    suspend fun getMessagesBefore(
+    fun getMessagesBefore(
         chatRoomId: Long,
         before: Instant? = null,
         after: Instant? = null,
         size: Int,
         memberId: Long
-    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = kotlinx.coroutines.runBlocking {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
 
@@ -118,7 +122,11 @@ class ChatMessageService(
     }
 
     /**
-     * 채팅방에서 메시지 검색
+     * 채팅방에서 메시지 검색 - runBlocking 방식
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param keyword 검색어
@@ -127,13 +135,13 @@ class ChatMessageService(
      * @param memberId 요청한 회원 ID (권한 확인용)
      * @return 검색 결과
      */
-    suspend fun searchMessages(
+    fun searchMessages(
         chatRoomId: Long,
         keyword: String,
         page: Int,
         size: Int,
         memberId: Long
-    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = kotlinx.coroutines.runBlocking {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -160,7 +168,7 @@ class ChatMessageService(
                 return@withContext 0L
             }
 
-            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(chatRoomId, lastReadAt)
+            chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(chatRoomId, lastReadAt)
         }
 
     /**
@@ -195,14 +203,18 @@ class ChatMessageService(
     }
 
     /**
-     * 메시지 삭제 (Soft Delete)
+     * 메시지 삭제 (Soft Delete) - runBlocking 방식
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param messageId 메시지 ID
      * @param memberId 요청한 회원 ID (권한 확인용)
      */
-    suspend fun deleteMessage(chatRoomId: Long, messageId: String, memberId: Long) =
-        withContext(Dispatchers.IO) {
+    fun deleteMessage(chatRoomId: Long, messageId: String, memberId: Long) =
+        kotlinx.coroutines.runBlocking {
             val message = chatMessageRepository.findById(messageId)
                 .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
 
@@ -222,7 +234,11 @@ class ChatMessageService(
         }
 
     /**
-     * 메시지 수정
+     * 메시지 수정 - runBlocking 방식
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param messageId 메시지 ID
@@ -230,12 +246,12 @@ class ChatMessageService(
      * @param newContent 수정할 내용
      * @return 수정된 메시지 DTO
      */
-    suspend fun updateMessage(
+    fun updateMessage(
         chatRoomId: Long,
         messageId: String,
         memberId: Long,
         newContent: String
-    ): ChatMessageResponse = withContext(Dispatchers.IO) {
+    ): ChatMessageResponse = kotlinx.coroutines.runBlocking {
         val message = chatMessageRepository.findById(messageId)
             .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
 
