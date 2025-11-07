@@ -159,6 +159,7 @@ public class SearchService {
 				throw new IllegalArgumentException("유효하지 않은 rentMethod 입니다.");
 			}
 		}
+		if (rating == null) rating = 0.0;
 
 		List<SearchDocument> available = new ArrayList<>();
 		Long totalHits = 0L;
@@ -321,7 +322,7 @@ public class SearchService {
 				excludeSet.addAll(unavailableIds);
 			}
 
-			if (rating != null) {
+			if (rating != 0.0) {
 				List<Long> lowRatedIds = productRepository.findProductIdsWithRatingLessThan(
 					productIds, rating
 				);
