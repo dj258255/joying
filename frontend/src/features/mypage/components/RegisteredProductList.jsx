@@ -40,14 +40,16 @@ const RegisteredProductList = ({
 
   if (displayProducts.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
-        <button 
-          onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          첫 상품 등록하기
-        </button>
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <div className="text-center">
+          <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
+          <button 
+            onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
+          >
+            첫 상품 등록하기
+          </button>
+        </div>
       </div>
     );
   }
