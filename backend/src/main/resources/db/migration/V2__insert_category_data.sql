@@ -1,5 +1,5 @@
 -- 상위 카테고리 삽입
-INSERT INTO category (category_id, parent_id, category_name, category_level) VALUES
+INSERT IGNORE INTO category (category_id, parent_id, category_name, category_level) VALUES
 (1, NULL, '창작', 1),
 (2, NULL, '공예', 1),
 (3, NULL, '오락', 1),
@@ -12,7 +12,7 @@ INSERT INTO category (category_id, parent_id, category_name, category_level) VAL
 (10, NULL, '반려생활', 1);
 
 -- 하위 카테고리 삽입
-INSERT INTO category (parent_id, category_name, category_level) VALUES
+INSERT IGNORE INTO category (parent_id, category_name, category_level) VALUES
 -- 창작
 (1, '카메라', 2),
 (1, '렌즈', 2),
