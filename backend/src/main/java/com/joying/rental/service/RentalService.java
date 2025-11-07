@@ -3,14 +3,27 @@ package com.joying.rental.service;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
 import com.joying.file.repository.FileRepository;
+import com.joying.account.domain.Account;
+import com.joying.common.config.ssafy.FinanceApiProperties;
+import com.joying.common.config.DevModeProperties;
+import com.joying.escrow.domain.Escrow;
+import com.joying.escrow.repository.EscrowRepository;
+import com.joying.escrow.service.EscrowService;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
+import com.joying.payment.domain.Payment;
+import com.joying.payment.domain.PaymentStatus;
+import com.joying.payment.dto.request.PaymentCancelRequest;
+import com.joying.payment.repository.PaymentRepository;
+import com.joying.payment.service.PaymentService;
 import com.joying.product.domain.Product;
 import com.joying.product.repository.ProductRepository;
+import com.joying.rental.domain.RentalCancel;
 import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.domain.RentalStatus;
 import com.joying.rental.domain.RentalVideo;
 import com.joying.rental.domain.VideoType;
+import com.joying.ssafy.service.FinanceApiService;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
 import com.joying.rental.dto.request.VideoUploadRequest;
@@ -20,16 +33,21 @@ import com.joying.rental.dto.response.ReservationCreateResponse;
 import com.joying.rental.dto.response.ShipResponse;
 import com.joying.rental.dto.response.VideoListResponse;
 import com.joying.rental.dto.response.VideoResponse;
+import com.joying.rental.repository.RentalCancelRepository;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.rental.repository.RentalVideoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * 대여 서비스
@@ -46,9 +64,19 @@ public class RentalService {
     private final MemberRepository memberRepository;
     private final FileRepository fileRepository;
     private final FileUrlResolver fileUrlResolver;
+    private final RentalCancelRepository rentalCancelRepository;
+    private final EscrowRepository escrowRepository;
+    private final EscrowService escrowService;
+    private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
+    private final FinanceApiService financeApiService;
+    private final FinanceApiProperties financeApiProperties;
+    private final DevModeProperties devModeProperties;
 
     /**
      * 대여 생성 (예약)
+     * - 비관적 락을 통한 동시성 제어 (다른 사용자 동시 예약 방지)
+     * - 멱등성 체크 (같은 사용자 더블클릭 방지)
      *
      * @param productId 상품 ID
      * @param request 예약 정보
@@ -64,24 +92,53 @@ public class RentalService {
         log.info("[대여 생성] productId={}, renterId={}, startRen={}, endRen={}",
                 productId, renterId, request.getStartRen(), request.getEndRen());
 
-        // 1. 엔티티 조회
-        Product product = productRepository.findById(productId)
+        // 1. 멱등성 체크: 이미 활성 예약이 있는지 확인 (더블클릭 방지)
+        Optional<RentalHistory> existingReservation = rentalHistoryRepository.findActiveReservation(
+                productId,
+                renterId,
+                java.util.List.of(com.joying.rental.domain.RentalStatus.PENDING,
+                                  com.joying.rental.domain.RentalStatus.ESCROW)
+        );
+
+        if (existingReservation.isPresent()) {
+            RentalHistory existing = existingReservation.get();
+            log.warn("[중복 예약 방지] 이미 존재하는 예약: rentalHisId={}, status={}",
+                    existing.getRentalHisId(), existing.getStatus());
+            return ReservationCreateResponse.builder()
+                    .rentalHisId(existing.getRentalHisId())
+                    .productId(productId)
+                    .status(existing.getStatus().name())
+                    .fee(existing.getFee())
+                    .deposit(existing.getDeposit())
+                    .totalAmount(existing.getFee() + existing.getDeposit().intValue())
+                    .startRen(existing.getStartRen().toLocalDateTime())
+                    .endRen(existing.getEndRen().toLocalDateTime())
+                    .message("이미 예약이 존재합니다.")
+                    .build();
+        }
+
+        // 2. 비관적 락으로 Product 조회 (동시 요청 직렬화)
+        Product product = productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
 
         Member renter = memberRepository.findById(renterId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + renterId));
 
-        // 2. 본인 상품은 빌릴 수 없음
-//        if (product.getWriter().getMemberId().equals(renterId)) {
-//            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
-//        }
+        // 3. 본인 상품 대여 검증 (개발 모드에서는 허용)
+        if (!devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
+            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
+        }
 
-        // 3. 기본 날짜 검증
+        if (devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
+            log.warn("[개발 모드] 본인 상품 대여 허용: productId={}, memberId={}", productId, renterId);
+        }
+
+        // 4. 기본 날짜 검증
         if (request.getEndRen().isBefore(request.getStartRen())) {
             throw new IllegalArgumentException("종료일은 시작일보다 이후여야 합니다");
         }
 
-        // 4. 상품의 대여 가능 기간 검증
+        // 5. 상품의 대여 가능 기간 검증
         Timestamp requestStart = Timestamp.valueOf(request.getStartRen());
         Timestamp requestEnd = Timestamp.valueOf(request.getEndRen());
 
@@ -97,12 +154,19 @@ public class RentalService {
             throw new IllegalArgumentException("대여 종료일이 상품의 대여 가능 종료일을 초과합니다");
         }
 
-        // 5. 다른 예약과 겹치는지 확인
-        boolean hasConflict = rentalHistoryRepository
-                .findByRentalProduct_ProductId(productId)
-                .stream()
-                .filter(r -> r.getStatus() == com.joying.rental.domain.RentalStatus.ESCROW ||
-                             r.getStatus() == com.joying.rental.domain.RentalStatus.PENDING)
+        // 6. 다른 예약과 겹치는지 확인 (비관적 락으로 보호 - 동시성 제어)
+        // SELECT FOR UPDATE로 활성 예약 레코드에 락을 걸어 Race Condition 방지
+        List<RentalHistory> activeRentals = rentalHistoryRepository.findActiveRentalsWithLock(
+                productId,
+                java.util.List.of(
+                        com.joying.rental.domain.RentalStatus.PENDING,
+                        com.joying.rental.domain.RentalStatus.ESCROW,
+                        com.joying.rental.domain.RentalStatus.SHIPPED,
+                        com.joying.rental.domain.RentalStatus.RENTING
+                )
+        );
+
+        boolean hasConflict = activeRentals.stream()
                 .anyMatch(r -> {
                     // 날짜 겹침 확인
                     // (요청 시작 < 기존 종료) AND (요청 종료 > 기존 시작)
@@ -115,7 +179,7 @@ public class RentalService {
             throw new IllegalArgumentException("해당 기간에 이미 다른 예약이 있습니다");
         }
 
-        // 6. RentalHistory 생성
+        // 7. RentalHistory 생성
         RentalHistory rental = RentalHistory.create(
                 product,
                 renter,
@@ -124,12 +188,12 @@ public class RentalService {
                 request.getRentMethod()
         );
 
-        // 7. 저장
+        // 8. 저장
         RentalHistory savedRental = rentalHistoryRepository.save(rental);
 
         log.info("[대여 생성 완료] rentalHisId={}, status={}", savedRental.getRentalHisId(), savedRental.getStatus());
 
-        // 8. 응답 생성
+        // 9. 응답 생성
         return ReservationCreateResponse.builder()
                 .rentalHisId(savedRental.getRentalHisId())
                 .productId(productId)
@@ -296,7 +360,7 @@ public class RentalService {
     }
 
     /**
-     * 회수 확인 (상품 회수)
+     * 회수 확인 (상품 회수) + 자동 정산
      *
      * @param rentalHisId 대여 내역 ID
      * @param memberId 요청한 회원 ID
@@ -320,13 +384,28 @@ public class RentalService {
 
         log.info("[회수 확인 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
-        return ConfirmReceiveResponse.builder()
-                .rentalHisId(rental.getRentalHisId())
-                .status(rental.getStatus().name())
-                .startRen(rental.getStartRen().toLocalDateTime())
-                .endRen(rental.getEndRen().toLocalDateTime())
-                .message("회수가 확인되었습니다. 정산을 진행해주세요")
-                .build();
+        // 자동 정산 처리
+        try {
+            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                    .orElseThrow(() -> new IllegalStateException("에스크로를 찾을 수 없습니다: rentalHisId=" + rentalHisId));
+
+            log.info("[자동 정산 시작] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            escrowService.settleEscrow(escrow.getHoldId());
+
+            log.info("[자동 정산 완료] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            return ConfirmReceiveResponse.builder()
+                    .rentalHisId(rental.getRentalHisId())
+                    .status(rental.getStatus().name())
+                    .startRen(rental.getStartRen().toLocalDateTime())
+                    .endRen(rental.getEndRen().toLocalDateTime())
+                    .message("회수가 확인되었습니다. 자동 정산이 완료되었습니다 (대여료 지급 + 보증금 반환)")
+                    .build();
+        } catch (Exception e) {
+            log.error("[자동 정산 실패] rentalHisId={}", rentalHisId, e);
+            throw new IllegalStateException("정산 처리 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -494,5 +573,483 @@ public class RentalService {
             default:
                 throw new IllegalArgumentException("유효하지 않은 영상 타입입니다");
         }
+    }
+
+    /**
+     * 대여 기간 연장
+     * - RENTING 상태에서만 연장 가능
+     * - 추가 대여료 결제 필요
+     * - 보안: 빌린 사람만 연장 가능
+     *
+     * @param rentalHisId 대여 내역 ID
+     * @param request 연장 요청 (새 종료일, 추가 대여료)
+     * @param memberId 요청한 회원 ID
+     * @return 연장 응답 (결제 정보 포함)
+     */
+    @Transactional
+    public com.joying.rental.dto.response.ExtendResponse extendRental(
+            Long rentalHisId,
+            com.joying.rental.dto.request.ExtendRequest request,
+            Long memberId) {
+
+        log.info("[대여 기간 연장] rentalHisId={}, memberId={}, newEndRen={}, additionalFee={}",
+                rentalHisId, memberId, request.getNewEndRen(), request.getAdditionalFee());
+
+        // 1. RentalHistory 조회
+        RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
+
+        // 2. 권한 검증 (빌린 사람만 연장 가능)
+        Long renterId = rental.getMember().getMemberId();
+        if (!memberId.equals(renterId)) {
+            throw new IllegalArgumentException("빌린 사람만 대여 기간을 연장할 수 있습니다");
+        }
+
+        // 3. 상태 검증 (RENTING 상태에서만 연장 가능)
+        if (rental.getStatus() != com.joying.rental.domain.RentalStatus.RENTING) {
+            throw new IllegalStateException("대여 중인 상태에서만 연장할 수 있습니다");
+        }
+
+        // 4. 연장일 검증
+        if (request.getNewEndRen().isBefore(rental.getEndRen().toLocalDateTime())) {
+            throw new IllegalArgumentException("연장 종료일은 현재 종료일보다 이후여야 합니다");
+        }
+
+        // 5. 기존 종료일 저장 (응답용)
+        java.time.LocalDateTime originalEndRen = rental.getEndRen().toLocalDateTime();
+        Integer originalFee = rental.getFee();
+
+        // 6. 연장 결제용 Payment 생성 (PaymentType.EXTENSION)
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        String orderId = "JOYING_EXTENSION_" + rentalHisId + "_" + System.currentTimeMillis();
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        Timestamp newEndTimestamp = java.sql.Timestamp.valueOf(request.getNewEndRen());
+
+        Payment extensionPayment = Payment.create(
+                rental,
+                rental.getRentalProduct(),
+                member,
+                com.joying.payment.domain.PaymentType.EXTENSION
+        );
+        // 연장 정보를 Payment에 저장 (결제 승인 시 사용)
+        extensionPayment.markReadyForExtension(orderId, request.getAdditionalFee(), now, newEndTimestamp);
+
+        Payment savedPayment = paymentRepository.save(extensionPayment);
+        log.info("[연장 결제 생성] rentalHisId={}, orderId={}, amount={}, newEndDate={}",
+                rentalHisId, orderId, request.getAdditionalFee(), request.getNewEndRen());
+
+        // 7. 실제 연장은 결제 승인 후 PaymentService.confirmPayment()에서 처리됨
+        log.info("[연장 결제 대기 중] rentalHisId={}, orderId={} - 결제 완료 후 연장이 적용됩니다", rentalHisId, orderId);
+
+        // 8. 응답 생성
+        return com.joying.rental.dto.response.ExtendResponse.builder()
+                .rentalHisId(rental.getRentalHisId())
+                .status(rental.getStatus().name())
+                .originalEndRen(originalEndRen)
+                .newEndRen(request.getNewEndRen()) // 요청한 새 종료일
+                .originalFee(originalFee)
+                .additionalFee(request.getAdditionalFee())
+                .totalFee(originalFee + request.getAdditionalFee()) // 예상 총 대여료
+                .extensionCount(rental.getExtensionCount()) // 아직 증가 안 함
+                .orderId(savedPayment.getOrderId()) // 결제용 orderId 반환
+                .message("대여 기간 연장 요청이 완료되었습니다. 추가 대여료(" + request.getAdditionalFee() + "원)를 결제해주세요. 결제 완료 후 연장이 적용됩니다.")
+                .build();
+    }
+
+    /**
+     * 거래 취소 요청 생성
+     * - 양측 합의 기반 취소
+     * - 보증금 분배 비율 제안
+     * - 7일 만료 기한
+     *
+     * @param rentalHisId 대여 내역 ID
+     * @param request 취소 요청 (사유, 보증금 분배)
+     * @param memberId 요청한 회원 ID (제안자)
+     * @return 취소 응답
+     */
+    @Transactional
+    public com.joying.rental.dto.response.CancelResponse createCancelRequest(
+            Long rentalHisId,
+            com.joying.rental.dto.request.CancelCreateRequest request,
+            Long memberId) {
+
+        log.info("[거래 취소 요청] rentalHisId={}, memberId={}, reason={}",
+                rentalHisId, memberId, request.getReason());
+
+        // 1. RentalHistory 조회
+        RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
+
+        // 2. 권한 검증 (거래 당사자만 취소 요청 가능)
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+            throw new IllegalArgumentException("거래 당사자만 취소 요청할 수 있습니다");
+        }
+
+        // 3. 보증금 분배 검증
+        if (request.getDepositOwnerAmt() + request.getDepositRenterAmt() != rental.getDeposit().intValue()) {
+            throw new IllegalArgumentException("보증금 분배 합계가 보증금과 일치하지 않습니다");
+        }
+
+        // 4. 중복 요청 방지 (이미 대기 중인 취소 요청이 있는지 확인)
+        rentalCancelRepository.findByRentalHisIdAndStatus(
+                rentalHisId,
+                com.joying.rental.domain.CancelStatus.PENDING
+        ).ifPresent(existingCancel -> {
+            throw new IllegalStateException("이미 대기 중인 취소 요청이 있습니다");
+        });
+
+        // 5. Member 조회 (제안자)
+        Member proposer = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        // 6. RentalCancel 생성
+        RentalCancel cancel = RentalCancel.create(
+                rental,
+                proposer,
+                request.getReason(),
+                request.getDepositOwnerAmt(),
+                request.getDepositRenterAmt()
+        );
+
+        // 7. 저장
+        RentalCancel savedCancel = rentalCancelRepository.save(cancel);
+
+        log.info("[거래 취소 요청 완료] cancelId={}, status={}", savedCancel.getCancelId(), savedCancel.getStatus());
+
+        return convertToCancelResponse(savedCancel);
+    }
+
+    /**
+     * 취소 요청 조회
+     *
+     * @param rentalHisId 대여 내역 ID
+     * @param memberId 요청한 회원 ID
+     * @return 취소 응답
+     */
+    public com.joying.rental.dto.response.CancelResponse getCancelRequest(Long rentalHisId, Long memberId) {
+        log.info("[취소 요청 조회] rentalHisId={}, memberId={}", rentalHisId, memberId);
+
+        // 1. RentalHistory 조회
+        RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
+
+        // 2. 권한 검증
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+            throw new IllegalArgumentException("거래 당사자만 조회할 수 있습니다");
+        }
+
+        // 3. 최신 취소 요청 조회
+        RentalCancel cancel = rentalCancelRepository.findLatestByRentalHisId(rentalHisId)
+                .orElseThrow(() -> new IllegalArgumentException("취소 요청이 없습니다"));
+
+        return convertToCancelResponse(cancel);
+    }
+
+    /**
+     * 취소 승인
+     *
+     * @param cancelId 취소 요청 ID
+     * @param memberId 요청한 회원 ID
+     * @return 취소 응답
+     */
+    @Transactional
+    public com.joying.rental.dto.response.CancelResponse approveCancel(Long cancelId, Long memberId) {
+        log.info("[취소 승인] cancelId={}, memberId={}", cancelId, memberId);
+
+        // 1. RentalCancel 조회
+        RentalCancel cancel = rentalCancelRepository.findById(cancelId)
+                .orElseThrow(() -> new IllegalArgumentException("취소 요청을 찾을 수 없습니다: " + cancelId));
+
+        // 2. 권한 검증 (IDOR 방지 - 거래 당사자만 승인 가능)
+        RentalHistory rental = cancel.getRentalHistory();
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+
+        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+            throw new IllegalArgumentException("거래 당사자만 취소 요청을 승인할 수 있습니다");
+        }
+
+        // 3. Member 조회
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        // 4. 승인 처리
+        cancel.approve(member);
+
+        // 5. 양측 모두 승인 시 거래 취소 처리
+        if (cancel.isBothApproved()) {
+            Long rentalHisId = cancel.getRentalHistory().getRentalHisId();
+
+            // 5-1. RentalHistory 취소
+            cancel.getRentalHistory().cancel();
+
+            // 5-2. Escrow 조회 및 환불 처리
+            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                    .orElseThrow(() -> new IllegalStateException("에스크로를 찾을 수 없습니다: rentalHisId=" + rentalHisId));
+
+            // 5-3. 계좌 정보 조회
+            Member lender = rental.getRentalProduct().getWriter();
+            Member renter = rental.getMember();
+
+            Account lenderAccount = lender.getAccounts().stream()
+                    .filter(Account::isUsable)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("대여자의 사용 가능한 계좌가 없습니다: memberId=" + lender.getMemberId()));
+
+            Account renterAccount = renter.getAccounts().stream()
+                    .filter(Account::isUsable)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("차용자의 사용 가능한 계좌가 없습니다: memberId=" + renter.getMemberId()));
+
+            // 5-4. Joying 중개 계좌 정보
+            String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
+            String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
+
+            // 5-5. SSAFY 금융망으로 환불 분배
+            try {
+                // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
+                long renterRefundAmt = escrow.getRentalFee() + cancel.getDepositRenterAmt();
+                String renterTxNo = financeApiService.transferMoney(
+                        escrowAccountNo,
+                        renterAccount.getAccountNo(),
+                        renterRefundAmt,
+                        "Joying 취소 환불 (대여료+보증금)",
+                        escrowUserKey
+                );
+                log.info("[차용자 환불 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                        rentalHisId, renterTxNo, renterRefundAmt, renterAccount.getAccountNo());
+
+                // 대여자 보증금 몫 → 대여자에게 지급
+                if (cancel.getDepositOwnerAmt() > 0) {
+                    String lenderTxNo = financeApiService.transferMoney(
+                            escrowAccountNo,
+                            lenderAccount.getAccountNo(),
+                            cancel.getDepositOwnerAmt().longValue(),
+                            "Joying 취소 보증금 분배",
+                            escrowUserKey
+                    );
+                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                            rentalHisId, lenderTxNo, cancel.getDepositOwnerAmt(), lenderAccount.getAccountNo());
+                }
+            } catch (Exception e) {
+                log.error("[SSAFY 금융망 환불 실패] rentalHisId={}", rentalHisId, e);
+                throw new IllegalStateException("환불 처리 중 오류가 발생했습니다", e);
+            }
+
+            // 5-6. Escrow 상태 변경
+            escrow.refund();
+            log.info("[Escrow 환불 처리] rentalHisId={}, holdId={}", rentalHisId, escrow.getHoldId());
+
+            // 5-7. Payment 상태 변경 (DONE → CANCELLED)
+            List<Payment> payments = paymentRepository.findByRentalHistory_RentalHisId(rentalHisId);
+            for (Payment payment : payments) {
+                if (payment.getStatus() == PaymentStatus.DONE) {
+                    payment.cancel();
+                    log.info("[Payment 상태 변경] rentalHisId={}, orderId={}, status=CANCELLED",
+                            rentalHisId, payment.getOrderId());
+                }
+            }
+
+            log.info("[취소 양측 승인 완료] cancelId={}, rentalHisId={}", cancelId, rentalHisId);
+        }
+
+        log.info("[취소 승인 완료] cancelId={}, status={}", cancelId, cancel.getStatus());
+
+        return convertToCancelResponse(cancel);
+    }
+
+    /**
+     * 취소 거부
+     *
+     * @param cancelId 취소 요청 ID
+     * @param request 거부 요청 (거부 사유)
+     * @param memberId 요청한 회원 ID
+     * @return 취소 응답
+     */
+    @Transactional
+    public com.joying.rental.dto.response.CancelResponse rejectCancel(
+            Long cancelId,
+            com.joying.rental.dto.request.CancelRejectRequest request,
+            Long memberId) {
+
+        log.info("[취소 거부] cancelId={}, memberId={}, rejectReason={}",
+                cancelId, memberId, request.getRejectReason());
+
+        // 1. RentalCancel 조회
+        RentalCancel cancel = rentalCancelRepository.findById(cancelId)
+                .orElseThrow(() -> new IllegalArgumentException("취소 요청을 찾을 수 없습니다: " + cancelId));
+
+        // 2. 권한 검증 (IDOR 방지 - 거래 당사자만 거부 가능)
+        RentalHistory rental = cancel.getRentalHistory();
+        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
+        Long renterId = rental.getMember().getMemberId();
+
+        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+            throw new IllegalArgumentException("거래 당사자만 취소 요청을 거부할 수 있습니다");
+        }
+
+        // 3. Member 조회
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + memberId));
+
+        // 4. 거부 처리
+        cancel.reject(member, request.getRejectReason());
+
+        log.info("[취소 거부 완료] cancelId={}, status={}", cancelId, cancel.getStatus());
+
+        return convertToCancelResponse(cancel);
+    }
+
+    /**
+     * RentalCancel -> CancelResponse 변환
+     */
+    private com.joying.rental.dto.response.CancelResponse convertToCancelResponse(RentalCancel cancel) {
+        return com.joying.rental.dto.response.CancelResponse.builder()
+                .cancelId(cancel.getCancelId())
+                .rentalHisId(cancel.getRentalHistory().getRentalHisId())
+                .proposerId(cancel.getProposer().getMemberId())
+                .proposerName(cancel.getProposer().getName())
+                .reason(cancel.getReason())
+                .depositOwnerAmt(cancel.getDepositOwnerAmt())
+                .depositRenterAmt(cancel.getDepositRenterAmt())
+                .status(cancel.getStatus().name())
+                .ownerDecision(cancel.getOwnerDecision().name())
+                .renterDecision(cancel.getRenterDecision().name())
+                .ownerDecidedAt(cancel.getOwnerDecidedAt() != null ?
+                        cancel.getOwnerDecidedAt().toLocalDateTime() : null)
+                .renterDecidedAt(cancel.getRenterDecidedAt() != null ?
+                        cancel.getRenterDecidedAt().toLocalDateTime() : null)
+                .expiresAt(cancel.getExpiresAt().toLocalDateTime())
+                .createdAt(cancel.getCreatedAt().toLocalDateTime())
+                .message(buildCancelMessage(cancel))
+                .build();
+    }
+
+    /**
+     * 취소 상태에 따른 메시지 생성
+     */
+    private String buildCancelMessage(RentalCancel cancel) {
+        switch (cancel.getStatus()) {
+            case PENDING:
+                return "취소 요청이 대기 중입니다. 상대방의 승인을 기다리고 있습니다.";
+            case APPROVED:
+                return "취소가 승인되었습니다. 보증금 환불이 처리됩니다.";
+            case REJECTED:
+                return "취소가 거부되었습니다. 거래가 계속 진행됩니다.";
+            default:
+                return "취소 요청 상태: " + cancel.getStatus().name();
+        }
+    }
+
+    /**
+     * 나의 대여 내역 조회 (내가 빌린 내역)
+     * - 읽기 전용 트랜잭션으로 성능 최적화
+     * - Fetch Join으로 N+1 문제 해결
+     * - Pagination으로 대용량 데이터 처리
+     * - 정렬: rentalHisId 내림차순 (최신순)
+     *
+     * @param memberId 요청한 회원 ID
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지 크기
+     * @return 대여 내역 페이지
+     */
+    public org.springframework.data.domain.Page<com.joying.rental.dto.response.RentalHistoryListResponse> getBorrowedHistory(
+            Long memberId,
+            int page,
+            int size) {
+
+        log.info("[나의 대여 내역 조회] memberId={}, page={}, size={}",
+                memberId, page, size);
+
+        // 정렬을 rentalHisId DESC로 고정
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "rentalHisId")
+        );
+
+        // Repository에서 Fetch Join으로 한번에 조회 (N+1 방지)
+        org.springframework.data.domain.Page<RentalHistory> rentalPage =
+                rentalHistoryRepository.findBorrowedHistoryByMember(memberId, pageable);
+
+        // Entity -> DTO 변환
+        return rentalPage.map(this::convertToListResponse);
+    }
+
+    /**
+     * 내가 대여해준 내역 조회 (내가 빌려준 내역)
+     * - 읽기 전용 트랜잭션으로 성능 최적화
+     * - Fetch Join으로 N+1 문제 해결
+     * - Pagination으로 대용량 데이터 처리
+     * - 정렬: rentalHisId 내림차순 (최신순)
+     *
+     * @param ownerId 요청한 회원 ID (상품 소유자)
+     * @param page 페이지 번호 (0부터 시작)
+     * @param size 페이지 크기
+     * @return 대여 내역 페이지
+     */
+    public org.springframework.data.domain.Page<com.joying.rental.dto.response.RentalHistoryListResponse> getLendHistory(
+            Long ownerId,
+            int page,
+            int size) {
+
+        log.info("[내가 대여해준 내역 조회] ownerId={}, page={}, size={}",
+                ownerId, page, size);
+
+        // 정렬을 rentalHisId DESC로 고정
+        org.springframework.data.domain.Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "rentalHisId")
+        );
+
+        // Repository에서 Fetch Join으로 한번에 조회 (N+1 방지)
+        org.springframework.data.domain.Page<RentalHistory> rentalPage =
+                rentalHistoryRepository.findLendHistoryByOwner(ownerId, pageable);
+
+        // Entity -> DTO 변환
+        return rentalPage.map(this::convertToListResponse);
+    }
+
+    /**
+     * RentalHistory Entity -> RentalHistoryListResponse DTO 변환
+     * - 효율적인 데이터 전송을 위한 경량 DTO 사용
+     *
+     * @param rental RentalHistory 엔티티
+     * @return RentalHistoryListResponse DTO
+     */
+    private com.joying.rental.dto.response.RentalHistoryListResponse convertToListResponse(RentalHistory rental) {
+        Product product = rental.getRentalProduct();
+        Member owner = product.getWriter();
+        Member renter = rental.getMember();
+
+        return com.joying.rental.dto.response.RentalHistoryListResponse.builder()
+                .rentalHisId(rental.getRentalHisId())
+                .status(rental.getStatus().name())
+                .rentMethod(rental.getRentMethod().name())
+                .fee(rental.getFee())
+                .deposit(rental.getDeposit())
+                .startRen(rental.getStartRen().toLocalDateTime())
+                .endRen(rental.getEndRen().toLocalDateTime())
+                .extensionCount(rental.getExtensionCount())
+                .product(com.joying.rental.dto.response.RentalHistoryListResponse.ProductSummary.builder()
+                        .productId(product.getProductId())
+                        .title(product.getTitle())
+                        .thumbnail(null)  // TODO: Product에 thumbnail 필드 추가 필요
+                        .category(product.getCategory() != null ? product.getCategory().getCategoryName() : null)
+                        .build())
+                .counterparty(com.joying.rental.dto.response.RentalHistoryListResponse.MemberSummary.builder()
+                        .memberId(owner.getMemberId())
+                        .name(owner.getName())
+                        .profileImage(owner.getProfileImage() != null ?
+                            owner.getProfileImage().getDirectory() + "/" + owner.getProfileImage().getFileName() : null)
+                        .build())
+                .build();
     }
 }

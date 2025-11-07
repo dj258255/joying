@@ -1,11 +1,17 @@
 package com.joying.rental.controller;
 
 import com.joying.common.response.ApiResponse;
+import com.joying.rental.dto.request.CancelCreateRequest;
+import com.joying.rental.dto.request.CancelRejectRequest;
+import com.joying.rental.dto.request.ExtendRequest;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
+import com.joying.rental.dto.response.CancelResponse;
 import com.joying.rental.dto.request.VideoUploadRequest;
 import com.joying.rental.dto.response.ConfirmReceiveResponse;
+import com.joying.rental.dto.response.ExtendResponse;
 import com.joying.rental.dto.response.RentalDetailResponse;
+import com.joying.rental.dto.response.RentalHistoryListResponse;
 import com.joying.rental.dto.response.ReservationCreateResponse;
 import com.joying.rental.dto.response.ShipResponse;
 import com.joying.rental.dto.response.VideoListResponse;
@@ -14,10 +20,12 @@ import com.joying.rental.service.RentalService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 대여 API 컨트롤러
@@ -124,7 +132,6 @@ public class RentalController {
 
     /**
      * 반납 처리
-     *
      * PATCH /rental-histories/{rentalHisId}/return
      */
     @PatchMapping("/rental-histories/{rentalHisId}/return")
@@ -212,5 +219,227 @@ public class RentalController {
         );
 
         return ApiResponse.ok(response);
+    }
+
+    /**
+     * 대여 기간 연장
+     *
+     * PATCH /rental-histories/{rentalHisId}/extend
+     *
+     * 기능:
+     * - RENTING 상태에서만 연장 가능
+     * - 추가 대여료 결제 필요
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 빌린 사람만 연장 가능
+     */
+    @PatchMapping("/rental-histories/{rentalHisId}/extend")
+    public ResponseEntity<ApiResponse.SuccessBody<ExtendResponse>> extendRental(
+            @PathVariable Long rentalHisId,
+            @Valid @RequestBody ExtendRequest request,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[PATCH /rental-histories/{}/extend] 대여 기간 연장: memberId={}, newEndRen={}",
+                rentalHisId, memberId, request.getNewEndRen());
+
+        ExtendResponse response = rentalService.extendRental(
+                rentalHisId,
+                request,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 거래 취소 요청
+     *
+     * POST /rental-histories/{rentalHisId}/cancel
+     *
+     * 기능:
+     * - 양측 합의 기반 취소
+     * - 보증금 분배 비율 제안
+     * - 7일 만료 기한
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 거래 당사자만 요청 가능
+     */
+    @PostMapping("/rental-histories/{rentalHisId}/cancel")
+    public ResponseEntity<ApiResponse.SuccessBody<CancelResponse>> createCancelRequest(
+            @PathVariable Long rentalHisId,
+            @Valid @RequestBody CancelCreateRequest request,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[POST /rental-histories/{}/cancel] 거래 취소 요청: memberId={}",
+                rentalHisId, memberId);
+
+        CancelResponse response = rentalService.createCancelRequest(
+                rentalHisId,
+                request,
+                memberId
+        );
+
+        return ApiResponse.created(response);
+    }
+
+    /**
+     * 취소 요청 조회
+     *
+     * GET /rental-histories/{rentalHisId}/cancel
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 거래 당사자만 조회 가능
+     */
+    @GetMapping("/rental-histories/{rentalHisId}/cancel")
+    public ResponseEntity<ApiResponse.SuccessBody<CancelResponse>> getCancelRequest(
+            @PathVariable Long rentalHisId,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /rental-histories/{}/cancel] 취소 요청 조회: memberId={}",
+                rentalHisId, memberId);
+
+        CancelResponse response = rentalService.getCancelRequest(
+                rentalHisId,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 취소 승인
+     *
+     * PATCH /rental-cancel-requests/{cancelId}/approve
+     *
+     * 기능:
+     * - 양측 모두 승인 시 자동 환불 처리
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 거래 당사자만 승인 가능
+     */
+    @PatchMapping("/rental-cancel-requests/{cancelId}/approve")
+    public ResponseEntity<ApiResponse.SuccessBody<CancelResponse>> approveCancel(
+            @PathVariable Long cancelId,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[PATCH /rental-cancel-requests/{}/approve] 취소 승인: memberId={}",
+                cancelId, memberId);
+
+        CancelResponse response = rentalService.approveCancel(
+                cancelId,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 취소 거부
+     *
+     * PATCH /rental-cancel-requests/{cancelId}/reject
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 거래 당사자만 거부 가능
+     */
+    @PatchMapping("/rental-cancel-requests/{cancelId}/reject")
+    public ResponseEntity<ApiResponse.SuccessBody<CancelResponse>> rejectCancel(
+            @PathVariable Long cancelId,
+            @Valid @RequestBody CancelRejectRequest request,
+            Authentication authentication) {
+
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[PATCH /rental-cancel-requests/{}/reject] 취소 거부: memberId={}",
+                cancelId, memberId);
+
+        CancelResponse response = rentalService.rejectCancel(
+                cancelId,
+                request,
+                memberId
+        );
+
+        return ApiResponse.ok(response);
+    }
+
+    /**
+     * 나의 대여 내역 조회 (내가 빌린 내역)
+     *
+     * GET /rentals/borrowed/history
+     *
+     * 성능 최적화:
+     * - Fetch Join으로 N+1 문제 해결
+     * - Pagination으로 대용량 데이터 처리
+     * - 읽기 전용 트랜잭션으로 성능 향상
+     *
+     * 정렬:
+     * - rentalHisId 내림차순 고정 (최신순)
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 본인 데이터만 조회 가능
+     *
+     * @param authentication JWT 인증 정보
+     * @param page 페이지 번호 (0부터 시작, default: 0)
+     * @param size 페이지 크기 (default: 20)
+     * @return 대여 내역 페이지
+     */
+    @GetMapping("/borrowed/history")
+    public ResponseEntity<ApiResponse.SuccessBody<Page<RentalHistoryListResponse>>> getBorrowedHistory(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /rentals/borrowed/history] 나의 대여 내역 조회 : memberId={}, page={}, size={}",
+                memberId, page, size);
+
+        Page<RentalHistoryListResponse> borrowedHistory = rentalService.getBorrowedHistory(memberId, page, size);
+
+        return ApiResponse.ok(borrowedHistory);
+    }
+
+    /**
+     * 내가 대여해준 내역 조회 (내가 빌려준 내역)
+     *
+     * GET /rentals/lend/history
+     *
+     * 성능 최적화:
+     * - Fetch Join으로 N+1 문제 해결
+     * - Pagination으로 대용량 데이터 처리
+     * - 읽기 전용 트랜잭션으로 성능 향상
+     *
+     * 정렬:
+     * - rentalHisId 내림차순 고정 (최신순)
+     *
+     * 보안:
+     * - JWT 인증 필수
+     * - 본인이 소유한 상품의 대여 내역만 조회 가능
+     *
+     * @param authentication JWT 인증 정보
+     * @param page 페이지 번호 (0부터 시작, default: 0)
+     * @param size 페이지 크기 (default: 20)
+     * @return 대여 내역 페이지
+     */
+    @GetMapping("/lend/history")
+    public ResponseEntity<ApiResponse.SuccessBody<Page<RentalHistoryListResponse>>> getLendHistory(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Long memberId = Long.parseLong(authentication.getName());
+        log.info("[GET /rentals/lend/history] 내가 대여해준 내역 조회 : memberId={}, page={}, size={}",
+                memberId, page, size);
+
+        Page<RentalHistoryListResponse> lendHistory = rentalService.getLendHistory(memberId, page, size);
+
+        return ApiResponse.ok(lendHistory);
     }
 }
