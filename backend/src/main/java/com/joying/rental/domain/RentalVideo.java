@@ -1,16 +1,22 @@
 package com.joying.rental.domain;
 
+import com.joying.common.entity.BaseEntity;
 import com.joying.file.domain.File;
+import com.joying.member.domain.Member;
+import com.joying.product.domain.Product;
+import com.joying.product.domain.RentMethod;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Comment;
+
+import java.sql.Timestamp;
 
 @Getter
 @Entity
 @Table(name = "rental_video")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "rentalVideoId", callSuper = false)
-public class RentalVideo {
+public class RentalVideo extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

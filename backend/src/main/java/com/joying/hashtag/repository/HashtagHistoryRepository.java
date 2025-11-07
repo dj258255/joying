@@ -23,4 +23,8 @@ GROUP BY h.hashtagId, h.hashtagName
 ORDER BY count DESC
     """)
     List<HashtagCountProjection> findHashtagCountInProducts(List<Long> productIds);
+
+    @Query("SELECT h FROM HashtagHistory h JOIN FETCH h.hashtag WHERE h.product.productId IN :productIds")
+    List<HashtagHistory> findAllByProductIds(List<Long> productIds);
+
 }

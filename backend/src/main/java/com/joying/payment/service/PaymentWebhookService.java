@@ -2,6 +2,7 @@ package com.joying.payment.service;
 
 import com.joying.escrow.domain.Escrow;
 import com.joying.escrow.repository.EscrowRepository;
+import com.joying.outbox.service.OutboxEventPublisher;
 import com.joying.payment.domain.Payment;
 import com.joying.payment.domain.PaymentMethod;
 import com.joying.payment.domain.PaymentStatus;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 결제 웹훅 처리 서비스
@@ -29,6 +32,7 @@ public class PaymentWebhookService {
 
     private final PaymentRepository paymentRepository;
     private final EscrowRepository escrowRepository;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     /**
      * 웹훅 이벤트 처리 (비동기)
@@ -79,14 +83,16 @@ public class PaymentWebhookService {
     }
 
     /**
-     * 결제 성공 처리
+     * 결제 성공 처리 (Outbox 패턴 적용)
+     * - Payment, RentalHistory 업데이트와 Outbox 이벤트 발행을 같은 트랜잭션으로 처리
+     * - 실제 Escrow 생성은 백그라운드 프로세서가 처리
      */
     private void handleSuccess(Payment payment, PaymentWebhookRequest.WebhookData data) {
         if (payment.getStatus() == PaymentStatus.DONE) {
             return; // 이미 처리됨
         }
 
-        // Payment 상태 업데이트
+        // 1. Payment 상태 업데이트
         payment.approve(
                 data.getPaymentKey(),
                 PaymentMethod.valueOf(data.getMethod()),
@@ -94,21 +100,21 @@ public class PaymentWebhookService {
                 data.getReceiptUrl()
         );
 
-        // RentalHistory 상태 업데이트 (ESCROW)
+        // 2. RentalHistory 상태 업데이트 (ESCROW)
         RentalHistory rentalHistory = payment.getRentalHistory();
         rentalHistory.markAsEscrow();
 
-        // Escrow 생성 (보증금 예치) - 중복 생성 방지
-        if (escrowRepository.findByPayment_PaymentId(payment.getPaymentId()).isEmpty()) {
-            Integer rentalFee = rentalHistory.getFee();
-            Integer depositAmount = rentalHistory.getDeposit().intValue();
+        // 3. Outbox 이벤트 발행 (같은 트랜잭션)
+        // - Escrow 생성은 OutboxEventProcessor가 비동기로 처리
+        // - DB 트랜잭션 일관성 보장 (Payment 승인 실패 시 이벤트도 롤백)
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("rentalHisId", rentalHistory.getRentalHisId());
+        payload.put("paymentId", payment.getPaymentId());
 
-            Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
-            escrowRepository.save(escrow);
-            log.info("[Webhook] Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), payment.getPaymentId());
-        }
+        outboxEventPublisher.publish("ESCROW_CREATE", rentalHistory.getRentalHisId(), payload);
 
-        log.info("[Webhook] 결제 승인 처리 완료: paymentId={}", payment.getPaymentId());
+        log.info("[Webhook] 결제 승인 완료 & Outbox 이벤트 발행: paymentId={}, rentalHisId={}",
+                payment.getPaymentId(), rentalHistory.getRentalHisId());
     }
 
     /**

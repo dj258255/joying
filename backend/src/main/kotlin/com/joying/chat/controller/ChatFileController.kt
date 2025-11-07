@@ -1,7 +1,7 @@
 package com.joying.chat.controller
 
 import com.joying.chat.dto.FileType
-import com.joying.chat.dto.FileUploadDto
+import com.joying.chat.dto.FileUploadResponse
 import com.joying.common.response.ApiResponse
 import com.joying.file.component.FileUrlResolver
 import com.joying.file.service.FileService
@@ -49,7 +49,7 @@ class ChatFileController(
     fun upload(
         @PathVariable chatRoomId: Long,
         @RequestPart("file") file: MultipartFile
-    ): ResponseEntity<ApiResponse.SuccessBody<FileUploadDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<FileUploadResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info(
@@ -70,7 +70,7 @@ class ChatFileController(
         // 파일 저장 (기존 FileService 사용)
         val savedFile = fileService.saveFile(file)
 
-        val response = FileUploadDto(
+        val response = FileUploadResponse(
             fileId = savedFile.fileId!!,
             url = fileUrlResolver.toPublicUrl(savedFile),
             fileName = file.originalFilename ?: if (isImage) "image" else "file",
@@ -123,8 +123,8 @@ class ChatFileController(
     /**
      * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
-     * JwtAuthenticationFilter가 쿠키 또는 Authorization 헤더에서
-     * JWT 토큰을 추출하고 SecurityContext에 인증 정보를 설정합니다.
+     * JwtAuthenticationFilter가 쿠키에서 JWT 토큰을 추출하고
+     * SecurityContext에 인증 정보를 설정합니다.
      *
      * @return 사용자 ID
      * @throws IllegalStateException 인증되지 않은 경우

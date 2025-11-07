@@ -97,6 +97,10 @@ public class Payment {
     @Comment("PG 영수증 URL")
     private String receiptUrl;
 
+    @Column(name = "extension_end_date")
+    @Comment("연장 결제 시 새로운 종료일 (EXTENSION 타입에서만 사용)")
+    private Timestamp extensionEndDate;
+
     @Version
     @Column(name = "version")
     @Comment("승인/취소 동시요청 시 경쟁 방지를 위한 버전 관리")
@@ -121,6 +125,17 @@ public class Payment {
         this.totalAmount = totalAmount;
         this.status = PaymentStatus.READY;
         this.requestedAt = now;
+    }
+
+    /**
+     * 연장 결제 준비 (extensionEndDate 포함)
+     */
+    public void markReadyForExtension(String orderId, int totalAmount, Timestamp now, Timestamp extensionEndDate) {
+        this.orderId = orderId;
+        this.totalAmount = totalAmount;
+        this.status = PaymentStatus.READY;
+        this.requestedAt = now;
+        this.extensionEndDate = extensionEndDate;
     }
 
     public void approve(String paymentKey, PaymentMethod method, Timestamp approvedAt, String receiptUrl) {

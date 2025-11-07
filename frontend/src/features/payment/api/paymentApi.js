@@ -21,15 +21,50 @@ export const paymentApi = {
   },
 
   /**
-   * 결제 생성
+   * 결제 생성 (OrderId 발급)
    * @param {Object} data
-   * @param {string} data.rentalId - 대여 ID
-   * @param {string} data.paymentMethod - 결제 수단
-   * @param {number} data.amount - 결제 금액
-   * @returns {Promise<Object>}
+   * @param {number} data.rentalHisId - 예약(대여이력) ID
+   * @param {number} data.productId - 상품 ID
+   * @param {number} data.totalAmount - 결제 총액(요금+보증금 등)
+   * @param {string} data.orderName - 주문명(PG 표시용)
+   * @returns {Promise<Object>} { paymentId, orderId, totalAmount }
    */
   createPayment: async (data) => {
-    return await axiosInstance.post('/payment', data);
+    const requestBody = {
+      rentalHisId: data.rentalHisId,
+      productId: data.productId,
+      totalAmount: data.totalAmount,
+      orderName: data.orderName
+    };
+
+    console.log('[paymentApi] 결제 생성 요청:', requestBody);
+    
+    const response = await axiosInstance.post('/payments', requestBody, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('[paymentApi] 결제 생성 성공:', response.data);
+    return response.data;
+  },
+
+  /**
+   * 결제 승인 (Renter - 토스 결제 완료 후)
+   * @param {Object} data - 결제 승인 데이터 (PG사별로 다를 수 있음)
+   * @returns {Promise<Object>}
+   */
+  confirmPayment: async (data) => {
+    console.log('[paymentApi] 결제 승인 요청:', data);
+    
+    const response = await axiosInstance.post('/payments/confirm', data, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('[paymentApi] 결제 승인 성공:', response.data);
+    return response.data;
   },
 
   /**

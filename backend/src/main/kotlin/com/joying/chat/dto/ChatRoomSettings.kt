@@ -11,7 +11,7 @@ data class UpdateChatRoomSettingsRequest(
 /**
  * 채팅방 설정 Response
  */
-data class ChatRoomSettingsDto(
+data class ChatRoomSettingsResponse(
     val isPinned: Boolean,
     val isMuted: Boolean
 )

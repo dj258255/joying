@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@Document(indexName = "search_product")
+@Document(indexName = "search_product_init")
 @Setting(settingPath = "elasticsearch/search-setting.json")
 @Mapping(mappingPath = "elasticsearch/search-mapping.json")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -29,6 +29,9 @@ import lombok.extern.slf4j.Slf4j;
 public class SearchDocument {
 	@Id
 	private Long productId;
+
+	@Field(type = FieldType.Keyword)
+	private String uploadType;
 
 	@Field(type = FieldType.Text)
 	private String title;
@@ -75,6 +78,9 @@ public class SearchDocument {
 	@Field(type = FieldType.Double)
 	private Double rating;
 
+	@Field(type = FieldType.Integer)
+	private Integer reviewCount;
+
 	@Field(type = FieldType.Long)
 	private Long thumbnailFileId;
 
@@ -96,7 +102,9 @@ public class SearchDocument {
 		LocalDateTime endRent,
 		List<String> hashtags,
 		Double rating,
-		Long thumbnailFileId) {
+		Integer reviewCount,
+		Long thumbnailFileId,
+		String uploadType) {
 		this.productId = productId;
 		this.title = title;
 		this.content = content;
@@ -113,7 +121,9 @@ public class SearchDocument {
 		this.startRent = startRent;
 		this.endRent = endRent;
 		this.rating = rating;
+		this.reviewCount = reviewCount;
 		this.thumbnailFileId = thumbnailFileId;
+		this.uploadType = uploadType;
 	}
 
 	public static SearchDocument from(SearchRequest searchRequest) {
@@ -134,6 +144,9 @@ public class SearchDocument {
 			.startRent(searchRequest.startRent().toLocalDateTime())
 			.endRent(searchRequest.endRent().toLocalDateTime())
 			.rating(searchRequest.rating())
+			.reviewCount(0)
+			.thumbnailFileId(searchRequest.thumbnailFileId())
+			.uploadType(searchRequest.uploadType())
 			.build();
 	}
 }

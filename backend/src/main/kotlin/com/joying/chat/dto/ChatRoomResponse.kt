@@ -5,13 +5,13 @@ import com.joying.chat.domain.ChatRoomStatus
 import java.time.Instant
 
 /**
- * 채팅방 응답 DTO
+ * 채팅방 Response DTO
  *
  * 목록 조회와 상세 조회 모두 사용
  * - 목록: member = null
  * - 상세: member != null (include=member 파라미터)
  */
-data class ChatRoomDto(
+data class ChatRoomResponse(
     val chatRoomId: Long,
     val productId: Long,
     val productTitle: String,

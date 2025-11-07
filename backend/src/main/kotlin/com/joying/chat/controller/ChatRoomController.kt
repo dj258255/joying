@@ -1,19 +1,17 @@
 package com.joying.chat.controller
 
-import com.joying.chat.dto.ChatRoomDto
-import com.joying.chat.dto.ChatRoomSettingsDto
+import com.joying.chat.dto.ChatRoomResponse
+import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.CreateChatRoomRequest
 import com.joying.chat.dto.UpdateChatRoomSettingsRequest
 import com.joying.chat.service.ChatRoomService
 import com.joying.chat.service.ChatService
 import com.joying.common.response.ApiResponse
-import com.joying.file.component.FileUrlResolver
-import com.joying.file.repository.ProductFileRepository
-import com.joying.product.domain.Product
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 
@@ -27,9 +25,7 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/chat-rooms")
 class ChatRoomController(
     private val chatRoomService: ChatRoomService,
-    private val chatService: ChatService,
-    private val productFileRepository: ProductFileRepository,
-    private val fileUrlResolver: FileUrlResolver
+    private val chatService: ChatService
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomController::class.java)
 
@@ -46,45 +42,13 @@ class ChatRoomController(
     @PostMapping
     fun createOrGetChatRoom(
         @RequestBody request: CreateChatRoomRequest
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info("채팅방 생성/조회 요청: productId={}, memberId={}", request.productId, memberId)
 
-        val chatRoom = chatRoomService.getOrCreateChatRoom(request.productId, memberId)
-
-        // 채팅방 DTO 변환
-        val chatRoomDto =
-            ChatRoomDto(
-                chatRoomId = chatRoom.chatRoomId!!,
-                productId = chatRoom.product.getProductId()!!,
-                productTitle = chatRoom.product.getTitle(),
-                productImageUrl = getProductThumbnailUrl(chatRoom.product),
-                otherMemberId =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getMemberId()!!
-                    } else {
-                        chatRoom.buyer.getMemberId()!!
-                    },
-                otherMemberNickname =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getNickname()
-                    } else {
-                        chatRoom.buyer.getNickname()
-                    },
-                otherMemberProfileUrl =
-                    if (chatRoom.buyer.getMemberId() == memberId) {
-                        chatRoom.seller.getKakaoProfileImageUrl()
-                    } else {
-                        chatRoom.buyer.getKakaoProfileImageUrl()
-                    },
-                lastMessage = chatRoom.lastMessage,
-                lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = 0L, // 새 채팅방이므로 0
-                status = chatRoom.status,
-                isPinned = false,
-                isMuted = false,
-            )
+        // Service에서 DTO까지 완성해서 반환 (lazy loading 문제 방지)
+        val chatRoomDto = chatRoomService.getOrCreateChatRoomResponse(request.productId, memberId)
 
         return ApiResponse.ok("채팅방이 생성되었습니다", chatRoomDto)
     }
@@ -102,7 +66,7 @@ class ChatRoomController(
         description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다."
     )
     @GetMapping
-    suspend fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomDto>>> {
+    suspend fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
         val memberId = getCurrentMemberId()
 
         logger.info("채팅방 목록 조회 요청: memberId={}", memberId)
@@ -134,7 +98,7 @@ class ChatRoomController(
     suspend fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
         @RequestParam(required = false) include: String?
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info("채팅방 상세 조회 요청: chatRoomId={}, memberId={}, include={}", chatRoomId, memberId, include)
@@ -188,7 +152,7 @@ class ChatRoomController(
     fun updateSettings(
         @PathVariable chatRoomId: Long,
         @RequestBody request: UpdateChatRoomSettingsRequest
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomSettingsDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomSettingsResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info(
@@ -207,8 +171,8 @@ class ChatRoomController(
     /**
      * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
-     * JwtAuthenticationFilter가 쿠키 또는 Authorization 헤더에서
-     * JWT 토큰을 추출하고 SecurityContext에 인증 정보를 설정합니다.
+     * JwtAuthenticationFilter가 쿠키에서 JWT 토큰을 추출하고
+     * SecurityContext에 인증 정보를 설정합니다.
      *
      * @return 사용자 ID
      * @throws IllegalStateException 인증되지 않은 경우
@@ -218,22 +182,5 @@ class ChatRoomController(
             ?: throw IllegalStateException("인증 정보가 없습니다")
 
         return authentication.name.toLong()
-    }
-
-    /**
-     * 상품 썸네일 이미지 URL 조회
-     *
-     * ProductFileRepository에서 isThumbnail=true인 파일을 찾아 URL 반환
-     *
-     * @param product 상품 엔티티
-     * @return 썸네일 이미지 URL (없으면 null)
-     */
-    private fun getProductThumbnailUrl(product: Product): String? {
-        val productFiles = productFileRepository.findByProduct_ProductId(product.getProductId()!!)
-
-        // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
-        val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
-
-        return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
     }
 }

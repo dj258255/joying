@@ -1,6 +1,6 @@
 package com.joying.chat.controller
 
-import com.joying.chat.dto.ChatMessageDto
+import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.UpdateMessageRequest
 import com.joying.chat.service.ChatMessageService
 import com.joying.common.response.ApiResponse
@@ -69,7 +69,7 @@ class ChatMessageController(
         after: Instant?,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
-    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageDto>>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageResponse>>> {
         val memberId = getCurrentMemberId()
 
         val messages = if (keyword != null) {
@@ -148,7 +148,7 @@ class ChatMessageController(
         @PathVariable chatRoomId: Long,
         @PathVariable messageId: String,
         @RequestBody request: UpdateMessageRequest
-    ): ResponseEntity<ApiResponse.SuccessBody<ChatMessageDto>> {
+    ): ResponseEntity<ApiResponse.SuccessBody<ChatMessageResponse>> {
         val memberId = getCurrentMemberId()
 
         logger.info(
@@ -166,8 +166,8 @@ class ChatMessageController(
     /**
      * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
-     * JwtAuthenticationFilter가 쿠키 또는 Authorization 헤더에서
-     * JWT 토큰을 추출하고 SecurityContext에 인증 정보를 설정합니다.
+     * JwtAuthenticationFilter가 쿠키에서 JWT 토큰을 추출하고
+     * SecurityContext에 인증 정보를 설정합니다.
      *
      * @return 사용자 ID
      * @throws IllegalStateException 인증되지 않은 경우
