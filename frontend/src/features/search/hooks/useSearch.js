@@ -3,7 +3,7 @@
  * 검색 관련 로직을 관리하는 훅
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { isError, useQuery } from '@tanstack/react-query';
 import { searchApi } from '../api/searchApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
@@ -12,18 +12,27 @@ export const useSearch = (query, filters = {}) => {
   const {
     data: searchResults,
     isLoading,
-    error
+    error,
+    refetch
   } = useQuery({
-    queryKey: [QUERY_KEYS.SEARCH, query, filters],
+    queryKey: [QUERY_KEYS.SEARCH],
     queryFn: () => searchApi.search({ query, ...filters }),
-    enabled: !!query,
+    enabled: false,
     staleTime: 1000 * 60 * 2 // 2분
   });
 
+  const data = searchResults?.data?.data;
+
   return {
-    searchResults: searchResults?.data || [],
+    searchResponses: data?.searchResponses || [],
+    hashtags: data?.hashtags || [],
+    total: data?.totalElements || 0,
+    page: data?.page || 1,
+    size: data?.size || 14,
     isLoading,
-    error
+    error,
+    isError: false,
+    refetch
   };
 };
 
