@@ -41,7 +41,7 @@ const MyPageMain = () => {
   
   // 등록한 상품 (임시 더미 데이터)
   const userProducts = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId);
-  
+
   // 찜한 상품 (임시 더미 데이터)
   const likedProducts = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId);
   
@@ -122,7 +122,7 @@ const MyPageMain = () => {
     );
   }
 
-  return (
+    return (
     <>
       <SideNavbar />
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -147,30 +147,30 @@ const MyPageMain = () => {
                     {renderStarRating(currentUser?.rating || 0)}
                   </div>
                   <span className="text-sm font-medium text-gray-600">{currentUser?.rating || 0}</span>
-                </div>
-                
+        </div>
+
                 {/* 사용자 정보 */}
                 <div className="bg-gray-50 rounded-xl mb-4" style={{ padding: '14px' }}>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="text-center">
                       <div className="text-gray-600 mb-1">이름</div>
                       <div className="font-medium text-gray-900">{currentUser?.name || '-'}</div>
-                    </div>
+              </div>
                     <div className="text-center">
                       <div className="text-gray-600 mb-1">인증 상태</div>
                       <div className="font-medium text-gray-900">{currentUser?.verified ? '✓ 인증됨' : '미인증'}</div>
-                    </div>
-                  </div>
+              </div>
+            </div>
                   {currentUser?.email && (
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="text-center">
                         <div className="text-gray-600 mb-1">이메일</div>
                         <div className="font-medium text-gray-900 text-xs">{currentUser.email}</div>
-                      </div>
-                    </div>
+              </div>
+            </div>
                   )}
-                </div>
-                
+          </div>
+          
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <button
@@ -186,10 +186,10 @@ const MyPageMain = () => {
                   <div className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                     <div className="text-xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</div>
                     <div className="text-xs text-gray-600">리뷰</div>
-                  </div>
-                </div>
               </div>
-
+            </div>
+          </div>
+          
               {/* 네비게이션 링크 */}
               <div className="space-y-2">
                 <button
@@ -219,9 +219,9 @@ const MyPageMain = () => {
                   </svg>
                   <span className="font-medium">계정 관리</span>
                 </button>
-              </div>
             </div>
           </div>
+        </div>
 
           {/* 중앙 메인 콘텐츠 영역 */}
           <div className="flex-1">
@@ -261,18 +261,18 @@ const MyPageMain = () => {
                     >
                       빌린 내역
                     </button>
-                    <button
+              <button
                       onClick={() => setProductTab('lent')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         productTab === 'lent'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
-                      }`}
-                    >
+                }`}
+              >
                       빌려준 내역
-                    </button>
-                  </div>
-                </div>
+              </button>
+          </div>
+        </div>
 
                 <div className="flex-1 overflow-y-auto scrollbar-hide">
                   <div className="pr-2">
@@ -281,8 +281,8 @@ const MyPageMain = () => {
                     {productTab === 'borrowed' && <BorrowedHistoryList />}
                     {productTab === 'lent' && <LentHistoryList />}
                   </div>
-                </div>
-              </div>
+        </div>
+      </div>
             )}
 
             {/* 계정 관리 섹션 */}
@@ -290,10 +290,10 @@ const MyPageMain = () => {
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-100px)] flex flex-col">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">계정 관리</h3>
                 <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-2">
-                  <button
+          <button
                     onClick={() => navigate('/mypage/profile')}
                     className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
-                  >
+          >
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
                         <FiUser className="w-5 h-5 text-gray-700" />
@@ -301,26 +301,26 @@ const MyPageMain = () => {
                       <div className="flex-1 text-left">
                         <h3 className="font-semibold text-base text-gray-900">회원 정보</h3>
                         <p className="text-xs mt-0.5 text-gray-500">회원 정보 조회</p>
-                      </div>
+              </div>
                       <FiChevronRight className="w-4 h-4 text-gray-400" />
-                    </div>
+              </div>
                   </button>
 
                   <button
                     onClick={() => navigate('/mypage/edit')}
                     className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
                   >
-                    <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
                         <FiEdit className="w-5 h-5 text-gray-700" />
                       </div>
                       <div className="flex-1 text-left">
                         <h3 className="font-semibold text-base text-gray-900">정보 수정</h3>
                         <p className="text-xs mt-0.5 text-gray-500">회원 정보 수정</p>
-                      </div>
+              </div>
                       <FiChevronRight className="w-4 h-4 text-gray-400" />
-                    </div>
-                  </button>
+            </div>
+          </button>
 
                   <button
                     onClick={() => navigate('/mypage/image')}
@@ -333,28 +333,28 @@ const MyPageMain = () => {
                       <div className="flex-1 text-left">
                         <h3 className="font-semibold text-base text-gray-900">프로필 이미지</h3>
                         <p className="text-xs mt-0.5 text-gray-500">프로필 이미지 관리</p>
-                      </div>
+      </div>
                       <FiChevronRight className="w-4 h-4 text-gray-400" />
-                    </div>
+          </div>
                   </button>
-
-                  <button
+          
+              <button
                     onClick={() => navigate('/mypage/verify')}
                     className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
                         <FiShield className="w-5 h-5 text-gray-700" />
-                      </div>
+          </div>
                       <div className="flex-1 text-left">
                         <h3 className="font-semibold text-base text-gray-900">계좌 인증</h3>
                         <p className="text-xs mt-0.5 text-gray-500">계좌 인증</p>
-                      </div>
+        </div>
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md border border-gray-300">
                         인증 필요
                       </span>
                       <FiChevronRight className="w-4 h-4 text-gray-400" />
-                    </div>
+      </div>
                   </button>
 
                   <button
@@ -368,14 +368,14 @@ const MyPageMain = () => {
                       <div className="flex-1 text-left">
                         <h3 className="font-semibold text-base text-red-900">회원 탈퇴</h3>
                         <p className="text-xs mt-0.5 text-red-600">회원 탈퇴</p>
-                      </div>
-                      <FiChevronRight className="w-4 h-4 text-red-400" />
-                    </div>
-                  </button>
-                </div>
               </div>
-            )}
+                      <FiChevronRight className="w-4 h-4 text-red-400" />
+            </div>
+                  </button>
           </div>
+        </div>
+            )}
+      </div>
 
           {/* 오른쪽 위젯 영역 */}
           <div className="lg:w-80 flex-shrink-0">
@@ -384,7 +384,7 @@ const MyPageMain = () => {
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6">
                 <h4 className="font-semibold text-gray-900 mb-4">활동 통계</h4>
                 <div className="space-y-3">
-                  <button
+                <button
                     onClick={() => {
                       setActiveTab('products');
                       setProductTab('registered');
@@ -396,7 +396,7 @@ const MyPageMain = () => {
                       <span className="text-sm font-medium text-gray-700">등록 상품</span>
                     </div>
                     <span className="text-lg font-bold text-gray-900">{userProducts.length}</span>
-                  </button>
+                </button>
                   
                   <button
                     onClick={() => {
@@ -408,11 +408,11 @@ const MyPageMain = () => {
                     <div className="flex items-center gap-3">
                       <FiHeart className="w-5 h-5 text-gray-700" />
                       <span className="text-sm font-medium text-gray-700">찜한 상품</span>
-                    </div>
+        </div>
                     <span className="text-lg font-bold text-gray-900">{likedProducts.length}</span>
                   </button>
                   
-                  <button
+                <button
                     onClick={() => navigate('/chats')}
                     className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
                   >
@@ -421,10 +421,10 @@ const MyPageMain = () => {
                       <span className="text-sm font-medium text-gray-700">채팅방</span>
                     </div>
                     <span className="text-lg font-bold text-gray-900">{chatRoomsCount}</span>
-                  </button>
-                </div>
+                </button>
               </div>
-
+            </div>
+            
               {/* 등록 상품 목록 위젯 */}
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-450px)] flex flex-col">
                 <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
@@ -450,10 +450,10 @@ const MyPageMain = () => {
                       <div className="flex-1 flex items-center justify-center">
                         <div className="text-center py-4 text-gray-500 text-sm">
                           등록된 상품이 없습니다
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          </div>
+        </div>
+      )}
+    </div>
                 </div>
               </div>
             </div>
