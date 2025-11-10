@@ -55,7 +55,7 @@ const ProgressTracker = ({ onProgressChange }) => {
 /**
  * 3D Model Component with cross-fade transition
  */
-const Model3D = ({ animationState, currentModel, currentSection, previousSectionRef }) => {
+const Model3D = React.memo(({ animationState, currentModel, currentSection, previousSectionRef }) => {
   // useGLTF로 모델 로드 (suspense 모드로 로딩 추적)
   const cameraModel = useGLTF('/models/camera.glb', true); // suspense: true
   const tentModel = useGLTF('/models/tent.glb', true);
@@ -452,12 +452,12 @@ const Model3D = ({ animationState, currentModel, currentSection, previousSection
 
     </>
   );
-};
+});
 
 /**
  * Starlight Particles - 별빛 파티클 효과 (Section 2 전용)
  */
-const StarlightParticles = ({ currentSection }) => {
+const StarlightParticles = React.memo(({ currentSection }) => {
   const particlesRef = useRef();
   const particleCount = 100;  // 200 → 100으로 감소 (성능 개선)
   
@@ -509,12 +509,12 @@ const StarlightParticles = ({ currentSection }) => {
       />
     </points>
   );
-};
+});
 
 /**
  * Falling Leaves - 나뭇잎 떨어지는 효과 (Section 3 전용)
  */
-const FallingLeaves = ({ currentSection }) => {
+const FallingLeaves = React.memo(({ currentSection }) => {
   const leavesRef = useRef();
   const leafCount = 50;  // 100 → 50으로 감소 (성능 개선)
   const frameCounter = useRef(0); // 프레임 카운터 추가
@@ -596,7 +596,7 @@ const FallingLeaves = ({ currentSection }) => {
       />
     </points>
   );
-};
+});
 
 
 /**

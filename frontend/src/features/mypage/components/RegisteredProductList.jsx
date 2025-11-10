@@ -171,29 +171,10 @@ const RegisteredProductList = ({
 
   if (error) {
     return (
+<<<<<<< HEAD
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
-          <div className="text-red-500 mb-4">{error}</div>
-          <button 
-            onClick={() => fetchProducts(currentPage, sortBy)}
-            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
-          >
-            다시 시도
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (transformedProducts.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="text-center">
-          <div className="text-gray-500 mb-4">
-            {uploadTypeFilter !== 'ALL' 
-              ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
-              : '등록된 상품이 없습니다.'}
-          </div>
+          <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
           <button 
             onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
             className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
@@ -201,6 +182,34 @@ const RegisteredProductList = ({
             첫 상품 등록하기
           </button>
         </div>
+=======
+      <div className="text-center py-12">
+        <div className="text-red-500 mb-4">{error}</div>
+        <button 
+          onClick={() => fetchProducts(currentPage, sortBy)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  if (transformedProducts.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-gray-500 mb-4">
+          {uploadTypeFilter !== 'ALL' 
+            ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
+            : '등록된 상품이 없습니다.'}
+        </div>
+        <button 
+          onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          첫 상품 등록하기
+        </button>
+>>>>>>> 8f75ec83a855bd19e1a9c684d4f147fc8ae99b43
       </div>
     );
   }
