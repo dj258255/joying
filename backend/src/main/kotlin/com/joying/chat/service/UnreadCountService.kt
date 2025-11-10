@@ -112,17 +112,24 @@ class UnreadCountService(
         chatRoomIds: List<Long>,
         memberId: Long
     ): Map<Long, Long> {
+        logger.info("[getBatch] 시작: chatRoomIds={}, memberId={}", chatRoomIds, memberId)
+
         if (chatRoomIds.isEmpty()) {
+            logger.info("[getBatch] chatRoomIds가 비어있음 → emptyMap 반환")
             return emptyMap()
         }
 
         val keys = chatRoomIds.map { getKey(it, memberId) }
+        logger.info("[getBatch] Redis keys 생성 완료: keys={}", keys)
 
         // Redis Pipeline으로 한 방에 조회
+        logger.info("[getBatch] Redis multiGet 시작...")
         val cached = try {
-            redis.opsForValue().multiGet(keys) ?: emptyList()
+            val result = redis.opsForValue().multiGet(keys) ?: emptyList()
+            logger.info("[getBatch] Redis multiGet 성공: result={}", result)
+            result
         } catch (e: Exception) {
-            logger.error("Redis multiGet 실패: ${e.message}")
+            logger.error("[getBatch] Redis multiGet 실패: ${e.message}", e)
             emptyList()
         }
 
@@ -172,45 +179,59 @@ class UnreadCountService(
      * @return 안읽은 메시지 개수
      */
     private suspend fun warmup(chatRoomId: Long, memberId: Long): Long {
-        val member = withContext(Dispatchers.IO) {
-            chatRoomMemberRepository
-                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
-                .orElse(null)
-        }
+        logger.info("[warmup] 시작: chatRoomId={}, memberId={}", chatRoomId, memberId)
 
-        // 채팅방 멤버가 없으면 0
-        if (member == null) {
-            logger.warn("채팅방 멤버 없음: chatRoomId={}, memberId={}", chatRoomId, memberId)
+        try {
+            val member = withContext(Dispatchers.IO) {
+                chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                    .orElse(null)
+            }
+
+            logger.info("[warmup] chatRoomMember 조회 완료: chatRoomId={}, member exists={}", chatRoomId, member != null)
+
+            // 채팅방 멤버가 없으면 0
+            if (member == null) {
+                logger.warn("채팅방 멤버 없음: chatRoomId={}, memberId={}", chatRoomId, memberId)
+                return 0L
+            }
+
+            // MongoDB에서 실제 안읽은 개수 계산
+            logger.info("[warmup] MongoDB 카운트 쿼리 시작: chatRoomId={}, lastReadAt={}", chatRoomId, member.lastReadAt)
+            val actualCount = if (member.lastReadAt != null) {
+                withContext(Dispatchers.IO) {
+                    chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(
+                        chatRoomId,
+                        member.lastReadAt!!
+                    )
+                }
+            } else {
+                logger.info("[warmup] lastReadAt이 null이므로 0 반환")
+                0L
+            }
+
+            logger.info("[warmup] MongoDB 카운트 쿼리 완료: chatRoomId={}, count={}", chatRoomId, actualCount)
+
+            // Redis에 캐싱 (7일 TTL)
+            try {
+                val key = getKey(chatRoomId, memberId)
+                redis.opsForValue().set(key, actualCount.toString(), TTL_DAYS, TimeUnit.DAYS)
+
+                logger.info(
+                    "Cache warming 완료: chatRoomId={}, memberId={}, count={}",
+                    chatRoomId,
+                    memberId,
+                    actualCount
+                )
+            } catch (e: Exception) {
+                logger.error("Redis 캐싱 실패: ${e.message}")
+            }
+
+            return actualCount
+        } catch (e: Exception) {
+            logger.error("[warmup] 실패 - chatRoomId={}, memberId={}, error={}", chatRoomId, memberId, e.message, e)
+            // MongoDB 조회 실패 시 기본값 0 반환 (서비스 중단 방지)
             return 0L
         }
-
-        // MongoDB에서 실제 안읽은 개수 계산
-        val actualCount = if (member.lastReadAt != null) {
-            withContext(Dispatchers.IO) {
-                chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(
-                    chatRoomId,
-                    member.lastReadAt!!
-                )
-            }
-        } else {
-            0L
-        }
-
-        // Redis에 캐싱 (7일 TTL)
-        try {
-            val key = getKey(chatRoomId, memberId)
-            redis.opsForValue().set(key, actualCount.toString(), TTL_DAYS, TimeUnit.DAYS)
-
-            logger.info(
-                "Cache warming 완료: chatRoomId={}, memberId={}, count={}",
-                chatRoomId,
-                memberId,
-                actualCount
-            )
-        } catch (e: Exception) {
-            logger.error("Redis 캐싱 실패: ${e.message}")
-        }
-
-        return actualCount
     }
 }

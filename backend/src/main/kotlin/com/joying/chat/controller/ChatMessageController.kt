@@ -58,7 +58,7 @@ class ChatMessageController(
         """
     )
     @GetMapping
-    suspend fun getMessages(
+    fun getMessages(
         @PathVariable chatRoomId: Long,
         @RequestParam(required = false) keyword: String?,
         @RequestParam(required = false)
@@ -113,7 +113,7 @@ class ChatMessageController(
         description = "본인의 메시지를 삭제합니다 (Soft Delete)"
     )
     @DeleteMapping("/{messageId}")
-    suspend fun deleteMessage(
+    fun deleteMessage(
         @PathVariable chatRoomId: Long,
         @PathVariable messageId: String
     ): ResponseEntity<Void> {
@@ -144,7 +144,7 @@ class ChatMessageController(
         description = "본인의 텍스트 메시지를 수정합니다"
     )
     @PatchMapping("/{messageId}")
-    suspend fun updateMessage(
+    fun updateMessage(
         @PathVariable chatRoomId: Long,
         @PathVariable messageId: String,
         @RequestBody request: UpdateMessageRequest

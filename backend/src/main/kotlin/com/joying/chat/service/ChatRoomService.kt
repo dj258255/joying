@@ -173,42 +173,50 @@ class ChatRoomService(
     }
 
     /**
-     * 내 채팅방 목록 조회
+     * 내 채팅방 목록 조회 (runBlocking 방식)
      *
      * 최적화:
      * - Fetch Join으로 Product, Buyer, Seller 한 번에 조회 (N+1 방지)
      * - ProductFile은 배치 조회 (1:N 관계라 Fetch Join 불가)
      * - Redis MGET으로 안읽은 개수 배치 조회
      *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
+     * - 내부에서 코루틴 기능(병렬 처리) 사용 가능
+     *
      * @param memberId 회원 ID
      * @return 채팅방 목록
      */
-    suspend fun getMyChatRooms(memberId: Long): List<ChatRoomResponse> {
-        val chatRooms = withContext(Dispatchers.IO) {
-            chatRoomRepository.findByMemberId(memberId)  // Fetch Join으로 Product, Buyer, Seller 이미 로드됨
-        }
-        val chatRoomMembers = withContext(Dispatchers.IO) {
-            chatRoomMemberRepository.findByMemberId(memberId)
-        }
+    fun getMyChatRooms(memberId: Long): List<ChatRoomResponse> = kotlinx.coroutines.runBlocking {
+        logger.info("[getMyChatRooms] 시작: memberId={}", memberId)
+
+        // JPA Repository 조회 (Blocking이지만 충분히 빠름)
+        val chatRooms = chatRoomRepository.findByMemberId(memberId)
+        logger.info("[getMyChatRooms] chatRooms 조회 완료: 개수={}", chatRooms.size)
+
+        val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+        logger.info("[getMyChatRooms] chatRoomMembers 조회 완료: 개수={}", chatRoomMembers.size)
 
         // 채팅방별 설정 매핑 (Lazy Loading 방지를 위해 chatRoomId 직접 접근)
         val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoomId }
+        logger.info("[getMyChatRooms] memberSettingsMap 생성 완료")
 
-        // Redis에서 안읽은 개수 배치 조회
+        // Redis에서 안읽은 개수 배치 조회 (suspend fun이므로 코루틴 내에서 호출)
         val chatRoomIds = chatRooms.map { it.chatRoomId!! }
+        logger.info("[getMyChatRooms] Redis 배치 조회 시작: chatRoomIds={}", chatRoomIds)
         val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
+        logger.info("[getMyChatRooms] Redis 배치 조회 완료: unreadCountMap={}", unreadCountMap)
 
-        // ProductFile 배치 조회 (1:N 관계라 Fetch Join 불가)
+        // ProductFile 배치 조회
         val productIds = chatRooms.map { it.product.getProductId()!! }
-        val thumbnailMap = withContext(Dispatchers.IO) {
-            productFileRepository.findByProduct_ProductIdIn(productIds)
-                .filter { it.isThumbnail }
-                .associateBy { it.product.getProductId()!! }
-                .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
-        }
+        val thumbnailMap = productFileRepository.findByProduct_ProductIdIn(productIds)
+            .filter { it.isThumbnail }
+            .associateBy { it.product.getProductId()!! }
+            .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
 
         // DTO 변환
-        return chatRooms.map { chatRoom ->
+        chatRooms.map { chatRoom ->
             val settings = memberSettingsMap[chatRoom.chatRoomId]
                 ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
 
@@ -238,19 +246,22 @@ class ChatRoomService(
     }
 
     /**
-     * 채팅방 상세 조회 (단일)
+     * 채팅방 상세 조회 (단일) - runBlocking 방식
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
+     * - 내부에서 코루틴 기능(병렬 처리) 사용 가능
      *
      * @param chatRoomId 채팅방 ID
      * @param memberId 회원 ID
      * @param includeMember 참여자 상세 정보 포함 여부 (온라인 상태 등)
      * @return 채팅방 상세 정보
      */
-    suspend fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse = coroutineScope {
+    fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse = kotlinx.coroutines.runBlocking {
         // 1. ChatRoom 조회 (Fetch Join으로 Product, Buyer, Seller 한 번에 로드)
-        val chatRoom = withContext(Dispatchers.IO) {
-            chatRoomRepository.findByIdWithFetchJoin(chatRoomId)
-                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
-        }
+        val chatRoom = chatRoomRepository.findByIdWithFetchJoin(chatRoomId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
         // 권한 확인 (구매자 또는 판매자만)
         if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
@@ -258,11 +269,11 @@ class ChatRoomService(
         }
 
         // 2. Settings와 Redis 병렬 조회 (의존성 없음)
-        val settingsDeferred = async(Dispatchers.IO) {
+        val settingsDeferred = async {
             chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
                 .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
         }
-        val unreadCountDeferred = async(Dispatchers.Default) {
+        val unreadCountDeferred = async {
             unreadCountService.get(chatRoomId, memberId)
         }
 

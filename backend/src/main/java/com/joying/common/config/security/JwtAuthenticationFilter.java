@@ -50,6 +50,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		// 1. 요청에서 JWT 토큰 추출 (Cookie 또는 Authorization 헤더)
 		String token = extractToken(request);
 
+		// 디버깅: 토큰 추출 결과 로그
+		log.debug("JWT 필터 - URI: {}, 토큰 존재: {}", request.getRequestURI(), token != null);
+
 		// 2. 토큰 유효성 검증
 		if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
 			try {
@@ -66,6 +69,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				log.error("JWT 인증 실패: {}", e.getMessage());
 				SecurityContextHolder.clearContext();
 			}
+		} else if (!StringUtils.hasText(token)) {
+			log.debug("JWT 토큰이 없음: uri={}", request.getRequestURI());
+		} else {
+			log.debug("JWT 토큰 검증 실패: uri={}", request.getRequestURI());
 		}
 
 		filterChain.doFilter(request, response);

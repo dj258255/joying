@@ -9,11 +9,13 @@ import com.joying.chat.service.ChatService
 import com.joying.common.response.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
+import reactor.core.publisher.Mono
 
 /**
  * 채팅방 REST API Controller
@@ -25,7 +27,7 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/chat-rooms")
 class ChatRoomController(
     private val chatRoomService: ChatRoomService,
-    private val chatService: ChatService
+    private val chatService: ChatService,
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomController::class.java)
 
@@ -41,7 +43,7 @@ class ChatRoomController(
     @Operation(summary = "채팅방 생성 또는 조회", description = "상품에 대한 채팅방을 생성하거나 기존 채팅방을 반환합니다")
     @PostMapping
     fun createOrGetChatRoom(
-        @RequestBody request: CreateChatRoomRequest
+        @RequestBody request: CreateChatRoomRequest,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomResponse>> {
         val memberId = getCurrentMemberId()
 
@@ -63,24 +65,29 @@ class ChatRoomController(
      */
     @Operation(
         summary = "내 채팅방 목록 조회",
-        description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다."
+        description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다.",
     )
     @GetMapping
-    suspend fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
+    fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
         val memberId = getCurrentMemberId()
 
         logger.info("채팅방 목록 조회 요청: memberId={}", memberId)
 
+        // Service에서 runBlocking 처리 (HTTP Thread에서 완료)
         val chatRooms = chatRoomService.getMyChatRooms(memberId)
+
+        logger.info("채팅방 목록 조회 완료: memberId={}, 채팅방 개수={}", memberId, chatRooms.size)
 
         // 총 안읽은 개수 계산 (헤더로 전달)
         val totalUnreadCount = chatRooms.sumOf { it.unreadCount }
 
-        val response = ApiResponse.ok("채팅방 목록 조회 완료", chatRooms)
+        logger.info("응답 생성 완료: totalUnreadCount={}", totalUnreadCount)
 
-        return ResponseEntity.ok()
+        // 응답 반환 (HTTP Thread에서 반환)
+        return ResponseEntity
+            .ok()
             .header("X-Total-Unread-Count", totalUnreadCount.toString())
-            .body(response.body)
+            .body(ApiResponse.ok("채팅방 목록 조회 완료", chatRooms).body)
     }
 
     /**
@@ -92,12 +99,12 @@ class ChatRoomController(
      */
     @Operation(
         summary = "채팅방 상세 조회",
-        description = "특정 채팅방의 상세 정보를 반환합니다. include=member 파라미터로 참여자 온라인 상태를 포함할 수 있습니다."
+        description = "특정 채팅방의 상세 정보를 반환합니다. include=member 파라미터로 참여자 온라인 상태를 포함할 수 있습니다.",
     )
     @GetMapping("/{chatRoomId}")
-    suspend fun getChatRoomDetail(
+    fun getChatRoomDetail(
         @PathVariable chatRoomId: Long,
-        @RequestParam(required = false) include: String?
+        @RequestParam(required = false) include: String?,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomResponse>> {
         val memberId = getCurrentMemberId()
 
@@ -107,6 +114,7 @@ class ChatRoomController(
         val includes = include?.split(",")?.map { it.trim() } ?: emptyList()
         val includeMember = includes.contains("member")
 
+        // Service에서 runBlocking 처리 (HTTP Thread에서 완료)
         val chatRoom = chatRoomService.getChatRoomDetail(chatRoomId, memberId, includeMember)
 
         return ApiResponse.ok("채팅방 상세 조회 완료", chatRoom)
@@ -123,7 +131,7 @@ class ChatRoomController(
     @Operation(summary = "채팅방 나가기", description = "채팅방을 나가고 상태를 종료로 변경합니다")
     @DeleteMapping("/{chatRoomId}")
     fun leaveChatRoom(
-        @PathVariable chatRoomId: Long
+        @PathVariable chatRoomId: Long,
     ): ResponseEntity<Void> {
         val memberId = getCurrentMemberId()
 
@@ -146,12 +154,12 @@ class ChatRoomController(
      */
     @Operation(
         summary = "채팅방 설정 업데이트",
-        description = "채팅방 고정/알림 설정을 업데이트합니다. null로 전달하면 해당 설정은 변경하지 않습니다."
+        description = "채팅방 고정/알림 설정을 업데이트합니다. null로 전달하면 해당 설정은 변경하지 않습니다.",
     )
     @PatchMapping("/{chatRoomId}/settings")
     fun updateSettings(
         @PathVariable chatRoomId: Long,
-        @RequestBody request: UpdateChatRoomSettingsRequest
+        @RequestBody request: UpdateChatRoomSettingsRequest,
     ): ResponseEntity<ApiResponse.SuccessBody<ChatRoomSettingsResponse>> {
         val memberId = getCurrentMemberId()
 
@@ -160,7 +168,7 @@ class ChatRoomController(
             chatRoomId,
             memberId,
             request.isPinned,
-            request.isMuted
+            request.isMuted,
         )
 
         val settings = chatService.updateSettings(chatRoomId, memberId, request.isPinned, request.isMuted)
@@ -178,8 +186,9 @@ class ChatRoomController(
      * @throws IllegalStateException 인증되지 않은 경우
      */
     private fun getCurrentMemberId(): Long {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw IllegalStateException("인증 정보가 없습니다")
+        val authentication =
+            SecurityContextHolder.getContext().authentication
+                ?: throw IllegalStateException("인증 정보가 없습니다")
 
         return authentication.name.toLong()
     }

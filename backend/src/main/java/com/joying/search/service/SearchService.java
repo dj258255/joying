@@ -3,6 +3,7 @@ package com.joying.search.service;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -139,6 +140,7 @@ public class SearchService {
 		String method,
 		List<Long> categoryIds,
 		List<Long> hashtagIds,
+		Boolean sameDayRental,
 		int page,
 		int size) {
 		UploadType uploadType = null;
@@ -160,10 +162,16 @@ public class SearchService {
 			}
 		}
 		if (rating == null) rating = 0.0;
+		if (sameDayRental && dateFromInstant == null && dateToInstant == null) {
+			LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+			dateFromInstant = Instant.parse(today + "T00:00:00Z");
+			dateToInstant = Instant.parse(today + "T23:59:59Z");
+		}
 
 		List<SearchDocument> available = new ArrayList<>();
 		Long totalHits = 0L;
 		Integer fetchCount = 0;
+		List<SortOptions> sortOptions = new ArrayList<>();
 
 		while (true) {
 			List<Query> mustQueries = new ArrayList<>();
@@ -195,6 +203,10 @@ public class SearchService {
 						);
 					}
 				}
+			} else {
+				sortOptions = List.of(
+					SortOptions.of(s -> s.field(f -> f.field("productId").order(SortOrder.Desc)))
+				);
 			}
 
 			// 업로드 타입 필터
@@ -297,11 +309,19 @@ public class SearchService {
 			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
 
 			// NativeQuery 빌드
-			NativeQuery searchQuery = NativeQuery.builder()
-				.withQuery(boolQuery)
-				//.withSort(sortOptions)
-				.withPageable(pageable)
-				.build();
+			NativeQuery searchQuery = null;
+			if (sortOptions.isEmpty()) {
+				searchQuery = NativeQuery.builder()
+					.withQuery(boolQuery)
+					.withPageable(pageable)
+					.build();
+			} else {
+				searchQuery = NativeQuery.builder()
+					.withQuery(boolQuery)
+					.withSort(sortOptions)
+					.withPageable(pageable)
+					.build();
+			}
 
 			// 검색 실행
 			SearchHits<SearchDocument> hits =
