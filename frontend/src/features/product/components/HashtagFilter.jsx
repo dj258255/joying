@@ -69,9 +69,12 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
   };
 
   // 검색 필터링
-  const filteredHashtags = hashtags.filter(hashtag =>
-    hashtag.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredHashtags = (hashtags ?? [])
+    .filter((h) => h && (typeof h === 'string' || typeof h.name === 'string'))
+    .filter((h) => {
+      const name = typeof h === 'string' ? h : h.name;
+      return name?.toLowerCase().includes(searchQuery?.toLowerCase?.() || '');
+    });
 
   // 표시할 해시태그 결정
   const displayHashtags = showAll ? filteredHashtags : filteredHashtags.slice(0, 20);
