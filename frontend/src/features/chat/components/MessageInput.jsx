@@ -30,7 +30,8 @@ const MessageInput = ({
     if (message.trim() && !disabled) {
       onSendMessage({
         content: message.trim(),
-        replyTo: replyTo?.id || null
+        type: 'TEXT',
+        replyToMessageId: replyTo?.id || null
       });
       setMessage('');
       onCancelReply?.();
@@ -113,8 +114,8 @@ const MessageInput = ({
               placeholder="메시지를 입력하세요..."
               disabled={disabled}
               rows={1}
-              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-32 scrollbar-hide"
-              style={{ minHeight: '40px' }}
+              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
+              style={{ minHeight: '40px', caretColor: '#111827' }}
             />
             
             {/* 전송 버튼 */}

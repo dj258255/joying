@@ -22,12 +22,21 @@ export const useChatRooms = () => {
       const result = await chatApi.getChatRooms();
       return result;
     },
-    staleTime: 1000 * 30, // 30초 (실시간 업데이트를 위해 짧게 설정)
-    refetchInterval: 5000 // 5초마다 자동 새로고침 (WebSocket 연동 전까지)
+    staleTime: 1000 * 60, // 1분
+    refetchInterval: false,
+    refetchIntervalInBackground: false
   });
 
   // 응답 데이터에서 chatRooms와 totalUnreadCount 추출
-  const chatRooms = (chatRoomsData?.chatRooms || []).slice().sort((a, b) => {
+  const chatRoomsRaw = (chatRoomsData?.chatRooms || []);
+  const chatRoomsFiltered = chatRoomsRaw.filter(room => {
+    if (!room) return false;
+    const status = room.status || room.chatRoomStatus;
+    if (!status) return true;
+    return status.toUpperCase() !== 'CLOSED';
+  });
+
+  const chatRooms = chatRoomsFiltered.slice().sort((a, b) => {
     // 고정 채팅방 우선
     const aPinned = !!a.isPinned;
     const bPinned = !!b.isPinned;
@@ -57,7 +66,7 @@ export const useChatRooms = () => {
 
   // 채팅방 고정/해제
   const togglePinMutation = useMutation({
-    mutationFn: chatApi.togglePinChatRoom,
+    mutationFn: ({ chatRoomId, isPinned }) => chatApi.togglePinChatRoom(chatRoomId, isPinned),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
     }
@@ -65,7 +74,7 @@ export const useChatRooms = () => {
 
   // 채팅방 알림 설정
   const toggleMuteMutation = useMutation({
-    mutationFn: chatApi.toggleMuteChatRoom,
+    mutationFn: ({ chatRoomId, isMuted }) => chatApi.toggleMuteChatRoom(chatRoomId, isMuted),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.CHATS, 'rooms']);
     }
