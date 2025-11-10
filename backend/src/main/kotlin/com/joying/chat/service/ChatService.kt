@@ -1,6 +1,7 @@
 package com.joying.chat.service
 
 import com.joying.chat.document.ChatMessage
+import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.SendMessageRequest
@@ -73,7 +74,7 @@ class ChatService(
 
         // ChatMessage 생성
         val chatMessage = when (request.type) {
-            com.joying.chat.document.MessageType.TEXT -> {
+            MessageType.TEXT -> {
                 ChatMessage.createTextMessage(
                     chatRoomId = chatRoomId,
                     senderId = senderId,
@@ -81,7 +82,7 @@ class ChatService(
                     replyToMessageId = request.replyToMessageId
                 )
             }
-            com.joying.chat.document.MessageType.IMAGE -> {
+            MessageType.IMAGE -> {
                 ChatMessage.createImageMessage(
                     chatRoomId = chatRoomId,
                     senderId = senderId,
@@ -91,7 +92,7 @@ class ChatService(
                     replyToMessageId = request.replyToMessageId
                 )
             }
-            com.joying.chat.document.MessageType.FILE -> {
+            MessageType.FILE -> {
                 ChatMessage.createFileMessage(
                     chatRoomId = chatRoomId,
                     senderId = senderId,
@@ -101,7 +102,7 @@ class ChatService(
                     replyToMessageId = request.replyToMessageId
                 )
             }
-            com.joying.chat.document.MessageType.SYSTEM -> {
+            MessageType.SYSTEM -> {
                 ChatMessage.createSystemMessage(
                     chatRoomId = chatRoomId,
                     content = request.content
@@ -117,10 +118,17 @@ class ChatService(
             chatMessageRepository.save(chatMessage)
         }
 
-        // 4. DTO 변환
-        val messageDto = ChatMessageResponse.from(savedMessage)
+        // 4. 답장 대상 메시지 조회 (있을 경우)
+        val replyMessage = savedMessage.replyToMessageId?.let { replyId ->
+            withContext(Dispatchers.IO) {
+                chatMessageRepository.findById(replyId).orElse(null)
+            }
+        }
 
-        // 5. Redis Pub/Sub로 발행 (실시간 전달)
+        // 5. DTO 변환 (답장 정보 포함)
+        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage)
+
+        // 6. Redis Pub/Sub로 발행 (실시간 전달)
         redisPubSubPublisher.publish(messageDto)
 
         logger.info(
