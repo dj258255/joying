@@ -5,4 +5,5 @@ import lombok.Builder;
 @Builder
 public record HashtagInfo(
 	int count,
+	Long id,
 	String hashtag) {}
