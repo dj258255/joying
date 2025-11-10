@@ -71,6 +71,9 @@ function ProductCreatePage() {
   // 해시태그
   const [hashtagInput, setHashtagInput] = useState('');
   const [hashtags, setHashtags] = useState([]);
+  const [recommendedHashtags, setRecommendedHashtags] = useState([]);
+  const [showHashtagRecommendations, setShowHashtagRecommendations] = useState(false);
+  const [loadingHashtags, setLoadingHashtags] = useState(false);
 
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
@@ -213,6 +216,50 @@ function ProductCreatePage() {
   };
 
   const removeHashtag = (t) => setHashtags((prev) => prev.filter((x) => x !== t));
+
+  // 카테고리별 해시태그 조회
+  const fetchCategoryHashtags = async () => {
+    if (!form.categoryId) {
+      alert('먼저 카테고리를 선택해주세요.');
+      return;
+    }
+    
+    setLoadingHashtags(true);
+    try {
+      const response = await axiosInstance.get(`/hashtag/category/${form.categoryId}`);
+      console.log('카테고리 해시태그 응답:', response);
+      
+      // 응답 구조에 따라 데이터 추출
+      let hashtagData = [];
+      if (response?.data?.body?.data) {
+        hashtagData = response.data.body.data;
+      } else if (response?.data?.data) {
+        hashtagData = response.data.data;
+      } else if (response?.data) {
+        hashtagData = response.data;
+      }
+      
+      // 해시태그 이름만 추출 (객체 배열인 경우)
+      const hashtagNames = Array.isArray(hashtagData) 
+        ? hashtagData.map(item => typeof item === 'string' ? item : item.hashtagName || item.name || item)
+        : [];
+      
+      setRecommendedHashtags(hashtagNames);
+      setShowHashtagRecommendations(true);
+    } catch (err) {
+      console.error('카테고리 해시태그 조회 오류:', err);
+      alert(err?.response?.data?.message || '해시태그를 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingHashtags(false);
+    }
+  };
+
+  // 추천 해시태그 선택
+  const addRecommendedHashtag = (tag) => {
+    if (!hashtags.includes(tag)) {
+      setHashtags((prev) => [...prev, tag]);
+    }
+  };
 
   // 파일 업로드 로직
   const handleFiles = async (files) => {
@@ -768,26 +815,72 @@ function ProductCreatePage() {
           {/* 해시태그 */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">해시태그</label>
-            <div className="flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
-              {/* 입력창 */}
-              <input
-                ref={hashtagInputRef}
-                value={hashtagInput}
-                onChange={(e) => setHashtagInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-                placeholder="예: 카메라"
-                className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
-              />
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
+                {/* 입력창 */}
+                <input
+                  ref={hashtagInputRef}
+                  value={hashtagInput}
+                  onChange={(e) => setHashtagInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
+                  placeholder="예: 카메라"
+                  className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
+                />
+                
+                {/* 추가 버튼 */}
+                <button
+                  type="button"
+                  onClick={addHashtag}
+                  className="w-10 h-10 flex items-center justify-center bg-black text-white text-xl font-bold hover:bg-gray-800 transition-colors flex-shrink-0"
+                >
+                  +
+                </button>
+              </div>
               
-              {/* 추가 버튼 */}
+              {/* 관련 해시태그 조회 버튼 */}
               <button
                 type="button"
-                onClick={addHashtag}
-                className="w-10 h-10 flex items-center justify-center bg-black text-white text-xl font-bold hover:bg-gray-800 transition-colors flex-shrink-0"
+                onClick={fetchCategoryHashtags}
+                disabled={loadingHashtags || !form.categoryId}
+                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+                title={!form.categoryId ? '카테고리를 먼저 선택해주세요' : '카테고리별 추천 해시태그 조회'}
               >
-                +
+                {loadingHashtags ? '조회 중...' : '추천 해시태그'}
               </button>
             </div>
+            
+            {/* 추천 해시태그 목록 */}
+            {showHashtagRecommendations && recommendedHashtags.length > 0 && (
+              <div className="mt-2 p-3 bg-gray-50 border-2 border-gray-300 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-700">추천 해시태그</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowHashtagRecommendations(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <FiX className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {recommendedHashtags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => addRecommendedHashtag(tag)}
+                      disabled={hashtags.includes(tag)}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                        hashtags.includes(tag)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-900 hover:text-white'
+                      }`}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* 모바일용 해시태그 표시 (데스크톱에서는 미리보기에 표시) */}
             {hashtags.length > 0 && (

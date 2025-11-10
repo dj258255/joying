@@ -17,7 +17,7 @@ const Section4Gamepad = ({ products = [] }) => {
     <section
       id="section-4"
       className="relative min-h-screen flex items-center"
-      style={{ zIndex: 60 }}
+      style={{ zIndex: 60, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
     >
       {/* 왼쪽 상단 로고 */}
       <div className="absolute top-8 left-8">

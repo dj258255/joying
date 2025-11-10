@@ -723,6 +723,7 @@ const HomePage = () => {
   
   const [currentSectionIndex, setCurrentSectionIndex] = React.useState(0);
   const [isLoaded, setIsLoaded] = React.useState(false); // 로딩 완료 상태
+  const [isAnimating, setIsAnimating] = React.useState(false); // 애니메이션 진행 상태
   
   // 로딩 진행률 상태
   const [loadingProgress, setLoadingProgress] = React.useState({
@@ -833,6 +834,8 @@ const HomePage = () => {
       if (isScrolling) return;
       
       isScrolling = true;
+      setIsAnimating(true); // React state로 애니메이션 상태 업데이트
+      
       const previousSection = currentSection;
       previousSectionRef.current = currentSection;
       currentSection = index;
@@ -876,6 +879,7 @@ const HomePage = () => {
         ease: animEase,
         onComplete: () => {
           isScrolling = false;
+          setIsAnimating(false); // React state로 애니메이션 완료 업데이트
         },
       });
       
@@ -884,6 +888,7 @@ const HomePage = () => {
         if (isScrolling) {
           console.warn('⚠️ 안전장치: isScrolling 강제 해제');
           isScrolling = false;
+          setIsAnimating(false);
         }
       }, 1500);
 
@@ -923,19 +928,46 @@ const HomePage = () => {
     let touchStartTime = 0;
     
     const handleTouchStart = (e) => {
-      // 터치 위치와 시간 저장 (단순 터치는 허용)
+      // 애니메이션 진행 중이면 터치 시작도 차단
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
+      // 터치 위치와 시간 저장
       touchStartY = e.touches[0].clientY;
       touchStartTime = Date.now();
     };
 
     const handleTouchMove = (e) => {
+      // 애니메이션 진행 중이면 터치 이동 차단
+      if (isScrolling) {
+        e.preventDefault();
+        return;
+      }
+      
       // 일반 스크롤 모드면 처리 안 함
       if (isNormalScrolling) return;
       
-      // 터치 이동은 자유롭게 허용
+      // 터치 이동 중 추가 차단
+      const touchCurrentY = e.touches[0].clientY;
+      const delta = Math.abs(touchStartY - touchCurrentY);
+      
+      // 일정 거리 이상 이동하면 기본 스크롤 방지
+      if (delta > 10) {
+        e.preventDefault();
+      }
     };
 
     const handleTouchEnd = (e) => {
+      // 애니메이션 진행 중이면 터치 종료도 차단
+      if (isScrolling) {
+        e.preventDefault();
+        touchStartY = 0;
+        touchStartTime = 0;
+        return;
+      }
+      
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
       const touchDuration = Date.now() - touchStartTime;
@@ -948,12 +980,14 @@ const HomePage = () => {
         if (delta > 0) {
           // 위로 스와이프 (다음 섹션)
           if (currentSection < totalSections - 1) {
-            goToSection(currentSection + 1); // goToSection에서 isScrolling 체크
+            e.preventDefault();
+            goToSection(currentSection + 1);
           }
         } else {
           // 아래로 스와이프 (이전 섹션)
           if (currentSection > 0) {
-            goToSection(currentSection - 1); // goToSection에서 isScrolling 체크
+            e.preventDefault();
+            goToSection(currentSection - 1);
           }
         }
       }
@@ -1060,10 +1094,27 @@ const HomePage = () => {
       className="bg-black text-white" 
       style={{ 
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-        touchAction: 'pan-y',
-        overscrollBehavior: 'none'
+        touchAction: isAnimating ? 'none' : 'pan-y',
+        overscrollBehavior: 'none',
+        scrollSnapType: 'y mandatory',
+        height: '100vh',
+        overflowY: 'auto',
+        userSelect: isAnimating ? 'none' : 'auto'
       }}
     >
+      {/* 애니메이션 중 터치 차단 오버레이 */}
+      {isAnimating && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            pointerEvents: 'all',
+            touchAction: 'none',
+            cursor: 'wait'
+          }}
+        />
+      )}
 
       {/* 로딩 화면 */}
       <LoadingScreen 
