@@ -42,6 +42,8 @@ public class CustomOAuth2User implements OAuth2User {
 
 	@Override
 	public String getName() {
-		return attributes.get(nameAttributeKey).toString();
+		// JWT 인증과 동일한 방식으로 memberId를 반환
+		// authentication.getName()이 항상 memberId를 반환하도록 보장
+		return String.valueOf(memberId);
 	}
 }
