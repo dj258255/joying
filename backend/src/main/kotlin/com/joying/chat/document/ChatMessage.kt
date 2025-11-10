@@ -63,6 +63,15 @@ data class ChatMessage(
     @Field("createdAt")
     var createdAt: Instant? = null,
 
+    @Field("updatedAt")
+    var updatedAt: Instant? = null,
+
+    @Field("isEdited")
+    var isEdited: Boolean = false,
+
+    @Field("originalContent")
+    var originalContent: String? = null,
+
     @Field("isDeleted")
     var isDeleted: Boolean = false
 
