@@ -13,10 +13,12 @@ import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
 import RentalRequestCard from '../components/RentalRequestCard';
 import RentalCreateModal from '../components/RentalCreateModal';
+import TransactionProcessModal from '../components/TransactionProcessModal';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { messageApi } from '../api/messageApi';
+import { getTransactionButtonStyle } from '../../../shared/utils/transactionUtils';
 import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
 import { DUMMY_USERS } from '../../../shared/constants/dummyData';
@@ -36,6 +38,8 @@ const ChatRoomPage = () => {
   const [rentalRequestMessage, setRentalRequestMessage] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showRentalCreateModal, setShowRentalCreateModal] = useState(false);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [currentRentalData, setCurrentRentalData] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isCreatingRental, setIsCreatingRental] = useState(false);
@@ -530,15 +534,29 @@ const ChatRoomPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* 거래 시작하기 버튼 */}
-            {productId && (
-              <button
-                onClick={() => setShowRentalCreateModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                거래 시작하기
-              </button>
-            )}
+            {/* 거래 프로세스 버튼 */}
+            {productId && (() => {
+              const currentUserId = user?.id || user?.memberId;
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+              const status = currentRentalData?.status || currentRentalData?.rentalStatus;
+              const { text: buttonText, color: buttonColor } = getTransactionButtonStyle(status, isSeller);
+
+              return (
+                <button
+                  onClick={() => setShowTransactionModal(true)}
+                  className={`px-4 py-2 ${buttonColor} text-white text-sm font-medium rounded-lg transition-colors`}
+                >
+                  {buttonText}
+                </button>
+              );
+            })()}
             {/* 설정 버튼 */}
             <button
               onClick={() => setShowSettings(true)}
@@ -760,6 +778,25 @@ const ChatRoomPage = () => {
         unavailableDates={unavailableDates || []}
         onSubmit={handleCreateRental}
         isLoading={isCreatingRental}
+      />
+
+      {/* 통합 거래 프로세스 모달 */}
+      <TransactionProcessModal
+        isOpen={showTransactionModal}
+        onClose={() => setShowTransactionModal(false)}
+        productData={productData}
+        rentalData={currentRentalData}
+        unavailableDates={unavailableDates || []}
+        userRole={(() => {
+          const currentUserId = user?.id || user?.memberId;
+          const sellerId = productData?.sellerId
+            || productData?.writer?.memberId
+            || productData?.writer?.member_id
+            || productData?.seller?.id
+            || productData?.seller?.memberId
+            || productData?.seller?.member_id;
+          return sellerId && Number(sellerId) === Number(currentUserId) ? 'seller' : 'buyer';
+        })()}
       />
     </div>
     </>
