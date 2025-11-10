@@ -4,6 +4,8 @@ import com.joying.auth.oauth.CustomOAuth2User;
 import com.joying.auth.oauth.KakaoOAuth2UserInfo;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
+import com.joying.ssafy.dto.MemberRegisterResponse;
+import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
 	private final MemberRepository memberRepository;
+	private final FinanceApiService financeApiService;
 
 	@Override
 	@Transactional
@@ -65,9 +68,34 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 	 * @return Member
 	 */
 	private Member getOrCreateMember(KakaoOAuth2UserInfo kakaoUserInfo) {
-		// 1. 기존 회원 조회 (Kakao 이메일)
-		return memberRepository.findByEmail(kakaoUserInfo.getEmail())
+		// 1. 기존 회원 조회 또는 신규 회원 생성
+		Member member = memberRepository.findByEmail(kakaoUserInfo.getEmail())
 			.orElseGet(() -> createNewMember(kakaoUserInfo));
+
+		// 2. SSAFY userKey가 없으면 자동 발급
+		if (member.getSsafyUserKey() == null) {
+			log.info("SSAFY userKey가 없음. 로그인 시 자동 발급 시작: memberId={}, email={}",
+				member.getMemberId(), member.getEmail());
+
+			try {
+				// SSAFY 회원 등록 (userKey 자동 발급)
+				MemberRegisterResponse registerResponse = financeApiService.registerMember(member.getEmail());
+
+				// Member에 userKey와 실명 저장
+				member.updateSsafyUserKey(registerResponse.getUserKey());
+				member.updateRealName(registerResponse.getUserName());
+
+				log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}, userName={}",
+					member.getMemberId(), registerResponse.getUserKey(), registerResponse.getUserName());
+
+			} catch (Exception e) {
+				// SSAFY API 호출 실패 시에도 로그인은 성공시킴 (userKey는 나중에 발급 가능)
+				log.error("SSAFY userKey 발급 실패 (로그인은 성공 처리): memberId={}, error={}",
+					member.getMemberId(), e.getMessage(), e);
+			}
+		}
+
+		return member;
 	}
 
 	/**
