@@ -7,7 +7,9 @@ import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
+import { useSearch } from '../../search/hooks/useSearch';
 import { useCategoryTree } from '@/features/category';
+import { useSearchParams } from 'react-router-dom';
 
 const SEOUL_DISTRICTS = [
   { id: 'gangnam', name: '강남구', areas: ['역삼동', '개포동', '청담동', '삼성동'] },
@@ -39,12 +41,13 @@ const SEOUL_DISTRICTS = [
 const ProductListMain = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const [searchParams] = useSearchParams();
   
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   
   // 필터 상태
-  const [activeTab, setActiveTab] = useState('lend');
+  const [activeTab, setActiveTab] = useState('rent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +63,26 @@ const ProductListMain = () => {
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const q = searchParams.get('q') || '';
+
+  const [page, setPage] = useState(1);
+  const [fetchCount, setFetchCount] = useState(0);
+  const [products, setProducts] = useState([]);
+  const lastAppliedFilters = React.useRef(null);
+  const [totalProducts, setTotalProducts] = React.useState(0);
+
+  React.useEffect(() => {
+    if (q) {
+      setSearchQuery(q);
+    }
+  }, [q]);
+
+  React.useEffect(() => {
+    // 컴포넌트 처음 마운트 시 한 번 실행
+    refetch();
+    lastAppliedFilters.current = apiFilters;
+  }, []);
   
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
@@ -71,19 +94,27 @@ const ProductListMain = () => {
     }
   }, [categories, activeCategoryId]);
 
+  const formatToLocalDate = (date) => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
-    type: activeTab, // 'lend' 또는 'borrow'
-    search: searchQuery,
-    category: selectedSubcategories.length > 0 ? selectedSubcategories[0] : '',
-    minPrice: priceRange.min ? parseInt(priceRange.min) : 0,
-    maxPrice: priceRange.max ? parseInt(priceRange.max) : Infinity,
+    uploadType: activeTab, // 'rent' 또는 'borrow'
+    q: searchQuery,
+    category: selectedSubcategories.length > 0 ? selectedSubcategories.map(c => c.categoryId) : [],
+    "price-min": priceRange.min ? parseInt(priceRange.min.toString().replace(/,/g, ''), 10) : null,
+    "price-max": priceRange.max ? parseInt(priceRange.max.toString().replace(/,/g, ''), 10) : null,
     location: selectedAreas.length > 0 ? selectedAreas[0] : '',
-    minRating: rating,
+    rating: rating,
     sameDayRental: sameDayRental,
-    hashtags: selectedHashtags.map(h => h.name),
-    startDate: selectedDates.start ? selectedDates.start.toISOString() : null,
-    endDate: selectedDates.end ? selectedDates.end.toISOString() : null
+    hashtag: selectedHashtags.map(h => h.id),
+    "date-from": selectedDates.start ? formatToLocalDate(selectedDates.start) : null,
+    "date-to": selectedDates.end ? formatToLocalDate(selectedDates.end) : null
   }), [
     activeTab,
     searchQuery,
@@ -97,11 +128,43 @@ const ProductListMain = () => {
   ]);
 
   // React Query로 상품 데이터 가져오기
-  const { data: productsData, isLoading, isError, error } = useProducts(apiFilters);
+  const { searchResponses, total, hashtags, isLoading, isError, error, refetch, fetchCount: newFetchCount } = useSearch(q, apiFilters, page);
+
+  React.useEffect(() => {
+    if (!searchResponses) return;
+
+    if (page === 1) {
+      // 첫 페이지일 땐 새로 세팅
+      setProducts(searchResponses);
+      setTotalProducts(total || searchResponses.length);
+    } else if (page > 1) {
+      // 다음 페이지일 땐 누적
+      setProducts(prev => {
+        const merged = [...prev, ...searchResponses];
+        const unique = merged.filter(
+          (v, i, a) => a.findIndex(t => t.productId === v.productId) === i
+        );
+        return unique;
+      });
+
+      // totalProducts도 누적 (중복 제외)
+      setTotalProducts(prev => {
+        const newUnique = searchResponses.filter(
+          r => !products.some(p => p.productId === r.productId)
+        );
+        return prev + newUnique.length;
+      });
+    }
+  }, [searchResponses]);
+
+  React.useEffect(() => {
+    if (newFetchCount !== undefined) {
+      setFetchCount(newFetchCount);
+    }
+  }, [newFetchCount]);
 
   // 상품 목록 추출
-  const products = productsData?.items || [];
-  const totalProducts = productsData?.total || 0;
+  //const products = searchResponses || [];
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -131,6 +194,8 @@ const ProductListMain = () => {
 
   const handleDateClick = (date) => {
     if (!date) return;
+
+    console.log(date);
     
     if (!selectedDates.start) {
       setSelectedDates({ start: date, end: null });
@@ -182,17 +247,18 @@ const ProductListMain = () => {
   };
 
   const toggleSubcategory = (subcategory) => {
-    setSelectedSubcategories(prev => 
-      prev.includes(subcategory) 
-        ? prev.filter(s => s !== subcategory)
+    setSelectedSubcategories(prev =>
+      prev.some(s => s.categoryId === subcategory.categoryId)
+        ? prev.filter(s => s.categoryId !== subcategory.categoryId)
         : [...prev, subcategory]
     );
+    console.log("selectedSubcategories ", selectedSubcategories);
   };
 
   const getSelectedCategoriesText = () => {
     if (selectedSubcategories.length === 0) return '선택하세요';
-    if (selectedSubcategories.length === 1) return selectedSubcategories[0];
-    return `${selectedSubcategories[0]} 외 ${selectedSubcategories.length - 1}개`;
+    if (selectedSubcategories.length === 1) return selectedSubcategories[0].categoryName;
+    return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
   const toggleDistrict = (districtId) => {
@@ -204,6 +270,7 @@ const ProductListMain = () => {
   };
 
   const toggleArea = (area) => {
+    console.log("area ", area);
     setSelectedAreas(prev => 
       prev.includes(area)
         ? prev.filter(a => a !== area)
@@ -228,6 +295,7 @@ const ProductListMain = () => {
     setSelectedAreas([]);
     setRating(0);
     setSameDayRental(false);
+    setSelectedHashtags([]);
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
@@ -241,7 +309,13 @@ const ProductListMain = () => {
     }
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
+
+    if (JSON.stringify(apiFilters) === JSON.stringify(lastAppliedFilters.current)) {
+      handleCloseFilter();
+      return;
+    }
+
     console.log('Applied filters:', {
       searchQuery,
       dateRange: selectedDates,
@@ -253,6 +327,15 @@ const ProductListMain = () => {
       sameDayRental,
       hashtags: selectedHashtags
     });
+    try {
+      await refetch(); // 수동으로 /search 요청
+      setPage(1);
+      setFetchCount(0);
+      setProducts([]);
+    } catch (err) {
+      console.error('검색 실패:', err);
+    }
+    lastAppliedFilters.current = apiFilters;
     handleCloseFilter();
   };
 
@@ -267,6 +350,31 @@ const ProductListMain = () => {
   const handleCreateProduct = () => {
     navigate(ROUTE_PATHS.PRODUCT_CREATE);
   };
+
+  const observerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!observerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          setPage((prev) => {
+            // fetchCount = 0이면 그냥 다음 페이지
+            // fetchCount > 0이면 건너뛴 만큼 더함
+            const nextPage = prev + (fetchCount || 1);
+            return nextPage;
+          });
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    observer.observe(observerRef.current);
+
+    return () => observer.disconnect();
+  }, [observerRef, isLoading, fetchCount, products.length, totalProducts]);
 
   return (
     <div className="flex h-screen bg-white">
@@ -302,9 +410,9 @@ const ProductListMain = () => {
           <div className="mb-4">
            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
              <button
-               onClick={() => setActiveTab('lend')}
+               onClick={() => setActiveTab('rent')}
                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                 activeTab === 'lend'
+                 activeTab === 'rent'
                    ? 'bg-gray-900 text-white shadow-sm'
                    : 'text-gray-600 hover:text-gray-900'
                }`}
@@ -515,7 +623,7 @@ const ProductListMain = () => {
                     {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                       <button
                         key={sub.categoryId}
-                        onClick={() => toggleSubcategory(sub.categoryName)}
+                        onClick={() => toggleSubcategory(sub)}
                         className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
                           selectedSubcategories.includes(sub.categoryName)
                             ? 'bg-gray-900 text-white'
@@ -558,7 +666,7 @@ const ProductListMain = () => {
                      backdropFilter: 'blur(10px)'
                    }}
                 >
-                  <span className="truncate">{sub}</span>
+                  <span className="truncate">{sub.categoryName}</span>
                   <button
                     onClick={() => toggleSubcategory(sub)}
                     className="flex-shrink-0 transition-opacity duration-200 hover:opacity-70"
@@ -783,21 +891,21 @@ const ProductListMain = () => {
            {/* 토글 스위치 */}
            <div className="relative">
              <button
-               onClick={() => setActiveTab(activeTab === 'lend' ? 'borrow' : 'lend')}
+               onClick={() => setActiveTab(activeTab === 'rent' ? 'borrow' : 'rent')}
                className="relative w-40 h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
              >
                {/* 슬라이더 */}
                <div
                  className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
                  style={{
-                   left: activeTab === 'lend' ? '4px' : 'calc(50% + 0px)'
+                   left: activeTab === 'rent' ? '4px' : 'calc(50% + 0px)'
                  }}
                />
                
                {/* 텍스트 레이어 */}
                <div className="absolute inset-0 flex items-center pointer-events-none">
                  <div className="w-1/2 flex items-center justify-center">
-                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'lend' ? 'text-white' : 'text-gray-600'}`}>
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'rent' ? 'text-white' : 'text-gray-600'}`}>
                      빌려줘
                    </span>
                  </div>
@@ -847,6 +955,7 @@ const ProductListMain = () => {
       {/* 해시태그 필터 - 스티키 */}
       <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
         <HashtagFilter 
+          hashtags={hashtags}
           onHashtagSelect={handleHashtagSelect}
           selectedHashtags={selectedHashtags}
         />
@@ -888,9 +997,9 @@ const ProductListMain = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
               {products.map((product) => (
                 <ProductCard
-                  key={product.id}
+                  key={product.productId}
                   product={product}
-                  onClick={() => navigate(`/products/${product.id}`)}
+                  onClick={() => navigate(`/products/${product.productId}`)}
                   actionType="view"
                   status={product.isAvailable ? 'available' : 'unavailable'}
                   showStats={false}
@@ -898,6 +1007,9 @@ const ProductListMain = () => {
                 />
               ))}
             </div>
+
+            {/* 👇 이 div가 화면에 보이면 다음 페이지 불러옴 */}
+            <div ref={observerRef} className="h-10" />
            </>
          )}
 
@@ -957,13 +1069,13 @@ const ProductListMain = () => {
                  boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                }}>
                  <button
-                   onClick={() => setActiveTab('lend')}
+                   onClick={() => setActiveTab('rent')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
-                     activeTab === 'lend'
+                     activeTab === 'rent'
                        ? 'text-gray-900 shadow-md drop-shadow-sm'
                        : 'text-gray-700 hover:bg-white/20'
                    }`}
-                   style={activeTab === 'lend' ? {
+                   style={activeTab === 'rent' ? {
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
                      boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'

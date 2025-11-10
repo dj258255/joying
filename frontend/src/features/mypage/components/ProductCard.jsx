@@ -125,10 +125,10 @@ const ProductCard = ({
     <div className="glass-product-card-new group" onClick={onClick}>
       {/* 메인 이미지 배경 */}
       <div className="glass-product-image-main">
-        {product?.image ? (
+        {product?.thumbnailUrl ? (
           <img
-            src={product.image}
-            alt={product.title || product.name}
+            src={product.thumbnailUrl}
+            alt={product.title || product.content}
             className="glass-product-image-bg"
           />
         ) : (
@@ -143,10 +143,10 @@ const ProductCard = ({
         <div className="glass-product-gradient-overlay"></div>
         
         {/* 위치 정보 - 왼쪽 상단 */}
-        {product?.location && (
+        {product?.dongId && (
           <div className="absolute top-3 left-3 z-[5]">
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md text-xs text-white/90">
-              📍 {product.location}
+              📍 {product.sido} {product.gugun} {product.dong}
             </span>
           </div>
         )}
@@ -225,13 +225,13 @@ const ProductCard = ({
         <div className="glass-product-text-overlay">
           {/* 제품명 */}
           <h3 className="text-sm font-bold text-white mb-2 line-clamp-1">
-            {product?.title || product?.name || '상품명 없음'}
+            {product?.title || '상품명 없음'}
           </h3>
           
           {/* 가격 & 평점 */}
           <div className="flex items-center justify-between">
             <p className="text-white font-semibold text-xs">
-              {product?.price ? `${product.price.toLocaleString()}원/일` : '가격 정보 없음'}
+              {product?.rentalFee ? `${product.rentalFee.toLocaleString()}원/일` : '가격 정보 없음'}
             </p>
             
             {/* 별점 표시 */}
