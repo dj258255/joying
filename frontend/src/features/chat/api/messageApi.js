@@ -6,6 +6,20 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+const findFirstArray = (value, depth = 0) => {
+  if (!value || depth > 6) return null;
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      const found = findFirstArray(value[key], depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 /**
  * 메시지 관련 API
  */
@@ -73,13 +87,28 @@ export const messageApi = {
       
       console.log('[messageApi] 메시지 목록 조회 응답:', {
         status: response.status,
-        messageCount: response.data?.data?.length || 0
+        messageCount: Array.isArray(response.data?.data) ? response.data.data.length : Array.isArray(response.data?.data?.content) ? response.data.data.content.length : Array.isArray(response.data?.body?.data) ? response.data.body.data.length : Array.isArray(response.data?.body?.data?.content) ? response.data.body.data.content.length : 0
       });
-      
-      // 백엔드 응답 형식: ApiResponse.SuccessBody<List<ChatMessageResponse>>
-      // { status, message, data: [...], timestamp }
-      if (response.data && response.data.data && Array.isArray(response.data.data)) {
-        return response.data.data;
+      console.log('[messageApi] 메시지 목록 응답 원본:', response.data);
+
+      let rawMessages = null;
+
+      if (Array.isArray(response.data?.data)) {
+        rawMessages = response.data.data;
+      } else if (Array.isArray(response.data?.data?.content)) {
+        rawMessages = response.data.data.content;
+      } else if (Array.isArray(response.data?.body?.data)) {
+        rawMessages = response.data.body.data;
+      } else if (Array.isArray(response.data?.body?.data?.content)) {
+        rawMessages = response.data.body.data.content;
+      }
+
+      if (!rawMessages) {
+        rawMessages = findFirstArray(response.data);
+      }
+
+      if (rawMessages) {
+        return rawMessages;
       }
       
       // 응답이 배열 형식이 아닌 경우 빈 배열 반환

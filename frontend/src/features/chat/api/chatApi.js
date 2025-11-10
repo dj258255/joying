@@ -132,31 +132,7 @@ export const chatApi = {
     try {
       console.log('[chatApi] 채팅방 목록 조회 요청');
       
-      // 슬래시 없이도 시도
-      let response;
-      try {
-        response = await axiosInstance.get('/chat-rooms/');
-      } catch (firstError) {
-        // 404 에러이고 슬래시가 있는 경우 슬래시 없이 재시도
-        if (firstError.response?.status === 404) {
-          console.log('[chatApi] /chat-rooms/ 실패, /chat-rooms 재시도');
-          try {
-            response = await axiosInstance.get('/chat-rooms');
-          } catch (secondError) {
-            // 두 경로 모두 실패하면 404를 빈 배열로 처리
-            if (secondError.response?.status === 404) {
-              console.warn('[chatApi] 채팅방 목록 API가 아직 구현되지 않았습니다. 빈 배열 반환.');
-              return {
-                chatRooms: [],
-                totalUnreadCount: 0
-              };
-            }
-            throw secondError;
-          }
-        } else {
-          throw firstError;
-        }
-      }
+      const response = await axiosInstance.get('/chat-rooms');
       
       console.log('[chatApi] 채팅방 목록 조회 응답:', response.data);
       
@@ -304,25 +280,84 @@ export const chatApi = {
   },
 
   /**
+   * 채팅방 설정 업데이트 (고정/알림)
+   * PATCH /chat-rooms/{chatRoomId}/settings
+   * @param {number|string} chatRoomId
+   * @param {{ isPinned?: boolean|null, isMuted?: boolean|null }} settings
+   * @returns {Promise<{isPinned?: boolean, isMuted?: boolean}>}
+   */
+  updateChatRoomSettings: async (chatRoomId, settings = {}) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+
+    const payload = {};
+    if (Object.prototype.hasOwnProperty.call(settings, 'isPinned')) {
+      payload.isPinned = settings.isPinned;
+    }
+    if (Object.prototype.hasOwnProperty.call(settings, 'isMuted')) {
+      payload.isMuted = settings.isMuted;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return {};
+    }
+
+    try {
+      console.log('[chatApi] 채팅방 설정 업데이트 요청:', { chatRoomId: chatRoomIdNum, payload });
+
+      const response = await axiosInstance.patch(`/chat-rooms/${chatRoomIdNum}/settings`, payload);
+
+      console.log('[chatApi] 채팅방 설정 업데이트 응답:', response.data);
+
+      if (response.data?.data) {
+        return response.data.data;
+      }
+
+      return {
+        isPinned: payload.isPinned,
+        isMuted: payload.isMuted
+      };
+    } catch (error) {
+      console.error('[chatApi] 채팅방 설정 업데이트 실패:', {
+        chatRoomId: chatRoomIdNum,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+      }
+
+      if (error.response?.status === 403) {
+        throw new Error('이 채팅방에 대한 설정을 수정할 권한이 없습니다.');
+      }
+
+      if (error.response?.status === 404) {
+        throw new Error('채팅방을 찾을 수 없습니다.');
+      }
+
+      throw error;
+    }
+  },
+
+  /**
    * 채팅방 고정/해제
    * @param {string} chatRoomId - 채팅방 ID
    * @returns {Promise<{pinned: boolean}>}
    */
-  togglePinChatRoom: async (chatRoomId) => {
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    const chatRoom = chatRooms.find(room => room.id === chatRoomId);
-    
-    if (chatRoom) {
-      chatRoom.isPinned = !chatRoom.isPinned;
-      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-      
-      // 커스텀 이벤트 발생
-      window.dispatchEvent(new Event('chatRoomsUpdated'));
-      
-      return { pinned: chatRoom.isPinned };
+  togglePinChatRoom: async (chatRoomId, nextPinned) => {
+    if (typeof nextPinned !== 'boolean') {
+      throw new Error('새로운 고정 상태가 필요합니다.');
     }
-    
-    throw new Error('채팅방을 찾을 수 없습니다.');
+
+    const result = await chatApi.updateChatRoomSettings(chatRoomId, { isPinned: nextPinned });
+    return {
+      pinned: result?.isPinned ?? nextPinned
+    };
   },
 
   /**
@@ -330,21 +365,15 @@ export const chatApi = {
    * @param {string} chatRoomId - 채팅방 ID
    * @returns {Promise<{muted: boolean}>}
    */
-  toggleMuteChatRoom: async (chatRoomId) => {
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    const chatRoom = chatRooms.find(room => room.id === chatRoomId);
-    
-    if (chatRoom) {
-      chatRoom.isMuted = !chatRoom.isMuted;
-      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-      
-      // 커스텀 이벤트 발생
-      window.dispatchEvent(new Event('chatRoomsUpdated'));
-      
-      return { muted: chatRoom.isMuted };
+  toggleMuteChatRoom: async (chatRoomId, nextMuted) => {
+    if (typeof nextMuted !== 'boolean') {
+      throw new Error('새로운 알림 설정 상태가 필요합니다.');
     }
-    
-    throw new Error('채팅방을 찾을 수 없습니다.');
+
+    const result = await chatApi.updateChatRoomSettings(chatRoomId, { isMuted: nextMuted });
+    return {
+      muted: result?.isMuted ?? nextMuted
+    };
   },
 
   /**
@@ -353,11 +382,47 @@ export const chatApi = {
    * @returns {Promise<void>}
    */
   leaveChatRoom: async (chatRoomId) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+
+    try {
+      console.log('[chatApi] 채팅방 나가기 요청:', chatRoomIdNum);
+
+      await axiosInstance.delete(`/chat-rooms/${chatRoomIdNum}`);
+
+      console.log('[chatApi] 채팅방 나가기 성공:', chatRoomIdNum);
+
+      // 캐시/스토리지 정리 (로컬 스토리지에 남아있을 수 있는 기존 데이터 제거)
     const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    const filteredRooms = chatRooms.filter(room => room.id !== chatRoomId);
+      const filteredRooms = chatRooms.filter(room => Number(room.id) !== chatRoomIdNum && Number(room.chatRoomId) !== chatRoomIdNum);
     localStorage.setItem('chatRooms', JSON.stringify(filteredRooms));
     
     // 커스텀 이벤트 발생
     window.dispatchEvent(new Event('chatRoomsUpdated'));
+    } catch (error) {
+      console.error('[chatApi] 채팅방 나가기 실패:', {
+        chatRoomId: chatRoomIdNum,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+      }
+
+      if (error.response?.status === 403) {
+        throw new Error('이 채팅방에서 나갈 권한이 없습니다.');
+      }
+
+      if (error.response?.status === 404) {
+        throw new Error('채팅방을 찾을 수 없습니다.');
+      }
+
+      throw error;
+    }
   }
 };

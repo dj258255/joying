@@ -3,10 +3,9 @@
  * 채팅방 페이지 컴포넌트 (카카오톡 스타일)
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useParams, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useChatContext } from '../contexts/ChatContext';
-import { useMessages } from '../hooks/useMessages';
 import MessageBubble from '../components/MessageBubble';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
@@ -22,15 +21,36 @@ import { useProductDetail } from '../../../features/product/hooks/useProductDeta
 import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { chatApi } from '../api/chatApi';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+
+const SEARCH_PAGE_SIZE = 20;
 
 const ChatRoomPage = () => {
   const { chatRoomId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentChatRoom, messages, sendMessage, isConnected, setCurrentChatRoom, isLoading, error } = useChatContext();
+  const { currentChatRoom, messages, sendMessage, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages } = useChatContext();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const queryClient = useQueryClient();
+  const sortedMessages = useMemo(() => [...messages], [messages]);
+  const messagesRef = useRef(sortedMessages);
+  useEffect(() => {
+    messagesRef.current = sortedMessages;
+  }, [sortedMessages]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchPage, setSearchPage] = useState(0);
+  const [hasMoreSearch, setHasMoreSearch] = useState(false);
+  const [searchError, setSearchError] = useState('');
   
   // 상태 관리
   const [rentalRequestMessage, setRentalRequestMessage] = useState(null);
@@ -58,16 +78,22 @@ const ChatRoomPage = () => {
   const existingChatRoomData = location.state?.chatRoomData || null;
   
   useEffect(() => {
-    // 채팅방 로드 (chatRoomId가 변경될 때만)
-    if (chatRoomId && currentChatRoom?.chatRoomId !== chatRoomId && currentChatRoom?.id !== chatRoomId) {
-      try {
-        // 생성된 채팅방 데이터가 있으면 함께 전달 (조회 API 호출 생략)
-        setCurrentChatRoom(chatRoomId, existingChatRoomData);
-      } catch (error) {
-        console.error('채팅방 로드 실패:', error);
-      }
+    if (!chatRoomId) return;
+
+    const desiredId = Number(chatRoomId);
+    if (!desiredId) return;
+
+    const currentId = Number(currentChatRoom?.chatRoomId ?? currentChatRoom?.id ?? 0);
+    if (currentId === desiredId) {
+      return;
     }
-  }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom]); // chatRoomId와 currentChatRoom.id가 변경될 때만 실행
+
+    try {
+      setCurrentChatRoom(desiredId, existingChatRoomData);
+    } catch (error) {
+      console.error('채팅방 로드 실패:', error);
+    }
+  }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom]);
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
@@ -83,30 +109,65 @@ const ChatRoomPage = () => {
     }
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollToBottom = useCallback((behavior = 'auto') => {
+    if (messagesContainerRef.current) {
+      if (behavior === 'smooth') {
+        messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
+      } else {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (isNearBottom) {
+      scrollToBottom('auto');
+    }
+  }, [sortedMessages, isNearBottom, scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottom('auto');
+  }, [currentChatRoom?.chatRoomId, scrollToBottom]);
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const nearTop = container.scrollTop <= 80;
+    if (nearTop && hasMorePast && !isLoadingHistory) {
+      const previousScrollHeight = container.scrollHeight;
+      const previousScrollTop = container.scrollTop;
+      setIsLoadingHistory(true);
+      loadOlderMessages()
+        .then((added) => {
+          if (added) {
+            requestAnimationFrame(() => {
+              const newScrollHeight = container.scrollHeight;
+              container.scrollTop = previousScrollTop + (newScrollHeight - previousScrollHeight);
+            });
+          }
+        })
+        .finally(() => {
+          setIsLoadingHistory(false);
+        });
+    }
+
+    const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
+    setIsNearBottom(distanceFromBottom < 80);
+  }, [hasMorePast, isLoadingHistory, loadOlderMessages]);
 
   const handleSendMessage = async (messageData) => {
+    if (!messageData || !messageData.content) return;
+ 
     try {
-      // 현재 사용자 정보 추가
-      if (user && user.id) {
-        const currentUserInfo = {
-          id: user.id || user.memberId,
-          username: user.nickname || user.name || '사용자',
-          profileImageUrl: user.profileImage || user.profileImageUrl || null
-        };
-        messageData.sender = currentUserInfo;
-      }
-      
-      await sendMessage(messageData);
-      
-      // 채팅방 목록 업데이트를 위한 이벤트 발생 (messageApi.sendMessage에서도 발생하지만 확실히 하기 위해)
-      window.dispatchEvent(new Event('chatRoomsUpdated'));
+      const payload = {
+        ...messageData,
+        type: (messageData.type || 'TEXT').toUpperCase()
+      };
+
+      await sendMessage(payload);
     } catch (error) {
       console.error('메시지 전송 실패:', error);
       alert('메시지 전송에 실패했습니다.');
@@ -119,10 +180,16 @@ const ChatRoomPage = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const messageData = {
-          content: e.target.result,
-          type: 'image'
+          content: '',
+          type: 'IMAGE',
+          imageUrl: e.target.result,
+          fileName: file.name,
+          fileSize: file.size
         };
-        sendMessage(messageData);
+        sendMessage(messageData).catch((error) => {
+          console.error('파일 메시지 전송 실패:', error);
+          alert('파일 메시지 전송에 실패했습니다.');
+        });
       };
       reader.readAsDataURL(file);
     } catch (error) {
@@ -138,12 +205,42 @@ const ChatRoomPage = () => {
     setReplyTo(null);
   };
 
+  const applySettingsUpdate = async (partialSettings) => {
+    const roomId = currentChatRoom?.chatRoomId || currentChatRoom?.id;
+    if (!roomId) {
+      throw new Error('채팅방 정보를 확인할 수 없습니다.');
+    }
+
+    const payload = {};
+    if (Object.prototype.hasOwnProperty.call(partialSettings, 'isPinned')) {
+      payload.isPinned = partialSettings.isPinned;
+    }
+    if (Object.prototype.hasOwnProperty.call(partialSettings, 'isMuted')) {
+      payload.isMuted = partialSettings.isMuted;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      return;
+    }
+
+    const updated = await chatApi.updateChatRoomSettings(roomId, payload);
+
+    const mergedRoom = {
+      ...currentChatRoom,
+      isPinned: updated?.isPinned ?? payload.isPinned ?? currentChatRoom?.isPinned,
+      isMuted: updated?.isMuted ?? payload.isMuted ?? currentChatRoom?.isMuted
+    };
+
+    await setCurrentChatRoom(roomId, mergedRoom);
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.CHATS, 'rooms'] });
+  };
+
   const handleUpdateSettings = async (settings) => {
     try {
-      // 채팅방 설정 업데이트 API 호출
-      console.log('설정 업데이트:', settings);
-    } catch (error) {
-      console.error('설정 업데이트 실패:', error);
+      await applySettingsUpdate(settings);
+    } catch (updateError) {
+      console.error('설정 업데이트 실패:', updateError);
+      alert(updateError.message || '채팅방 설정 업데이트에 실패했습니다.');
     }
   };
 
@@ -444,6 +541,126 @@ const ChatRoomPage = () => {
     }
   };
 
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchOpen]);
+
+  const openSearch = useCallback(() => {
+    setIsSearchOpen(true);
+    setSearchKeyword('');
+    setSearchResults([]);
+    setSearchError('');
+    setHasMoreSearch(false);
+    setSearchPage(0);
+  }, []);
+
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    setSearchKeyword('');
+    setSearchResults([]);
+    setSearchError('');
+    setHasMoreSearch(false);
+    setSearchPage(0);
+  }, []);
+
+  const executeSearch = useCallback(async ({ page = 0, append = false } = {}) => {
+    if (!currentChatRoom) return;
+    const keyword = searchKeyword.trim();
+    if (!keyword) {
+      setSearchResults([]);
+      setHasMoreSearch(false);
+      setSearchError('');
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError('');
+
+    try {
+      const { results, hasMore } = await searchMessages({ keyword, page, size: SEARCH_PAGE_SIZE });
+      setSearchResults((prev) => (append ? [...prev, ...results] : results));
+      setHasMoreSearch(hasMore);
+      setSearchPage(page);
+    } catch (err) {
+      console.error('메시지 검색 실패:', err);
+      setSearchError(err.message || '메시지 검색에 실패했습니다.');
+    } finally {
+      setIsSearching(false);
+    }
+  }, [currentChatRoom, searchKeyword, searchMessages]);
+
+  const handleSearchSubmit = useCallback((event) => {
+    event?.preventDefault();
+    executeSearch({ page: 0, append: false });
+  }, [executeSearch]);
+
+  const handleSearchMore = useCallback(() => {
+    if (!hasMoreSearch || isSearching) return;
+    executeSearch({ page: searchPage + 1, append: true });
+  }, [executeSearch, hasMoreSearch, isSearching, searchPage]);
+
+  const ensureMessageVisible = useCallback(async (targetMessage) => {
+    if (!targetMessage || !currentChatRoom) return;
+
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    let attempts = 0;
+    const maxAttempts = 6;
+
+    while (attempts < maxAttempts) {
+      const exists = messagesRef.current.some((message) => message.id === targetMessage.id);
+      if (exists) {
+        requestAnimationFrame(() => {
+          const element = document.getElementById(`message-${targetMessage.id}`);
+          if (element) {
+            setIsNearBottom(false);
+            setIsSearchOpen(false);
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            setSearchError('해당 메시지를 화면에서 찾을 수 없습니다.');
+          }
+        });
+        return true;
+      }
+
+      if (!hasMorePast) {
+        break;
+      }
+
+      const added = await loadOlderMessages();
+      if (!added) {
+        break;
+      }
+
+      await wait(80);
+      attempts += 1;
+    }
+
+    setSearchError('대화에서 해당 메시지를 찾을 수 없습니다.');
+    return false;
+  }, [currentChatRoom, hasMorePast, loadOlderMessages, setIsNearBottom, setIsSearchOpen, setSearchError]);
+
+  const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
+
+  const handleResultClick = useCallback(async (message) => {
+    setIsJumpingToMessage(true);
+    setSearchError('');
+    try {
+      const success = await ensureMessageVisible(message);
+      if (success) {
+        setIsSearchOpen(false);
+      }
+    } finally {
+      setIsJumpingToMessage(false);
+    }
+  }, [ensureMessageVisible, setIsJumpingToMessage, setIsSearchOpen, setSearchError]);
+
   if (isLoading) {
     return (
       <>
@@ -482,6 +699,22 @@ const ChatRoomPage = () => {
     );
   }
 
+  const opponentProfileImage = currentChatRoom?.otherMember?.profileImageUrl
+    || currentChatRoom?.participants?.find((p) => p.id !== 101)?.profileImage
+    || currentChatRoom?.productImageUrl
+    || null;
+
+  const opponentId = currentChatRoom?.otherMember?.id
+    || currentChatRoom?.participants?.find((p) => p.id !== 101)?.id
+    || currentChatRoom?.otherMemberId
+    || null;
+
+  const opponentNickname = currentChatRoom?.otherMember?.nickname
+    || currentChatRoom?.name
+    || '채팅방';
+
+  const opponentOnline = typeof isConnected === 'boolean' ? isConnected : false;
+
   return (
     <>
       <SideNavbar />
@@ -500,30 +733,24 @@ const ChatRoomPage = () => {
             </button>
             <div className="flex items-center gap-3">
               <ProfileImage 
-                src={currentChatRoom.participants?.find(p => p.id !== 101)?.profileImage}
-                alt={currentChatRoom.name}
+                src={opponentProfileImage}
+                alt={opponentNickname}
                 size={40}
-                className="w-10 h-10 cursor-pointer hover:opacity-80 transition-opacity"
+                className={`w-10 h-10 ${opponentId ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                 onClick={() => {
-                  const opponent = currentChatRoom.participants?.find(p => p.id !== 101);
-                  console.log('ChatRoomPage - participants:', currentChatRoom.participants);
-                  console.log('ChatRoomPage - opponent:', opponent);
-                  if (opponent?.id) {
-                    console.log('ChatRoomPage - navigating to:', `/members/${opponent.id}`);
-                    navigate(`/members/${opponent.id}`);
-                  } else {
-                    console.log('ChatRoomPage - opponent not found');
+                  if (opponentId) {
+                    navigate(`/members/${opponentId}`);
                   }
                 }}
               />
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">
-                  {currentChatRoom.name}
+                  {opponentNickname}
                 </h1>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <div className={`w-2 h-2 rounded-full ${opponentOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                   <span className="text-sm text-gray-500">
-                    {isConnected ? '온라인' : '연결 중...'}
+                    {opponentOnline ? '온라인' : (currentChatRoom?.otherMember?.lastSeenAt ? `마지막 접속: ${new Date(currentChatRoom.otherMember.lastSeenAt).toLocaleString('ko-KR')}` : '오프라인')}
                   </span>
                 </div>
               </div>
@@ -539,6 +766,16 @@ const ChatRoomPage = () => {
                 거래 시작하기
               </button>
             )}
+            {/* 검색 버튼 */}
+            <button
+              onClick={openSearch}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="메시지 검색"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 110-15 7.5 7.5 0 010 15z" />
+              </svg>
+            </button>
             {/* 설정 버튼 */}
             <button
               onClick={() => setShowSettings(true)}
@@ -554,9 +791,20 @@ const ChatRoomPage = () => {
 
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
-        {messages.length > 0 ? (
-          messages.map((message) => {
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col"
+      >
+        {isLoadingHistory && (
+          <div className="flex justify-center py-2 text-xs text-gray-500">
+            이전 메시지를 불러오는 중...
+          </div>
+        )}
+        {sortedMessages.length > 0 ? (
+          sortedMessages.map((message, index) => {
+            const key = message.id || `${message.timestamp || 'message'}-${index}`;
+            const anchorId = message.id ? `message-${message.id}` : undefined;
             // 대여 요청 메시지 처리
             if (message.type === 'rental_request') {
               const currentUserId = user?.id || user?.memberId;
@@ -608,7 +856,7 @@ const ChatRoomPage = () => {
                 };
                 
                 return (
-                  <div key={message.id} className="mb-4">
+                  <div key={key} id={anchorId} className="mb-4">
                     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div className="max-w-[85%]">
                         <RentalRequestCard
@@ -625,7 +873,7 @@ const ChatRoomPage = () => {
               // 승인된 요청이고 요청자(isOwn)이면 결제 승인 버튼 표시
               if (isOwn && message.status === 'approved' && message.orderId && !message.paymentConfirmed) {
                 return (
-                  <div key={message.id} className="mb-4">
+                  <div key={key} id={anchorId} className="mb-4">
                     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div className="max-w-[85%]">
                         <div className={`rounded-2xl p-4 ${
@@ -663,7 +911,7 @@ const ChatRoomPage = () => {
 
               // 일반 메시지 버블로 표시 (승인/거절된 요청 또는 요청자 화면)
               return (
-                <div key={message.id} className="mb-4">
+                <div key={key} id={anchorId} className="mb-4">
                   <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[80%] rounded-2xl p-4 ${
                       isOwn
@@ -698,7 +946,7 @@ const ChatRoomPage = () => {
             
             return (
               <MessageBubble
-                key={message.id}
+                key={key}
                 message={message}
                 isOwn={isOwn}
                 onReply={handleReply}
@@ -761,6 +1009,95 @@ const ChatRoomPage = () => {
         onSubmit={handleCreateRental}
         isLoading={isCreatingRental}
       />
+
+      {/* 검색 모달 */}
+      {isSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={closeSearch}
+        >
+          <div
+            className="bg-white w-full max-w-md mx-4 rounded-2xl shadow-xl p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              onClick={closeSearch}
+              className="absolute top-3 right-3 p-2 rounded-full hover:bg-gray-100"
+              aria-label="검색 닫기"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">메시지 검색</h2>
+
+            <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
+              <input
+                ref={searchInputRef}
+                value={searchKeyword}
+                onChange={(event) => setSearchKeyword(event.target.value)}
+                type="text"
+                placeholder="검색어를 입력하세요"
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={isSearching}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSearching ? '검색 중...' : '검색'}
+              </button>
+            </form>
+
+            {searchError && (
+              <div className="mb-3 text-sm text-red-500">{searchError}</div>
+            )}
+
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {isSearching && searchResults.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-500">검색 중입니다...</div>
+              ) : searchResults.length === 0 ? (
+                <div className="py-6 text-center text-sm text-gray-400">검색 결과가 없습니다.</div>
+              ) : (
+                searchResults.map((result, index) => {
+                  const key = result.id || `${result.timestamp}-${index}`;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleResultClick(result)}
+                      className="w-full text-left rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors p-3"
+                    >
+                      <div className="text-xs text-gray-400 mb-1">
+                        {result.timestamp ? new Date(result.timestamp).toLocaleString() : '시간 정보 없음'}
+                      </div>
+                      <div className="text-sm text-gray-800 whitespace-pre-wrap line-clamp-2">
+                        {result.content || '(내용 없음)'}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {hasMoreSearch && (
+              <button
+                type="button"
+                onClick={handleSearchMore}
+                disabled={isSearching}
+                className="mt-4 w-full py-2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                더 보기
+              </button>
+            )}
+
+            {isJumpingToMessage && (
+              <div className="mt-3 text-xs text-gray-500 text-center">선택한 메시지 위치로 이동 중...</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
