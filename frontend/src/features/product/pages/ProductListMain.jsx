@@ -66,6 +66,12 @@ const ProductListMain = () => {
 
   const q = searchParams.get('q') || '';
 
+  const [page, setPage] = useState(1);
+  const [fetchCount, setFetchCount] = useState(0);
+  const [products, setProducts] = useState([]);
+  const lastAppliedFilters = React.useRef(null);
+  const [totalProducts, setTotalProducts] = React.useState(0);
+
   React.useEffect(() => {
     if (q) {
       setSearchQuery(q);
@@ -75,6 +81,7 @@ const ProductListMain = () => {
   React.useEffect(() => {
     // 컴포넌트 처음 마운트 시 한 번 실행
     refetch();
+    lastAppliedFilters.current = apiFilters;
   }, []);
   
   // 카테고리 API 조회
@@ -87,19 +94,27 @@ const ProductListMain = () => {
     }
   }, [categories, activeCategoryId]);
 
+  const formatToLocalDate = (date) => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
     uploadType: activeTab, // 'rent' 또는 'borrow'
     q: searchQuery,
-    category: selectedSubcategories.length > 0 ? selectedSubcategories[0] : '',
+    category: selectedSubcategories.length > 0 ? selectedSubcategories.map(c => c.categoryId) : [],
     "price-min": priceRange.min ? parseInt(priceRange.min.toString().replace(/,/g, ''), 10) : null,
     "price-max": priceRange.max ? parseInt(priceRange.max.toString().replace(/,/g, ''), 10) : null,
     location: selectedAreas.length > 0 ? selectedAreas[0] : '',
     rating: rating,
     sameDayRental: sameDayRental,
-    hashtag: selectedHashtags.map(h => h.name),
-    "date-from": selectedDates.start ? selectedDates.start.toISOString() : null,
-    "date-to": selectedDates.end ? selectedDates.end.toISOString() : null
+    hashtag: selectedHashtags.map(h => h.id),
+    "date-from": selectedDates.start ? formatToLocalDate(selectedDates.start) : null,
+    "date-to": selectedDates.end ? formatToLocalDate(selectedDates.end) : null
   }), [
     activeTab,
     searchQuery,
@@ -113,11 +128,43 @@ const ProductListMain = () => {
   ]);
 
   // React Query로 상품 데이터 가져오기
-  const { searchResponses, total, hashtags, isLoading, isError, error, refetch } = useSearch(q, apiFilters);
+  const { searchResponses, total, hashtags, isLoading, isError, error, refetch, fetchCount: newFetchCount } = useSearch(q, apiFilters, page);
+
+  React.useEffect(() => {
+    if (!searchResponses) return;
+
+    if (page === 1) {
+      // 첫 페이지일 땐 새로 세팅
+      setProducts(searchResponses);
+      setTotalProducts(total || searchResponses.length);
+    } else if (page > 1) {
+      // 다음 페이지일 땐 누적
+      setProducts(prev => {
+        const merged = [...prev, ...searchResponses];
+        const unique = merged.filter(
+          (v, i, a) => a.findIndex(t => t.productId === v.productId) === i
+        );
+        return unique;
+      });
+
+      // totalProducts도 누적 (중복 제외)
+      setTotalProducts(prev => {
+        const newUnique = searchResponses.filter(
+          r => !products.some(p => p.productId === r.productId)
+        );
+        return prev + newUnique.length;
+      });
+    }
+  }, [searchResponses]);
+
+  React.useEffect(() => {
+    if (newFetchCount !== undefined) {
+      setFetchCount(newFetchCount);
+    }
+  }, [newFetchCount]);
 
   // 상품 목록 추출
-  const products = searchResponses || [];
-  const totalProducts = total || 0;
+  //const products = searchResponses || [];
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -147,6 +194,8 @@ const ProductListMain = () => {
 
   const handleDateClick = (date) => {
     if (!date) return;
+
+    console.log(date);
     
     if (!selectedDates.start) {
       setSelectedDates({ start: date, end: null });
@@ -198,17 +247,18 @@ const ProductListMain = () => {
   };
 
   const toggleSubcategory = (subcategory) => {
-    setSelectedSubcategories(prev => 
-      prev.includes(subcategory) 
-        ? prev.filter(s => s !== subcategory)
+    setSelectedSubcategories(prev =>
+      prev.some(s => s.categoryId === subcategory.categoryId)
+        ? prev.filter(s => s.categoryId !== subcategory.categoryId)
         : [...prev, subcategory]
     );
+    console.log("selectedSubcategories ", selectedSubcategories);
   };
 
   const getSelectedCategoriesText = () => {
     if (selectedSubcategories.length === 0) return '선택하세요';
-    if (selectedSubcategories.length === 1) return selectedSubcategories[0];
-    return `${selectedSubcategories[0]} 외 ${selectedSubcategories.length - 1}개`;
+    if (selectedSubcategories.length === 1) return selectedSubcategories[0].categoryName;
+    return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
   const toggleDistrict = (districtId) => {
@@ -220,6 +270,7 @@ const ProductListMain = () => {
   };
 
   const toggleArea = (area) => {
+    console.log("area ", area);
     setSelectedAreas(prev => 
       prev.includes(area)
         ? prev.filter(a => a !== area)
@@ -244,6 +295,7 @@ const ProductListMain = () => {
     setSelectedAreas([]);
     setRating(0);
     setSameDayRental(false);
+    setSelectedHashtags([]);
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
@@ -258,6 +310,12 @@ const ProductListMain = () => {
   };
 
   const handleApply = async () => {
+
+    if (JSON.stringify(apiFilters) === JSON.stringify(lastAppliedFilters.current)) {
+      handleCloseFilter();
+      return;
+    }
+
     console.log('Applied filters:', {
       searchQuery,
       dateRange: selectedDates,
@@ -270,10 +328,14 @@ const ProductListMain = () => {
       hashtags: selectedHashtags
     });
     try {
-      await refetch(); // ✅ 수동으로 /search 요청
+      await refetch(); // 수동으로 /search 요청
+      setPage(1);
+      setFetchCount(0);
+      setProducts([]);
     } catch (err) {
       console.error('검색 실패:', err);
     }
+    lastAppliedFilters.current = apiFilters;
     handleCloseFilter();
   };
 
@@ -288,6 +350,31 @@ const ProductListMain = () => {
   const handleCreateProduct = () => {
     navigate(ROUTE_PATHS.PRODUCT_CREATE);
   };
+
+  const observerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!observerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          setPage((prev) => {
+            // fetchCount = 0이면 그냥 다음 페이지
+            // fetchCount > 0이면 건너뛴 만큼 더함
+            const nextPage = prev + (fetchCount || 1);
+            return nextPage;
+          });
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    observer.observe(observerRef.current);
+
+    return () => observer.disconnect();
+  }, [observerRef, isLoading, fetchCount, products.length, totalProducts]);
 
   return (
     <div className="flex h-screen bg-white">
@@ -536,7 +623,7 @@ const ProductListMain = () => {
                     {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                       <button
                         key={sub.categoryId}
-                        onClick={() => toggleSubcategory(sub.categoryName)}
+                        onClick={() => toggleSubcategory(sub)}
                         className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
                           selectedSubcategories.includes(sub.categoryName)
                             ? 'bg-gray-900 text-white'
@@ -579,7 +666,7 @@ const ProductListMain = () => {
                      backdropFilter: 'blur(10px)'
                    }}
                 >
-                  <span className="truncate">{sub}</span>
+                  <span className="truncate">{sub.categoryName}</span>
                   <button
                     onClick={() => toggleSubcategory(sub)}
                     className="flex-shrink-0 transition-opacity duration-200 hover:opacity-70"
@@ -868,6 +955,7 @@ const ProductListMain = () => {
       {/* 해시태그 필터 - 스티키 */}
       <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
         <HashtagFilter 
+          hashtags={hashtags}
           onHashtagSelect={handleHashtagSelect}
           selectedHashtags={selectedHashtags}
         />
@@ -919,6 +1007,9 @@ const ProductListMain = () => {
                 />
               ))}
             </div>
+
+            {/* 👇 이 div가 화면에 보이면 다음 페이지 불러옴 */}
+            <div ref={observerRef} className="h-10" />
            </>
          )}
 

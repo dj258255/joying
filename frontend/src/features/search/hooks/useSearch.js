@@ -7,7 +7,7 @@ import { isError, useQuery } from '@tanstack/react-query';
 import { searchApi } from '../api/searchApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
-export const useSearch = (query, filters = {}) => {
+export const useSearch = (query, filters = {}, page) => {
   // 통합 검색
   const {
     data: searchResults,
@@ -16,7 +16,7 @@ export const useSearch = (query, filters = {}) => {
     refetch
   } = useQuery({
     queryKey: [QUERY_KEYS.SEARCH],
-    queryFn: () => searchApi.search({ query, ...filters }),
+    queryFn: () => searchApi.search({ query, ...filters, page, size: 20 }),
     enabled: false,
     staleTime: 1000 * 60 * 2 // 2분
   });
