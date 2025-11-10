@@ -117,7 +117,7 @@ public class SearchService {
 		List<HashtagInfo> hashtags = hashtagHistoryRepository.findHashtagCountInProducts(productIds).stream()
 			.map(p -> HashtagInfo.builder()
 				.count(p.getCount())
-				.hashtag(p.getHashtag())
+				.name(p.getHashtag())
 				.build())
 			.toList();
 
@@ -417,7 +417,7 @@ public class SearchService {
 			.map(p -> HashtagInfo.builder()
 				.count(p.getCount())
 				.id(p.getHashtagId())
-				.hashtag(p.getHashtag())
+				.name(p.getHashtag())
 				.build())
 			.toList();
 

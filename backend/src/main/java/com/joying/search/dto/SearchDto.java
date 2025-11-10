@@ -1,5 +1,7 @@
 package com.joying.search.dto;
 
+import java.util.List;
+
 import com.joying.product.domain.Product;
 import com.joying.search.domain.SearchDocument;
 
@@ -19,7 +21,8 @@ public record SearchDto(
 	String category,
 	Long categoryId,
 	double rating,
-	String thumbnailUrl) {
+	String thumbnailUrl,
+	List<String> hashtags) {
 
 	public static SearchDto fromEntityRDB(Product product) {
 		return SearchDto.builder()
@@ -52,6 +55,7 @@ public record SearchDto(
 			.categoryId(searchDocument.getCategoryId())
 			.rating(searchDocument.getRating())
 			.thumbnailUrl(thumbnailUrl)
+			.hashtags(searchDocument.getHashtags())
 			.build();
 	}
 }
