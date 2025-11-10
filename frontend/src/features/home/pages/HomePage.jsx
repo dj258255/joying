@@ -750,10 +750,6 @@ const HomePage = () => {
     position: { x: 0, y: 0, z: 0 },
     scale: 6,  // Section 1과 동일
   });
-  
-  // ✨ GSAP 애니메이션 참조 (중단용)
-  const gsapAnimationsRef = useRef([]);
-  const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
     const state = animationState.current;
@@ -830,96 +826,64 @@ const HomePage = () => {
 
     // 섹션으로 즉시 이동하는 함수
     const goToSection = (index) => {
+      // 범위 체크
       if (index < 0 || index >= totalSections) return;
       
-      // ✨ 이미 스크롤 중이면 이전 애니메이션 즉시 종료
-      if (isScrolling) {
-        console.log('⚠️ 이전 애니메이션 중단 (새 스크롤 감지)');
-        // 진행 중인 모든 GSAP 애니메이션 종료
-        gsapAnimationsRef.current.forEach(tween => tween.kill());
-        gsapAnimationsRef.current = [];
-        
-        // 타임아웃 클리어
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-          scrollTimeoutRef.current = null;
-        }
-        
-        isScrolling = false;
-      }
+      // 애니메이션 진행 중이면 무시 (입력 차단)
+      if (isScrolling) return;
       
       isScrolling = true;
       const previousSection = currentSection;
-      previousSectionRef.current = currentSection; // ref에 이전 섹션 저장
+      previousSectionRef.current = currentSection;
       currentSection = index;
-      setCurrentSectionIndex(index);  // 디버그용 섹션 인덱스 업데이트
+      setCurrentSectionIndex(index);
 
       // 섹션별 모델 전환
       if (index === 2) {
-        setCurrentModel('tent');      // Section 3: 텐트
+        setCurrentModel('tent');
       } else if (index === 3) {
-        setCurrentModel('gamepad');   // Section 4: 게임패드
+        setCurrentModel('gamepad');
       } else if (index === 4 || index === 5 || index === 6) {
-        // Section 5, 6, 7: 모든 모델 유지 (위치만 변경)
         setCurrentModel('all');
       } else {
-        setCurrentModel('camera');    // Section 1, 2: 카메라
+        setCurrentModel('camera');
       }
 
       const targetState = sectionStates[index];
-
-      // GSAP으로 부드럽게 애니메이션
-      // Section 1→2 전환은 더 부드럽게
       const animDuration = (previousSection === 0 && index === 1) ? 0.6 : 0.8;
       const animEase = 'power2.inOut';
 
-      // ✨ 애니메이션 참조 저장 (나중에 중단 가능하도록)
-      const tween1 = gsap.to(state.position, {
+      // GSAP 애니메이션
+      gsap.to(state.position, {
         x: targetState.position.x,
         y: targetState.position.y,
         z: targetState.position.z,
         duration: animDuration,
         ease: animEase,
-        overwrite: true, // ✨ 이전 애니메이션 자동 덮어쓰기
       });
 
-      const tween2 = gsap.to(state.rotation, {
+      gsap.to(state.rotation, {
         x: targetState.rotation.x,
         y: targetState.rotation.y,
         z: targetState.rotation.z,
         duration: animDuration,
         ease: animEase,
-        overwrite: true,
       });
 
-      const tween3 = gsap.to(state, {
+      gsap.to(state, {
         scale: targetState.scale,
         duration: animDuration,
         ease: animEase,
-        overwrite: true,
         onComplete: () => {
-          console.log('✅ 애니메이션 완료:', index);
           isScrolling = false;
-          gsapAnimationsRef.current = [];
-          if (scrollTimeoutRef.current) {
-            clearTimeout(scrollTimeoutRef.current);
-            scrollTimeoutRef.current = null;
-          }
         },
       });
       
-      // ✨ 애니메이션 참조 저장
-      gsapAnimationsRef.current = [tween1, tween2, tween3];
-      
-      // ✨ 안전장치: 1.5초 후에도 isScrolling이 true면 강제 해제
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      scrollTimeoutRef.current = setTimeout(() => {
+      // 안전장치: 1.5초 후 강제 해제
+      setTimeout(() => {
         if (isScrolling) {
-          console.warn('⚠️ 타임아웃으로 isScrolling 강제 해제');
+          console.warn('⚠️ 안전장치: isScrolling 강제 해제');
           isScrolling = false;
-          gsapAnimationsRef.current = [];
         }
       }, 1500);
 
@@ -957,53 +921,18 @@ const HomePage = () => {
     // 터치 이벤트 핸들러 (모바일)
     let touchStartY = 0;
     let touchStartTime = 0;
-    let isTouchScrolling = false;
     
     const handleTouchStart = (e) => {
-      // ✨ 애니메이션 진행 중이면 즉시 중단하고 새 터치 시작
-      if (isScrolling) {
-        console.log('⚠️ 터치로 애니메이션 중단');
-        // 진행 중인 모든 GSAP 애니메이션 종료
-        gsapAnimationsRef.current.forEach(tween => tween.kill());
-        gsapAnimationsRef.current = [];
-        
-        // 타임아웃 클리어
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-          scrollTimeoutRef.current = null;
-        }
-        
-        isScrolling = false;
-      }
-      
+      // 터치 위치와 시간 저장 (단순 터치는 허용)
       touchStartY = e.touches[0].clientY;
       touchStartTime = Date.now();
-      isTouchScrolling = false;
     };
 
     const handleTouchMove = (e) => {
-      // ✨ 애니메이션 진행 중이면 즉시 중단
-      if (isScrolling) {
-        console.log('⚠️ 터치 이동으로 애니메이션 중단');
-        gsapAnimationsRef.current.forEach(tween => tween.kill());
-        gsapAnimationsRef.current = [];
-        if (scrollTimeoutRef.current) {
-          clearTimeout(scrollTimeoutRef.current);
-          scrollTimeoutRef.current = null;
-        }
-        isScrolling = false;
-      }
-      
       // 일반 스크롤 모드면 처리 안 함
       if (isNormalScrolling) return;
       
-      const touchCurrentY = e.touches[0].clientY;
-      const delta = Math.abs(touchStartY - touchCurrentY);
-      
-      // 일정 거리 이상 움직이면 터치 스크롤로 간주
-      if (delta > 20) {
-        isTouchScrolling = true;
-      }
+      // 터치 이동은 자유롭게 허용
     };
 
     const handleTouchEnd = (e) => {
@@ -1019,20 +948,19 @@ const HomePage = () => {
         if (delta > 0) {
           // 위로 스와이프 (다음 섹션)
           if (currentSection < totalSections - 1) {
-            goToSection(currentSection + 1);
+            goToSection(currentSection + 1); // goToSection에서 isScrolling 체크
           }
         } else {
           // 아래로 스와이프 (이전 섹션)
           if (currentSection > 0) {
-            goToSection(currentSection - 1);
+            goToSection(currentSection - 1); // goToSection에서 isScrolling 체크
           }
         }
       }
       
-      // 터치 종료 시 모든 터치 상태 초기화
+      // 터치 상태 초기화
       touchStartY = 0;
       touchStartTime = 0;
-      isTouchScrolling = false;
     };
 
     // 키보드 이벤트 핸들러
@@ -1102,16 +1030,6 @@ const HomePage = () => {
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('keydown', handleKeyDown);
       ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
-      
-      // ✨ 클린업: 진행 중인 GSAP 애니메이션 종료
-      gsapAnimationsRef.current.forEach(tween => tween.kill());
-      gsapAnimationsRef.current = [];
-      
-      // ✨ 클린업: 타임아웃 클리어
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = null;
-      }
     };
   }, []);
 
