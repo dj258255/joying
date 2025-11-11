@@ -10,13 +10,15 @@ import FileUploadModal from './FileUploadModal';
  * @param {Object} props
  * @param {Function} props.onSendMessage - 메시지 전송 핸들러
  * @param {Function} props.onSendFile - 파일 전송 핸들러
+ * @param {Function} props.onTyping - 타이핑 이벤트 전송 핸들러
  * @param {boolean} props.disabled - 입력 비활성화 여부
  * @param {Object} props.replyTo - 답장할 메시지
  * @param {Function} props.onCancelReply - 답장 취소 핸들러
  */
 const MessageInput = ({ 
   onSendMessage, 
-  onSendFile, 
+  onSendFile,
+  onTyping,
   disabled = false, 
   replyTo = null,
   onCancelReply 
@@ -24,14 +26,26 @@ const MessageInput = ({
   const [message, setMessage] = useState('');
   const [showFileModal, setShowFileModal] = useState(false);
   const textareaRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const lastTypingTimeRef = useRef(0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (message.trim() && !disabled) {
+      // replyTo가 객체인 경우 id를, 문자열인 경우 그대로 사용
+      let replyToMessageId = null;
+      if (replyTo) {
+        if (typeof replyTo === 'object' && replyTo !== null) {
+          replyToMessageId = replyTo.id || replyTo.replyToMessageId || null;
+        } else if (typeof replyTo === 'string') {
+          replyToMessageId = replyTo;
+        }
+      }
+      
       onSendMessage({
         content: message.trim(),
         type: 'TEXT',
-        replyToMessageId: replyTo?.id || null
+        replyToMessageId: replyToMessageId
       });
       setMessage('');
       onCancelReply?.();
@@ -45,8 +59,13 @@ const MessageInput = ({
     }
   };
 
-  const handleFileSelect = (file) => {
-    onSendFile?.(file);
+  const handleFileSelect = async (file) => {
+    try {
+      await onSendFile?.(file);
+    } catch (error) {
+      console.error('파일 전송 실패:', error);
+      alert(error.message || '파일 전송에 실패했습니다.');
+    }
   };
 
   const adjustTextareaHeight = () => {
@@ -54,6 +73,30 @@ const MessageInput = ({
     if (textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+  };
+
+  // 타이핑 이벤트 전송 (디바운싱: 1초마다 최대 1회)
+  const handleTyping = () => {
+    if (!onTyping || disabled) return;
+    
+    const now = Date.now();
+    // 마지막 타이핑 이벤트로부터 1초가 지났으면 전송
+    if (now - lastTypingTimeRef.current >= 1000) {
+      onTyping();
+      lastTypingTimeRef.current = now;
+    } else {
+      // 아직 1초가 안 지났으면 타이머 설정
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        if (Date.now() - lastTypingTimeRef.current >= 1000) {
+          onTyping();
+          lastTypingTimeRef.current = Date.now();
+        }
+        typingTimeoutRef.current = null;
+      }, 1000 - (now - lastTypingTimeRef.current));
     }
   };
 
@@ -68,10 +111,14 @@ const MessageInput = ({
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                 </svg>
-                {replyTo.sender?.nickname || '알 수 없음'}에게 답장
+                {typeof replyTo === 'object' && replyTo.sender
+                  ? `${replyTo.sender?.nickname || '알 수 없음'}에게 답장`
+                  : '답장'}
               </div>
               <div className="text-sm text-gray-700 bg-white/50 p-2 rounded">
-                {replyTo.content}
+                {typeof replyTo === 'object' 
+                  ? (replyTo.isDeleted ? '삭제된 메시지입니다.' : (replyTo.content || ''))
+                  : ''}
               </div>
             </div>
             <button
@@ -109,6 +156,7 @@ const MessageInput = ({
               onChange={(e) => {
                 setMessage(e.target.value);
                 adjustTextareaHeight();
+                handleTyping();
               }}
               onKeyPress={handleKeyPress}
               placeholder="메시지를 입력하세요..."

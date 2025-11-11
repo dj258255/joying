@@ -88,7 +88,7 @@ const createSocket = () => {
 };
 
 export const websocketApi = {
-  connect(chatRoomId, { onMessage, onError, onConnect, onDisconnect } = {}) {
+  connect(chatRoomId, { onMessage, onTyping, onRead, onError, onConnect, onDisconnect } = {}) {
     const chatRoomIdNum = Number(chatRoomId);
     if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
       throw new Error('유효하지 않은 채팅방 ID입니다.');
@@ -164,6 +164,34 @@ export const websocketApi = {
       const broadcastDestination = `/topic/chat/${chatRoomIdNum}`;
       subscribe(broadcastDestination);
 
+      // 타이핑 이벤트 구독
+      const typingDestination = `/topic/chat/${chatRoomIdNum}/typing`;
+      console.log('[websocketApi] 타이핑 구독 경로:', typingDestination);
+      const typingSub = client.subscribe(typingDestination, (frame) => {
+        try {
+          const payload = JSON.parse(frame.body);
+          console.log('[websocketApi] 타이핑 이벤트 수신:', payload);
+          onTyping?.(payload);
+        } catch (error) {
+          console.error('[websocketApi] 타이핑 이벤트 파싱 오류:', error);
+        }
+      });
+      subscriptions.push(typingSub);
+
+      // 읽음 이벤트 구독
+      const readDestination = `/topic/chat/${chatRoomIdNum}/read`;
+      console.log('[websocketApi] 읽음 구독 경로:', readDestination);
+      const readSub = client.subscribe(readDestination, (frame) => {
+        try {
+          const payload = JSON.parse(frame.body);
+          console.log('[websocketApi] 읽음 이벤트 수신:', payload);
+          onRead?.(payload);
+        } catch (error) {
+          console.error('[websocketApi] 읽음 이벤트 파싱 오류:', error);
+        }
+      });
+      subscriptions.push(readSub);
+
       onConnect?.();
     };
 
@@ -230,6 +258,21 @@ export const websocketApi = {
 
     client.publish({
       destination: `/app/chat/${chatRoomIdNum}/read`,
+      body: JSON.stringify({})
+    });
+  },
+
+  sendTyping(chatRoomId) {
+    const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
+    if (!client || !client.connected) {
+      throw new Error('WebSocket이 연결되지 않았습니다.');
+    }
+    if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+
+    client.publish({
+      destination: `/app/chat/${chatRoomIdNum}/typing`,
       body: JSON.stringify({})
     });
   },

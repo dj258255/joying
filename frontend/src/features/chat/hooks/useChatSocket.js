@@ -10,7 +10,7 @@ export const useChatSocket = () => {
   const [isConnected, setIsConnected] = useState(false);
   const currentRoomRef = useRef(null);
 
-  const connect = useCallback((chatRoomId, { onMessage, onError, onConnect, onDisconnect } = {}) => {
+  const connect = useCallback((chatRoomId, { onMessage, onTyping, onRead, onError, onConnect, onDisconnect } = {}) => {
     try {
       if (currentRoomRef.current && Number(currentRoomRef.current) === Number(chatRoomId)) {
         if (!websocketApi.isConnected()) {
@@ -23,6 +23,8 @@ export const useChatSocket = () => {
 
       websocketApi.connect(chatRoomId, {
         onMessage,
+        onTyping,
+        onRead,
         onError: (error) => {
           onError?.(error);
         },
@@ -59,6 +61,14 @@ export const useChatSocket = () => {
     }
   }, []);
 
+  const sendTyping = useCallback((chatRoomId) => {
+    if (websocketApi.isConnected()) {
+      websocketApi.sendTyping(chatRoomId);
+    } else {
+      console.warn('[useChatSocket] WebSocket이 연결되지 않아 타이핑 이벤트를 전송할 수 없습니다.');
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       disconnect();
@@ -69,6 +79,7 @@ export const useChatSocket = () => {
     connect,
     disconnect,
     sendMessage,
+    sendTyping,
     isConnected
   };
 };

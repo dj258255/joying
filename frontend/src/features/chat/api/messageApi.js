@@ -309,72 +309,218 @@ export const messageApi = {
   },
 
   /**
-   * 메시지 업데이트 (승인/거절 등)
+   * 메시지 삭제
+   * DELETE /api/v1/chat-rooms/{chatRoomId}/messages/{messageId}
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @param {string} messageId - 메시지 ID (MongoDB ObjectId)
+   * @returns {Promise<void>}
+   */
+  deleteMessage: async (chatRoomId, messageId) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+    if (!messageId) {
+      throw new Error('메시지 ID가 필요합니다.');
+    }
+
+    try {
+      console.log('[messageApi] 메시지 삭제 요청:', { chatRoomId: chatRoomIdNum, messageId });
+      
+      const response = await axiosInstance.delete(`/chat-rooms/${chatRoomIdNum}/messages/${messageId}`);
+      
+      console.log('[messageApi] 메시지 삭제 완료:', { status: response.status });
+      
+      // 204 No Content 응답
+      return;
+    } catch (error) {
+      console.error('[messageApi] 메시지 삭제 실패:', {
+        chatRoomId: chatRoomIdNum,
+        messageId,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다.');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('본인의 메시지만 삭제할 수 있습니다.');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('메시지를 찾을 수 없습니다.');
+      }
+
+      throw new Error(error.response?.data?.message || error.message || '메시지 삭제에 실패했습니다.');
+    }
+  },
+
+  /**
+   * 메시지 수정
+   * PATCH /api/v1/chat-rooms/{chatRoomId}/messages/{messageId}
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @param {string} messageId - 메시지 ID (MongoDB ObjectId)
+   * @param {string} content - 수정할 메시지 내용
+   * @returns {Promise<Object>} 수정된 메시지
+   */
+  updateMessage: async (chatRoomId, messageId, content) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+    if (!messageId) {
+      throw new Error('메시지 ID가 필요합니다.');
+    }
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      throw new Error('메시지 내용이 필요합니다.');
+    }
+
+    try {
+      console.log('[messageApi] 메시지 수정 요청:', { chatRoomId: chatRoomIdNum, messageId, content: content.substring(0, 50) });
+      
+      const response = await axiosInstance.patch(
+        `/chat-rooms/${chatRoomIdNum}/messages/${messageId}`,
+        { content: content.trim() }
+      );
+      
+      console.log('[messageApi] 메시지 수정 완료:', { status: response.status });
+
+      // 응답 데이터 추출
+      let updatedMessage = null;
+      if (response.data?.data) {
+        updatedMessage = response.data.data;
+      } else if (response.data) {
+        updatedMessage = response.data;
+      }
+
+      if (!updatedMessage) {
+        throw new Error('수정된 메시지 데이터를 받지 못했습니다.');
+      }
+
+      return updatedMessage;
+    } catch (error) {
+      console.error('[messageApi] 메시지 수정 실패:', {
+        chatRoomId: chatRoomIdNum,
+        messageId,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.message || '메시지 수정에 실패했습니다. (TEXT 타입만 수정 가능)');
+      }
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다.');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('본인의 메시지만 수정할 수 있습니다.');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('메시지를 찾을 수 없습니다.');
+      }
+
+      throw new Error(error.response?.data?.message || error.message || '메시지 수정에 실패했습니다.');
+    }
+  },
+
+  /**
+   * 파일 업로드
+   * POST /api/v1/chat-rooms/{chatRoomId}/upload
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @param {File} file - 업로드할 파일
+   * @returns {Promise<Object>} { fileId, url, fileName, fileSize, fileType }
+   */
+  uploadFile: async (chatRoomId, file) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+    if (!file || !(file instanceof File)) {
+      throw new Error('파일이 필요합니다.');
+    }
+
+    try {
+      console.log('[messageApi] 파일 업로드 요청:', { 
+        chatRoomId: chatRoomIdNum, 
+        fileName: file.name, 
+        fileSize: file.size, 
+        fileType: file.type 
+      });
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axiosInstance.post(
+        `/chat-rooms/${chatRoomIdNum}/upload`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      console.log('[messageApi] 파일 업로드 완료:', { status: response.status });
+
+      // 응답 데이터 추출
+      let fileData = null;
+      if (response.data?.data) {
+        fileData = response.data.data;
+      } else if (response.data) {
+        fileData = response.data;
+      }
+
+      if (!fileData) {
+        throw new Error('파일 업로드 응답 데이터를 받지 못했습니다.');
+      }
+
+      return fileData;
+    } catch (error) {
+      console.error('[messageApi] 파일 업로드 실패:', {
+        chatRoomId: chatRoomIdNum,
+        fileName: file.name,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.message || '파일 업로드에 실패했습니다.');
+      }
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다.');
+      }
+      if (error.response?.status === 403) {
+        throw new Error('채팅방 참여자만 파일을 업로드할 수 있습니다.');
+      }
+      if (error.response?.status === 413) {
+        throw new Error('파일 크기가 너무 큽니다. (이미지: 10MB, 일반 파일: 50MB)');
+      }
+
+      throw new Error(error.response?.data?.message || error.message || '파일 업로드에 실패했습니다.');
+    }
+  },
+
+  /**
+   * 메시지 업데이트 (대여 요청 승인/거절 등 - 기존 호환성 유지)
    * @param {string} chatRoomId - 채팅방 ID
    * @param {string} messageId - 메시지 ID
    * @param {Object} updates - 업데이트할 내용
    * @returns {Promise<Object>}
+   * @deprecated 대여 요청 승인/거절용. 일반 메시지 수정은 updateMessage 사용
    */
-  updateMessage: async (chatRoomId, messageId, updates) => {
-    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');                                                                        
-    const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    
-    if (messageIndex === -1) {
-      throw new Error('메시지를 찾을 수 없습니다.');
-    }
-
-    // 메시지 업데이트
-    messages[messageIndex] = {
-      ...messages[messageIndex],
-      ...updates
-    };
-
-    // 승인/거절 시 추가 메시지 생성 (선택사항)
-    if (updates.status === 'approved' || updates.status === 'rejected') {
-      // 기존 메시지에서 발신자 정보 가져오기 (현재 사용자가 승인/거절하는 경우)
-      const currentSender = updates.sender || {
-        id: DUMMY_USERS.currentUser.id,
-        username: DUMMY_USERS.currentUser.username,
-        profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
-      };
-
-      const responseMessage = {
-        id: `msg_${Date.now()}`,
-        content: updates.status === 'approved' 
-          ? '대여 요청을 승인했습니다.' 
-          : '대여 요청을 거절했습니다.',
-        sender: currentSender,
-        timestamp: new Date().toISOString(),
-        type: updates.status === 'approved' ? 'rental_approved' : 'rental_rejected',
-        replyTo: messageId,
-        isRead: false
-      };
-      messages.push(responseMessage);
-    }
-
-    localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));   
-
-    // 채팅방 목록의 마지막 메시지도 업데이트 (승인/거절 메시지가 추가된 경우)
-    if (updates.status === 'approved' || updates.status === 'rejected') {
-      const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-      const chatRoom = chatRooms.find(room => room.id === chatRoomId);
-      if (chatRoom && messages.length > 0) {
-        const lastMsg = messages[messages.length - 1];
-        chatRoom.lastMessage = {
-          id: lastMsg.id,
-          content: lastMsg.content,
-          sender: lastMsg.sender,
-          timestamp: lastMsg.timestamp,
-          type: lastMsg.type
-        };
-        chatRoom.updatedAt = lastMsg.timestamp;
-        localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-        
-        // 커스텀 이벤트 발생
-        window.dispatchEvent(new Event('chatRoomsUpdated'));
-      }
-    }
-
-    return messages[messageIndex];
+  updateMessageStatus: async (chatRoomId, messageId, updates) => {
+    // 대여 요청 승인/거절 등은 별도 API가 없으므로 기존 로직 유지
+    // 실제로는 WebSocket으로 처리되거나 별도 API가 필요할 수 있음
+    console.warn('[messageApi] updateMessageStatus는 deprecated입니다. updateMessage를 사용하세요.');
+    return messageApi.updateMessage(chatRoomId, messageId, updates.content || '');
   }
 };
