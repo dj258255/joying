@@ -5,8 +5,10 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DUMMY_PRODUCTS, DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
+import { DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useMyProducts } from '@/features/product/hooks/useMyProducts';
+import { useLikedProducts } from '@/features/product/hooks/useLikedProducts';
 import { 
   FiPackage, 
   FiHeart, 
@@ -32,18 +34,34 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 const MyPageMain = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('products');
+  // 데스크톱에서는 'products' 기본 선택, 모바일에서는 null
+  const [activeTab, setActiveTab] = useState(() => {
+    // 초기 렌더링 시 화면 크기에 따라 결정
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024 ? 'products' : null;
+    }
+    return null;
+  });
   const [productTab, setProductTab] = useState('registered');
   const [reviewTab, setReviewTab] = useState('borrowed');
   const [selectedProduct, setSelectedProduct] = useState(null);
   
   const currentUserId = currentUser?.memberId || currentUser?.id;
   
-  // 등록한 상품 (임시 더미 데이터)
-  const userProducts = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId);
+  // 등록한 상품 조회
+  const { data: myProductsData, isLoading: isLoadingMyProducts } = useMyProducts({
+    page: 0,
+    size: 100, // 활동 통계용으로 충분한 수량
+    sort: 'productId'
+  });
+  const userProducts = myProductsData?.content || [];
 
-  // 찜한 상품 (임시 더미 데이터)
-  const likedProducts = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId);
+  // 찜한 상품 조회
+  const { data: likedProductsData, isLoading: isLoadingLikedProducts } = useLikedProducts({
+    page: 0,
+    size: 100 // 활동 통계용으로 충분한 수량
+  });
+  const likedProducts = likedProductsData?.content || [];
   
   // 채팅방 수
   const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
@@ -125,21 +143,23 @@ const MyPageMain = () => {
     return (
     <>
       <SideNavbar />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="flex flex-col lg:flex-row gap-6 px-6 pb-6 pt-6">
+      <div className={`bg-gradient-to-br from-gray-50 to-gray-100 ${activeTab === null ? 'lg:min-h-screen h-screen overflow-hidden' : 'min-h-screen'}`}>
+        <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 px-4 sm:px-6 ${activeTab === null ? 'lg:pb-4 lg:pt-4 lg:sm:pb-6 lg:sm:pt-6 h-full overflow-y-auto' : 'pb-4 sm:pb-6 pt-4 sm:pt-6'}`}>
           {/* 왼쪽 사이드바 - 사용자 프로필 */}
-          <div className="lg:w-80 flex-shrink-0">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6">
+          {/* 모바일: activeTab이 null일 때만 표시, 데스크톱: 항상 표시 */}
+          <div className={`w-full lg:w-80 flex-shrink-0 ${activeTab !== null ? 'hidden lg:block' : 'flex flex-col h-full'}`}>
+            {/* 프로필 카드 */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-4 lg:mb-0">
               {/* 사용자 프로필 섹션 */}
-              <div className="text-center mb-6">
+              <div className="text-center mb-4 sm:mb-6">
                 <ProfileImage 
                   src={currentUser?.profileImageUrl}
                   alt={currentUser?.nickname}
                   size={80}
-                  className="w-20 h-20 mx-auto mb-4"
+                  className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4"
                 />
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">{currentUser?.nickname || '사용자'}</h2>
-                <p className="text-gray-500 text-sm mb-2">{currentUser?.bio || '소개가 없습니다.'}</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{currentUser?.nickname || '사용자'}</h2>
+                <p className="text-gray-500 text-xs sm:text-sm mb-2">{currentUser?.bio || '소개가 없습니다.'}</p>
                 
                 {/* 평점 표시 */}
                 <div className="flex items-center justify-center gap-3 mb-4">
@@ -150,8 +170,8 @@ const MyPageMain = () => {
         </div>
 
                 {/* 사용자 정보 */}
-                <div className="bg-gray-50 rounded-xl mb-4" style={{ padding: '14px' }}>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-gray-50 rounded-xl mb-4 p-3 sm:p-4">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                     <div className="text-center">
                       <div className="text-gray-600 mb-1">이름</div>
                       <div className="font-medium text-gray-900">{currentUser?.name || '-'}</div>
@@ -172,19 +192,19 @@ const MyPageMain = () => {
           </div>
           
                 {/* 통계 */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
                   <button
                     onClick={() => {
                       setActiveTab('products');
                       setProductTab('registered');
                     }}
-                    className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                    className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
                   >
-                    <div className="text-xl font-bold text-gray-900">{userProducts.length}</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{userProducts.length}</div>
                     <div className="text-xs text-gray-600">등록 상품</div>
                   </button>
-                  <div className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                    <div className="text-xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</div>
+                  <div className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</div>
                     <div className="text-xs text-gray-600">리뷰</div>
               </div>
             </div>
@@ -194,46 +214,140 @@ const MyPageMain = () => {
               <div className="space-y-2">
                 <button
                   onClick={() => setActiveTab('products')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'products'
                       ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg'
                       : 'text-gray-600 hover:bg-gray-100/50'
                   }`}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
-                  <span className="font-medium">상품 관리</span>
+                  <span className="text-sm sm:text-base font-medium">상품 관리</span>
                 </button>
                 
                 <button
                   onClick={() => setActiveTab('account')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'account'
                       ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg'
                       : 'text-gray-600 hover:bg-gray-100/50'
                   }`}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
-                  <span className="font-medium">계정 관리</span>
+                  <span className="text-sm sm:text-base font-medium">계정 관리</span>
                 </button>
             </div>
+            
+            {/* 모바일: 활동 통계와 등록 상품 위젯 (activeTab이 null일 때만 표시) */}
+            {activeTab === null && (
+              <div className="lg:hidden space-y-4 flex-1 flex flex-col min-h-0">
+                {/* 활동 통계 위젯 */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 flex-shrink-0">
+                  <h4 className="font-semibold text-gray-900 mb-3 text-sm">활동 통계</h4>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setActiveTab('products');
+                        setProductTab('registered');
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FiPackage className="w-4 h-4 text-gray-700" />
+                        <span className="text-xs font-medium text-gray-700">등록 상품</span>
+                      </div>
+                      <span className="text-base font-bold text-gray-900">{userProducts.length}</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setActiveTab('products');
+                        setProductTab('liked');
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FiHeart className="w-4 h-4 text-gray-700" />
+                        <span className="text-xs font-medium text-gray-700">찜한 상품</span>
+                      </div>
+                      <span className="text-base font-bold text-gray-900">{likedProducts.length}</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => navigate('/chats')}
+                      className="w-full flex items-center justify-between p-2.5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FiMessageCircle className="w-4 h-4 text-gray-700" />
+                        <span className="text-xs font-medium text-gray-700">채팅방</span>
+                      </div>
+                      <span className="text-base font-bold text-gray-900">{chatRoomsCount}</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* 등록 상품 목록 위젯 */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 flex-1 flex flex-col min-h-0">
+                  <h4 className="font-semibold text-gray-900 mb-3 text-sm flex-shrink-0">등록 상품</h4>
+                  <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide min-h-0">
+                    {userProducts.length > 0 ? (
+                      userProducts.map((product, index) => {
+                        const productId = product.id || product.productId;
+                        return (
+                          <button
+                            key={productId}
+                            onClick={() => productId && navigate(`/products/${productId}`)}
+                            className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-gray-100 text-gray-600 transition-all duration-200 flex-shrink-0"
+                          >
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              index === 0 ? 'bg-gray-400' :
+                              index === 1 ? 'bg-gray-500' :
+                              index === 2 ? 'bg-gray-600' :
+                              'bg-gray-300'
+                            }`}></div>
+                            <span className="text-xs font-medium truncate">{product.title}</span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 text-xs">
+                        등록된 상품이 없습니다
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
           {/* 중앙 메인 콘텐츠 영역 */}
-          <div className="flex-1">
+          {/* 모바일: activeTab이 null이면 숨김, 데스크톱: 항상 표시 */}
+          <div className={`flex-1 ${!activeTab ? 'hidden lg:flex' : 'w-full'}`}>
             {/* 상품 관리 섹션 */}
             {activeTab === 'products' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-100px)] flex flex-col">
-                <div className="flex items-center justify-between mb-6 flex-shrink-0">
-                  <h3 className="text-xl font-bold text-gray-900">상품 관리</h3>
-                  <div className="flex bg-gray-100 rounded-xl p-1">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 min-h-[calc(100vh-200px)] lg:h-[calc(100vh-100px)] flex flex-col w-full">
+                {/* 모바일: 뒤로가기 버튼 */}
+                <div className="lg:hidden flex items-center mb-4 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveTab(null)}
+                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="text-sm font-medium">뒤로</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between mb-4 sm:mb-6 flex-shrink-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 lg:block">{activeTab === 'products' ? '상품 관리' : ''}</h3>
+                  <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
                     <button
                       onClick={() => setProductTab('registered')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'registered'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -243,7 +357,7 @@ const MyPageMain = () => {
                     </button>
                     <button
                       onClick={() => setProductTab('liked')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'liked'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -253,7 +367,7 @@ const MyPageMain = () => {
                     </button>
                     <button
                       onClick={() => setProductTab('borrowed')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'borrowed'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -263,7 +377,7 @@ const MyPageMain = () => {
                     </button>
               <button
                       onClick={() => setProductTab('lent')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'lent'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -287,8 +401,20 @@ const MyPageMain = () => {
 
             {/* 계정 관리 섹션 */}
             {activeTab === 'account' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-100px)] flex flex-col">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">계정 관리</h3>
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 min-h-[calc(100vh-200px)] lg:h-[calc(100vh-100px)] flex flex-col w-full">
+                {/* 모바일: 뒤로가기 버튼 */}
+                <div className="lg:hidden flex items-center mb-4 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveTab(null)}
+                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="text-sm font-medium">뒤로</span>
+                  </button>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4 flex-shrink-0">계정 관리</h3>
                 <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-2">
           <button
                     onClick={() => navigate('/mypage/profile')}
@@ -377,11 +503,11 @@ const MyPageMain = () => {
             )}
       </div>
 
-          {/* 오른쪽 위젯 영역 */}
-          <div className="lg:w-80 flex-shrink-0">
+          {/* 오른쪽 위젯 영역 - 모바일에서 숨김 */}
+          <div className="hidden lg:block lg:w-80 flex-shrink-0">
             <div className="space-y-6">
               {/* 활동 통계 위젯 */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6">
                 <h4 className="font-semibold text-gray-900 mb-4">활동 통계</h4>
                 <div className="space-y-3">
                 <button
@@ -426,26 +552,29 @@ const MyPageMain = () => {
             </div>
             
               {/* 등록 상품 목록 위젯 */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-450px)] flex flex-col">
-                <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 h-[calc(100vh-450px)] flex flex-col">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
                 <div className="flex-1 overflow-y-auto scrollbar-hide">
                   <div className="space-y-3 pr-2">
                     {userProducts.length > 0 ? (
-                      userProducts.slice(0, 5).map((product, index) => (
-                        <button
-                          key={product.id}
-                          onClick={() => navigate(`/products/${product.id}`)}
-                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 text-gray-600 transition-all duration-200"
-                        >
-                          <div className={`w-3 h-3 rounded-full ${
-                            index === 0 ? 'bg-gray-400' :
-                            index === 1 ? 'bg-gray-500' :
-                            index === 2 ? 'bg-gray-600' :
-                            'bg-gray-300'
-                          }`}></div>
-                          <span className="text-sm font-medium truncate">{product.title}</span>
-                        </button>
-                      ))
+                      userProducts.slice(0, 5).map((product, index) => {
+                        const productId = product.id || product.productId;
+                        return (
+                          <button
+                            key={productId}
+                            onClick={() => productId && navigate(`/products/${productId}`)}
+                            className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 text-gray-600 transition-all duration-200"
+                          >
+                            <div className={`w-3 h-3 rounded-full ${
+                              index === 0 ? 'bg-gray-400' :
+                              index === 1 ? 'bg-gray-500' :
+                              index === 2 ? 'bg-gray-600' :
+                              'bg-gray-300'
+                            }`}></div>
+                            <span className="text-sm font-medium truncate">{product.title}</span>
+                          </button>
+                        );
+                      })
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
                         <div className="text-center py-4 text-gray-500 text-sm">

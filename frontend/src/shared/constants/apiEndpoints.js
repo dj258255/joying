@@ -37,7 +37,8 @@ export const API_ENDPOINTS = {
   PRODUCT: {
     BASE: '/products',
     BY_ID: (productId) => `/products/${productId}`,
-    LIKE: (productId) => `/products/${productId}/like`,
+    LIKE: (productId) => `/products/${productId}/likes`,
+    MY_LIKES: '/products/mylikes',
     UNAVAILABLE_DATES: (productId) => `/products/${productId}/unavailable-dates`
   },
 
