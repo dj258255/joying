@@ -51,6 +51,21 @@ interface ChatMessageRepository : MongoRepository<ChatMessage, String> {
     ): Long
 
     /**
+     * 채팅방 ID와 생성 시간 이후, 특정 발신자가 아닌 메시지 개수 조회
+     * (안읽은 메시지 개수 - 상대방이 보낸 것만)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param after 이 시간 이후
+     * @param excludeSenderId 제외할 발신자 ID (본인)
+     * @return 상대방이 보낸 안읽은 메시지 개수
+     */
+    fun countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
+        chatRoomId: Long,
+        after: Instant,
+        excludeSenderId: Long
+    ): Long
+
+    /**
      * 채팅방 ID로 메시지 검색
      */
     fun findByChatRoomIdAndIsDeletedFalseAndContentContainingOrderByCreatedAtDesc(

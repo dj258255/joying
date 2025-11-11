@@ -196,13 +196,15 @@ class UnreadCountService(
                 return 0L
             }
 
-            // MongoDB에서 실제 안읽은 개수 계산
-            logger.info("[warmup] MongoDB 카운트 쿼리 시작: chatRoomId={}, lastReadAt={}", chatRoomId, member.lastReadAt)
+            // MongoDB에서 실제 안읽은 개수 계산 (상대방이 보낸 메시지만)
+            logger.info("[warmup] MongoDB 카운트 쿼리 시작: chatRoomId={}, lastReadAt={}, memberId={}", chatRoomId, member.lastReadAt, memberId)
             val actualCount = if (member.lastReadAt != null) {
                 withContext(Dispatchers.IO) {
-                    chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(
+                    // 본인이 보낸 메시지는 제외하고 카운트
+                    chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
                         chatRoomId,
-                        member.lastReadAt!!
+                        member.lastReadAt!!,
+                        memberId  // 본인 ID 제외
                     )
                 }
             } else {
