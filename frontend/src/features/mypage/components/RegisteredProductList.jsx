@@ -196,29 +196,9 @@ const RegisteredProductList = ({
     };
   });
 
-  if (transformedProducts.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="text-center">
-          <div className="text-gray-500 mb-4">
-            {uploadTypeFilter !== 'ALL' 
-              ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
-              : '등록된 상품이 없습니다.'}
-          </div>
-          <button 
-            onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
-            className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
-          >
-            첫 상품 등록하기
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* 필터 및 정렬 컨트롤 */}
+      {/* 필터 및 정렬 컨트롤 - 항상 표시 */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* uploadType 필터 */}
         <div className="flex gap-2">
@@ -226,7 +206,7 @@ const RegisteredProductList = ({
             onClick={() => setUploadTypeFilter('ALL')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               uploadTypeFilter === 'ALL'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -236,7 +216,7 @@ const RegisteredProductList = ({
             onClick={() => setUploadTypeFilter('BORROW')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               uploadTypeFilter === 'BORROW'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -246,7 +226,7 @@ const RegisteredProductList = ({
             onClick={() => setUploadTypeFilter('RENT')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               uploadTypeFilter === 'RENT'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -260,7 +240,7 @@ const RegisteredProductList = ({
           <select
             value={sortBy}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="productId">등록 순</option>
             <option value="rating">평점 순</option>
@@ -273,22 +253,41 @@ const RegisteredProductList = ({
         총 {totalElements}개의 상품 중 {transformedProducts.length}개 표시
       </div>
 
-      {/* 상품 그리드 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {transformedProducts.map((product) => (
-          <ProductCard
-            key={product.id || product.productId}
-            product={product}
-            onClick={() => navigate(`/products/${product.id || product.productId}`)}
-            onEdit={() => handleEditProduct(product)}
-            onDelete={() => handleDeleteProduct(product)}
-            actionType="menu"
-            status={product.isAvailable ? 'available' : 'unavailable'}
-            showStats={false}
-            showDate={false}
-          />
-        ))}
-      </div>
+      {/* 상품이 없을 때 빈 상태 표시 */}
+      {transformedProducts.length === 0 ? (
+        <div className="flex items-center justify-center h-full min-h-[400px]">
+          <div className="text-center">
+            <div className="text-gray-500 mb-4">
+              {uploadTypeFilter !== 'ALL' 
+                ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
+                : '등록된 상품이 없습니다.'}
+            </div>
+            <button 
+              onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
+              className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
+            >
+              첫 상품 등록하기
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* 상품 그리드 */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {transformedProducts.map((product) => (
+            <ProductCard
+              key={product.id || product.productId}
+              product={product}
+              onClick={() => navigate(`/products/${product.id || product.productId}`)}
+              onEdit={() => handleEditProduct(product)}
+              onDelete={() => handleDeleteProduct(product)}
+              actionType="menu"
+              status={product.isAvailable ? 'available' : 'unavailable'}
+              showStats={false}
+              showDate={false}
+            />
+          ))}
+        </div>
+      )}
       
       {/* 삭제 확인 모달 - 화면 중앙 고정 */}
       {deleteConfirmModal && (
@@ -391,7 +390,7 @@ const RegisteredProductList = ({
                   onClick={() => handlePageChange(pageNum)}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     currentPage === pageNum
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-gray-900 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >

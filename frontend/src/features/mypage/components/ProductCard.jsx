@@ -156,10 +156,12 @@ const ProductCard = ({
           <div className="glass-product-action-overlay" ref={menuRef}>
             <button
               onClick={handleMenuClick}
-              className="glass-action-button-new glass-action-menu"
+              className="glass-action-button-new text-white"
               title="메뉴"
             >
-              {getActionIcon('menu')}
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
             </button>
             
             {/* 드롭다운 메뉴 */}
@@ -207,16 +209,18 @@ const ProductCard = ({
         
         {/* 레거시: 단일 액션 버튼 (메뉴 모드가 아닐 때) */}
         {onAction && actionType !== 'menu' && !onEdit && !onDelete && (
-          <div className="glass-product-action-overlay">
+          <div className="absolute top-2 right-2 z-10 opacity-100">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onAction();
               }}
-              className={`glass-action-button-new glass-action-${actionType}`}
+              className={`p-3 bg-transparent rounded-lg transition-all duration-200 hover:scale-110 flex items-center justify-center text-white`}
               title={actionType === 'edit' ? '수정' : actionType === 'delete' ? '삭제' : actionType === 'unlike' ? '찜하기 취소' : '상세보기'}
             >
-              {getActionIcon(actionType)}
+              <div className="w-7 h-7">
+                {getActionIcon(actionType)}
+              </div>
             </button>
           </div>
         )}

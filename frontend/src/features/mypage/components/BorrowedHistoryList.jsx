@@ -185,7 +185,11 @@ const BorrowedHistoryList = ({
                      </span>
                    </div>
                    <ProductCard
-                     product={rental.product}
+                     product={{
+                       ...rental.product,
+                       thumbnailUrl: rental.product?.thumbnailUrl || rental.product?.image || (rental.product?.files && rental.product.files.length > 0 ? rental.product.files[0].url : null),
+                       rentalFee: rental.product?.rentalFee || rental.product?.price
+                     }}
                      onClick={() => navigate(`/mypage/borrowed/${rental.id}`)}
                      actionType="view"
                      status={rental.status === 'completed' ? 'completed' : 
