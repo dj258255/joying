@@ -51,22 +51,34 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   
   // 마지막 메시지 시간 (백엔드 형식 우선)
   const lastMessageTime = lastMessageAt || updatedAt;
+  
+  // 읽지 않은 메시지 수 (숫자로 변환하여 안전하게 처리)
+  const unreadCountNum = Number(unreadCount) || 0;
 
   const formatTime = (dateString) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
     const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
+    const diffInMs = now - date;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
-    if (diffInHours < 1) {
+    // 1분 미만: "방금 전" (1분 전부터 시작하므로 0분은 방금 전)
+    if (diffInMinutes < 1) {
       return '방금 전';
-    } else if (diffInHours < 24) {
-      return date.toLocaleTimeString('ko-KR', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    } else if (diffInHours < 48) {
-      return '어제';
-    } else {
+    }
+    // 1분 ~ 59분: "N분 전"
+    else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`;
+    }
+    // 1시간 이상 ~ 23시간: "N시간 전"
+    else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`;
+    }
+    // 하루 이상: 날짜로 표시 (MM/DD 형식)
+    else {
       return date.toLocaleDateString('ko-KR', { 
         month: '2-digit', 
         day: '2-digit' 
@@ -190,10 +202,10 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
               <span className="text-xs text-gray-500">
                 {lastMessageTime ? formatTime(lastMessageTime) : ''}
               </span>
-              {/* 읽지 않은 메시지 수 */}
-              {unreadCount > 0 && (
+              {/* 읽지 않은 메시지 수 - unreadCount가 있을 때만 표시 */}
+              {unreadCountNum > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-2 rounded-full text-xs font-medium bg-red-500 text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {unreadCountNum > 99 ? '99+' : unreadCountNum}
                 </span>
               )}
             </div>
