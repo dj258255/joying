@@ -27,7 +27,42 @@ export const searchApi = {
    * @returns {Promise<{items: Array, total: number}>}
    */
   search: async (params) => {
-    return await axiosInstance.get('/search', { params });
+    console.log('[SearchAPI] 검색 시작:', { endpoint: '/search', params });
+    try {
+      const response = await axiosInstance.get('/search', { params });
+      console.log('[SearchAPI] 검색 성공:', response.data);
+      
+      // 각 상품에 liked 필드가 있는지 확인
+      const searchResponses = response.data?.data?.searchResponses || response.data?.searchResponses || [];
+      if (searchResponses.length > 0) {
+        console.log('[SearchAPI] 상품 목록 (liked 필드 포함):', searchResponses.map(p => ({ 
+          productId: p.productId || p.id, 
+          liked: p.liked,
+          isLiked: p.isLiked,
+          hasLikedField: 'liked' in p || 'isLiked' in p
+        })));
+        
+        // liked 필드가 없는 상품이 있는지 확인
+        const productsWithoutLiked = searchResponses.filter(p => !('liked' in p) && !('isLiked' in p));
+        if (productsWithoutLiked.length > 0) {
+          console.warn('[SearchAPI] liked 필드가 없는 상품:', productsWithoutLiked.map(p => ({
+            productId: p.productId || p.id,
+            title: p.title
+          })));
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('[SearchAPI] 검색 실패:', error);
+      console.error('[SearchAPI] 에러 상세:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        url: error?.config?.url
+      });
+      throw error;
+    }
   },
 
   /**

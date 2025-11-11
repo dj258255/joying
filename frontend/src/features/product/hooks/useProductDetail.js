@@ -5,10 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getProductDetail } from '../api/productDetailApi';
-
-export const QUERY_KEYS = {
-  PRODUCT_DETAIL: 'PRODUCT_DETAIL',
-};
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 /**
  * @param {number|string} productId
