@@ -27,12 +27,150 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const SEARCH_PAGE_SIZE = 20;
 
+// 커스텀 날짜 선택 컴포넌트
+const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const days = [];
+    
+    // 이전 달의 마지막 날들
+    const prevMonth = new Date(year, month, 0);
+    const prevMonthDays = prevMonth.getDate();
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      days.push({
+        date: new Date(year, month - 1, prevMonthDays - i),
+        isCurrentMonth: false
+      });
+    }
+    
+    // 현재 달의 날들
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({
+        date: new Date(year, month, i),
+        isCurrentMonth: true
+      });
+    }
+    
+    // 다음 달의 첫 날들 (42개 셀 채우기)
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({
+        date: new Date(year, month + 1, i),
+        isCurrentMonth: false
+      });
+    }
+    
+    return days;
+  };
+
+  const days = getDaysInMonth(currentMonth);
+  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+  const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const isToday = (date) => {
+    return date.toDateString() === today.toDateString();
+  };
+
+  const isSelected = (date) => {
+    if (!selectedDate) return false;
+    return date.toDateString() === new Date(selectedDate).toDateString();
+  };
+
+  const handleDateClick = (date) => {
+    onSelectDate(date);
+  };
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  return (
+    <div className="w-full">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={prevMonth}
+          className="p-1 rounded hover:bg-gray-100 transition-colors"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="text-sm font-semibold text-gray-900">
+          {currentMonth.getFullYear()}년 {monthNames[currentMonth.getMonth()]}
+        </div>
+        <button
+          onClick={nextMonth}
+          className="p-1 rounded hover:bg-gray-100 transition-colors"
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* 요일 헤더 */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {weekDays.map((day, index) => (
+          <div
+            key={day}
+            className={`text-center text-xs font-medium py-1 ${
+              index === 0 ? 'text-red-500' : index === 6 ? 'text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* 날짜 그리드 */}
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((day, index) => {
+          const dateStr = day.date.toDateString();
+          const isTodayDate = isToday(day.date);
+          const isSelectedDate = isSelected(day.date);
+          
+          return (
+            <button
+              key={index}
+              onClick={() => handleDateClick(day.date)}
+              className={`
+                aspect-square text-sm rounded transition-all
+                ${!day.isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
+                ${isTodayDate ? 'bg-gray-100 font-bold ring-2 ring-gray-900' : ''}
+                ${isSelectedDate ? 'bg-gray-900 text-white font-bold' : ''}
+                ${!isTodayDate && !isSelectedDate && day.isCurrentMonth ? 'hover:bg-gray-100' : ''}
+              `}
+            >
+              {day.date.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const ChatRoomPage = () => {
   const { chatRoomId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId } = useChatContext();
+  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus } = useChatContext();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -51,6 +189,8 @@ const ChatRoomPage = () => {
   const [searchPage, setSearchPage] = useState(0);
   const [hasMoreSearch, setHasMoreSearch] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
   
   // 상태 관리
   const [rentalRequestMessage, setRentalRequestMessage] = useState(null);
@@ -99,6 +239,31 @@ const ChatRoomPage = () => {
       }
     }
   }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom, navigate]);
+
+  // 주기적으로 채팅방 정보 갱신 (온라인 상태 실시간 반영)
+  useEffect(() => {
+    if (!currentChatRoom?.chatRoomId || !updateOpponentOnlineStatus) return;
+
+    const updateOnlineStatus = async () => {
+      try {
+        const chatRoom = await chatApi.getChatRoomDetail(currentChatRoom.chatRoomId, { include: 'member' });
+        if (chatRoom?.member) {
+          const { isOnline, lastSeenAt } = chatRoom.member;
+          updateOpponentOnlineStatus(isOnline, lastSeenAt);
+        }
+      } catch (error) {
+        console.error('온라인 상태 갱신 실패:', error);
+      }
+    };
+
+    // 즉시 한 번 실행
+    updateOnlineStatus();
+
+    // 30초마다 갱신
+    const interval = setInterval(updateOnlineStatus, 30000);
+
+    return () => clearInterval(interval);
+  }, [currentChatRoom?.chatRoomId, updateOpponentOnlineStatus]);
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
@@ -151,16 +316,7 @@ const ChatRoomPage = () => {
     };
   }, [scrollToBottom]);
 
-  // 타이핑 중 표시가 나타날 때 하단으로 스크롤
-  useEffect(() => {
-    if (typingMemberId) {
-      // 타이핑 표시가 나타나면 약간의 지연 후 스크롤 (DOM 렌더링 대기)
-      const timer = setTimeout(() => {
-        scrollToBottom('smooth');
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [typingMemberId, scrollToBottom]);
+  // 타이핑 중 표시는 표시만 하고 자동 스크롤하지 않음
 
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
@@ -588,6 +744,13 @@ const ChatRoomPage = () => {
   }, [isSearchOpen]);
 
   const openSearch = useCallback(() => {
+    // 채팅방 상단으로 이동
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
     setIsSearchOpen(true);
     setSearchKeyword('');
     setSearchResults([]);
@@ -678,7 +841,7 @@ const ChatRoomPage = () => {
           setIsNearBottom(false);
           setIsSearchOpen(false);
           // 하이라이트 효과를 위해 클래스 추가
-          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+          element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
           
           // 스크롤 컨테이너 내에서 요소의 위치 계산
           // offsetTop은 스크롤 컨테이너 기준 상대 위치
@@ -697,7 +860,7 @@ const ChatRoomPage = () => {
           
           // 3초 후 하이라이트 제거
           setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+            element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
           }, 3000);
           return true;
         }
@@ -903,7 +1066,7 @@ const ChatRoomPage = () => {
             setIsNearBottom(false);
             setIsSearchOpen(false);
             // 하이라이트 효과를 위해 클래스 추가
-            element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+            element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
             
             // 스크롤 컨테이너 내에서 요소의 위치 계산
             // offsetTop은 스크롤 컨테이너 기준 상대 위치
@@ -923,7 +1086,7 @@ const ChatRoomPage = () => {
             
             // 3초 후 하이라이트 제거
             setTimeout(() => {
-              element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+              element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
             }, 3000);
             return true;
           }
@@ -956,7 +1119,7 @@ const ChatRoomPage = () => {
           if (element) {
             setIsNearBottom(false);
             setIsSearchOpen(false);
-            element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+            element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
             
             const elementTop = element.offsetTop;
             const elementHeight = element.offsetHeight;
@@ -969,7 +1132,7 @@ const ChatRoomPage = () => {
             });
             
             setTimeout(() => {
-              element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2', 'rounded-lg');
+              element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
             }, 3000);
             return true;
           }
@@ -995,6 +1158,31 @@ const ChatRoomPage = () => {
     }
   }, [currentChatRoom, messageApi, setCurrentChatRoom, setIsNearBottom, setIsSearchOpen, setSearchError]);
 
+  // 날짜로 검색 (해당 날짜의 첫 메시지로 이동)
+  const handleDateSearch = useCallback((date) => {
+    if (!date || !currentChatRoom) return;
+    
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    // 해당 날짜의 첫 메시지 찾기
+    const messagesOnDate = messagesRef.current.filter((msg) => {
+      if (!msg.timestamp) return false;
+      const msgDate = new Date(msg.timestamp);
+      return msgDate >= targetDate && msgDate < nextDay;
+    });
+    
+    if (messagesOnDate.length > 0) {
+      // 가장 첫 메시지로 이동
+      const firstMessage = messagesOnDate[0];
+      ensureMessageVisible(firstMessage);
+    } else {
+      setSearchError('해당 날짜에 메시지가 없습니다.');
+    }
+  }, [currentChatRoom, ensureMessageVisible]);
+
   const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
 
   const handleResultClick = useCallback(async (message) => {
@@ -1009,6 +1197,19 @@ const ChatRoomPage = () => {
       setIsJumpingToMessage(false);
     }
   }, [ensureMessageVisible, setIsJumpingToMessage, setIsSearchOpen, setSearchError]);
+
+  // 하단이 아닐 때 상대방의 마지막 메시지 찾기 (Hook은 early return 이전에 호출되어야 함)
+  const lastOpponentMessage = useMemo(() => {
+    if (isNearBottom || !currentChatRoom) return null;
+    const currentUserId = user?.id || user?.memberId;
+    const opponentMessages = sortedMessages
+      .filter((msg) => {
+        const msgSenderId = msg.senderId || msg.sender?.id;
+        return msgSenderId && Number(msgSenderId) !== Number(currentUserId);
+      })
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return opponentMessages[0] || null;
+  }, [sortedMessages, isNearBottom, user, currentChatRoom]);
 
   if (isLoading) {
     return (
@@ -1037,7 +1238,7 @@ const ChatRoomPage = () => {
               <div className="text-red-500 mb-4">채팅방을 불러올 수 없습니다.</div>
               <button
                 onClick={() => navigate('/chats')}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
               >
                 채팅 목록으로 돌아가기
               </button>
@@ -1062,7 +1263,33 @@ const ChatRoomPage = () => {
     || currentChatRoom?.name
     || '채팅방';
 
-  const opponentOnline = typeof isConnected === 'boolean' ? isConnected : false;
+  // 상대방 온라인 상태 확인 (백엔드에서 제공하는 isOnline 사용)
+  const opponentOnline = currentChatRoom?.otherMember?.isOnline ?? false;
+  const lastSeenAt = currentChatRoom?.otherMember?.lastSeenAt;
+
+  // 마지막 접속 시간 포맷팅 (1분 전 ~ 59분 전, 1시간 전 ~ 23시간 전, 그 이상은 시간 단위)
+  const formatLastSeen = (dateString) => {
+    if (!dateString) return '오프라인';
+    
+    const lastSeen = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - lastSeen;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    
+    if (diffInMinutes < 1) {
+      return '방금 전';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}분 전`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}시간 전`;
+    } else {
+      return lastSeen.toLocaleDateString('ko-KR', { 
+        month: '2-digit', 
+        day: '2-digit' 
+      });
+    }
+  };
 
   return (
     <>
@@ -1099,7 +1326,7 @@ const ChatRoomPage = () => {
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${opponentOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                   <span className="text-sm text-gray-500">
-                    {opponentOnline ? '온라인' : (currentChatRoom?.otherMember?.lastSeenAt ? `마지막 접속: ${new Date(currentChatRoom.otherMember.lastSeenAt).toLocaleString('ko-KR')}` : '오프라인')}
+                    {opponentOnline ? '온라인' : (lastSeenAt ? formatLastSeen(lastSeenAt) : '오프라인')}
                   </span>
                 </div>
               </div>
@@ -1110,7 +1337,7 @@ const ChatRoomPage = () => {
             {productId && (
               <button
                 onClick={() => setShowRentalCreateModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
               >
                 거래 시작하기
               </button>
@@ -1336,6 +1563,13 @@ const ChatRoomPage = () => {
 
       {/* 메시지 입력 */}
       <MessageInput
+        previewMessage={lastOpponentMessage}
+        onPreviewClick={() => {
+          if (lastOpponentMessage) {
+            scrollToBottom('smooth');
+            setIsNearBottom(true);
+          }
+        }}
         onSendMessage={handleSendMessage}
         onSendFile={handleSendFile}
         onTyping={sendTyping}
@@ -1399,36 +1633,67 @@ const ChatRoomPage = () => {
             </button>
 
             <div className="flex items-center gap-2 mb-4">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <h2 className="text-lg font-semibold text-gray-900">메시지 검색</h2>
             </div>
 
-            <form onSubmit={handleSearchSubmit} className="flex gap-2 mb-4">
-              <div className="flex-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+            <div className="mb-4 space-y-2">
+              <form onSubmit={handleSearchSubmit} className="flex gap-2">
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    ref={searchInputRef}
+                    value={searchKeyword}
+                    onChange={(event) => setSearchKeyword(event.target.value)}
+                    type="text"
+                    placeholder="검색어를 입력하세요"
+                    className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent text-gray-900 placeholder-gray-500"
+                  />
                 </div>
-                <input
-                  ref={searchInputRef}
-                  value={searchKeyword}
-                  onChange={(event) => setSearchKeyword(event.target.value)}
-                  type="text"
-                  placeholder="검색어를 입력하세요"
-                  className="w-full pl-10 pr-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <button
+                  type="submit"
+                  disabled={isSearching || !searchKeyword.trim()}
+                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSearching ? '검색 중...' : '검색'}
+                </button>
+              </form>
+              
+              {/* 날짜 선택 버튼 */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {selectedDate ? new Date(selectedDate).toLocaleDateString('ko-KR') : '날짜로 검색'}
+                </button>
+                
+                {/* 캘린더 */}
+                {showDatePicker && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
+                    <DatePicker
+                      selectedDate={selectedDate}
+                      onSelectDate={(date) => {
+                        setSelectedDate(date);
+                        setShowDatePicker(false);
+                        handleDateSearch(date);
+                      }}
+                      onClose={() => setShowDatePicker(false)}
+                    />
+                  </div>
+                )}
               </div>
-              <button
-                type="submit"
-                disabled={isSearching || !searchKeyword.trim()}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSearching ? '검색 중...' : '검색'}
-              </button>
-            </form>
+            </div>
 
             {searchError && (
               <div className="mb-3 text-sm text-red-500">{searchError}</div>
@@ -1475,7 +1740,7 @@ const ChatRoomPage = () => {
                 type="button"
                 onClick={handleSearchMore}
                 disabled={isSearching}
-                className="mt-4 w-full py-2 text-sm font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-4 w-full py-2 text-sm font-medium text-gray-900 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 더 보기
               </button>

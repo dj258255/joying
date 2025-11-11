@@ -150,23 +150,49 @@ const chatReducer = (state, action) => {
         lastReadAt: action.payload
       };
     case 'MARK_MESSAGES_AS_READ':
-      // readAt 이전의 내가 보낸 메시지를 읽음 처리하고 일시적으로 읽음 표시 표시
+      // 마지막 메시지만 읽음 표시 표시 (생겼다 사라지는 형태)
       const { readAt, currentUserId } = action.payload;
       if (!readAt) return state;
       const readTimestamp = new Date(readAt).getTime();
+      
+      // 내가 보낸 메시지 중 가장 마지막 메시지 찾기
+      const ownMessages = state.messages
+        .filter((msg) => {
+          const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
+          const msgTimestamp = new Date(msg.timestamp || 0).getTime();
+          return isOwnMessage && msgTimestamp <= readTimestamp;
+        })
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      const lastOwnMessage = ownMessages[0];
+      
       const updatedMessages = state.messages.map((msg) => {
-        // 내가 보낸 메시지이고, readAt 이전의 메시지인 경우 읽음 처리
+        // 마지막 메시지만 읽음 표시 표시
+        if (lastOwnMessage && msg.id === lastOwnMessage.id) {
+          return { ...msg, isRead: true, showReadIndicator: true };
+        }
+        // 나머지 메시지는 읽음 상태만 업데이트 (표시는 숨김)
         const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
         const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-        if (isOwnMessage && msgTimestamp <= readTimestamp && !msg.isRead) {
-          return { ...msg, isRead: true, showReadIndicator: true };
+        if (isOwnMessage && msgTimestamp <= readTimestamp) {
+          return { ...msg, isRead: true, showReadIndicator: false };
         }
         return msg;
       });
+      
       return {
         ...state,
         messages: updatedMessages,
         lastReadAt: readAt
+      };
+    case 'SHOW_READ_INDICATOR_FOR_MESSAGE':
+      // 특정 메시지의 읽음 표시 표시
+      const { messageId: showMessageId } = action.payload;
+      return {
+        ...state,
+        messages: state.messages.map((msg) => 
+          msg.id === showMessageId ? { ...msg, showReadIndicator: true, isRead: true } : msg
+        )
       };
     case 'HIDE_READ_INDICATOR':
       // 특정 메시지의 읽음 표시 숨기기 (일시적 표시만 숨김, isRead는 유지)
@@ -184,6 +210,21 @@ const chatReducer = (state, action) => {
         messages: state.messages.map((msg) => 
           msg.showReadIndicator ? { ...msg, showReadIndicator: false } : msg
         )
+      };
+    case 'UPDATE_OPPONENT_ONLINE_STATUS':
+      // 상대방 온라인 상태 업데이트
+      const { isOnline, lastSeenAt } = action.payload;
+      if (!state.currentChatRoom?.otherMember) return state;
+      return {
+        ...state,
+        currentChatRoom: {
+          ...state.currentChatRoom,
+          otherMember: {
+            ...state.currentChatRoom.otherMember,
+            isOnline: isOnline ?? state.currentChatRoom.otherMember.isOnline,
+            lastSeenAt: lastSeenAt ?? state.currentChatRoom.otherMember.lastSeenAt
+          }
+        }
       };
     default:
       return state;
@@ -213,6 +254,7 @@ export const ChatProvider = ({ children }) => {
   const isFetchingPastRef = useRef(false);
   const typingTimeoutRef = useRef(null);
   const readIndicatorTimeoutsRef = useRef(new Map()); // 메시지별 읽음 표시 타이머
+  const heartbeatIntervalRef = useRef(null); // Heartbeat 주기 전송 타이머
   const queryClient = useQueryClient();
   const { connect, disconnect, sendMessage: sendWebSocketMessage, sendTyping: sendTypingEvent, isConnected: socketConnected } = useChatSocket();
   const { user } = useAuth();
@@ -517,6 +559,14 @@ export const ChatProvider = ({ children }) => {
           const snapshot = stateRef.current;
           const isOwnMessage = Number(normalized.senderId) === Number(currentUserId);
           
+          // 상대방이 메시지를 보냈으면 온라인 상태로 업데이트
+          if (!isOwnMessage) {
+            dispatch({ 
+              type: 'UPDATE_OPPONENT_ONLINE_STATUS', 
+              payload: { isOnline: true, lastSeenAt: null } 
+            });
+          }
+          
           if (isOwnMessage) {
             // 임시 메시지(temp_로 시작하거나 status가 'sending'/'pending'인 메시지) 찾기
             const tempMessage = snapshot.messages.find(
@@ -569,6 +619,19 @@ export const ChatProvider = ({ children }) => {
         connectionResolveRef.current = () => {};
         connectionRejectRef.current = () => {};
         resolve?.();
+        
+        // Heartbeat 시작 (30초마다 전송)
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+        }
+        
+        // 초기 Heartbeat 즉시 전송
+        websocketApi.sendHeartbeat();
+        
+        // 30초마다 Heartbeat 전송
+        heartbeatIntervalRef.current = setInterval(() => {
+          websocketApi.sendHeartbeat();
+        }, 30000);
       },
       onDisconnect: () => {
         console.log('[ChatContext] WebSocket 연결 종료:', roomId);
@@ -584,6 +647,11 @@ export const ChatProvider = ({ children }) => {
           clearTimeout(timeout);
         });
         readIndicatorTimeoutsRef.current.clear();
+        // Heartbeat interval 정리
+        if (heartbeatIntervalRef.current) {
+          clearInterval(heartbeatIntervalRef.current);
+          heartbeatIntervalRef.current = null;
+        }
         connectionResolveRef.current = () => {};
         connectionRejectRef.current = () => {};
         connectionPromiseRef.current = Promise.resolve();
@@ -592,6 +660,14 @@ export const ChatProvider = ({ children }) => {
         // 본인의 타이핑 알림은 무시
         if (typingEvent.memberId && Number(typingEvent.memberId) === Number(currentUserId)) {
           return;
+        }
+        
+        // 상대방이 타이핑 중이면 온라인 상태로 업데이트
+        if (typingEvent.isTyping) {
+          dispatch({ 
+            type: 'UPDATE_OPPONENT_ONLINE_STATUS', 
+            payload: { isOnline: true, lastSeenAt: null } 
+          });
         }
         
         // 타이핑 상태 설정
@@ -630,42 +706,32 @@ export const ChatProvider = ({ children }) => {
             ? new Date(readEvent.readAt).toISOString()
             : readEvent.readAt;
           
+          // 마지막 메시지만 읽음 표시 표시
           dispatch({ 
             type: 'MARK_MESSAGES_AS_READ', 
             payload: { readAt, currentUserId } 
           });
           
-          // 읽음 표시를 일시적으로 표시하고 3초 후 숨기기
-          // dispatch 후 업데이트된 메시지를 찾기 위해 약간의 지연
+          // 3초 후 읽음 표시 숨기기
           setTimeout(() => {
             const snapshot = stateRef.current;
-            const readTimestamp = new Date(readAt).getTime();
-            const readMessages = snapshot.messages.filter((msg) => {
-              const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
-              const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-              return isOwnMessage && msgTimestamp <= readTimestamp && msg.showReadIndicator;
-            });
+            const ownMessages = snapshot.messages
+              .filter((msg) => {
+                const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
+                const msgTimestamp = new Date(msg.timestamp || 0).getTime();
+                const readTimestamp = new Date(readAt).getTime();
+                return isOwnMessage && msgTimestamp <= readTimestamp;
+              })
+              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            // 각 메시지에 대해 타이머 설정
-            readMessages.forEach((msg) => {
-              // 기존 타이머가 있으면 취소
-              const existingTimeout = readIndicatorTimeoutsRef.current.get(msg.id);
-              if (existingTimeout) {
-                clearTimeout(existingTimeout);
-              }
-              
-              // 3초 후 읽음 표시 숨기기
-              const timeout = setTimeout(() => {
-                dispatch({ 
-                  type: 'HIDE_READ_INDICATOR', 
-                  payload: { messageId: msg.id } 
-                });
-                readIndicatorTimeoutsRef.current.delete(msg.id);
-              }, 3000);
-              
-              readIndicatorTimeoutsRef.current.set(msg.id, timeout);
-            });
-          }, 100);
+            const lastOwnMessage = ownMessages[0];
+            if (lastOwnMessage && lastOwnMessage.showReadIndicator) {
+              dispatch({ 
+                type: 'HIDE_READ_INDICATOR', 
+                payload: { messageId: lastOwnMessage.id } 
+              });
+            }
+          }, 3000);
         }
       }
     });
@@ -779,28 +845,25 @@ export const ChatProvider = ({ children }) => {
 
       initializeConnection(roomId, normalizedChatRoom);
 
-      // 채팅방 진입 시 읽음 처리
-      try {
-        websocketApi.sendReadReceipt(roomId);
-        // 채팅 목록의 unreadCount를 0으로 업데이트
-        // 마지막 메시지가 있으면 updateChatRoomList를 사용하여 일관성 유지
-        const lastMessage = normalizedMessages[normalizedMessages.length - 1];
-        if (lastMessage) {
-          // 읽음 처리로 표시 (shouldMarkAsRead = true)
-          updateChatRoomList(lastMessage, true);
-        } else {
-          // 메시지가 없어도 unreadCount를 0으로 설정
-          queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
-            if (!oldData || !oldData.chatRooms) return oldData;
-            
-            const chatRooms = oldData.chatRooms.map((room) => {
-              if ((room.chatRoomId || room.id) === roomId) {
-                return { ...room, unreadCount: 0 };
-              }
-              return room;
-            });
-            
-            const totalUnreadCount = chatRooms.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
+      // 채팅 목록의 unreadCount를 0으로 업데이트
+      // 마지막 메시지가 있으면 updateChatRoomList를 사용하여 일관성 유지
+      const lastMessage = normalizedMessages[normalizedMessages.length - 1];
+      if (lastMessage) {
+        // 읽음 처리로 표시 (shouldMarkAsRead = true)
+        updateChatRoomList(lastMessage, true);
+      } else {
+        // 메시지가 없어도 unreadCount를 0으로 설정
+        queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
+          if (!oldData || !oldData.chatRooms) return oldData;
+          
+          const chatRooms = oldData.chatRooms.map((room) => {
+            if ((room.chatRoomId || room.id) === roomId) {
+              return { ...room, unreadCount: 0 };
+            }
+            return room;
+          });
+          
+          const totalUnreadCount = chatRooms.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
             
             return {
               ...oldData,
@@ -809,9 +872,23 @@ export const ChatProvider = ({ children }) => {
             };
           });
         }
-      } catch (readError) {
-        console.warn('[ChatContext] 읽음 처리 실패:', readError);
-      }
+      
+      // WebSocket 연결이 완료된 후 읽음 처리
+      connectionPromiseRef.current
+        .then(() => {
+          // 연결이 완료되면 읽음 처리
+          if (socketConnected || websocketApi.isConnected?.()) {
+            try {
+              websocketApi.sendReadReceipt(roomId);
+            } catch (readError) {
+              console.warn('[ChatContext] 읽음 처리 실패:', readError);
+            }
+          }
+        })
+        .catch((error) => {
+          // 연결 실패 시 조용히 처리 (오류 로그만 남기지 않음)
+          // WebSocket 연결이 실패했을 때는 읽음 처리를 시도하지 않음
+        });
     } catch (error) {
       console.error('채팅방 로드 실패:', error);
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });
@@ -878,11 +955,41 @@ export const ChatProvider = ({ children }) => {
       sendWebSocketMessage(roomId, payload);
       console.log('[ChatContext] 메시지 전송 요청:', payload);
 
-      try {
-        websocketApi.sendReadReceipt(roomId);
-      } catch (readError) {
-        console.warn('[ChatContext] 읽음 처리 실패:', readError);
+      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시를 즉시 표시했다가 사라지게
+      const snapshot = stateRef.current;
+      const isOpponentInRoom = snapshot.typingMemberId != null;
+      
+      if (isOpponentInRoom) {
+        // 즉시 읽음 표시 표시
+        dispatch({ 
+          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE', 
+          payload: { messageId: optimisticMessage.id } 
+        });
+        
+        // 2초 후 읽음 표시 숨기기
+        setTimeout(() => {
+          dispatch({ 
+            type: 'HIDE_READ_INDICATOR', 
+            payload: { messageId: optimisticMessage.id } 
+          });
+        }, 2000);
       }
+
+      // WebSocket 연결이 완료된 후 읽음 처리
+      connectionPromiseRef.current
+        .then(() => {
+          if (socketConnected || websocketApi.isConnected?.()) {
+            try {
+              websocketApi.sendReadReceipt(roomId);
+            } catch (readError) {
+              console.warn('[ChatContext] 읽음 처리 실패:', readError);
+            }
+          }
+        })
+        .catch((error) => {
+          // 연결 실패 시 조용히 처리 (오류 로그만 남기지 않음)
+          // WebSocket 연결이 실패했을 때는 읽음 처리를 시도하지 않음
+        });
 
       // WebSocket을 통해 서버에서 메시지가 자동으로 수신됨
       // 메시지 전송 후 자동 스크롤을 위해 약간의 지연 후 스크롤
@@ -1081,16 +1188,54 @@ export const ChatProvider = ({ children }) => {
     if (!roomId) {
       return;
     }
-    try {
-      websocketApi.sendReadReceipt(roomId);
-    } catch (error) {
-      console.warn('[ChatContext] 읽음 처리 전송 실패:', error);
-    }
+    // WebSocket 연결이 완료된 후 읽음 처리
+    connectionPromiseRef.current
+      .then(() => {
+        // 연결 상태 확인 후 읽음 처리
+        const isConnected = snapshot.isConnected || socketConnected || websocketApi.isConnected?.();
+        if (isConnected) {
+          try {
+            websocketApi.sendReadReceipt(roomId);
+          } catch (error) {
+            console.warn('[ChatContext] 읽음 처리 전송 실패:', error);
+          }
+        }
+      })
+      .catch((error) => {
+        // 연결 실패 시 조용히 처리 (오류 로그만 남기지 않음)
+        // WebSocket 연결이 실패했을 때는 읽음 처리를 시도하지 않음
+      });
+  }, [socketConnected]);
+
+  // 브라우저 포그라운드 복귀 시 Heartbeat 전송
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && websocketApi.isConnected?.()) {
+        // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송
+        websocketApi.sendHeartbeat();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // 온라인 상태 업데이트 함수
+  const updateOpponentOnlineStatus = useCallback((isOnline, lastSeenAt) => {
+    dispatch({ 
+      type: 'UPDATE_OPPONENT_ONLINE_STATUS', 
+      payload: { isOnline, lastSeenAt } 
+    });
   }, []);
 
   const value = {
     ...state,
     isConnected: state.isConnected || socketConnected || (typeof derivedOnlineStatus === 'boolean' ? derivedOnlineStatus : false),
+    error: state.error,
+    typingMemberId: state.typingMemberId,
     setCurrentChatRoom,
     sendMessage,
     sendTyping,
@@ -1101,6 +1246,7 @@ export const ChatProvider = ({ children }) => {
     loadOlderMessages,
     hasMorePast: state.hasMorePast,
     searchMessages,
+    updateOpponentOnlineStatus,
     addMessage: (message) => 
       dispatch({ type: 'ADD_MESSAGE', payload: message }),
     setMessages: (messages) => 
