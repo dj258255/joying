@@ -16,6 +16,7 @@ import ProductInfo from '../components/ProductInfo';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import { useCategoryTree } from '@/features/category';
 import { useProductDetail } from '../hooks/useProductDetail';
+import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 import { productApi } from '../api/productApi';
 import celebrationAnimation from '../assets/Celebration.json';
 
@@ -31,7 +32,7 @@ const enumRentMethods = [
 ];
 
 const TOTAL_STEPS = 5;
-const STEP_NAMES = ['이미지', '기본 정보', '분류/지역', '날짜 설정', '완료'];
+const STEP_NAMES = ['이미지', '기본 정보', '지역', '날짜 설정', '완료'];
 
 function ProductCreatePage() {
   const navigate = useNavigate();
@@ -83,6 +84,8 @@ function ProductCreatePage() {
   const dragItemIndex = useRef(null);
   const rightFormRef = useRef(null);
   const hashtagInputRef = useRef(null);
+  const recommendedHashtagsRef = useRef(null);
+  const hashtagButtonRef = useRef(null);
 
   // 날짜 관리
   const [rentalRefs, setRentalRefs] = useState([]);
@@ -102,6 +105,17 @@ function ProductCreatePage() {
   
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
+
+  // 지역 관련 상태
+  const [showRegionPopover, setShowRegionPopover] = useState(false);
+  const [activeSidoId, setActiveSidoId] = useState(null);
+  const [activeGunguId, setActiveGunguId] = useState(null);
+  const [selectedRegionName, setSelectedRegionName] = useState('');
+  
+  // 지역 API 조회
+  const { data: sidos = [], isLoading: isSidosLoading } = useSidos();
+  const { data: gungus = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
+  const { data: dongs = [], isLoading: isDongsLoading } = useDongs(activeGunguId);
 
   // 기타 상태
   const [uploading, setUploading] = useState(false);
@@ -139,6 +153,26 @@ function ProductCreatePage() {
       document.body.style.overflow = '';
     };
   }, [showCategoryPopover]);
+
+  // 지역 모달 열릴 때 body 스크롤 방지
+  useEffect(() => {
+    if (showRegionPopover) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showRegionPopover]);
+
+  // 시도 첫 번째 항목 자동 선택
+  useEffect(() => {
+    if (sidos.length > 0 && !activeSidoId) {
+      setActiveSidoId(sidos[0].sidoId || sidos[0].id);
+    }
+  }, [sidos, activeSidoId]);
 
   // 수정 모드일 때 기존 상품 정보를 폼에 채우기
   useEffect(() => {
@@ -224,6 +258,12 @@ function ProductCreatePage() {
       return;
     }
     
+    // 이미 열려있으면 닫기 (토글)
+    if (showHashtagRecommendations) {
+      setShowHashtagRecommendations(false);
+      return;
+    }
+    
     setLoadingHashtags(true);
     try {
       const response = await axiosInstance.get(`/hashtag/category/${form.categoryId}`);
@@ -260,6 +300,29 @@ function ProductCreatePage() {
       setHashtags((prev) => [...prev, tag]);
     }
   };
+
+  // 추천 해시태그 영역 밖 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showHashtagRecommendations &&
+        recommendedHashtagsRef.current &&
+        !recommendedHashtagsRef.current.contains(event.target) &&
+        hashtagButtonRef.current &&
+        !hashtagButtonRef.current.contains(event.target)
+      ) {
+        setShowHashtagRecommendations(false);
+      }
+    };
+
+    if (showHashtagRecommendations) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHashtagRecommendations]);
 
   // 파일 업로드 로직
   const handleFiles = async (files) => {
@@ -639,18 +702,31 @@ function ProductCreatePage() {
       
       if (!isEditMode && res) {
         // 생성 모드일 때만 productId 추출
+        console.log('📥 응답 전체:', res);
+        console.log('📥 res.data:', res.data);
+        console.log('📥 res.data.data:', res.data?.data);
+        console.log('📥 res.data.body:', res.data?.body);
+        
         if (typeof res === 'number') {
           productIdResult = res;
-        } else if (res?.data !== undefined) {
+        } else if (typeof res.data === 'number') {
           productIdResult = res.data;
-        } else if (res?.body?.data !== undefined) {
-          productIdResult = res.body.data;
-        } else if (res?.productId !== undefined) {
+        } else if (typeof res.data?.data === 'number') {
+          productIdResult = res.data.data;
+        } else if (typeof res.data?.body?.data === 'number') {
+          productIdResult = res.data.body.data;
+        } else if (typeof res.productId === 'number') {
           productIdResult = res.productId;
+        } else if (typeof res.data?.productId === 'number') {
+          productIdResult = res.data.productId;
+        } else {
+          console.error('⚠️ productId를 추출할 수 없습니다. 응답 구조:', res);
         }
       }
       
-      if (productIdResult) {
+      console.log('🎯 최종 productIdResult:', productIdResult, typeof productIdResult);
+      
+      if (productIdResult && typeof productIdResult === 'number') {
         navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productIdResult)));
       } else {
         setErrorMessage(isEditMode 
@@ -839,19 +915,20 @@ function ProductCreatePage() {
               
               {/* 관련 해시태그 조회 버튼 */}
               <button
+                ref={hashtagButtonRef}
                 type="button"
                 onClick={fetchCategoryHashtags}
                 disabled={loadingHashtags || !form.categoryId}
-                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap min-w-[120px]"
                 title={!form.categoryId ? '카테고리를 먼저 선택해주세요' : '카테고리별 추천 해시태그 조회'}
               >
-                {loadingHashtags ? '조회 중...' : '추천 해시태그'}
+                추천 해시태그
               </button>
             </div>
             
             {/* 추천 해시태그 목록 */}
             {showHashtagRecommendations && recommendedHashtags.length > 0 && (
-              <div className="mt-2 p-3 bg-gray-50 border-2 border-gray-300 rounded-lg">
+              <div ref={recommendedHashtagsRef} className="mt-2 p-3 bg-gray-50 border-2 border-gray-300 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-gray-700">추천 해시태그</span>
                   <button
@@ -1017,58 +1094,25 @@ function ProductCreatePage() {
     </div>
   );
 
-  // Step 3: 분류 및 지역
+  // Step 3: 지역 선택
   const renderStep3 = () => (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-black mb-1">분류 및 지역</h2>
-        <p className="text-gray-600 text-sm">상품의 카테고리와 지역을 선택해주세요</p>
+        <h2 className="text-xl font-bold text-black mb-1">지역 선택</h2>
+        <p className="text-gray-600 text-sm">상품의 거래 지역을 선택해주세요</p>
       </div>
 
-      <div className="space-y-3">
-        {/* 카테고리 */}
-        <div>
-          <label className="block text-sm font-medium text-black mb-1.5">카테고리 ID</label>
-          <input
-            value={form.categoryId ?? ''}
-            onChange={(e) => updateField('categoryId', e.target.value)}
-            placeholder="예: 5"
-            className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-          />
-        </div>
-
+      <div>
         {/* 지역 */}
         <div>
           <label className="block text-sm font-medium text-black mb-1.5">지역</label>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">시도</label>
-              <input
-                value={form.sidoId}
-                onChange={(e) => updateField('sidoId', e.target.value)}
-                placeholder="시도"
-                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">군구</label>
-              <input
-                value={form.gunguId}
-                onChange={(e) => updateField('gunguId', e.target.value)}
-                placeholder="군구"
-                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">동</label>
-              <input
-                value={form.dongId}
-                onChange={(e) => updateField('dongId', e.target.value)}
-                placeholder="동"
-                className="w-full px-3 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black text-sm"
-              />
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowRegionPopover(!showRegionPopover)}
+            className="w-full px-4 py-3 text-left text-sm bg-white border-2 border-gray-300 rounded-xl text-black hover:border-black transition-colors overflow-hidden whitespace-nowrap text-ellipsis"
+          >
+            {selectedRegionName || '지역을 선택하세요'}
+          </button>
         </div>
       </div>
     </div>
@@ -1360,7 +1404,7 @@ function ProductCreatePage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2 bg-gray-50 rounded-xl border border-gray-300">
                     <div className="text-[12px] text-gray-600 mb-1">카테고리</div>
-                    <div className="text-xs text-black font-medium">{form.categoryId || '-'}</div>
+                    <div className="text-xs text-black font-medium">{selectedCategoryName || '-'}</div>
                   </div>
                   <div className="p-2 bg-gray-50 rounded-xl border border-gray-300">
                     <div className="text-[12px] text-gray-600 mb-1">지역</div>
@@ -1567,6 +1611,129 @@ function ProductCreatePage() {
                     {sub.categoryName}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 지역 선택 모달 */}
+      {showRegionPopover && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center category-popover-container animate-fadeIn">
+          {/* 백드롭 */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setShowRegionPopover(false)}
+          />
+          
+          {/* 모달 콘텐츠 */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden animate-slideUp">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+              <h3 className="text-base font-bold text-gray-900">지역 선택</h3>
+              <button
+                type="button"
+                onClick={() => setShowRegionPopover(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <FiX className="w-4 h-4 text-gray-600" />
+              </button>
+            </div>
+
+            {/* 지역 선택 영역 (3칸: 시/구/동) */}
+            <div className="flex" style={{ height: '320px' }}>
+              {/* 시·도 */}
+              <div className="w-1/3 overflow-y-auto scrollbar-hide border-r border-gray-200">
+                {isSidosLoading ? (
+                  <div className="p-3 text-center text-xs text-gray-500">로딩 중...</div>
+                ) : sidos.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-500">시·도가 없습니다</div>
+                ) : (
+                  sidos.map(sido => (
+                    <button
+                      key={sido.sidoId || sido.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveSidoId(sido.sidoId || sido.id);
+                        setActiveGunguId(null); // 시·도 변경 시 구·군 초기화
+                      }}
+                      className={`w-full text-left py-2.5 px-3 text-sm transition-all ${
+                        activeSidoId === (sido.sidoId || sido.id)
+                          ? 'bg-gray-900 text-white'
+                          : 'hover:bg-gray-50 text-gray-700'
+                      }`}
+                    >
+                      {sido.sidoName || sido.name}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* 구·군 */}
+              <div className="w-1/3 overflow-y-auto scrollbar-hide border-r border-gray-200 bg-gray-50">
+                {!activeSidoId ? (
+                  // 시·도 선택 전에는 아무것도 표시 안 함
+                  null
+                ) : isGungusLoading ? (
+                  <div className="p-3 text-center text-xs text-gray-500">로딩 중...</div>
+                ) : gungus.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-500">구·군이 없습니다</div>
+                ) : (
+                  gungus.map((gungu) => (
+                    <button
+                      key={gungu.gunguId || gungu.id}
+                      type="button"
+                      onClick={() => setActiveGunguId(gungu.gunguId || gungu.id)}
+                      className={`w-full text-left py-2.5 px-3 text-sm transition-all ${
+                        activeGunguId === (gungu.gunguId || gungu.id)
+                          ? 'bg-gray-900 text-white'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {gungu.gunguName || gungu.name}
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* 동 */}
+              <div className="w-1/3 overflow-y-auto scrollbar-hide">
+                {!activeGunguId ? (
+                  // 구·군 선택 전에는 아무것도 표시 안 함
+                  null
+                ) : isDongsLoading ? (
+                  <div className="p-3 text-center text-xs text-gray-500">로딩 중...</div>
+                ) : dongs.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-gray-500">동이 없습니다</div>
+                ) : (
+                  dongs.map((dong) => (
+                    <button
+                      key={dong.dongId || dong.id}
+                      type="button"
+                      onClick={() => {
+                        const selectedSido = sidos.find(s => (s.sidoId || s.id) === activeSidoId);
+                        const selectedGungu = gungus.find(g => (g.gunguId || g.id) === activeGunguId);
+                        const selectedDong = dong;
+                        
+                        updateField('sidoId', activeSidoId);
+                        updateField('gunguId', activeGunguId);
+                        updateField('dongId', dong.dongId || dong.id);
+                        
+                        setSelectedRegionName(
+                          `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${selectedDong?.dongName || selectedDong?.name}`
+                        );
+                        setShowRegionPopover(false);
+                      }}
+                      className={`w-full text-left py-2.5 px-3 text-sm transition-all ${
+                        form.dongId === (dong.dongId || dong.id)
+                          ? 'bg-gray-900 text-white'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {dong.dongName || dong.name}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
