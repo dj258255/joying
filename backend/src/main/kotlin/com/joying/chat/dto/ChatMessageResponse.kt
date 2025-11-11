@@ -13,6 +13,7 @@ data class ChatMessageResponse(
     val id: String?,
     val chatRoomId: Long,
     val senderId: Long,
+    val receiverId: Long? = null,  // 수신자 ID (WebSocket 브로드캐스트 최적화용)
     val type: MessageType,
     val content: String,
     val imageUrl: String? = null,
