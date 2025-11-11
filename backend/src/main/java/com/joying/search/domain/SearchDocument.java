@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Getter
-@Document(indexName = "search_product_init")
+@Document(indexName = "search_product", createIndex = false)
 @Setting(settingPath = "elasticsearch/search-setting.json")
 @Mapping(mappingPath = "elasticsearch/search-mapping.json")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
