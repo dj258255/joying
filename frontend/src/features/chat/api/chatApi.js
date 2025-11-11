@@ -38,6 +38,11 @@ export const chatApi = {
    *     timestamp: String
    *   }
    * 
+   * 백엔드 자동 재입장 기능:
+   * - 요청한 사람이 나갔었으면 (isLeft=true) → isLeft=false로 자동 변경 (재입장)
+   * - 상대방도 나갔었으면 → 상대방도 isLeft=false로 자동 변경 (재입장)
+   * - 채팅방 목록에 다시 표시됨
+   * 
    * @param {number|string} productId - 상품 ID
    * @returns {Promise<Object>} ChatRoomResponse 객체
    */
@@ -377,9 +382,17 @@ export const chatApi = {
   },
 
   /**
-   * 채팅방 나가기
-   * @param {string} chatRoomId - 채팅방 ID
-   * @returns {Promise<void>}
+   * 채팅방 나가기 (개별 나가기)
+   * DELETE /api/v1/chat-rooms/{chatRoomId}
+   * 
+   * 백엔드 동작:
+   * - 본인의 isLeft=true로 변경
+   * - 채팅방 목록에서 사라짐 (isLeft=true인 채팅방은 목록에서 제외)
+   * - 안읽은 개수 카운트 제외
+   * - 상대방은 영향 없음 (계속 유지)
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @returns {Promise<void>} 204 No Content
    */
   leaveChatRoom: async (chatRoomId) => {
     const chatRoomIdNum = Number(chatRoomId);

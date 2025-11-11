@@ -28,15 +28,11 @@ export const useChatRooms = () => {
   });
 
   // 응답 데이터에서 chatRooms와 totalUnreadCount 추출
-  const chatRoomsRaw = (chatRoomsData?.chatRooms || []);
-  const chatRoomsFiltered = chatRoomsRaw.filter(room => {
-    if (!room) return false;
-    const status = room.status || room.chatRoomStatus;
-    if (!status) return true;
-    return status.toUpperCase() !== 'CLOSED';
-  });
+  // 백엔드에서 이미 isLeft=true인 채팅방을 제외하고 반환하므로
+  // 프론트엔드에서는 추가 필터링 불필요
+  const chatRoomsRaw = (chatRoomsData?.chatRooms || []).filter(room => room != null);
 
-  const chatRooms = chatRoomsFiltered.slice().sort((a, b) => {
+  const chatRooms = chatRoomsRaw.slice().sort((a, b) => {
     // 고정 채팅방 우선
     const aPinned = !!a.isPinned;
     const bPinned = !!b.isPinned;

@@ -701,6 +701,13 @@ export const ChatProvider = ({ children }) => {
 
       const roomId = chatRoom?.chatRoomId || chatRoomId;
 
+      // 본인이 나간 상태(isLeft=true)인지 확인하여 접근 차단
+      if (chatRoom.isLeft === true) {
+        console.warn('[ChatContext] 본인이 나간 채팅방에 접근 시도. 접근 차단.');
+        dispatch({ type: 'SET_LOADING', payload: false });
+        throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
+      }
+
       const normalizedChatRoom = (() => {
         const name = chatRoom.name
           || chatRoom.otherMemberNickname
@@ -713,6 +720,7 @@ export const ChatProvider = ({ children }) => {
           profileImageUrl: chatRoom.otherMemberProfileUrl,
           isOnline: chatRoom.member?.isOnline ?? null,
           lastSeenAt: chatRoom.member?.lastSeenAt ?? null,
+          isLeft: chatRoom.otherMemberIsLeft ?? false, // 상대방이 나갔는지 여부
         };
 
         const participants = chatRoom.participants
@@ -738,6 +746,32 @@ export const ChatProvider = ({ children }) => {
       const normalizedMessages = mergeMessages([], (messages || [])
         .map((msg) => normalizeMessage(msg, normalizedChatRoom))
         .filter(Boolean));
+
+      // 상대방이 나간 상태인지 확인하여 시스템 메시지 추가
+      const otherMemberIsLeft = normalizedChatRoom.otherMember?.isLeft ?? false;
+      if (otherMemberIsLeft) {
+        // 이미 "상대방이 나갔습니다" 메시지가 있는지 확인
+        const hasLeaveMessage = normalizedMessages.some(
+          msg => msg.type === 'system' && msg.content?.includes('나갔습니다')
+        );
+        
+        if (!hasLeaveMessage) {
+          // 시스템 메시지 추가
+          const leaveSystemMessage = {
+            id: `system-leave-${roomId}-${Date.now()}`,
+            type: 'system',
+            content: `${normalizedChatRoom.otherMember?.nickname || '상대방'}이 나갔습니다`,
+            timestamp: new Date().toISOString(),
+            chatRoomId: roomId,
+            senderId: null,
+            sender: null,
+            isOwn: false,
+            isRead: true,
+            showReadIndicator: false,
+          };
+          normalizedMessages.push(leaveSystemMessage);
+        }
+      }
 
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: normalizedChatRoom });
       dispatch({ type: 'SET_MESSAGES', payload: normalizedMessages });

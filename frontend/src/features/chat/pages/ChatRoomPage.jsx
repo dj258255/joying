@@ -92,8 +92,13 @@ const ChatRoomPage = () => {
       setCurrentChatRoom(desiredId, existingChatRoomData);
     } catch (error) {
       console.error('채팅방 로드 실패:', error);
+      // 나간 채팅방 접근 시도 시 채팅방 목록으로 리다이렉트
+      if (error.message?.includes('나간 채팅방')) {
+        alert('나간 채팅방입니다.');
+        navigate('/chats');
+      }
     }
-  }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom]);
+  }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom, navigate]);
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
