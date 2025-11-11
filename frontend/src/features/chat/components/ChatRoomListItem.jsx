@@ -51,6 +51,9 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   
   // 마지막 메시지 시간 (백엔드 형식 우선)
   const lastMessageTime = lastMessageAt || updatedAt;
+  
+  // 읽지 않은 메시지 수 (숫자로 변환하여 안전하게 처리)
+  const unreadCountNum = Number(unreadCount) || 0;
 
   const formatTime = (dateString) => {
     const date = new Date(dateString);
@@ -190,10 +193,10 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
               <span className="text-xs text-gray-500">
                 {lastMessageTime ? formatTime(lastMessageTime) : ''}
               </span>
-              {/* 읽지 않은 메시지 수 */}
-              {unreadCount > 0 && (
+              {/* 읽지 않은 메시지 수 - unreadCount가 있을 때만 표시 */}
+              {unreadCountNum > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-2 rounded-full text-xs font-medium bg-red-500 text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {unreadCountNum > 99 ? '99+' : unreadCountNum}
                 </span>
               )}
             </div>
