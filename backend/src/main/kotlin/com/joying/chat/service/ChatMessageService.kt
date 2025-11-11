@@ -227,6 +227,79 @@ class ChatMessageService(
     }
 
     /**
+     * 특정 메시지 주변 조회 (답장 점프, 검색 결과 점프용)
+     *
+     * 특정 메시지를 중심으로 앞뒤 메시지를 함께 조회
+     * - before개: 해당 메시지 이전 메시지들 (과거)
+     * - target: 해당 메시지
+     * - after개: 해당 메시지 이후 메시지들 (미래)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param messageId 중심이 될 메시지 ID
+     * @param before 이전 메시지 개수 (기본 20)
+     * @param after 이후 메시지 개수 (기본 20)
+     * @param memberId 요청한 회원 ID (권한 확인용)
+     * @return 중심 메시지 + 주변 메시지 목록 (시간순 정렬)
+     */
+    fun getMessagesAround(
+        chatRoomId: Long,
+        messageId: String,
+        before: Int = 20,
+        after: Int = 20,
+        memberId: Long
+    ): List<ChatMessageResponse> = kotlinx.coroutines.runBlocking {
+        // 권한 확인
+        validateChatRoomAccess(chatRoomId, memberId)
+
+        // 중심 메시지 조회
+        val targetMessage = chatMessageRepository.findById(messageId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "메시지를 찾을 수 없습니다") }
+
+        // 채팅방 확인
+        if (targetMessage.chatRoomId != chatRoomId) {
+            throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "해당 채팅방의 메시지가 아닙니다")
+        }
+
+        val targetTime = targetMessage.createdAt
+            ?: throw BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 생성 시간이 없습니다")
+
+        // 1. 이전 메시지 조회 (과거 → 현재 방향으로 before개)
+        val beforeMessages = if (before > 0) {
+            val pageable = PageRequest.of(0, before, Sort.by(Sort.Direction.DESC, "createdAt"))
+            chatMessageRepository.findByChatRoomIdAndIsDeletedFalseAndCreatedAtBeforeOrderByCreatedAtDesc(
+                chatRoomId,
+                targetTime,
+                pageable
+            ).reversed() // 시간순으로 뒤집기
+        } else {
+            emptyList()
+        }
+
+        // 2. 이후 메시지 조회 (현재 → 미래 방향으로 after개)
+        val afterMessages = if (after > 0) {
+            val pageable = PageRequest.of(0, after, Sort.by(Sort.Direction.ASC, "createdAt"))
+            chatMessageRepository.findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtAsc(
+                chatRoomId,
+                targetTime,
+                pageable
+            )
+        } else {
+            emptyList()
+        }
+
+        // 3. 모든 메시지 합치기 (이전 메시지 + 중심 메시지 + 이후 메시지)
+        val allMessages = beforeMessages + listOf(targetMessage) + afterMessages
+
+        // 4. DTO 변환 (답장 정보 포함)
+        allMessages.map { message ->
+            val replyMessage = message.replyToMessageId?.let { replyId ->
+                chatMessageRepository.findById(replyId).orElse(null)
+            }
+            ChatMessageResponse.from(message, replyMessage)
+        }
+    }
+
+    /**
      * 메시지 삭제 (Soft Delete) - 현업 표준 버전
      *
      * runBlocking 사용 이유:

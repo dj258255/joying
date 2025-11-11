@@ -164,6 +164,52 @@ class ChatMessageController(
     }
 
     /**
+     * 특정 메시지 주변 조회 (답장 점프, 검색 결과 점프용)
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param messageId 중심 메시지 ID
+     * @param before 이전 메시지 개수 (기본 20)
+     * @param after 이후 메시지 개수 (기본 20)
+     * @return 중심 메시지 + 주변 메시지 목록
+     */
+    @Operation(
+        summary = "특정 메시지 주변 조회",
+        description = """
+            특정 메시지를 중심으로 앞뒤 메시지를 함께 조회합니다.
+
+            사용 사례:
+            - 답장 메시지 클릭 시 원본 메시지로 점프
+            - 검색 결과 메시지 클릭 시 해당 메시지 주변 문맥 보기
+
+            반환 순서: 오래된 메시지부터 시간순 (before개 → 중심 → after개)
+        """
+    )
+    @GetMapping("/{messageId}/around")
+    fun getMessagesAround(
+        @PathVariable chatRoomId: Long,
+        @PathVariable messageId: String,
+        @RequestParam(defaultValue = "20") before: Int,
+        @RequestParam(defaultValue = "20") after: Int
+    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageResponse>>> {
+        val memberId = getCurrentMemberId()
+
+        logger.info(
+            "메시지 주변 조회 요청: chatRoomId={}, messageId={}, memberId={}, before={}, after={}",
+            chatRoomId,
+            messageId,
+            memberId,
+            before,
+            after
+        )
+
+        val messages = chatMessageService.getMessagesAround(chatRoomId, messageId, before, after, memberId)
+
+        logger.debug("메시지 주변 조회 완료: count={}", messages.size)
+
+        return ApiResponse.ok("메시지 주변 조회 완료", messages)
+    }
+
+    /**
      * SecurityContext에서 현재 인증된 사용자 ID 반환
      *
      * JwtAuthenticationFilter가 쿠키에서 JWT 토큰을 추출하고
