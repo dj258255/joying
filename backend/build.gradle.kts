@@ -100,6 +100,10 @@ dependencies {
 
     // Elasticsearch Java API Client
     implementation("co.elastic.clients:elasticsearch-java:8.18.5")
+
+    // Web Push (브라우저 푸시 알림)
+    implementation("nl.martijndwars:web-push:5.1.1")
+    implementation("org.bouncycastle:bcprov-jdk15on:1.70")
 }
 
 // Java 소스를 delombok된 소스로 변경
