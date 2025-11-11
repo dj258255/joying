@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
@@ -52,6 +53,10 @@ const ProductListMain = () => {
   const [activeSidoId, setActiveSidoId] = useState(null);
   const [activeGunguId, setActiveGunguId] = useState(null);
   const [selectedRegionName, setSelectedRegionName] = useState('');
+  const regionButtonRef = React.useRef(null);
+  const [popoverPosition, setPopoverPosition] = React.useState({ top: 0, left: 0 });
+  const categoryButtonRef = React.useRef(null);
+  const [categoryPopoverPosition, setCategoryPopoverPosition] = React.useState({ top: 0, left: 0 });
 
   const { data: sidos = [], isLoading: isSidosLoading } = useSidos();
   const { data: gungus = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
@@ -236,11 +241,18 @@ const ProductListMain = () => {
   };
 
   const toggleSubcategory = (subcategory) => {
-    setSelectedSubcategories(prev =>
-      prev.some(s => s.categoryId === subcategory.categoryId)
-        ? prev.filter(s => s.categoryId !== subcategory.categoryId)
-        : [...prev, subcategory]
-    );
+    setSelectedSubcategories(prev => {
+      // 이미 선택된 항목이면 아무 일도 하지 않음
+      if (prev.some(s => s.categoryId === subcategory.categoryId)) {
+        return prev;
+      }
+      // 새로운 항목이면 이전 선택을 취소하고 새로운 것만 선택
+      return [subcategory];
+    });
+  };
+
+  const removeSubcategory = (subcategory) => {
+    setSelectedSubcategories([]);
   };
 
   const getSelectedCategoriesText = () => {
@@ -565,7 +577,17 @@ const ProductListMain = () => {
            <h3 className="text-base font-semibold text-gray-900">카테고리</h3>
           
           <button
-            onClick={() => setShowCategoryPopover(!showCategoryPopover)}
+            ref={categoryButtonRef}
+            onClick={() => {
+              if (!showCategoryPopover && categoryButtonRef.current) {
+                const rect = categoryButtonRef.current.getBoundingClientRect();
+                setCategoryPopoverPosition({
+                  top: rect.top,
+                  left: rect.right + 8
+                });
+              }
+              setShowCategoryPopover(!showCategoryPopover);
+            }}
             className="w-full px-4 py-3 text-left text-sm text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
             style={{ 
               background: 'rgba(255, 255, 255, 0.7)',
@@ -577,73 +599,81 @@ const ProductListMain = () => {
             {getSelectedCategoriesText()}
           </button>
 
-          {showCategoryPopover && (
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
-              maxWidth: '95%', 
-              height: '350px',
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
-            }}>
-             <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
-               {/* 상위 카테고리 */}
-               <div className="w-2/5 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                  {isCategoriesLoading ? (
-                    <div className="p-4 text-center text-xs text-gray-500">카테고리 로딩 중...</div>
-                  ) : categories.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-500">카테고리가 없습니다</div>
-                  ) : (
-                    categories.map(category => (
-                      <button
-                        key={category.categoryId}
-                        onClick={() => setActiveCategoryId(category.categoryId)}
-                        className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
-                          activeCategoryId === category.categoryId
-                            ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
-                            : 'text-gray-600 hover:bg-white/50'
-                        }`}
-                      >
-                        {category.categoryName}
-                      </button>
-                    ))
-                  )}
-                </div>
+          {showCategoryPopover && ReactDOM.createPortal(
+            <>
+              {/* 백드롭 */}
+              <div 
+                className="hidden lg:block fixed inset-0 z-[150]"
+                onClick={() => setShowCategoryPopover(false)}
+              />
+              
+              {/* 우측 팝오버 - 버튼 옆에 표시 */}
+              <div 
+                className="hidden lg:block fixed rounded-xl overflow-hidden z-[160] animate-slideInFromLeft" 
+                style={{ 
+                  top: `${categoryPopoverPosition.top}px`,
+                  left: `${categoryPopoverPosition.left}px`,
+                  width: '400px',
+                  maxHeight: 'min(400px, calc(100vh - 200px))',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                }}
+              >
+                <div className="flex" style={{ height: '340px' }}>
+                  {/* 상위 카테고리 */}
+                  <div className="w-1/2 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {isCategoriesLoading ? (
+                      <div className="p-4 text-center text-xs text-gray-500">카테고리 로딩 중...</div>
+                    ) : categories.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-gray-500">카테고리가 없습니다</div>
+                    ) : (
+                      categories.map(category => (
+                        <button
+                          key={category.categoryId}
+                          onClick={() => setActiveCategoryId(category.categoryId)}
+                          className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                            activeCategoryId === category.categoryId
+                              ? 'bg-gray-900 text-white font-medium'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {category.categoryName}
+                        </button>
+                      ))
+                    )}
+                  </div>
 
-                 {/* 하위 카테고리 */}
-                 <div className="w-3/5 overflow-y-auto scrollbar-hide p-2">
-                  <div className="grid grid-cols-1 gap-1">
+                  {/* 하위 카테고리 */}
+                  <div className="w-1/2 h-full overflow-y-auto scrollbar-hide">
                     {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                       <button
                         key={sub.categoryId}
                         onClick={() => toggleSubcategory(sub)}
-                        className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
-                          selectedSubcategories.includes(sub.categoryName)
+                        className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
+                          selectedSubcategories.some(s => s.categoryId === sub.categoryId)
                             ? 'bg-gray-900 text-white'
                             : 'hover:bg-gray-100 text-gray-700'
                         }`}
                       >
-                        <span className="leading-tight">{sub.categoryName}</span>
-                        {selectedSubcategories.includes(sub.categoryName) && (
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
+                        {sub.categoryName}
                       </button>
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                <button
-                  onClick={() => setShowCategoryPopover(false)}
-                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
-                >
-                  선택 완료 ({selectedSubcategories.length})
-                </button>
+                <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                  <button
+                    onClick={() => setShowCategoryPopover(false)}
+                    className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
+                  >
+                    선택 완료
+                  </button>
+                </div>
               </div>
-            </div>
+            </>,
+            document.body
           )}
 
           {selectedSubcategories.length > 0 && (
@@ -661,7 +691,7 @@ const ProductListMain = () => {
                 >
                   <span className="truncate">{sub.categoryName}</span>
                   <button
-                    onClick={() => toggleSubcategory(sub)}
+                    onClick={() => removeSubcategory(sub)}
                     className="flex-shrink-0 transition-opacity duration-200 hover:opacity-70"
                   >
                     ×
@@ -676,8 +706,18 @@ const ProductListMain = () => {
           <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
           <button
+            ref={regionButtonRef}
             type="button"
-            onClick={() => setShowRegionPopover(!showRegionPopover)}
+            onClick={() => {
+              if (!showRegionPopover && regionButtonRef.current) {
+                const rect = regionButtonRef.current.getBoundingClientRect();
+                setPopoverPosition({
+                  top: rect.top,
+                  left: rect.right + 8
+                });
+              }
+              setShowRegionPopover(!showRegionPopover);
+            }}
             className="w-full px-4 py-3 text-left text-sm text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
             style={{ 
               background: 'rgba(255, 255, 255, 0.7)',
@@ -689,55 +729,67 @@ const ProductListMain = () => {
             {selectedRegionName || '지역을 선택하세요'}
           </button>
 
-          {showRegionPopover && (
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
-              maxWidth: '95%', 
-              height: '350px',
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
-            }}>
-              <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
-                {/* 시/도 */}
-                <div className="w-1/3 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                  {isSidosLoading ? (
-                    <div className="p-4 text-center text-xs text-gray-500">로딩 중...</div>
-                  ) : sidos.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-500">시/도가 없습니다</div>
-                  ) : (
-                    sidos.map((sido) => (
-                      <button
-                        key={sido.sidoId || sido.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveSidoId(sido.sidoId || sido.id);
-                          setActiveGunguId(null);
-                          setSelectedSido(sido);
-                          setSelectedGungu(null);
-                          setSelectedDong(null);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
-                          activeSidoId === (sido.sidoId || sido.id)
-                            ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
-                            : 'text-gray-600 hover:bg-white/50'
-                        }`}
-                      >
-                        {sido.sidoName || sido.name}
-                      </button>
-                    ))
-                  )}
-                </div>
+          {showRegionPopover && ReactDOM.createPortal(
+            <>
+              {/* 백드롭 */}
+              <div 
+                className="hidden lg:block fixed inset-0 z-[150]"
+                onClick={() => setShowRegionPopover(false)}
+              />
+              
+              {/* 우측 팝오버 - 버튼 옆에 표시 */}
+              <div 
+                className="hidden lg:block fixed rounded-xl overflow-hidden z-[160] animate-slideInFromLeft" 
+                style={{ 
+                  top: `${popoverPosition.top}px`,
+                  left: `${popoverPosition.left}px`,
+                  width: '400px',
+                  maxHeight: 'min(310px, calc(100vh - 200px))',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                }}
+              >
+                <div className="flex" style={{ height: '240px' }}>
+                  {/* 시/도 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {isSidosLoading ? (
+                      <div className="p-4 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : sidos.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-gray-500">시/도가 없습니다</div>
+                    ) : (
+                      sidos.map((sido) => (
+                        <button
+                          key={sido.sidoId || sido.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveSidoId(sido.sidoId || sido.id);
+                            setActiveGunguId(null);
+                            setSelectedSido(sido);
+                            setSelectedGungu(null);
+                            setSelectedDong(null);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                            activeSidoId === (sido.sidoId || sido.id)
+                              ? 'bg-gray-900 text-white font-medium'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {sido.sidoName || sido.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
 
-                {/* 구/군 */}
-                <div className="w-1/3 overflow-y-auto scrollbar-hide p-2">
-                  {!activeSidoId ? null : isGungusLoading ? (
-                    <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
-                  ) : gungus.length === 0 ? (
-                    <div className="p-2 text-center text-xs text-gray-500">구·군이 없습니다</div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-1">
-                      {gungus.map((gungu) => (
+                  {/* 구/군 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {!activeSidoId ? null : isGungusLoading ? (
+                      <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : gungus.length === 0 ? (
+                      <div className="p-2 text-center text-xs text-gray-500">구·군이 없습니다</div>
+                    ) : (
+                      gungus.map((gungu) => (
                         <button
                           key={gungu.gunguId || gungu.id}
                           type="button"
@@ -746,7 +798,7 @@ const ProductListMain = () => {
                             setSelectedGungu(gungu);
                             setSelectedDong(null);
                           }}
-                          className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 ${
+                          className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
                             activeGunguId === (gungu.gunguId || gungu.id)
                               ? 'bg-gray-900 text-white'
                               : 'hover:bg-gray-100 text-gray-700'
@@ -754,20 +806,18 @@ const ProductListMain = () => {
                         >
                           {gungu.gunguName || gungu.name}
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      ))
+                    )}
+                  </div>
 
-                {/* 동 */}
-                <div className="w-1/3 overflow-y-auto scrollbar-hide p-2">
-                  {!activeGunguId ? null : isDongsLoading ? (
-                    <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
-                  ) : dongs.length === 0 ? (
-                    <div className="p-2 text-center text-xs text-gray-500">동이 없습니다</div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-1">
-                      {dongs.map((dong) => (
+                  {/* 동 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide">
+                    {!activeGunguId ? null : isDongsLoading ? (
+                      <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : dongs.length === 0 ? (
+                      <div className="p-2 text-center text-xs text-gray-500">동이 없습니다</div>
+                    ) : (
+                      dongs.map((dong) => (
                         <button
                           key={dong.dongId || dong.id}
                           type="button"
@@ -777,7 +827,7 @@ const ProductListMain = () => {
                               `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
                             );
                           }}
-                          className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 ${
+                          className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
                             selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
                               ? 'bg-gray-900 text-white'
                               : 'hover:bg-gray-100 text-gray-700'
@@ -785,22 +835,23 @@ const ProductListMain = () => {
                         >
                           {dong.dongName || dong.name}
                         </button>
-                      ))}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegionPopover(false)}
+                    className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
+                  >
+                    선택 완료
+                  </button>
                 </div>
               </div>
-
-              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowRegionPopover(false)}
-                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
-                >
-                  선택 완료
-                </button>
-              </div>
-            </div>
+            </>,
+            document.body
           )}
         </div>
 
@@ -1314,7 +1365,7 @@ const ProductListMain = () => {
                </button>
 
               {showCategoryPopover && (
-                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                <div className="lg:hidden absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
                   background: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(25px)',
                   border: '1.5px solid rgba(255, 255, 255, 0.6)',
@@ -1345,18 +1396,18 @@ const ProductListMain = () => {
                       )}
                     </div>
                     {/* 하위 카테고리 */}
-                    <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide">
                       {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                         <button
                           key={sub.categoryId}
-                          onClick={() => toggleSubcategory(sub.categoryName)}
-                          className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                           selectedSubcategories.includes(sub.categoryName)
+                          onClick={() => toggleSubcategory(sub)}
+                          className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                           selectedSubcategories.some(s => s.categoryId === sub.categoryId)
                              ? 'bg-gray-900 text-white border border-gray-900'
                              : 'hover:bg-gray-50'
                          }`}
                         >
-                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub.categoryName) ? 'text-white' : 'text-gray-800'}`}>{sub.categoryName}</span>
+                          <span className={`text-sm font-medium ${selectedSubcategories.some(s => s.categoryId === sub.categoryId) ? 'text-white' : 'text-gray-800'}`}>{sub.categoryName}</span>
                         </button>
                       ))}
                     </div>
@@ -1380,9 +1431,9 @@ const ProductListMain = () => {
                        key={idx}
                        className="inline-flex items-center px-3 py-1 bg-white/20 text-gray-700 text-sm rounded-full border border-white/30"
                      >
-                       {sub}
+                       {sub.categoryName}
                        <button
-                         onClick={() => toggleSubcategory(sub)}
+                         onClick={() => removeSubcategory(sub)}
                          className="ml-2 text-gray-600 hover:text-gray-800"
                        >
                          ×
@@ -1412,14 +1463,14 @@ const ProductListMain = () => {
               </button>
 
               {showRegionPopover && (
-                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                <div className="lg:hidden absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
                   background: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(25px)',
                   border: '1.5px solid rgba(255, 255, 255, 0.6)',
                   boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)',
-                  maxHeight: '400px'
+                  maxHeight: '310px'
                 }}>
-                  <div className="flex" style={{ height: '320px' }}>
+                  <div className="flex" style={{ height: '240px' }}>
                     {/* 시/도 */}
                     <div className="w-1/3 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
                       {isSidosLoading ? (
@@ -1444,20 +1495,18 @@ const ProductListMain = () => {
                                 : 'hover:bg-gray-50'
                             }`}
                           >
-                            <span className={`text-sm font-medium ${activeSidoId === (sido.sidoId || sido.id) ? 'text-white' : 'text-gray-800'}`}>
-                              {sido.sidoName || sido.name}
-                            </span>
+                            <span className={`text-sm font-medium ${activeSidoId === (sido.sidoId || sido.id) ? 'text-white' : 'text-gray-800'}`}>{sido.sidoName || sido.name}</span>
                           </button>
                         ))
                       )}
                     </div>
 
                     {/* 구/군 */}
-                    <div className="w-1/3 overflow-y-auto scrollbar-hide p-3">
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide">
                       {!activeSidoId ? null : isGungusLoading ? (
-                        <div className="p-2 text-center text-sm text-gray-500">로딩 중...</div>
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
                       ) : gungus.length === 0 ? (
-                        <div className="p-2 text-center text-sm text-gray-500">구·군이 없습니다</div>
+                        <div className="p-4 text-center text-sm text-gray-500">구·군이 없습니다</div>
                       ) : (
                         gungus.map((gungu) => (
                           <button
@@ -1468,26 +1517,24 @@ const ProductListMain = () => {
                               setSelectedGungu(gungu);
                               setSelectedDong(null);
                             }}
-                            className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
                               activeGunguId === (gungu.gunguId || gungu.id)
                                 ? 'bg-gray-900 text-white border border-gray-900'
                                 : 'hover:bg-gray-50'
                             }`}
                           >
-                            <span className={`text-xs leading-tight ${activeGunguId === (gungu.gunguId || gungu.id) ? 'text-white' : 'text-gray-800'}`}>
-                              {gungu.gunguName || gungu.name}
-                            </span>
+                            <span className={`text-sm font-medium ${activeGunguId === (gungu.gunguId || gungu.id) ? 'text-white' : 'text-gray-800'}`}>{gungu.gunguName || gungu.name}</span>
                           </button>
                         ))
                       )}
                     </div>
 
                     {/* 동 */}
-                    <div className="w-1/3 overflow-y-auto scrollbar-hide p-3">
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide">
                       {!activeGunguId ? null : isDongsLoading ? (
-                        <div className="p-2 text-center text-sm text-gray-500">로딩 중...</div>
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
                       ) : dongs.length === 0 ? (
-                        <div className="p-2 text-center text-sm text-gray-500">동이 없습니다</div>
+                        <div className="p-4 text-center text-sm text-gray-500">동이 없습니다</div>
                       ) : (
                         dongs.map((dong) => (
                           <button
@@ -1499,21 +1546,18 @@ const ProductListMain = () => {
                                 `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
                               );
                             }}
-                            className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
                               selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
                                 ? 'bg-gray-900 text-white border border-gray-900'
                                 : 'hover:bg-gray-50'
                             }`}
                           >
-                            <span className={`text-xs leading-tight ${(selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)) ? 'text-white' : 'text-gray-800'}`}>
-                              {dong.dongName || dong.name}
-                            </span>
+                            <span className={`text-sm font-medium ${(selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)) ? 'text-white' : 'text-gray-800'}`}>{dong.dongName || dong.name}</span>
                           </button>
                         ))
                       )}
                     </div>
                   </div>
-
                   <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                     <button 
                       type="button"
