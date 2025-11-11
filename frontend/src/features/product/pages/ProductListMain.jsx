@@ -12,33 +12,6 @@ import { useCategoryTree } from '@/features/category';
 import { useSearchParams } from 'react-router-dom';
 import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 
-const SEOUL_DISTRICTS = [
-  { id: 'gangnam', name: '강남구', areas: ['역삼동', '개포동', '청담동', '삼성동'] },
-  { id: 'gangdong', name: '강동구', areas: ['천호동', '성내동', '길동', '둔촌동'] },
-  { id: 'gangbuk', name: '강북구', areas: ['미아동', '번동', '수유동', '우이동'] },
-  { id: 'gangseo', name: '강서구', areas: ['염창동', '등촌동', '화곡동', '가양동'] },
-  { id: 'gwanak', name: '관악구', areas: ['신림동', '봉천동', '남현동', '서원동'] },
-  { id: 'gwangjin', name: '광진구', areas: ['구의동', '광장동', '자양동', '화양동'] },
-  { id: 'guro', name: '구로구', areas: ['구로동', '가리봉동', '신도림동', '고척동'] },
-  { id: 'nowon', name: '노원구', areas: ['상계동', '중계동', '하계동', '공릉동'] },
-  { id: 'dobong', name: '도봉구', areas: ['쌍문동', '방학동', '창동', '도봉동'] },
-  { id: 'dongdaemun', name: '동대문구', areas: ['용신동', '제기동', '전농동', '답십리동'] },
-  { id: 'dongjak', name: '동작구', areas: ['노량진동', '상도동', '사당동', '대방동'] },
-  { id: 'mapo', name: '마포구', areas: ['공덕동', '아현동', '도화동', '용강동'] },
-  { id: 'seodaemun', name: '서대문구', areas: ['충현동', '천연동', '신촌동', '연희동'] },
-  { id: 'seocho', name: '서초구', areas: ['방배동', '양재동', '내곡동', '원지동'] },
-  { id: 'seongdong', name: '성동구', areas: ['왕십리동', '마장동', '사근동', '행당동'] },
-  { id: 'seongbuk', name: '성북구', areas: ['성북동', '삼선동', '동선동', '돈암동'] },
-  { id: 'songpa', name: '송파구', areas: ['잠실동', '문정동', '장지동', '방이동'] },
-  { id: 'yangcheon', name: '양천구', areas: ['목동', '신월동', '신정동', '염창동'] },
-  { id: 'yeongdeungpo', name: '영등포구', areas: ['여의도동', '당산동', '도림동', '문래동'] },
-  { id: 'yongsan', name: '용산구', areas: ['남영동', '원효로동', '이촌동', '한강로동'] },
-  { id: 'eunpyeong', name: '은평구', areas: ['수색동', '녹번동', '불광동', '갈현동'] },
-  { id: 'jongno', name: '종로구', areas: ['청운동', '신교동', '궁정동', '효자동'] },
-  { id: 'jung', name: '중구', areas: ['소공동', '회현동', '명동', '필동'] },
-  { id: 'jungnang', name: '중랑구', areas: ['면목동', '상봉동', '중화동', '망우동'] }
-];
-
 const ProductListMain = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -74,90 +47,22 @@ const ProductListMain = () => {
   const lastAppliedFilters = React.useRef(null);
   const [totalProducts, setTotalProducts] = React.useState(0);
 
-  const [openLevel, setOpenLevel] = useState('sido');
+  // 지역 팝오버 관련 상태
+  const [showRegionPopover, setShowRegionPopover] = useState(false);
+  const [activeSidoId, setActiveSidoId] = useState(null);
+  const [activeGunguId, setActiveGunguId] = useState(null);
+  const [selectedRegionName, setSelectedRegionName] = useState('');
 
-  const { data: sidos = [] } = useSidos();
-  const { data: gungus = [] } = useGungus(selectedSido?.id);
-  const { data: dongs = [] } = useDongs(selectedGungu?.id);
+  const { data: sidos = [], isLoading: isSidosLoading } = useSidos();
+  const { data: gungus = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
+  const { data: dongs = [], isLoading: isDongsLoading } = useDongs(activeGunguId);
 
-  const handleSidoSelect = (sido) => {
-    if (selectedSido?.id === sido.id) {
-      // 다시 클릭하면 초기화
-      setSelectedSido(null);
-      setSelectedGungu(null);
-      setSelectedDong(null);
-      setOpenLevel('sido');
-    } else {
-      setSelectedSido(sido);
-      setSelectedGungu(null);
-      setSelectedDong(null);
-      setOpenLevel('gungu');
+  // 첫 번째 시도 자동 선택
+  React.useEffect(() => {
+    if (sidos.length > 0 && !activeSidoId && showRegionPopover) {
+      setActiveSidoId(sidos[0].sidoId || sidos[0].id);
     }
-  };
-
-  // 구 선택
-  const handleGunguSelect = (gungu) => {
-    if (selectedGungu?.id === gungu.id) {
-      setSelectedGungu(null);
-      setSelectedDong(null);
-      setOpenLevel('gungu');
-    } else {
-      setSelectedGungu(gungu);
-      setSelectedDong(null);
-      setOpenLevel('dong');
-    }
-  };
-
-  // 동 선택
-  const handleDongSelect = (dong) => {
-    if (selectedDong?.id === dong.id) {
-      setSelectedDong(null);
-    } else {
-      setSelectedDong(dong);
-      setOpenLevel(null); // 마지막 단계 닫기
-    }
-  };
-
-  const renderSelectedPath = () => {
-    if (!selectedSido && !selectedGungu && !selectedDong) return null;
-
-    return (
-      <div className="flex flex-col bg-white/70 px-4 py-3 rounded-xl border border-gray-200 shadow-sm">
-        {/* 상단: 시 > 구 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-sm text-gray-800 font-medium space-x-1">
-            {selectedSido && <span>{selectedSido.name}</span>}
-            {selectedGungu && (
-              <>
-                <span className="text-gray-400">{'>'}</span>
-                <span>{selectedGungu.name}</span>
-              </>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              setSelectedSido(null);
-              setSelectedGungu(null);
-              setSelectedDong(null);
-              setOpenLevel('sido');
-            }}
-            className="text-gray-500 hover:text-gray-800 text-xs ml-2"
-          >
-            ✕ 초기화
-          </button>
-        </div>
-
-        {/* 하단: 동 강조 */}
-        {selectedDong && (
-          <div className="mt-2 text-center">
-            <span className="inline-block bg-gray-900 text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
-              {selectedDong.name}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  };
+  }, [sidos, activeSidoId, showRegionPopover]);
 
   React.useEffect(() => {
     if (q) {
@@ -344,27 +249,6 @@ const ProductListMain = () => {
     return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
-  const toggleCity = (cityId) => {
-    setSelectedSido((prev) =>
-      prev.includes(cityId) ? prev.filter((id) => id !== cityId) : [...prev, cityId]
-    );
-  };  
-
-  const toggleDistrict = (districtId) => {
-    setSelectedGungu(prev => 
-      prev.includes(districtId)
-        ? prev.filter(d => d !== districtId)
-        : [...prev, districtId]
-    );
-  };
-
-  const toggleArea = (area) => {
-    setSelectedDong(prev => 
-      prev.includes(area)
-        ? prev.filter(a => a !== area)
-        : [...prev, area]
-    );
-  };
 
   const handleStarClick = (e, starIndex) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -382,6 +266,9 @@ const ProductListMain = () => {
     setSelectedSido(null);
     setSelectedGungu(null);
     setSelectedDong(null);
+    setActiveSidoId(null);
+    setActiveGunguId(null);
+    setSelectedRegionName('');
     setRating(0);
     setSameDayRental(false);
     setSelectedHashtags([]);
@@ -785,81 +672,133 @@ const ProductListMain = () => {
           )}
         </div>
 
-         <div className="space-y-3">
+         <div className="space-y-3 relative">
           <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-          {/* 선택 경로 */}
-          {renderSelectedPath()}
-
-          {/* 시도 선택 */}
-          <div
-            className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-              openLevel === 'sido' ? 'max-h-52' : 'max-h-0'
-            } overflow-y-auto`}
+          <button
+            type="button"
+            onClick={() => setShowRegionPopover(!showRegionPopover)}
+            className="w-full px-4 py-3 text-left text-sm text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(20px)',
+              border: '1.5px solid rgba(255, 255, 255, 0.4)',
+              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+            }}
           >
-            <div className="p-3 space-y-1">
-              {sidos.map((sido) => (
-                <button
-                  key={sido.id}
-                  onClick={() => handleSidoSelect(sido)}
-                  className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-150 ${
-                    selectedSido?.id === sido.id
-                      ? 'bg-gray-900 text-white border border-gray-900'
-                      : 'hover:bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {sido.name}
-                </button>
-              ))}
-            </div>
-          </div>
+            {selectedRegionName || '지역을 선택하세요'}
+          </button>
 
-          {/* 구 선택 */}
-          {selectedSido && (
-            <div
-              className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-                openLevel === 'gungu' ? 'max-h-52' : 'max-h-0'
-              } overflow-y-auto`}
-            >
-              <div className="p-3 space-y-1">
-                {gungus.map((gungu) => (
-                  <button
-                    key={gungu.id}
-                    onClick={() => handleGunguSelect(gungu)}
-                    className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
-                      selectedGungu?.id === gungu.id
-                        ? 'bg-gray-900 text-white border border-gray-900'
-                        : 'hover:bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {gungu.name}
-                  </button>
-                ))}
+          {showRegionPopover && (
+            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
+              maxWidth: '95%', 
+              height: '350px',
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+            }}>
+              <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
+                {/* 시/도 */}
+                <div className="w-1/3 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                  {isSidosLoading ? (
+                    <div className="p-4 text-center text-xs text-gray-500">로딩 중...</div>
+                  ) : sidos.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-gray-500">시/도가 없습니다</div>
+                  ) : (
+                    sidos.map((sido) => (
+                      <button
+                        key={sido.sidoId || sido.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveSidoId(sido.sidoId || sido.id);
+                          setActiveGunguId(null);
+                          setSelectedSido(sido);
+                          setSelectedGungu(null);
+                          setSelectedDong(null);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                          activeSidoId === (sido.sidoId || sido.id)
+                            ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
+                            : 'text-gray-600 hover:bg-white/50'
+                        }`}
+                      >
+                        {sido.sidoName || sido.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {/* 구/군 */}
+                <div className="w-1/3 overflow-y-auto scrollbar-hide p-2">
+                  {!activeSidoId ? null : isGungusLoading ? (
+                    <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                  ) : gungus.length === 0 ? (
+                    <div className="p-2 text-center text-xs text-gray-500">구·군이 없습니다</div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-1">
+                      {gungus.map((gungu) => (
+                        <button
+                          key={gungu.gunguId || gungu.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveGunguId(gungu.gunguId || gungu.id);
+                            setSelectedGungu(gungu);
+                            setSelectedDong(null);
+                          }}
+                          className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 ${
+                            activeGunguId === (gungu.gunguId || gungu.id)
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {gungu.gunguName || gungu.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 동 */}
+                <div className="w-1/3 overflow-y-auto scrollbar-hide p-2">
+                  {!activeGunguId ? null : isDongsLoading ? (
+                    <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                  ) : dongs.length === 0 ? (
+                    <div className="p-2 text-center text-xs text-gray-500">동이 없습니다</div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-1">
+                      {dongs.map((dong) => (
+                        <button
+                          key={dong.dongId || dong.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDong(dong);
+                            setSelectedRegionName(
+                              `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
+                            );
+                          }}
+                          className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 ${
+                            selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {dong.dongName || dong.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* 동 선택 */}
-          {selectedGungu && (
-            <div
-              className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-                openLevel === 'dong' ? 'max-h-52' : 'max-h-0'
-              } overflow-y-auto`}
-            >
-              <div className="p-3 space-y-1">
-                {dongs.map((dong) => (
-                  <button
-                    key={dong.id}
-                    onClick={() => handleDongSelect(dong)}
-                    className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
-                      selectedDong?.id === dong.id
-                        ? 'bg-gray-900 text-white border border-gray-900'
-                        : 'hover:bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {dong.name}
-                  </button>
-                ))}
+              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowRegionPopover(false)}
+                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
+                >
+                  선택 완료
+                </button>
               </div>
             </div>
           )}
@@ -1455,81 +1394,134 @@ const ProductListMain = () => {
              </div>
 
              {/* 지역 (시 → 구 → 동) */}
-            <div className="space-y-3">
+            <div className="space-y-3 relative">
               <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-              {/* 선택 경로 */}
-              {renderSelectedPath()}
-
-              {/* 시도 선택 */}
-              <div
-                className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-                  openLevel === 'sido' ? 'max-h-52' : 'max-h-0'
-                } overflow-y-auto`}
+              <button
+                type="button"
+                onClick={() => setShowRegionPopover(!showRegionPopover)}
+                className="w-full px-4 py-3 text-left text-sm text-gray-800 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
+                style={{ 
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+                }}
               >
-                <div className="p-3 space-y-1">
-                  {sidos.map((sido) => (
-                    <button
-                      key={sido.id}
-                      onClick={() => handleSidoSelect(sido)}
-                      className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-150 ${
-                        selectedSido?.id === sido.id
-                          ? 'bg-gray-900 text-white border border-gray-900'
-                          : 'hover:bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {sido.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                {selectedRegionName || '지역을 선택하세요'}
+              </button>
 
-              {/* 구 선택 */}
-              {selectedSido && (
-                <div
-                  className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-                    openLevel === 'gungu' ? 'max-h-52' : 'max-h-0'
-                  } overflow-y-auto`}
-                >
-                  <div className="p-3 space-y-1">
-                    {gungus.map((gungu) => (
-                      <button
-                        key={gungu.id}
-                        onClick={() => handleGunguSelect(gungu)}
-                        className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
-                          selectedGungu?.id === gungu.id
-                            ? 'bg-gray-900 text-white border border-gray-900'
-                            : 'hover:bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {gungu.name}
-                      </button>
-                    ))}
+              {showRegionPopover && (
+                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(25px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                  boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)',
+                  maxHeight: '400px'
+                }}>
+                  <div className="flex" style={{ height: '320px' }}>
+                    {/* 시/도 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                      {isSidosLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : sidos.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">시/도가 없습니다</div>
+                      ) : (
+                        sidos.map((sido) => (
+                          <button
+                            key={sido.sidoId || sido.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveSidoId(sido.sidoId || sido.id);
+                              setActiveGunguId(null);
+                              setSelectedSido(sido);
+                              setSelectedGungu(null);
+                              setSelectedDong(null);
+                            }}
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                              activeSidoId === (sido.sidoId || sido.id)
+                                ? 'bg-gray-900 text-white border-r-2 border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${activeSidoId === (sido.sidoId || sido.id) ? 'text-white' : 'text-gray-800'}`}>
+                              {sido.sidoName || sido.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* 구/군 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide p-3">
+                      {!activeSidoId ? null : isGungusLoading ? (
+                        <div className="p-2 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : gungus.length === 0 ? (
+                        <div className="p-2 text-center text-sm text-gray-500">구·군이 없습니다</div>
+                      ) : (
+                        gungus.map((gungu) => (
+                          <button
+                            key={gungu.gunguId || gungu.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveGunguId(gungu.gunguId || gungu.id);
+                              setSelectedGungu(gungu);
+                              setSelectedDong(null);
+                            }}
+                            className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                              activeGunguId === (gungu.gunguId || gungu.id)
+                                ? 'bg-gray-900 text-white border border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-xs leading-tight ${activeGunguId === (gungu.gunguId || gungu.id) ? 'text-white' : 'text-gray-800'}`}>
+                              {gungu.gunguName || gungu.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* 동 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide p-3">
+                      {!activeGunguId ? null : isDongsLoading ? (
+                        <div className="p-2 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : dongs.length === 0 ? (
+                        <div className="p-2 text-center text-sm text-gray-500">동이 없습니다</div>
+                      ) : (
+                        dongs.map((dong) => (
+                          <button
+                            key={dong.dongId || dong.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDong(dong);
+                              setSelectedRegionName(
+                                `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
+                              );
+                            }}
+                            className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
+                              selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
+                                ? 'bg-gray-900 text-white border border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-xs leading-tight ${(selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)) ? 'text-white' : 'text-gray-800'}`}>
+                              {dong.dongName || dong.name}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {/* 동 선택 */}
-              {selectedGungu && (
-                <div
-                  className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
-                    openLevel === 'dong' ? 'max-h-52' : 'max-h-0'
-                  } overflow-y-auto`}
-                >
-                  <div className="p-3 space-y-1">
-                    {dongs.map((dong) => (
-                      <button
-                        key={dong.id}
-                        onClick={() => handleDongSelect(dong)}
-                        className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
-                          selectedDong?.id === dong.id
-                            ? 'bg-gray-900 text-white border border-gray-900'
-                            : 'hover:bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {dong.name}
-                      </button>
-                    ))}
+                  <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    <button 
+                      type="button"
+                      onClick={() => setShowRegionPopover(false)}
+                      className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                    >
+                      선택 완료
+                    </button>
                   </div>
                 </div>
               )}

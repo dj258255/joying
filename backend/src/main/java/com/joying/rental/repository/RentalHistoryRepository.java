@@ -115,4 +115,25 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
             @Param("productId") Long productId,
             @Param("statuses") List<RentalStatus> statuses
     );
+
+    /**
+     * 상품의 특정 회원 대여 내역 조회 (특정 상태 제외)
+     * - 채팅방에서 진행 중인 거래 확인용
+     */
+    Page<RentalHistory> findByRentalProduct_ProductIdAndMember_MemberIdAndStatusNot(
+            Long productId,
+            Long memberId,
+            RentalStatus status,
+            Pageable pageable
+    );
+
+    /**
+     * 상품의 대여 내역 조회 (특정 상태 제외)
+     * - 판매자가 자신의 상품 거래 확인용
+     */
+    Page<RentalHistory> findByRentalProduct_ProductIdAndStatusNot(
+            Long productId,
+            RentalStatus status,
+            Pageable pageable
+    );
 }

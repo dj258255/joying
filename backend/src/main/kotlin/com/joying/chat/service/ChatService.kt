@@ -35,7 +35,7 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val redisPubSubPublisher: RedisPubSubPublisher,
     private val unreadCountService: UnreadCountService,
-    private val permissionCache: ChatRoomPermissionCache
+    private val permissionCache: ChatRoomPermissionCache,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -55,75 +55,80 @@ class ChatService(
     suspend fun sendMessage(
         chatRoomId: Long,
         senderId: Long,
-        request: SendMessageRequest
+        request: SendMessageRequest,
     ): ChatMessageResponse {
-        // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms ⭐
+        // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms
         if (!permissionCache.hasPermission(chatRoomId, senderId)) {
             throw BusinessException(ErrorCode.FORBIDDEN, "메시지 전송 권한이 없습니다")
         }
 
         // 2. 채팅방 활성 상태 확인 (권한 확인 시 이미 조회했으므로 캐시에서 가져올 수 있음)
-        val chatRoom = withContext(Dispatchers.IO) {
-            chatRoomRepository.findById(chatRoomId)
-                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
-        }
+        val chatRoom =
+            withContext(Dispatchers.IO) {
+                chatRoomRepository
+                    .findById(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+            }
 
         if (!chatRoom.isActive()) {
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료된 채팅방입니다")
         }
 
         // ChatMessage 생성
-        val chatMessage = when (request.type) {
-            MessageType.TEXT -> {
-                ChatMessage.createTextMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    content = request.content,
-                    replyToMessageId = request.replyToMessageId
-                )
+        val chatMessage =
+            when (request.type) {
+                MessageType.TEXT -> {
+                    ChatMessage.createTextMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        content = request.content,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.IMAGE -> {
+                    ChatMessage.createImageMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        imageUrl = request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"),
+                        fileName = request.fileName ?: "image.jpg",
+                        fileSize = request.fileSize ?: 0L,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.FILE -> {
+                    ChatMessage.createFileMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        fileUrl = request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"),
+                        fileName = request.fileName ?: "file",
+                        fileSize = request.fileSize ?: 0L,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.SYSTEM -> {
+                    ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = request.content,
+                    )
+                }
             }
-            MessageType.IMAGE -> {
-                ChatMessage.createImageMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    imageUrl = request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"),
-                    fileName = request.fileName ?: "image.jpg",
-                    fileSize = request.fileSize ?: 0L,
-                    replyToMessageId = request.replyToMessageId
-                )
-            }
-            MessageType.FILE -> {
-                ChatMessage.createFileMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    fileUrl = request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"),
-                    fileName = request.fileName ?: "file",
-                    fileSize = request.fileSize ?: 0L,
-                    replyToMessageId = request.replyToMessageId
-                )
-            }
-            MessageType.SYSTEM -> {
-                ChatMessage.createSystemMessage(
-                    chatRoomId = chatRoomId,
-                    content = request.content
-                )
-            }
-        }
 
         // 현재 시간 설정
         chatMessage.createdAt = Instant.now()
 
         // 3. MongoDB에 저장 (영구 저장) - withContext로 blocking I/O 처리
-        val savedMessage = withContext(Dispatchers.IO) {
-            chatMessageRepository.save(chatMessage)
-        }
+        val savedMessage =
+            withContext(Dispatchers.IO) {
+                chatMessageRepository.save(chatMessage)
+            }
 
         // 4. 답장 대상 메시지 조회 (있을 경우)
-        val replyMessage = savedMessage.replyToMessageId?.let { replyId ->
-            withContext(Dispatchers.IO) {
-                chatMessageRepository.findById(replyId).orElse(null)
+        val replyMessage =
+            savedMessage.replyToMessageId?.let { replyId ->
+                withContext(Dispatchers.IO) {
+                    chatMessageRepository.findById(replyId).orElse(null)
+                }
             }
-        }
 
         // 5. DTO 변환 (답장 정보 포함)
         val messageDto = ChatMessageResponse.from(savedMessage, replyMessage)
@@ -135,19 +140,20 @@ class ChatService(
             "메시지 전송 완료: messageId={}, chatRoomId={}, senderId={}",
             savedMessage.id,
             chatRoomId,
-            senderId
+            senderId,
         )
 
         // 6. 상대방 안읽은 개수 증가 (Redis)
-        val receiverId = if (senderId == chatRoom.buyer.getMemberId()) {
-            chatRoom.seller.getMemberId()!!
-        } else {
-            chatRoom.buyer.getMemberId()!!
-        }
+        val receiverId =
+            if (senderId == chatRoom.buyer.getMemberId()) {
+                chatRoom.seller.getMemberId()!!
+            } else {
+                chatRoom.buyer.getMemberId()!!
+            }
 
         unreadCountService.increment(chatRoomId, receiverId)
 
-        // 7. lastMessage 업데이트 (비동기) - 20-30ms 절감 ⭐
+        // 7. lastMessage 업데이트 (비동기) - 20-30ms 절감
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateLastMessageAsync(chatRoomId, savedMessage.content, savedMessage.createdAt!!)
@@ -163,10 +169,15 @@ class ChatService(
      * lastMessage 비동기 업데이트
      * (메시지 전송 응답 속도에 영향 없음)
      */
-    private suspend fun updateLastMessageAsync(chatRoomId: Long, content: String, createdAt: Instant) {
+    private suspend fun updateLastMessageAsync(
+        chatRoomId: Long,
+        content: String,
+        createdAt: Instant,
+    ) {
         withContext(Dispatchers.IO) {
-            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null)
-                ?: return@withContext
+            val chatRoom =
+                chatRoomRepository.findById(chatRoomId).orElse(null)
+                    ?: return@withContext
 
             chatRoom.updateLastMessage(content, createdAt)
             chatRoomRepository.save(chatRoom)
@@ -183,9 +194,14 @@ class ChatService(
      * @param memberId 회원 ID
      */
     @Transactional
-    fun markAsRead(chatRoomId: Long, memberId: Long) {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
+    fun markAsRead(
+        chatRoomId: Long,
+        memberId: Long,
+    ) {
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
         // MySQL lastReadAt 업데이트
         chatRoomMember.markAsRead()
@@ -210,10 +226,12 @@ class ChatService(
         chatRoomId: Long,
         memberId: Long,
         isPinned: Boolean?,
-        isMuted: Boolean?
+        isMuted: Boolean?,
     ): ChatRoomSettingsResponse {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
         // 고정 설정 업데이트
         if (isPinned != null && chatRoomMember.isPinned != isPinned) {
@@ -229,7 +247,7 @@ class ChatService(
 
         return ChatRoomSettingsResponse(
             isPinned = chatRoomMember.isPinned,
-            isMuted = chatRoomMember.isMuted
+            isMuted = chatRoomMember.isMuted,
         )
     }
 }

@@ -13,11 +13,11 @@ import ChatSettingsModal from '../components/ChatSettingsModal';
 import RentalRequestCard from '../components/RentalRequestCard';
 import RentalCreateModal from '../components/RentalCreateModal';
 import TransactionProcessModal from '../components/TransactionProcessModal';
+import TransactionActionButton from '../components/TransactionActionButton';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { messageApi } from '../api/messageApi';
-import { getTransactionButtonStyle } from '../../../shared/utils/transactionUtils';
 import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
 import { DUMMY_USERS } from '../../../shared/constants/dummyData';
@@ -491,8 +491,8 @@ const ChatRoomPage = () => {
     // 사용자 정보 확인 (여러 경로에서 시도)
     const currentUserId = user?.id || user?.memberId || user?.member_id;
     if (!currentUserId) {
-      console.error('[handleCreateRental] 사용자 정보 없음:', { 
-        user, 
+      console.error('[handleCreateRental] 사용자 정보 없음:', {
+        user,
         isAuthenticated: user !== null,
         userKeys: user ? Object.keys(user) : []
       });
@@ -502,40 +502,29 @@ const ChatRoomPage = () => {
 
     try {
       setIsCreatingRental(true);
-      
-      // 현재 사용자 정보 (이미 위에서 확인된 currentUserId 사용)
-      const currentUserInfo = {
-        id: currentUserId,
-        username: user?.nickname || user?.name || '사용자',
-        profileImageUrl: user?.profileImage || user?.profileImageUrl || null
-      };
 
-      // 대여 요청 메시지 전송 (API 호출이 아닌 채팅 메시지로 전송)
-      const rentalRequestData = {
+      // 대여 요청 정보를 JSON으로 직렬화
+      const rentalInfo = {
         productId: productId,
+        productTitle: productData?.title || productData?.name || '상품',
         startDate: rentalData.startRen,
         endDate: rentalData.endRen,
-        rentMethod: rentalData.rentMethod,
-        rentalInfo: {
-          productTitle: productData?.title || productData?.name || '상품',
-          startDate: rentalData.startRen,
-          endDate: rentalData.endRen,
-          rentMethod: rentalData.rentMethod,
-          productId: productId
-        },
-        sender: currentUserInfo
+        rentMethod: rentalData.rentMethod
       };
 
-      await messageApi.sendRentalRequest(chatRoomId, rentalRequestData);
-      
+      // WebSocket을 통해 대여 요청 메시지 전송
+      const messageData = {
+        type: 'RENTAL_REQUEST',
+        content: `${rentalInfo.productTitle} 대여를 요청합니다.\n기간: ${new Date(rentalInfo.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalInfo.endDate).toLocaleDateString('ko-KR')}\n방식: ${rentalInfo.rentMethod === 'ONLY_ONLINE' ? '택배거래' : rentalInfo.rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}`
+      };
+
+      await sendMessage(messageData);
+
       console.log('대여 요청 메시지 전송 성공');
-      
+
       // 모달 닫기
       setShowRentalCreateModal(false);
-      
-      // 채팅방 새로고침하여 메시지 반영
-      setCurrentChatRoom(chatRoomId);
-      
+
       alert('대여 요청을 전송했습니다. 상대방의 승인을 기다려주세요.');
     } catch (error) {
       console.error('대여 요청 전송 실패:', error);
@@ -761,39 +750,16 @@ const ChatRoomPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* 거래 버튼 - 판매자/구매자 구분 */}
-            {productId && !currentRentalData && (() => {
-              const currentUserId = user?.id || user?.memberId;
-              const sellerId = productData?.sellerId
-                || productData?.writer?.memberId
-                || productData?.writer?.member_id
-                || productData?.seller?.id
-                || productData?.seller?.memberId
-                || productData?.seller?.member_id;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-              if (isSeller) {
-                // 판매자: 거래 생성하기
-                return (
-                  <button
-                    onClick={() => setShowTransactionModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    거래 생성하기
-                  </button>
-                );
-              } else {
-                // 구매자: 대여 요청하기 (기존 플로우 유지)
-                return (
-                  <button
-                    onClick={() => setShowRentalCreateModal(true)}
-                    className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
-                  >
-                    대여 요청하기
-                  </button>
-                );
-              }
-            })()}
+            {/* 거래/결제 버튼 (모듈화) */}
+            <TransactionActionButton
+              productId={productId}
+              currentRentalData={currentRentalData}
+              productData={productData}
+              user={user}
+              onCreateTransaction={() => setShowTransactionModal(true)}
+              onRentalRequest={() => setShowRentalCreateModal(true)}
+              onTransactionProcess={() => setShowTransactionModal(true)}
+            />
             {/* 검색 버튼 */}
             <button
               onClick={openSearch}
@@ -804,29 +770,6 @@ const ChatRoomPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 110-15 7.5 7.5 0 010 15z" />
               </svg>
             </button>
-            {/* 거래 프로세스 버튼 (거래가 생성된 후에만 표시) */}
-            {productId && currentRentalData && (() => {
-              const currentUserId = user?.id || user?.memberId;
-              const sellerId = productData?.sellerId
-                || productData?.writer?.memberId
-                || productData?.writer?.member_id
-                || productData?.seller?.id
-                || productData?.seller?.memberId
-                || productData?.seller?.member_id;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-              const status = currentRentalData?.status || currentRentalData?.rentalStatus;
-              const { text: buttonText, color: buttonColor } = getTransactionButtonStyle(status, isSeller);
-
-              return (
-                <button
-                  onClick={() => setShowTransactionModal(true)}
-                  className={`px-4 py-2 ${buttonColor} text-white text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md`}
-                >
-                  {buttonText}
-                </button>
-              );
-            })()}
             {/* 설정 버튼 */}
             <button
               onClick={() => setShowSettings(true)}

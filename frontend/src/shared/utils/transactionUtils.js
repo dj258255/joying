@@ -41,9 +41,13 @@ export const getTransactionButtonStyle = (status, isSeller) => {
   if (!status) return defaultStyle;
 
   const statusMap = {
+    'RESERVED': {
+      text: isSeller ? '결제 대기 중' : '결제하러 가기',
+      color: 'bg-yellow-600 hover:bg-yellow-700'
+    },
     'PAYMENT_PENDING': {
       text: isSeller ? '결제 대기 중' : '결제하러 가기',
-      color: 'bg-blue-600 hover:bg-blue-700'
+      color: 'bg-yellow-600 hover:bg-yellow-700'
     },
     'PAYMENT_COMPLETED': {
       text: isSeller ? '발송 처리' : '배송 추적',
@@ -63,11 +67,11 @@ export const getTransactionButtonStyle = (status, isSeller) => {
     },
     'RETURN_REQUESTED': {
       text: isSeller ? '반납 확인' : '반납 추적',
-      color: 'bg-blue-600 hover:bg-blue-700'
+      color: 'bg-orange-600 hover:bg-orange-700'
     },
     'RETURN_SHIPPED': {
       text: isSeller ? '반납 확인' : '반납 추적',
-      color: 'bg-blue-600 hover:bg-blue-700'
+      color: 'bg-orange-600 hover:bg-orange-700'
     },
     'COMPLETED': {
       text: '거래 완료',

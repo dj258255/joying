@@ -44,9 +44,6 @@ services:
     image: mongo:7.0
     container_name: joying-mongodb
     environment:
-      MONGODB_USERNAME: ${MONGODB_USERNAME}
-      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
-      MONGODB_DATABASE: ${MONGODB_DATABASE}
       TZ: Asia/Seoul
     ports:
       - "${MONGODB_PORT}:27017"

@@ -77,11 +77,19 @@ public class PaymentService {
         RentalHistory rentalHistory = rentalHistoryRepository.findById(request.getRentalHisId())
                 .orElseThrow(() -> new IllegalArgumentException("대여 내역을 찾을 수 없습니다: " + request.getRentalHisId()));
 
-        // 금액 검증: totalAmount가 실제 rentalFee + deposit과 일치하는지 확인
+        // 금액 검증: 채팅을 통한 네고(할인) 고려
+        // - 요청 금액이 원래 금액보다 높으면 에러 (과다 청구 방지)
+        // - 요청 금액이 원래 금액 이하면 허용 (할인 가능)
         Integer expectedAmount = rentalHistory.getFee() + rentalHistory.getDeposit().intValue();
-        if (!expectedAmount.equals(request.getTotalAmount())) {
-            log.error("결제 금액 불일치: expected={}, actual={}", expectedAmount, request.getTotalAmount());
+        if (request.getTotalAmount() > expectedAmount) {
+            log.error("결제 금액 초과: expected={}, actual={}", expectedAmount, request.getTotalAmount());
             throw new PaymentAmountMismatchException(expectedAmount, request.getTotalAmount());
+        }
+
+        // 할인된 경우 로그 기록
+        if (request.getTotalAmount() < expectedAmount) {
+            log.info("할인 적용됨: original={}, discounted={}, discount={}",
+                    expectedAmount, request.getTotalAmount(), expectedAmount - request.getTotalAmount());
         }
 
         // 멱등성 체크: 이미 해당 rentalHisId로 결제가 있으면 반환

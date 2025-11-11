@@ -201,7 +201,7 @@ const ProductDetailPage = () => {
 
       // 현재 사용자 정보 확인
       console.log('🔍 사용자 정보 확인:', { isAuthenticated, user });
-      
+
       if (!isAuthenticated || !user) {
         alert('로그인이 필요합니다.');
         navigate(ROUTE_PATHS.LOGIN);
@@ -211,19 +211,45 @@ const ProductDetailPage = () => {
       // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
       console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
       const chatRoomData = await chatApi.createChatRoom(product.id);
-      
+
       console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
-      
+
       // 채팅방 ID 추출 (백엔드 응답: ChatRoomResponse.chatRoomId)
       const chatRoomId = chatRoomData.chatRoomId;
-      
+
       if (!chatRoomId) {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
+      // 대여 요청 메시지 전송
+      const currentUserId = user?.id || user?.memberId || user?.member_id;
+      const currentUserInfo = {
+        id: currentUserId,
+        username: user?.nickname || user?.name || '사용자',
+        profileImageUrl: user?.profileImage || user?.profileImageUrl || null
+      };
+
+      const rentalRequestData = {
+        productId: product.id,
+        startDate: new Date(dateRange.start).toISOString(),
+        endDate: new Date(dateRange.end).toISOString(),
+        rentMethod: 'BOTH', // 기본값
+        rentalInfo: {
+          productTitle: product.title,
+          startDate: new Date(dateRange.start).toISOString(),
+          endDate: new Date(dateRange.end).toISOString(),
+          rentMethod: 'BOTH',
+          productId: product.id
+        },
+        sender: currentUserInfo
+      };
+
+      await messageApi.sendRentalRequest(chatRoomId, rentalRequestData);
+      console.log('[ProductDetailPage] 대여 요청 메시지 전송 완료');
+
       // 채팅방으로 이동 (생성된 채팅방 데이터를 state로 전달하여 조회 API 호출 생략)
       navigate(`/chats/${chatRoomId}`, {
-        state: { 
+        state: {
           productId: product.id,
           chatRoomData: chatRoomData // 생성 응답 데이터 전달
         }
@@ -341,7 +367,7 @@ const ProductDetailPage = () => {
                     <div className="flex-shrink-0">
                       <DateRangeCalendar
                         onDateRangeChange={handleDateRangeChange}
-                        disabledDates={[]}
+                        disabledDates={product.disabledDates || []}
                       />
                     </div>
 
@@ -650,7 +676,7 @@ const ProductDetailPage = () => {
                 <div className="mb-6">
                   <DateRangeCalendar
                     onDateRangeChange={handleDateRangeChange}
-                    disabledDates={[]}
+                    disabledDates={product.disabledDates || []}
                   />
                 </div>
 

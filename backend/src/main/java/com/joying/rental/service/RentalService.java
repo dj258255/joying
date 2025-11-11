@@ -1052,4 +1052,43 @@ public class RentalService {
                         .build())
                 .build();
     }
+
+    /**
+     * 상품의 현재 진행 중인 대여 조회
+     * - 채팅방에서 거래 상태 확인용
+     * - 가장 최근의 CANCELLED가 아닌 대여 반환
+     */
+    public Optional<RentalDetailResponse> getCurrentRentalByProduct(Long productId, Long memberId) {
+        log.info("상품의 현재 대여 조회: productId={}, memberId={}", productId, memberId);
+
+        // 가장 최근의 진행 중인 대여 조회 (CANCELLED 제외)
+        List<RentalHistory> rentals = rentalHistoryRepository
+                .findByProduct_ProductIdAndRenter_MemberIdAndStatusNot(
+                        productId, memberId, RentalStatus.CANCELLED,
+                        PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "rentalHisId"))
+                )
+                .getContent();
+
+        // 소유자인 경우도 조회
+        if (rentals.isEmpty()) {
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
+
+            if (product.getMember().getMemberId().equals(memberId)) {
+                rentals = rentalHistoryRepository
+                        .findByProduct_ProductIdAndStatusNot(
+                                productId, RentalStatus.CANCELLED,
+                                PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "rentalHisId"))
+                        )
+                        .getContent();
+            }
+        }
+
+        if (rentals.isEmpty()) {
+            return Optional.empty();
+        }
+
+        RentalHistory rental = rentals.get(0);
+        return Optional.of(getRentalDetail(rental.getRentalHisId(), memberId));
+    }
 }

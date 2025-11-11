@@ -67,51 +67,47 @@ class ChatMessageListener(
                 return
             }
 
-            // 2. Redis에서 구매자/판매자의 WebSocket 세션 ID 조회
-            val buyerKey = SESSION_KEY_PREFIX + chatRoom.buyer.getMemberId()
-            val sellerKey = SESSION_KEY_PREFIX + chatRoom.seller.getMemberId()
+            // 2. 구매자/판매자의 memberId 가져오기
+            val buyerId = chatRoom.buyer.getMemberId().toString()
+            val sellerId = chatRoom.seller.getMemberId().toString()
 
-            val buyerSessions = redis.opsForSet().members(buyerKey) ?: emptySet()
-            val sellerSessions = redis.opsForSet().members(sellerKey) ?: emptySet()
+            // 3. memberId를 principal name으로 사용하여 메시지 전송
+            // Spring STOMP는 convertAndSendToUser의 첫 인자를 principal name으로 취급
+            // WebSocketAuthInterceptor에서 principal name을 memberId로 설정했으므로,
+            // 해당 memberId를 가진 모든 세션에 메시지가 전송됨
+            var sentCount = 0
 
-            val allSessions = buyerSessions + sellerSessions
-
-            if (allSessions.isEmpty()) {
-                logger.debug(
-                    "WebSocket 세션 없음 (모두 오프라인): chatRoomId={}, buyerId={}, sellerId={}",
-                    messageDto.chatRoomId,
-                    chatRoom.buyer.getMemberId(),
-                    chatRoom.seller.getMemberId()
+            try {
+                // buyer에게 전송
+                messagingTemplate.convertAndSendToUser(
+                    buyerId,
+                    "/queue/chat/${messageDto.chatRoomId}",
+                    messageDto
                 )
-                return
+                sentCount++
+                logger.debug("buyer에게 메시지 전송: buyerId={}, chatRoomId={}", buyerId, messageDto.chatRoomId)
+            } catch (e: Exception) {
+                logger.warn("buyer 메시지 전송 실패: buyerId={}, error={}", buyerId, e.message)
             }
 
-            // 3. 각 세션에 직접 메시지 전송 (SimpleBroker 없이)
-            // 구독 경로: /topic/chat/{chatRoomId}
-            var sentCount = 0
-            allSessions.forEach { sessionId ->
-                try {
-                    messagingTemplate.convertAndSendToUser(
-                        sessionId,
-                        "/queue/chat/${messageDto.chatRoomId}",
-                        messageDto
-                    )
-                    sentCount++
-                } catch (e: Exception) {
-                    logger.warn(
-                        "WebSocket 전송 실패: sessionId={}, error={}",
-                        sessionId,
-                        e.message
-                    )
-                }
+            try {
+                // seller에게 전송
+                messagingTemplate.convertAndSendToUser(
+                    sellerId,
+                    "/queue/chat/${messageDto.chatRoomId}",
+                    messageDto
+                )
+                sentCount++
+                logger.debug("seller에게 메시지 전송: sellerId={}, chatRoomId={}", sellerId, messageDto.chatRoomId)
+            } catch (e: Exception) {
+                logger.warn("seller 메시지 전송 실패: sellerId={}, error={}", sellerId, e.message)
             }
 
             logger.debug(
-                "WebSocket 전송 완료: chatRoomId={}, messageId={}, 전송 성공 {}/{}",
+                "WebSocket 전송 완료: chatRoomId={}, messageId={}, 전송 성공 {}/2",
                 messageDto.chatRoomId,
                 messageDto.id,
-                sentCount,
-                allSessions.size
+                sentCount
             )
 
         } catch (e: Exception) {

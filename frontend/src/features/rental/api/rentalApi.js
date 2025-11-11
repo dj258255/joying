@@ -15,7 +15,7 @@ export const rentalApi = {
    * @param {Object} data - 대여 거래 데이터
    * @param {string} data.startRen - 대여 시작 일시 (ISO-8601)
    * @param {string} data.endRen - 대여 종료 일시 (ISO-8601)
-   * @param {string} data.rentMethod - 대여 방법 ('DELIVERY' | 'MEET' | 'BOTH')
+   * @param {string} data.rentMethod - 대여 방법 ('ONLY_ONLINE' | 'ONLY_OFFLINE' | 'BOTH')
    * @returns {Promise<Object>} 생성된 대여 거래 정보
    */
   createRentalReservation: async (productId, data) => {
@@ -31,7 +31,8 @@ export const rentalApi = {
       ? data.endRen
       : new Date(data.endRen).toISOString();
 
-    const validRentMethods = ['DELIVERY', 'MEET', 'BOTH'];
+    // 백엔드 RentMethod enum에 맞게 수정
+    const validRentMethods = ['ONLY_ONLINE', 'ONLY_OFFLINE', 'BOTH'];
     const rentMethod = validRentMethods.includes(data.rentMethod)
       ? data.rentMethod
       : 'BOTH';
