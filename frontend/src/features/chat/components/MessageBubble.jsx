@@ -132,6 +132,61 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     isLongPress.current = false;
   };
 
+  // 답장 메시지로 스크롤 이동
+  const handleReplyClick = (e) => {
+    e.stopPropagation();
+    if (!replyTo?.id) return;
+
+    // 원본 메시지 요소 찾기
+    const targetElement = document.getElementById(`message-${replyTo.id}`);
+    if (targetElement) {
+      // 스크롤 컨테이너 찾기 (overflow-y-auto 또는 overflow-y-scroll 클래스를 가진 가장 가까운 부모)
+      let scrollContainer = null;
+      let parent = targetElement.parentElement;
+      
+      while (parent && parent !== document.body) {
+        const classes = parent.className || '';
+        const style = window.getComputedStyle(parent);
+        const hasOverflowY = classes.includes('overflow-y-auto') || 
+                           classes.includes('overflow-y-scroll') ||
+                           style.overflowY === 'auto' || 
+                           style.overflowY === 'scroll';
+        
+        if (hasOverflowY) {
+          scrollContainer = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+
+      if (scrollContainer) {
+        // 스크롤 컨테이너 기준으로 위치 계산
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const elementRect = targetElement.getBoundingClientRect();
+        const relativeTop = elementRect.top - containerRect.top + scrollContainer.scrollTop;
+        const containerHeight = scrollContainer.clientHeight;
+        const elementHeight = targetElement.offsetHeight;
+        
+        // 요소를 컨테이너 중앙에 위치시키기
+        const targetScrollTop = relativeTop - (containerHeight / 2) + (elementHeight / 2);
+        
+        scrollContainer.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
+        });
+      } else {
+        // 스크롤 컨테이너를 찾지 못하면 scrollIntoView 사용 (브라우저가 자동으로 처리)
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      // 하이라이트 효과 추가
+      targetElement.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
+      setTimeout(() => {
+        targetElement.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
+      }, 2000);
+    }
+  };
+
   // 시스템 메시지
   if (type === 'system') {
     return (
@@ -194,6 +249,26 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
           </div>
         )}
         <div className="max-w-xs">
+          {/* 답장 표시 */}
+          {replyTo && typeof replyTo === 'object' && replyTo.sender && (
+            <div className="mb-2">
+              <div 
+                onClick={handleReplyClick}
+                className="bg-gray-50/80 border-l-4 border-gray-400 p-3 rounded-r-lg cursor-pointer hover:bg-gray-100/80 transition-colors active:bg-gray-200/80"
+                title="답장한 메시지로 이동"
+              >
+                <div className="text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                  {replyTo.sender?.nickname || '알 수 없음'}에게 답장
+                </div>
+                <div className="text-sm text-gray-700 bg-white/50 p-2 rounded">
+                  {replyTo.isDeleted ? '삭제된 메시지입니다.' : (replyTo.content || '')}
+                </div>
+              </div>
+            </div>
+          )}
           <div 
             className={`relative ${isDeleted ? 'opacity-60' : ''}`}
           >
@@ -317,7 +392,11 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
         {/* 답장 표시 */}
         {replyTo && typeof replyTo === 'object' && replyTo.sender && (
           <div className="mb-2">
-            <div className="bg-gray-50/80 border-l-4 border-gray-400 p-3 rounded-r-lg">
+            <div 
+              onClick={handleReplyClick}
+              className="bg-gray-50/80 border-l-4 border-gray-400 p-3 rounded-r-lg cursor-pointer hover:bg-gray-100/80 transition-colors active:bg-gray-200/80"
+              title="답장한 메시지로 이동"
+            >
               <div className="text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />

@@ -1200,8 +1200,17 @@ const ChatRoomPage = () => {
 
   // 하단이 아닐 때 상대방의 마지막 메시지 찾기 (Hook은 early return 이전에 호출되어야 함)
   const lastOpponentMessage = useMemo(() => {
-    if (isNearBottom || !currentChatRoom) return null;
+    if (isNearBottom || !currentChatRoom || sortedMessages.length === 0) return null;
     const currentUserId = user?.id || user?.memberId;
+    
+    // 실제 마지막 메시지가 내 메시지인 경우 미리보기 표시하지 않음
+    const lastMessage = sortedMessages[sortedMessages.length - 1];
+    const lastMessageSenderId = lastMessage?.senderId || lastMessage?.sender?.id;
+    if (lastMessageSenderId && Number(lastMessageSenderId) === Number(currentUserId)) {
+      return null;
+    }
+    
+    // 상대방 메시지만 필터링해서 가장 최근 메시지 찾기
     const opponentMessages = sortedMessages
       .filter((msg) => {
         const msgSenderId = msg.senderId || msg.sender?.id;
