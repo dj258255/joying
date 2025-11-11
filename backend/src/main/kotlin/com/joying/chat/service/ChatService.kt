@@ -4,6 +4,7 @@ import com.joying.chat.document.ChatMessage
 import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
+import com.joying.chat.dto.ChatRoomUpdateEvent
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -38,6 +40,7 @@ class ChatService(
     private val permissionCache: ChatRoomPermissionCache,
     private val webPushService: WebPushService,
     private val chatPresenceService: ChatPresenceService,
+    private val messagingTemplate: SimpMessagingTemplate,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -186,6 +189,28 @@ class ChatService(
                 logger.error("채팅방 lastMessage 업데이트 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
             }
         }
+
+        // 11. 채팅방 목록 업데이트 이벤트 전송 (실시간 반영)
+        val unreadCount = unreadCountService.get(chatRoomId, receiverId)
+        val chatRoomUpdate = ChatRoomUpdateEvent(
+            chatRoomId = chatRoomId,
+            lastMessage = savedMessage.content,
+            lastMessageAt = savedMessage.createdAt!!,
+            unreadCount = unreadCount
+        )
+
+        messagingTemplate.convertAndSendToUser(
+            receiverId.toString(),
+            "/queue/chatroom-update",
+            chatRoomUpdate
+        )
+
+        logger.debug(
+            "채팅방 목록 업데이트 이벤트 전송: chatRoomId={}, receiverId={}, unreadCount={}",
+            chatRoomId,
+            receiverId,
+            unreadCount
+        )
 
         return messageDto
     }
