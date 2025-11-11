@@ -25,6 +25,8 @@ import { calculateRentalDays, calculateTotalAmount, getVideoType, getModalTitle 
  * @param {Object} props.rentalData - 대여 거래 정보 (있는 경우)
  * @param {Array} props.unavailableDates - 대여 불가 날짜
  * @param {string} props.userRole - 사용자 역할 ('seller' | 'buyer')
+ * @param {Object} props.requestedDateRange - 대여 요청된 날짜 범위 {start, end}
+ * @param {Function} props.onTransactionCreated - 거래 생성 시 콜백
  */
 const TransactionProcessModal = ({
   isOpen,
@@ -32,7 +34,9 @@ const TransactionProcessModal = ({
   productData,
   rentalData = null,
   unavailableDates = [],
-  userRole = 'buyer'
+  userRole = 'buyer',
+  requestedDateRange = null,
+  onTransactionCreated
 }) => {
   const { user } = useAuth();
 
@@ -44,7 +48,7 @@ const TransactionProcessModal = ({
 
   // 거래 생성 폼 상태
   const [dateRange, setDateRange] = useState(null);
-  const [rentMethod, setRentMethod] = useState('BOTH');
+  const [rentMethod, setRentMethod] = useState('BOTH'); // BOTH, ONLY_OFFLINE, ONLY_ONLINE
   const [rentalFee, setRentalFee] = useState(productData?.price || 0);
   const [deposit, setDeposit] = useState(productData?.deposit || 0);
   const [requireVideo, setRequireVideo] = useState(true);
@@ -67,8 +71,20 @@ const TransactionProcessModal = ({
       setTransactionData(rentalData);
       // 상태에 따라 currentStep 결정
       determineCurrentStep(rentalData);
+    } else {
+      // rentalData가 없으면 거래 생성 단계로 초기화
+      setCurrentStep('create');
+      setTransactionData(null);
+
+      // 대여 요청된 날짜가 있으면 자동으로 설정
+      if (requestedDateRange && requestedDateRange.start && requestedDateRange.end) {
+        setDateRange({
+          start: new Date(requestedDateRange.start),
+          end: new Date(requestedDateRange.end)
+        });
+      }
     }
-  }, [rentalData]);
+  }, [rentalData, requestedDateRange]);
 
   // 현재 단계 결정
   const determineCurrentStep = (data) => {
@@ -148,12 +164,18 @@ const TransactionProcessModal = ({
 
       const paymentResult = await paymentApi.createPayment(paymentData);
 
-      setTransactionData({
+      const newTransactionData = {
         ...result.data,
         payment: paymentResult.data
-      });
+      };
 
+      setTransactionData(newTransactionData);
       setCurrentStep('payment_waiting');
+
+      // 부모 컴포넌트에 거래 생성 알림
+      if (onTransactionCreated) {
+        onTransactionCreated(newTransactionData);
+      }
 
       alert('거래가 생성되었습니다. 구매자가 결제할 때까지 기다려주세요.');
     } catch (err) {
@@ -483,7 +505,7 @@ const TransactionProcessModal = ({
                   거래 방법 *
                 </label>
                 <div className="space-y-2">
-                  {['DELIVERY', 'MEET', 'BOTH'].map((method) => (
+                  {['ONLY_ONLINE', 'ONLY_OFFLINE', 'BOTH'].map((method) => (
                     <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <input
                         type="radio"
@@ -495,11 +517,11 @@ const TransactionProcessModal = ({
                       />
                       <div>
                         <div className="font-medium text-gray-900">
-                          {method === 'DELIVERY' ? '배송' : method === 'MEET' ? '직접 만나기' : '둘 다 가능'}
+                          {method === 'ONLY_ONLINE' ? '택배거래' : method === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {method === 'DELIVERY' ? '택배로 배송받습니다' :
-                           method === 'MEET' ? '직접 만나서 받습니다' : '배송 또는 직접 만나기 둘 다 가능합니다'}
+                          {method === 'ONLY_ONLINE' ? '택배로 배송받습니다' :
+                           method === 'ONLY_OFFLINE' ? '직접 만나서 받습니다' : '택배거래 또는 직거래 둘 다 가능합니다'}
                         </div>
                       </div>
                     </label>

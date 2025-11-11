@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
+const HashtagFilter = ({ searchHashtags = [], onHashtagSelect, selectedHashtags = [] }) => {
   // 더미 해시태그 데이터 (실제로는 API에서 가져와야 함)
   const dummyHashtags = [
     { id: 1, name: '게임', count: 45 },
@@ -45,7 +45,7 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
     { id: 40, name: '서핑', count: 1 }
   ];
 
-  const [hashtags] = useState(dummyHashtags);
+  const [hashtags] = useState(searchHashtags.length > 0 ? searchHashtags : dummyHashtags);
   const [showAll, setShowAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -102,119 +102,96 @@ const HashtagFilter = ({ onHashtagSelect, selectedHashtags = [] }) => {
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
           cursor: 'grab',
-          minHeight: '60px',
-          padding: '10px 0',
+          // ✅ 해시태그가 없을 때는 높이를 0으로
+          minHeight: displayHashtags.length > 0 ? '60px' : '0',
+          padding: displayHashtags.length > 0 ? '10px 0' : '0',
           overflowY: 'hidden',
           touchAction: 'pan-x',
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
+          transition: 'all 0.2s ease' // 부드럽게 줄어듦
         } : {
           overflowY: 'hidden',
-          touchAction: 'manipulation'
+          touchAction: 'manipulation',
+          minHeight: displayHashtags.length > 0 ? '60px' : '0',
+          padding: displayHashtags.length > 0 ? '10px 0' : '0',
+          transition: 'all 0.2s ease'
         }}
-        onMouseDown={!showAll ? (e) => {
-          // 버튼 클릭이 아닌 경우에만 드래그 시작
-          if (e.target.tagName === 'BUTTON') return;
-          
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const container = e.currentTarget;
-          const startX = e.pageX;
-          const startScrollLeft = container.scrollLeft;
-          let isDragging = false;
-          let startTime = Date.now();
-          
-          const handleMouseMove = (e) => {
+        {...(!showAll && {
+          onMouseDown: (e) => {
+            if (e.target.tagName === 'BUTTON') return;
             e.preventDefault();
             e.stopPropagation();
-            
-            const currentX = e.pageX;
-            const deltaX = startX - currentX;
-            const newScrollLeft = startScrollLeft + deltaX;
-            
-            // 3px 이상 움직이면 드래그로 인식
-            if (Math.abs(deltaX) > 3) {
-              isDragging = true;
-            }
-            
-            if (isDragging) {
-              container.scrollLeft = newScrollLeft;
-            }
-          };
-          
-          const handleMouseUp = (e) => {
+            const container = e.currentTarget;
+            const startX = e.pageX;
+            const startScrollLeft = container.scrollLeft;
+            let isDragging = false;
+            const handleMouseMove = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const deltaX = startX - e.pageX;
+              if (Math.abs(deltaX) > 3) isDragging = true;
+              if (isDragging) container.scrollLeft = startScrollLeft + deltaX;
+            };
+            const handleMouseUp = () => {
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+              container.style.cursor = 'grab';
+            };
+            document.addEventListener('mousemove', handleMouseMove, { passive: false });
+            document.addEventListener('mouseup', handleMouseUp, { passive: false });
+            container.style.cursor = 'grabbing';
+          },
+          onTouchStart: (e) => {
+            if (e.target.tagName === 'BUTTON') return;
             e.preventDefault();
             e.stopPropagation();
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            container.style.cursor = 'grab';
-          };
-          
-          document.addEventListener('mousemove', handleMouseMove, { passive: false });
-          document.addEventListener('mouseup', handleMouseUp, { passive: false });
-          container.style.cursor = 'grabbing';
-        } : undefined}
-        onTouchStart={!showAll ? (e) => {
-          if (e.target.tagName === 'BUTTON') return;
-          
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const container = e.currentTarget;
-          const startX = e.touches[0].pageX;
-          const startScrollLeft = container.scrollLeft;
-          let isDragging = false;
-          
-          const handleTouchMove = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const currentX = e.touches[0].pageX;
-            const deltaX = startX - currentX;
-            const newScrollLeft = startScrollLeft + deltaX;
-            
-            if (Math.abs(deltaX) > 3) {
-              isDragging = true;
-            }
-            
-            if (isDragging) {
-              container.scrollLeft = newScrollLeft;
-            }
-          };
-          
-          const handleTouchEnd = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            document.removeEventListener('touchmove', handleTouchMove);
-            document.removeEventListener('touchend', handleTouchEnd);
-          };
-          
-          document.addEventListener('touchmove', handleTouchMove, { passive: false });
-          document.addEventListener('touchend', handleTouchEnd, { passive: false });
-        } : undefined}
-      >
-        {displayHashtags.map((hashtag) => {
-          const isSelected = selectedHashtags.some(h => h.id === hashtag.id);
-          return (
-            <button
-              key={hashtag.id}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleHashtagClick(hashtag);
-              }}
-              className={`${showAll ? 'w-full' : 'flex-shrink-0'} px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap select-none ${
-                isSelected
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-              style={{ userSelect: 'none', pointerEvents: 'auto' }}
-            >
-              #{hashtag.name}
-            </button>
-          );
+            const container = e.currentTarget;
+            const startX = e.touches[0].pageX;
+            const startScrollLeft = container.scrollLeft;
+            let isDragging = false;
+            const handleTouchMove = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const deltaX = startX - e.touches[0].pageX;
+              if (Math.abs(deltaX) > 3) isDragging = true;
+              if (isDragging) container.scrollLeft = startScrollLeft + deltaX;
+            };
+            const handleTouchEnd = () => {
+              document.removeEventListener('touchmove', handleTouchMove);
+              document.removeEventListener('touchend', handleTouchEnd);
+            };
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+          }
         })}
+      >
+        {displayHashtags.length > 0 ? (
+          displayHashtags.map((hashtag) => {
+            const isSelected = selectedHashtags.some(h => h.id === hashtag.id);
+            return (
+              <button
+                key={hashtag.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleHashtagClick(hashtag);
+                }}
+                className={`${showAll ? 'w-full' : 'flex-shrink-0'} px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap select-none ${
+                  isSelected
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                style={{ userSelect: 'none', pointerEvents: 'auto' }}
+              >
+                #{hashtag.name}
+              </button>
+            );
+          })
+        ) : (
+          // ✅ 완전히 비어 있을 때는 아무 것도 렌더링하지 않음
+          null
+        )}
       </div>
 
       {/* 선택된 해시태그 표시 - 하단으로 이동 */}

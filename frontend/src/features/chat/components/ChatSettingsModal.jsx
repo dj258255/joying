@@ -3,7 +3,7 @@
  * 채팅방 설정 모달 컴포넌트 (카카오톡 스타일)
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { chatApi } from '../api/chatApi';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,9 +11,15 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
     isPinned: chatRoom?.isPinned || false,
-    isMuted: chatRoom?.isMuted || false,
-    notifications: chatRoom?.notifications || 'all'
+    isMuted: chatRoom?.isMuted || false
   });
+
+  useEffect(() => {
+    setSettings({
+      isPinned: chatRoom?.isPinned || false,
+      isMuted: chatRoom?.isMuted || false
+    });
+  }, [chatRoom?.isPinned, chatRoom?.isMuted, isOpen]);
 
   const handleSettingChange = (key, value) => {
     setSettings(prev => ({
@@ -23,29 +29,46 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
   };
 
   const handleSave = async () => {
+    const roomId = chatRoom?.chatRoomId || chatRoom?.id;
+    if (!roomId) {
+      alert('채팅방 정보를 확인할 수 없습니다.');
+      return;
+    }
+
+    const payload = {};
+    if (settings.isPinned !== chatRoom?.isPinned) {
+      payload.isPinned = settings.isPinned;
+    }
+    if (settings.isMuted !== chatRoom?.isMuted) {
+      payload.isMuted = settings.isMuted;
+    }
+
     try {
-      // 채팅방 고정/해제
-      if (settings.isPinned !== chatRoom?.isPinned) {
-        await chatApi.togglePinChatRoom(chatRoom.id);
+      let updatedSettings = {};
+      if (Object.keys(payload).length > 0) {
+        updatedSettings = await chatApi.updateChatRoomSettings(roomId, payload);
       }
-      
-      // 채팅방 알림 설정
-      if (settings.isMuted !== chatRoom?.isMuted) {
-        await chatApi.toggleMuteChatRoom(chatRoom.id);
-      }
-      
-      onUpdateSettings(settings);
+
+      onUpdateSettings({
+        isPinned: updatedSettings?.isPinned ?? settings.isPinned,
+        isMuted: updatedSettings?.isMuted ?? settings.isMuted
+      });
       onClose();
     } catch (error) {
       console.error('설정 저장 실패:', error);
-      alert('설정 저장에 실패했습니다.');
+      alert(error.message || '설정 저장에 실패했습니다.');
     }
   };
 
   const handleLeaveChat = async () => {
     if (window.confirm('정말로 채팅방을 나가시겠습니까?')) {
       try {
-        await chatApi.leaveChatRoom(chatRoom.id);
+        const roomId = chatRoom?.chatRoomId || chatRoom?.id;
+        if (!roomId) {
+          alert('채팅방 정보를 확인할 수 없습니다.');
+          return;
+        }
+        await chatApi.leaveChatRoom(roomId);
         navigate('/chats');
         onClose();
       } catch (error) {
@@ -135,23 +158,6 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
               />
             </button>
           </div>
-
-          {/* 알림 세부 설정 */}
-          {!settings.isMuted && (
-            <div className="ml-16 space-y-3 p-4 bg-blue-50/50 rounded-2xl">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="notifications"
-                  value="all"
-                  checked={settings.notifications === 'all'}
-                  onChange={(e) => handleSettingChange('notifications', e.target.value)}
-                  className="w-4 h-4 text-blue-500 focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">모든 알림</span>
-              </label>
-            </div>
-          )}
         </div>
 
         {/* 액션 버튼 */}

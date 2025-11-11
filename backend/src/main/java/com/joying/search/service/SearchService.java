@@ -3,7 +3,9 @@ package com.joying.search.service;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +48,7 @@ import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.DateRangeQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchAllQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.MultiMatchQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.NumberRangeQuery;
@@ -162,11 +165,18 @@ public class SearchService {
 			}
 		}
 		if (rating == null) rating = 0.0;
-		if (sameDayRental && dateFromInstant == null && dateToInstant == null) {
+		if (sameDayRental != null && sameDayRental && dateFromInstant == null && dateToInstant == null) {
 			LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+			dateFrom = today;
+			dateTo = today;
 			dateFromInstant = Instant.parse(today + "T00:00:00Z");
 			dateToInstant = Instant.parse(today + "T23:59:59Z");
 		}
+
+		log.info("📘 [Search] 요청 파라미터 => uploadTypeStr: {}, q: {}, priceMin: {}, priceMax: {}, dong: {}, dateFrom: {}, dateTo: {}, rating: {}, method: {}, categoryIds: {}, hashtagIds: {}, sameDayRental: {}, page: {}, size: {}",
+			uploadTypeStr, q, priceMin, priceMax, dong, dateFrom, dateTo, rating, method, categoryIds, hashtagIds, sameDayRental, page, size);
+		log.info("✅ [Search] 변환 완료 => uploadType: {}, rentMethod: {}, rating: {}, dateFromInstant: {}, dateToInstant: {}",
+			uploadType, rentMethod, rating, dateFromInstant, dateToInstant);
 
 		List<SearchDocument> available = new ArrayList<>();
 		Long totalHits = 0L;
@@ -176,6 +186,7 @@ public class SearchService {
 		while (true) {
 			List<Query> mustQueries = new ArrayList<>();
 			List<Query> shouldQueries = new ArrayList<>();
+			List<Query> filterQueries = new ArrayList<>();
 
 			// 키워드 검색
 			boolean hasKeyword = (q != null && !q.isBlank());
@@ -211,8 +222,10 @@ public class SearchService {
 
 			// 업로드 타입 필터
 			UploadType finalUploadType = uploadType;
+			log.info("UploadType {}", uploadType);
+			log.info("UploadType name {}", uploadType.name());
 			TermQuery uploadTypeQuery = TermQuery.of(t -> t.field("uploadType").value(finalUploadType.name()));
-			mustQueries.add(uploadTypeQuery._toQuery());
+			filterQueries.add(uploadTypeQuery._toQuery());
 
 			// 가격 필터
 			if (priceMin != null || priceMax != null) {
@@ -231,13 +244,13 @@ public class SearchService {
 					.number(numberRangeBuilder.build())
 					.build();
 
-				mustQueries.add(feeRange._toQuery());
+				filterQueries.add(feeRange._toQuery());
 			}
 
 			// 지역 필터
 			if (dong != null) {
 				TermQuery dongQuery = TermQuery.of(t -> t.field("dongId").value(dong));
-				mustQueries.add(dongQuery._toQuery());
+				filterQueries.add(dongQuery._toQuery());
 			}
 
 			// 카테고리 필터
@@ -251,35 +264,40 @@ public class SearchService {
 					))
 					.build();
 
-				mustQueries.add(categoryQuery._toQuery());
+				filterQueries.add(categoryQuery._toQuery());
 			}
 
 			// 렌트 방식 필터
 			if (method != null && !method.isBlank()) {
 				RentMethod finalRentMethod = rentMethod;
 				TermQuery rentMethodQuery = TermQuery.of(t -> t.field("rentMethod").value(finalRentMethod.name()));
-				mustQueries.add(rentMethodQuery._toQuery());
+				filterQueries.add(rentMethodQuery._toQuery());
 			}
 
 			// 날짜 범위 필터
 			if (dateFrom != null && dateTo != null) {
-				RangeQuery dateRangeQuery = new RangeQuery.Builder()
-					.date(new DateRangeQuery.Builder()
-						.field("startRent")
-						.gte(String.valueOf(dateFrom))
-						.lte(String.valueOf(dateTo))
-						.build())
+				DateTimeFormatter ES_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
+				LocalDateTime startDateTime = dateFrom.atStartOfDay();
+				LocalDateTime endDateTime = dateTo.atTime(23, 59, 59, 999_000_000);
 
+				String fromStr = startDateTime.format(ES_DATE_FORMATTER);
+				String toStr = endDateTime.format(ES_DATE_FORMATTER);
+
+				RangeQuery dateRangeQuery = new RangeQuery.Builder()
+					.date(d -> d
+						.field("startRent")
+						.lte(fromStr)
+					)
 					.build();
+
 				RangeQuery dateRangeQuery2 = new RangeQuery.Builder()
-					.date(new DateRangeQuery.Builder()
+					.date(d -> d
 						.field("endRent")
-						.gte(String.valueOf(dateFrom))
-						.lte(String.valueOf(dateTo))
-						.build())
+						.gte(toStr)
+					)
 					.build();
-				mustQueries.add(dateRangeQuery._toQuery());
-				mustQueries.add(dateRangeQuery2._toQuery());
+				filterQueries.add(dateRangeQuery._toQuery());
+				filterQueries.add(dateRangeQuery2._toQuery());
 			}
 
 			// 해시태그 필터
@@ -288,22 +306,34 @@ public class SearchService {
 					.field("hashtags")
 					.terms(v -> v.value(hashtagIds.stream().map(FieldValue::of).toList()))
 				);
-				mustQueries.add(hashtagsQuery._toQuery());
+				filterQueries.add(hashtagsQuery._toQuery());
 			}
 
 			// BoolQuery 조합
-			BoolQuery.Builder boolBuilder = new BoolQuery.Builder().must(mustQueries);
+			BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+			if (mustQueries.isEmpty()) {
+				Query matchAll = MatchAllQuery.of(m -> m)._toQuery();
+				boolBuilder.must(matchAll);
+			} else {
+				boolBuilder.must(mustQueries);
+			}
+
 			if (hasKeyword) {
 				boolBuilder.should(shouldQueries);
 				// boolBuilder.minimumShouldMatch("1");
 			}
+			boolBuilder.filter(filterQueries);
 			Query boolQuery = boolBuilder.build()._toQuery();
+
+			log.info("Final BoolQuery JSON: {}", boolQuery.toString());
 
 			// 정렬
 			// List<SortOptions> sortOptions = List.of(
 			// 	SortOptions.of(s -> s.field(f -> f.field("rating").order(SortOrder.Desc))),
 			// 	SortOptions.of(s -> s.field(f -> f.field("rentalFee").order(SortOrder.Asc)))
 			// );
+
+			elasticsearchOperations.indexOps(SearchDocument.class).refresh();
 
 			// 페이지네이션
 			Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size);
@@ -386,6 +416,7 @@ public class SearchService {
 		List<HashtagInfo> hashtags = hashtagHistoryRepository.findHashtagCountInProducts(productIds).stream()
 			.map(p -> HashtagInfo.builder()
 				.count(p.getCount())
+				.id(p.getHashtagId())
 				.hashtag(p.getHashtag())
 				.build())
 			.toList();
@@ -393,7 +424,7 @@ public class SearchService {
 		return SearchResponseDto.builder()
 			.searchResponses(responses)
 			.hashtags(hashtags)
-			.totalElements(totalHits)
+			.totalElements((long)available.size())
 			.page(page)
 			.size(size)
 			.fetchCount(fetchCount)

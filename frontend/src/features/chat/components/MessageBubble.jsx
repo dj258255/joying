@@ -12,7 +12,7 @@ import React, { useState, useRef } from 'react';
  * @param {Function} props.onReply - 답장 핸들러
  */
 const MessageBubble = ({ message, isOwn = false, onReply }) => {
-  const { content, sender, timestamp, type, replyTo, isRead } = message;
+  const { content = '', sender, timestamp, type, replyTo, isRead } = message;
   const [showActions, setShowActions] = useState(false);
   const longPressTimer = useRef(null);
   const isLongPress = useRef(false);

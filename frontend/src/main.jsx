@@ -3,6 +3,7 @@
  * 애플리케이션 진입점
  */
 
+import '@/polyfills/nodeGlobals';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';

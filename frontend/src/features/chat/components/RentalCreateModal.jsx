@@ -87,13 +87,13 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
               <input
                 type="radio"
                 name="rentMethod"
-                value="DELIVERY"
-                checked={rentMethod === 'DELIVERY'}
+                value="ONLY_ONLINE"
+                checked={rentMethod === 'ONLY_ONLINE'}
                 onChange={(e) => setRentMethod(e.target.value)}
                 className="mr-3"
               />
               <div>
-                <div className="font-medium text-gray-900">배송</div>
+                <div className="font-medium text-gray-900">택배거래</div>
                 <div className="text-sm text-gray-500">택배로 배송받습니다</div>
               </div>
             </label>
@@ -101,13 +101,13 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
               <input
                 type="radio"
                 name="rentMethod"
-                value="MEET"
-                checked={rentMethod === 'MEET'}
+                value="ONLY_OFFLINE"
+                checked={rentMethod === 'ONLY_OFFLINE'}
                 onChange={(e) => setRentMethod(e.target.value)}
                 className="mr-3"
               />
               <div>
-                <div className="font-medium text-gray-900">직접 만나기</div>
+                <div className="font-medium text-gray-900">직거래</div>
                 <div className="text-sm text-gray-500">직접 만나서 받습니다</div>
               </div>
             </label>
@@ -122,7 +122,7 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
               />
               <div>
                 <div className="font-medium text-gray-900">둘 다 가능</div>
-                <div className="text-sm text-gray-500">배송 또는 직접 만나기 둘 다 가능합니다</div>
+                <div className="text-sm text-gray-500">택배거래 또는 직거래 둘 다 가능합니다</div>
               </div>
             </label>
           </div>
