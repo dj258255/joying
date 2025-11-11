@@ -341,7 +341,7 @@ const ProductDetailPage = () => {
                     <div className="flex-shrink-0">
                       <DateRangeCalendar
                         onDateRangeChange={handleDateRangeChange}
-                        disabledDates={[]}
+                        disabledDates={product.disabledDates || []}
                       />
                     </div>
 
@@ -650,7 +650,7 @@ const ProductDetailPage = () => {
                 <div className="mb-6">
                   <DateRangeCalendar
                     onDateRangeChange={handleDateRangeChange}
-                    disabledDates={[]}
+                    disabledDates={product.disabledDates || []}
                   />
                 </div>
 
