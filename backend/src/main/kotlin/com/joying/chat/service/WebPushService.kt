@@ -22,8 +22,10 @@ class WebPushService(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    private val isPushEnabled: Boolean
-        get() = pushService != null
+    /**
+     * 푸시 알림 서비스 활성화 여부 확인
+     */
+    fun isPushEnabled(): Boolean = pushService != null
 
     /**
      * 푸시 구독 등록
@@ -73,7 +75,7 @@ class WebPushService(
     @Async
     fun sendNotification(memberId: Long, payload: PushNotificationPayload) {
         // 푸시 서비스가 비활성화되어 있으면 건너뛰기
-        if (!isPushEnabled) {
+        if (!isPushEnabled()) {
             logger.debug("푸시 알림 서비스가 비활성화되어 있습니다 (VAPID 키 미설정)")
             return
         }

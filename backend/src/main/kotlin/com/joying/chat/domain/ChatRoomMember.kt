@@ -59,7 +59,11 @@ class ChatRoomMember(
 
     @Comment("알림 끄기 여부")
     @Column(name = "is_muted", nullable = false)
-    var isMuted: Boolean = false
+    var isMuted: Boolean = false,
+
+    @Comment("채팅방 나가기 여부 (개별)")
+    @Column(name = "is_left", nullable = false)
+    var isLeft: Boolean = false
 
 ) : BaseEntity() {
 
@@ -117,6 +121,20 @@ class ChatRoomMember(
      */
     fun toggleMute() {
         this.isMuted = !this.isMuted
+    }
+
+    /**
+     * 채팅방 나가기 (개별)
+     */
+    fun leave() {
+        this.isLeft = true
+    }
+
+    /**
+     * 채팅방 재입장 (메시지 전송 시 자동으로 다시 들어옴)
+     */
+    fun rejoin() {
+        this.isLeft = false
     }
 
     override fun equals(other: Any?): Boolean {

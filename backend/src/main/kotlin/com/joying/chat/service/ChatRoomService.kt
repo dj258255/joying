@@ -54,23 +54,26 @@ class ChatRoomService(
      * (이미 존재하면 기존 채팅방 반환)
      *
      * @param productId 상품 ID
-     * @param buyerId 구매자 ID
+     * @param requestMemberId 요청한 회원 ID (구매자 또는 판매자)
      * @return 생성/조회된 채팅방
      */
     @Transactional
-    fun getOrCreateChatRoom(productId: Long, buyerId: Long): ChatRoom {
+    fun getOrCreateChatRoom(productId: Long, requestMemberId: Long): ChatRoom {
         val product = productRepository.findById(productId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다") }
 
-        val buyer = memberRepository.findById(buyerId)
+        val requestMember = memberRepository.findById(requestMemberId)
             .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 
         val seller = product.getWriter()
 
-        // 자기 자신과 채팅 방지
-        if (buyer.getMemberId() == seller.getMemberId()) {
+        // 자기 자신과 채팅 방지 (판매자가 본인 상품에 채팅)
+        if (requestMember.getMemberId() == seller.getMemberId()) {
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "본인 상품에는 채팅을 보낼 수 없습니다")
         }
+
+        // 구매자는 요청한 사람, 판매자는 상품 작성자
+        val buyer = requestMember
 
         // 기존 채팅방 조회
         val existingChatRoom = chatRoomRepository.findByProductAndBuyerAndSeller(product, buyer, seller)
@@ -82,6 +85,28 @@ class ChatRoomService(
             if (!chatRoom.isActive()) {
                 chatRoom.reopen()
                 logger.info("채팅방 재활성화: chatRoomId={}", chatRoom.chatRoomId)
+            }
+
+            // 나간 채팅방이면 재입장 처리
+            // 1. 요청한 사람 재입장
+            val requestMemberRecord = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, requestMemberId)
+                .orElse(null)
+            if (requestMemberRecord != null && requestMemberRecord.isLeft) {
+                requestMemberRecord.rejoin()
+                logger.info("채팅방 재입장 (요청자): chatRoomId={}, memberId={}", chatRoom.chatRoomId, requestMemberId)
+            }
+
+            // 2. 상대방도 나간 상태면 함께 재입장 (채팅방 재활성화)
+            val otherMemberId = if (requestMemberId == chatRoom.buyer.getMemberId()) {
+                chatRoom.seller.getMemberId()!!
+            } else {
+                chatRoom.buyer.getMemberId()!!
+            }
+            val otherMemberRecord = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, otherMemberId)
+                .orElse(null)
+            if (otherMemberRecord != null && otherMemberRecord.isLeft) {
+                otherMemberRecord.rejoin()
+                logger.info("채팅방 재입장 (상대방도 자동): chatRoomId={}, memberId={}", chatRoom.chatRoomId, otherMemberId)
             }
 
             return chatRoom
@@ -114,7 +139,7 @@ class ChatRoomService(
             "채팅방 생성 완료: chatRoomId={}, productId={}, buyerId={}, sellerId={}",
             savedChatRoom.chatRoomId,
             productId,
-            buyerId,
+            buyer.getMemberId(),
             seller.getMemberId()
         )
 
@@ -322,28 +347,27 @@ class ChatRoomService(
     }
 
     /**
-     * 채팅방 나가기
-     * (채팅방 종료 - CLOSED)
+     * 채팅방 나가기 (개별)
+     *
+     * 개별적으로 나가기 처리하며, 상대방은 계속 채팅방 유지
+     * - 본인: isLeft=true, 채팅방 목록에서 제외됨
+     * - 상대방: isLeft=false, 채팅방 유지 + "상대방이 나갔습니다" 표시 가능
      *
      * @param chatRoomId 채팅방 ID
      * @param memberId 회원 ID
      */
     @Transactional
     fun leaveChatRoom(chatRoomId: Long, memberId: Long) {
-        val chatRoom = chatRoomRepository.findById(chatRoomId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
-        // 권한 확인 (구매자 또는 판매자만 나갈 수 있음)
-        if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
-            throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 나가기 권한이 없습니다")
-        }
-
-        chatRoom.close()
+        // 채팅방 나가기 처리 (개별)
+        chatRoomMember.leave()
 
         // 권한 캐시 무효화
         permissionCache.invalidate(chatRoomId, memberId)
 
-        logger.info("채팅방 나가기: chatRoomId={}, memberId={}", chatRoomId, memberId)
+        logger.info("채팅방 나가기 (개별): chatRoomId={}, memberId={}", chatRoomId, memberId)
     }
 
     /**
