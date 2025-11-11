@@ -36,6 +36,8 @@ class ChatService(
     private val redisPubSubPublisher: RedisPubSubPublisher,
     private val unreadCountService: UnreadCountService,
     private val permissionCache: ChatRoomPermissionCache,
+    private val webPushService: WebPushService,
+    private val chatPresenceService: ChatPresenceService,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -145,15 +147,24 @@ class ChatService(
 
         // 6. 상대방 안읽은 개수 증가 (Redis)
         val receiverId =
-            if (senderId == chatRoom.buyer.getMemberId()) {
-                chatRoom.seller.getMemberId()!!
+            if (senderId == chatRoom.buyer.memberId) {
+                chatRoom.seller.memberId!!
             } else {
-                chatRoom.buyer.getMemberId()!!
+                chatRoom.buyer.memberId!!
             }
 
         unreadCountService.increment(chatRoomId, receiverId)
 
-        // 7. lastMessage 업데이트 (비동기) - 20-30ms 절감
+        // 7. 푸시 알림 전송 (비동기)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                sendPushNotification(chatRoomId, receiverId, senderId, savedMessage)
+            } catch (e: Exception) {
+                logger.error("푸시 알림 전송 실패: chatRoomId={}, receiverId={}, error={}", chatRoomId, receiverId, e.message, e)
+            }
+        }
+
+        // 8. lastMessage 업데이트 (비동기) - 20-30ms 절감
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateLastMessageAsync(chatRoomId, savedMessage.content, savedMessage.createdAt!!)
@@ -249,5 +260,132 @@ class ChatService(
             isPinned = chatRoomMember.isPinned,
             isMuted = chatRoomMember.isMuted,
         )
+    }
+
+    /**
+     * 푸시 알림 전송
+     * 조건: 수신자가 오프라인이거나 채팅방에 없고, 알림이 켜져 있을 때만 전송
+     */
+    private suspend fun sendPushNotification(
+        chatRoomId: Long,
+        receiverId: Long,
+        senderId: Long,
+        message: ChatMessage,
+    ) {
+        withContext(Dispatchers.IO) {
+            // 1. 수신자의 알림 설정 확인
+            val receiverMember =
+                chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoomId, receiverId)
+                    .orElse(null) ?: return@withContext
+
+            // 알림이 꺼져 있으면 전송하지 않음
+            if (receiverMember.isMuted) {
+                logger.debug("푸시 알림 건너뜀 (알림 꺼짐): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+                return@withContext
+            }
+
+            // 2. 수신자가 현재 온라인 상태인지 확인
+            val isOnline = chatPresenceService.isOnline(receiverId)
+            if (isOnline) {
+                logger.debug("푸시 알림 건너뜀 (온라인): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+                return@withContext
+            }
+
+            // 3. 발신자 정보 조회 (채팅방에서 가져옴)
+            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return@withContext
+            val sender =
+                if (senderId == chatRoom.buyer.memberId) {
+                    chatRoom.buyer
+                } else {
+                    chatRoom.seller
+                }
+
+            // 4. 발신자 프로필 이미지 URL 가져오기
+
+            val senderProfileUrl = sender.profileImage?.let { file ->
+                "${file.directory}/${file.fileName}"
+            } ?: sender.kakaoProfileImageUrl
+
+            // 5. 푸시 알림 페이로드 생성
+            val payload = createPushPayload(sender.nickname, senderProfileUrl, message, chatRoomId)
+
+            // 5. 푸시 알림 전송
+            webPushService.sendNotification(receiverId, payload)
+            logger.info("푸시 알림 전송: chatRoomId={}, receiverId={}, type={}", chatRoomId, receiverId, message.type)
+        }
+    }
+
+    /**
+     * 푸시 알림 페이로드 생성
+     */
+    private fun createPushPayload(
+        senderNickname: String,
+        senderProfileUrl: String?,
+        message: ChatMessage,
+        chatRoomId: Long,
+    ): PushNotificationPayload {
+        return when (message.type) {
+            MessageType.TEXT -> {
+                PushNotificationPayload(
+                    title = "${senderNickname}님의 메시지",
+                    body = message.content,
+                    icon = senderProfileUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.IMAGE -> {
+                PushNotificationPayload(
+                    title = "${senderNickname}님이 사진을 보냈습니다",
+                    body = "이미지 1장",
+                    icon = senderProfileUrl,
+                    image = message.imageUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.FILE -> {
+                val fileSize =
+                    message.fileSize?.let { size ->
+                        when {
+                            size < 1024 -> "$size B"
+                            size < 1024 * 1024 -> "${size / 1024} KB"
+                            else -> "${size / (1024 * 1024)} MB"
+                        }
+                    } ?: ""
+
+                PushNotificationPayload(
+                    title = "${senderNickname}님이 파일을 보냈습니다",
+                    body = "${message.fileName} ($fileSize)",
+                    icon = senderProfileUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.SYSTEM -> {
+                // 시스템 메시지는 푸시 알림 전송하지 않음
+                return PushNotificationPayload(
+                    title = "",
+                    body = "",
+                    data = emptyMap(),
+                )
+            }
+        }
     }
 }
