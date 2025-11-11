@@ -221,33 +221,7 @@ const ProductDetailPage = () => {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
-      // 대여 요청 메시지 전송
-      const currentUserId = user?.id || user?.memberId || user?.member_id;
-      const currentUserInfo = {
-        id: currentUserId,
-        username: user?.nickname || user?.name || '사용자',
-        profileImageUrl: user?.profileImage || user?.profileImageUrl || null
-      };
-
-      const rentalRequestData = {
-        productId: product.id,
-        startDate: new Date(dateRange.start).toISOString(),
-        endDate: new Date(dateRange.end).toISOString(),
-        rentMethod: 'BOTH', // 기본값
-        rentalInfo: {
-          productTitle: product.title,
-          startDate: new Date(dateRange.start).toISOString(),
-          endDate: new Date(dateRange.end).toISOString(),
-          rentMethod: 'BOTH',
-          productId: product.id
-        },
-        sender: currentUserInfo
-      };
-
-      await messageApi.sendRentalRequest(chatRoomId, rentalRequestData);
-      console.log('[ProductDetailPage] 대여 요청 메시지 전송 완료');
-
-      // 채팅방으로 이동 (생성된 채팅방 데이터를 state로 전달하여 조회 API 호출 생략)
+      // 채팅방으로 이동 (채팅방에서 대여 요청하기 버튼을 눌러서 메시지 전송)
       navigate(`/chats/${chatRoomId}`, {
         state: {
           productId: product.id,

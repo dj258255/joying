@@ -106,12 +106,30 @@ const ChatRoomPage = () => {
       const pendingRentalRequest = messages
         .filter(msg => msg.type === 'rental_request' && msg.status === 'pending')
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-      
+
       setRentalRequestMessage(pendingRentalRequest || null);
     } else {
       setRentalRequestMessage(null);
     }
   }, [messages]);
+
+  // localStorage에서 현재 채팅방의 거래 데이터 로드
+  useEffect(() => {
+    if (!chatRoomId) return;
+
+    const storageKey = `chatRoom_${chatRoomId}_rental`;
+    const savedRentalData = localStorage.getItem(storageKey);
+
+    if (savedRentalData) {
+      try {
+        const rentalData = JSON.parse(savedRentalData);
+        console.log('[ChatRoomPage] localStorage에서 거래 데이터 로드:', rentalData);
+        setCurrentRentalData(rentalData);
+      } catch (err) {
+        console.error('[ChatRoomPage] localStorage 파싱 실패:', err);
+      }
+    }
+  }, [chatRoomId]);
 
   const scrollToBottom = useCallback((behavior = 'auto') => {
     if (messagesContainerRef.current) {
@@ -542,10 +560,10 @@ const ChatRoomPage = () => {
         rentMethod: rentalData.rentMethod
       };
 
-      // WebSocket을 통해 대여 요청 메시지 전송
+      // WebSocket을 통해 대여 요청 메시지 전송 (TEXT 타입 사용)
       const messageData = {
-        type: 'RENTAL_REQUEST',
-        content: `${rentalInfo.productTitle} 대여를 요청합니다.\n기간: ${new Date(rentalInfo.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalInfo.endDate).toLocaleDateString('ko-KR')}\n방식: ${rentalInfo.rentMethod === 'ONLY_ONLINE' ? '택배거래' : rentalInfo.rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}`
+        type: 'TEXT',
+        content: `📦 대여 요청\n\n상품: ${rentalInfo.productTitle}\n기간: ${new Date(rentalInfo.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalInfo.endDate).toLocaleDateString('ko-KR')}\n방식: ${rentalInfo.rentMethod === 'ONLY_ONLINE' ? '택배거래' : rentalInfo.rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}`
       };
 
       await sendMessage(messageData);
@@ -1282,7 +1300,74 @@ const ChatRoomPage = () => {
             const currentUserId = user?.id || user?.memberId;
             const senderId = message.sender?.id;
             const isOwn = Number(currentUserId) === Number(senderId);
-            
+
+            // 메시지 내용에 따라 액션 버튼 생성
+            const getActionButtons = () => {
+              const content = message.content || '';
+
+              // 거래 생성 완료 메시지 (구매자에게만 버튼 표시)
+              if (content.includes('✅ 거래 생성 완료') && !isOwn) {
+                return [{
+                  text: '💳 결제하러 가기',
+                  style: 'primary',
+                  onClick: () => {
+                    // localStorage에서 거래 데이터 로드
+                    const storageKey = `chatRoom_${chatRoomId}_rental`;
+                    const savedRentalData = localStorage.getItem(storageKey);
+
+                    if (savedRentalData) {
+                      try {
+                        const rentalData = JSON.parse(savedRentalData);
+                        setCurrentRentalData(rentalData);
+                        console.log('[ChatRoomPage] 버튼 클릭 시 거래 데이터 로드:', rentalData);
+
+                        // setState는 비동기이므로 약간의 지연 후 모달 열기
+                        setTimeout(() => {
+                          setShowTransactionModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] localStorage 파싱 실패:', err);
+                      }
+                    } else {
+                      alert('거래 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                    }
+                  }
+                }];
+              }
+
+              // 결제 완료 메시지 (판매자에게만 버튼 표시)
+              if (content.includes('✅ 결제 완료') && !isOwn) {
+                return [{
+                  text: '📦 발송 처리',
+                  style: 'success',
+                  onClick: () => {
+                    // localStorage에서 거래 데이터 로드
+                    const storageKey = `chatRoom_${chatRoomId}_rental`;
+                    const savedRentalData = localStorage.getItem(storageKey);
+
+                    if (savedRentalData) {
+                      try {
+                        const rentalData = JSON.parse(savedRentalData);
+                        setCurrentRentalData(rentalData);
+                        console.log('[ChatRoomPage] 버튼 클릭 시 거래 데이터 로드:', rentalData);
+
+                        // setState는 비동기이므로 약간의 지연 후 모달 열기
+                        setTimeout(() => {
+                          setShowTransactionModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] localStorage 파싱 실패:', err);
+                      }
+                    } else {
+                      alert('거래 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                    }
+                  }
+                }];
+              }
+
+              return null;
+            };
+
             return (
               <MessageBubble
                 key={key}
@@ -1292,6 +1377,7 @@ const ChatRoomPage = () => {
                 onReply={handleReply}
                 onDelete={handleDeleteMessage}
                 onEdit={handleEditMessage}
+                actionButtons={getActionButtons()}
               />
             );
           })
@@ -1515,6 +1601,7 @@ const ChatRoomPage = () => {
           console.log('[ChatRoomPage] 거래 생성됨:', newRentalData);
           setCurrentRentalData(newRentalData);
         }}
+        sendMessage={sendMessage}
       />
     </div>
     </>

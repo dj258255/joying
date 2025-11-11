@@ -27,6 +27,7 @@ import { calculateRentalDays, calculateTotalAmount, getVideoType, getModalTitle 
  * @param {string} props.userRole - 사용자 역할 ('seller' | 'buyer')
  * @param {Object} props.requestedDateRange - 대여 요청된 날짜 범위 {start, end}
  * @param {Function} props.onTransactionCreated - 거래 생성 시 콜백
+ * @param {Function} props.sendMessage - 채팅 메시지 전송 함수
  */
 const TransactionProcessModal = ({
   isOpen,
@@ -36,7 +37,8 @@ const TransactionProcessModal = ({
   unavailableDates = [],
   userRole = 'buyer',
   requestedDateRange = null,
-  onTransactionCreated
+  onTransactionCreated,
+  sendMessage
 }) => {
   const { user } = useAuth();
 
@@ -72,8 +74,12 @@ const TransactionProcessModal = ({
       // 상태에 따라 currentStep 결정
       determineCurrentStep(rentalData);
     } else {
-      // rentalData가 없으면 거래 생성 단계로 초기화
-      setCurrentStep('create');
+      // rentalData가 없으면 역할에 따라 다른 단계로
+      if (userRole === 'seller') {
+        setCurrentStep('create'); // 판매자: 거래 생성
+      } else {
+        setCurrentStep('no_transaction'); // 구매자: 거래 없음 안내
+      }
       setTransactionData(null);
 
       // 대여 요청된 날짜가 있으면 자동으로 설정
@@ -84,7 +90,7 @@ const TransactionProcessModal = ({
         });
       }
     }
-  }, [rentalData, requestedDateRange]);
+  }, [rentalData, requestedDateRange, userRole]);
 
   // 현재 단계 결정
   const determineCurrentStep = (data) => {
@@ -96,6 +102,10 @@ const TransactionProcessModal = ({
     const status = data.status || data.rentalStatus;
 
     switch(status) {
+      case 'PENDING':
+        // PENDING 상태: 구매자는 결제 확인 모달, 판매자는 대기
+        setCurrentStep(userRole === 'buyer' ? 'payment_confirm' : 'payment_waiting');
+        break;
       case 'RESERVED':
         setCurrentStep('payment_waiting');
         break;
@@ -172,9 +182,29 @@ const TransactionProcessModal = ({
       setTransactionData(newTransactionData);
       setCurrentStep('payment_waiting');
 
+      // localStorage에 거래 데이터 저장 (채팅방별로)
+      // productData에서 chatRoomId를 가져올 수 없으므로, window.location에서 추출
+      const pathMatch = window.location.pathname.match(/\/chats\/(\d+)/);
+      if (pathMatch && pathMatch[1]) {
+        const chatRoomId = pathMatch[1];
+        const storageKey = `chatRoom_${chatRoomId}_rental`;
+        localStorage.setItem(storageKey, JSON.stringify(newTransactionData));
+        console.log('[TransactionProcessModal] 거래 데이터 저장:', storageKey, newTransactionData);
+      }
+
       // 부모 컴포넌트에 거래 생성 알림
       if (onTransactionCreated) {
         onTransactionCreated(newTransactionData);
+      }
+
+      // 채팅방에 거래 생성 완료 메시지 전송
+      if (sendMessage) {
+        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!`;
+
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
       }
 
       alert('거래가 생성되었습니다. 구매자가 결제할 때까지 기다려주세요.');
@@ -197,6 +227,51 @@ const TransactionProcessModal = ({
     setShowPaymentModal(true);
   };
 
+  // 거래 취소 (구매자가 결제 전 취소)
+  const handleCancelTransaction = async () => {
+    if (!window.confirm('거래를 취소하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // PENDING 상태에서의 취소: 아직 결제가 안 되었으므로 보증금 분배는 0/0
+      const cancelData = {
+        reason: '구매자가 결제 전 거래를 취소했습니다.',
+        depositOwnerAmt: 0,
+        depositRenterAmt: 0
+      };
+
+      // 대여 취소 요청 API 호출
+      await rentalApi.createCancelRequest(transactionData.rentalHisId, cancelData);
+
+      // 채팅방에 취소 메시지 전송
+      if (sendMessage) {
+        const messageContent = `❌ 결제를 취소했습니다\n\n상품: ${productData.title || productData.name}\n구매자가 거래를 취소했습니다.`;
+
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
+      }
+
+      alert('거래가 취소되었습니다.');
+      onClose();
+
+      // 부모 컴포넌트에 취소 알림 (거래 상태 업데이트)
+      if (onTransactionCreated) {
+        onTransactionCreated(null);
+      }
+    } catch (err) {
+      console.error('[TransactionProcessModal] 거래 취소 실패:', err);
+      setError(err.response?.data?.message || err.message || '거래 취소에 실패했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // 결제 성공 핸들러
   const handlePaymentSuccess = async (paymentKey, orderId, amount) => {
     try {
@@ -210,6 +285,32 @@ const TransactionProcessModal = ({
       };
 
       await paymentApi.confirmPayment(confirmData);
+
+      // 거래 상태 업데이트
+      const updatedRentalData = {
+        ...transactionData,
+        status: 'PAYMENT_COMPLETED'
+      };
+      setTransactionData(updatedRentalData);
+
+      // localStorage 업데이트
+      const pathMatch = window.location.pathname.match(/\/chats\/(\d+)/);
+      if (pathMatch && pathMatch[1]) {
+        const chatRoomId = pathMatch[1];
+        const storageKey = `chatRoom_${chatRoomId}_rental`;
+        localStorage.setItem(storageKey, JSON.stringify(updatedRentalData));
+        console.log('[TransactionProcessModal] 결제 완료 데이터 저장:', storageKey);
+      }
+
+      // 채팅방에 결제 완료 메시지 전송
+      if (sendMessage) {
+        const messageContent = `✅ 결제 완료\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n\n판매자가 물건을 발송할 때까지 기다려주세요!`;
+
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
+      }
 
       setShowPaymentModal(false);
       setCurrentStep('delivery');
@@ -424,6 +525,7 @@ const TransactionProcessModal = ({
   const getModalTitle = () => {
     switch(currentStep) {
       case 'create': return '거래 생성하기';
+      case 'payment_confirm': return '결제하기';
       case 'payment_waiting': return '결제 대기 중';
       case 'payment': return '결제하기';
       case 'shipping': return '발송 처리';
@@ -457,6 +559,25 @@ const TransactionProcessModal = ({
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* 거래 없음 안내 (구매자) */}
+          {currentStep === 'no_transaction' && userRole === 'buyer' && (
+            <div className="space-y-4">
+              <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                <div className="text-4xl mb-3">📦</div>
+                <p className="text-blue-800 font-bold text-lg mb-2">아직 거래가 생성되지 않았습니다</p>
+                <p className="text-blue-600 text-sm">판매자가 거래를 생성할 때까지 기다려주세요.</p>
+                <p className="text-blue-600 text-sm mt-2">채팅 하단의 "대여 요청하기" 버튼으로 대여를 요청할 수 있습니다.</p>
+              </div>
+
+              <button
+                onClick={onClose}
+                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                닫기
+              </button>
             </div>
           )}
 
@@ -570,6 +691,51 @@ const TransactionProcessModal = ({
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isLoading ? '생성 중...' : '거래 생성하기'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 결제 확인 단계 (구매자 - PENDING 상태) */}
+          {currentStep === 'payment_confirm' && userRole === 'buyer' && (
+            <div className="space-y-4">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">💳 판매자가 거래를 생성했습니다</p>
+                <p className="text-yellow-600 text-sm mt-1">결제를 진행하거나 거래를 취소할 수 있습니다</p>
+              </div>
+
+              {transactionData && (
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-2">거래 정보</h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <div>상품: {productData.title || productData.name}</div>
+                    <div>
+                      대여 기간: {new Date(transactionData.startRen).toLocaleDateString('ko-KR')} ~ {new Date(transactionData.endRen).toLocaleDateString('ko-KR')}
+                    </div>
+                    <div>
+                      일수: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
+                    </div>
+                    <div className="pt-2 border-t font-medium text-lg">
+                      결제 금액: {transactionData.payment?.totalAmount?.toLocaleString() || 0}원
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelTransaction}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {isLoading ? '취소 중...' : '취소하기'}
+                </button>
+                <button
+                  onClick={handleProceedPayment}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  결제하기
                 </button>
               </div>
             </div>

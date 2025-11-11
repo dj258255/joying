@@ -80,16 +80,24 @@ public class PaymentService {
         // 금액 검증: 채팅을 통한 네고(할인) 고려
         // - 요청 금액이 원래 금액보다 높으면 에러 (과다 청구 방지)
         // - 요청 금액이 원래 금액 이하면 허용 (할인 가능)
-        Integer expectedAmount = rentalHistory.getFee() + rentalHistory.getDeposit().intValue();
+
+        // 대여 일수 계산
+        long diffInMillis = rentalHistory.getEndRen().getTime() - rentalHistory.getStartRen().getTime();
+        int days = (int) Math.ceil(diffInMillis / (1000.0 * 60 * 60 * 24)) + 1; // +1: 당일 포함
+
+        // 예상 금액 = (일일 요금 × 일수) + 보증금
+        Integer expectedAmount = (rentalHistory.getFee() * days) + rentalHistory.getDeposit().intValue();
+
         if (request.getTotalAmount() > expectedAmount) {
-            log.error("결제 금액 초과: expected={}, actual={}", expectedAmount, request.getTotalAmount());
+            log.error("결제 금액 초과: expected={} (fee={} × {}days + deposit={}), actual={}",
+                    expectedAmount, rentalHistory.getFee(), days, rentalHistory.getDeposit(), request.getTotalAmount());
             throw new PaymentAmountMismatchException(expectedAmount, request.getTotalAmount());
         }
 
         // 할인된 경우 로그 기록
         if (request.getTotalAmount() < expectedAmount) {
-            log.info("할인 적용됨: original={}, discounted={}, discount={}",
-                    expectedAmount, request.getTotalAmount(), expectedAmount - request.getTotalAmount());
+            log.info("할인 적용됨: original={}, discounted={}, discount={} ({}일 대여)",
+                    expectedAmount, request.getTotalAmount(), expectedAmount - request.getTotalAmount(), days);
         }
 
         // 멱등성 체크: 이미 해당 rentalHisId로 결제가 있으면 반환

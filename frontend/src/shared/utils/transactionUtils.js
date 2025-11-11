@@ -41,6 +41,10 @@ export const getTransactionButtonStyle = (status, isSeller) => {
   if (!status) return defaultStyle;
 
   const statusMap = {
+    'PENDING': {
+      text: isSeller ? '결제 대기 중' : '결제하러 가기',
+      color: 'bg-yellow-600 hover:bg-yellow-700'
+    },
     'RESERVED': {
       text: isSeller ? '결제 대기 중' : '결제하러 가기',
       color: 'bg-yellow-600 hover:bg-yellow-700'

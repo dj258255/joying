@@ -14,8 +14,9 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} props.onDelete - 삭제 핸들러
  * @param {Function} props.onEdit - 수정 핸들러
  * @param {string} [props.messageId] - 메시지 ID (검색 시 스크롤용)
+ * @param {Array} [props.actionButtons] - 메시지 하단에 표시할 액션 버튼들
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);
@@ -392,7 +393,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
         )}
         
         {/* 시간 표시 */}
-        <div 
+        <div
           className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'} relative`}
         >
           <span className="text-xs text-gray-500">
@@ -411,6 +412,41 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
             </button>
           )}
         </div>
+
+        {/* 메시지 액션 버튼들 */}
+        {actionButtons && actionButtons.length > 0 && !isDeleted && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {actionButtons.map((button, index) => {
+              const getButtonStyle = () => {
+                switch(button.style) {
+                  case 'primary':
+                    return 'bg-blue-600 hover:bg-blue-700 text-white';
+                  case 'success':
+                    return 'bg-green-600 hover:bg-green-700 text-white';
+                  case 'danger':
+                    return 'bg-red-600 hover:bg-red-700 text-white';
+                  case 'warning':
+                    return 'bg-yellow-600 hover:bg-yellow-700 text-white';
+                  case 'secondary':
+                  default:
+                    return 'bg-gray-200 hover:bg-gray-300 text-gray-800';
+                }
+              };
+
+              return (
+                <button
+                  key={index}
+                  onClick={button.onClick}
+                  disabled={button.disabled}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md ${getButtonStyle()} ${button.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {button.icon && <span className="mr-1">{button.icon}</span>}
+                  {button.text}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 액션 메뉴 */}
