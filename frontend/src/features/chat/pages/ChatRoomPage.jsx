@@ -11,7 +11,7 @@ import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
 import RentalRequestCard from '../components/RentalRequestCard';
-import RentalCreateModal from '../components/RentalCreateModal';
+import RentalRequestModal from '../components/RentalRequestModal';
 import TransactionProcessModal from '../components/TransactionProcessModal';
 import TransactionActionButton from '../components/TransactionActionButton';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
@@ -57,7 +57,7 @@ const ChatRoomPage = () => {
   // 상태 관리
   const [rentalRequestMessage, setRentalRequestMessage] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showRentalCreateModal, setShowRentalCreateModal] = useState(false);
+  const [showRentalRequestModal, setShowRentalRequestModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [currentRentalData, setCurrentRentalData] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
@@ -98,6 +98,46 @@ const ChatRoomPage = () => {
       console.error('채팅방 로드 실패:', error);
     }
   }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom]);
+
+  // 자동 대여 요청 메시지 전송 (ProductDetailPage에서 온 경우)
+  useEffect(() => {
+    const autoSendRentalRequest = location.state?.autoSendRentalRequest;
+    const rentalRequestData = location.state?.rentalRequestData;
+
+    if (autoSendRentalRequest && rentalRequestData && isConnected && currentChatRoom) {
+      // WebSocket 연결이 확립되고 채팅방이 로드되면 메시지 전송
+      const sendRentalRequestMessage = async () => {
+        try {
+          const rentMethodText = 
+            rentalRequestData.rentMethod === 'ONLY_ONLINE' ? '택배거래' :
+            rentalRequestData.rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능';
+
+          const messageContent = `📦 대여를 요청했습니다\n\n상품: ${rentalRequestData.productTitle}\n날짜: ${new Date(rentalRequestData.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalRequestData.endDate).toLocaleDateString('ko-KR')}\n거래 방법: ${rentMethodText}`;
+
+          await sendMessage({
+            type: 'TEXT',
+            content: messageContent
+          });
+
+          console.log('[ChatRoomPage] 자동 대여 요청 메시지 전송 성공');
+          
+          // 상태 초기화 (중복 전송 방지)
+          navigate(location.pathname, { 
+            replace: true,
+            state: { 
+              ...location.state, 
+              autoSendRentalRequest: false,
+              rentalRequestData: null 
+            } 
+          });
+        } catch (error) {
+          console.error('[ChatRoomPage] 자동 대여 요청 메시지 전송 실패:', error);
+        }
+      };
+
+      sendRentalRequestMessage();
+    }
+  }, [location.state, isConnected, currentChatRoom, sendMessage, navigate, location.pathname]);
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
@@ -296,7 +336,7 @@ const ChatRoomPage = () => {
     }
   };
 
-  const handleRentalAccept = async (message) => {
+  const handleRentalAccept = async (message, modifiedPricing = null) => {
     if (!message) {
       alert('대여 요청 정보를 찾을 수 없습니다.');
       return;
@@ -524,63 +564,6 @@ const ChatRoomPage = () => {
     }
   };
 
-  // 대여 거래 요청 메시지 전송 핸들러 (거래 시작하기 모달에서 호출)
-  const handleCreateRental = async (productId, rentalData) => {
-    if (!productId) {
-      alert('상품 정보를 찾을 수 없습니다.');
-      return;
-    }
-
-    if (!chatRoomId) {
-      alert('채팅방 정보를 찾을 수 없습니다.');
-      return;
-    }
-
-    // 사용자 정보 확인 (여러 경로에서 시도)
-    const currentUserId = user?.id || user?.memberId || user?.member_id;
-    if (!currentUserId) {
-      console.error('[handleCreateRental] 사용자 정보 없음:', {
-        user,
-        isAuthenticated: user !== null,
-        userKeys: user ? Object.keys(user) : []
-      });
-      alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
-      return;
-    }
-
-    try {
-      setIsCreatingRental(true);
-
-      // 대여 요청 정보를 JSON으로 직렬화
-      const rentalInfo = {
-        productId: productId,
-        productTitle: productData?.title || productData?.name || '상품',
-        startDate: rentalData.startRen,
-        endDate: rentalData.endRen,
-        rentMethod: rentalData.rentMethod
-      };
-
-      // WebSocket을 통해 대여 요청 메시지 전송 (TEXT 타입 사용)
-      const messageData = {
-        type: 'TEXT',
-        content: `📦 대여 요청\n\n상품: ${rentalInfo.productTitle}\n기간: ${new Date(rentalInfo.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalInfo.endDate).toLocaleDateString('ko-KR')}\n방식: ${rentalInfo.rentMethod === 'ONLY_ONLINE' ? '택배거래' : rentalInfo.rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}`
-      };
-
-      await sendMessage(messageData);
-
-      console.log('대여 요청 메시지 전송 성공');
-
-      // 모달 닫기
-      setShowRentalCreateModal(false);
-
-      alert('대여 요청을 전송했습니다. 상대방의 승인을 기다려주세요.');
-    } catch (error) {
-      console.error('대여 요청 전송 실패:', error);
-      alert('대여 요청 전송에 실패했습니다.');
-    } finally {
-      setIsCreatingRental(false);
-    }
-  };
 
   const searchInputRef = useRef(null);
 
@@ -1218,7 +1201,7 @@ const ChatRoomPage = () => {
                       <div className="max-w-[85%]">
                         <RentalRequestCard
                           rentalInfo={rentalInfo}
-                          onAccept={() => handleRentalAccept(message)}
+                          onAccept={(modifiedPricing) => handleRentalAccept(message, modifiedPricing)}
                           onReject={() => handleRentalReject(message)}
                         />
                       </div>
@@ -1304,6 +1287,111 @@ const ChatRoomPage = () => {
             // 메시지 내용에 따라 액션 버튼 생성
             const getActionButtons = () => {
               const content = message.content || '';
+
+              // 대여 요청 메시지 - 두 가지 버튼 추가
+              if (content.includes('📦 대여를 요청했습니다') || content.includes('📦 대여 요청')) {
+                const senderId = message.sender?.id;
+                const isRequester = Number(currentUserId) === Number(senderId);
+                
+                // 판매자 확인
+                const sellerId = productData?.sellerId 
+                  || productData?.writer?.memberId 
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id 
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+                
+                const buttons = [];
+                
+                // 요청자에게는 '대여 다시 요청하기' 버튼
+                if (isRequester) {
+                  buttons.push({
+                    text: '🔄 대여 다시 요청하기',
+                    style: 'secondary',
+                    onClick: () => {
+                      setShowRentalRequestModal(true);
+                    }
+                  });
+                }
+                
+                // 판매자에게는 '거래 생성하기' 버튼
+                // 일반 메시지에서도 거래 생성 가능하도록 버튼 표시
+                if (isSeller) {
+                  buttons.push({
+                    text: '✅ 거래 생성하기',
+                    style: 'primary',
+                    onClick: async () => {
+                      // 메시지에서 대여 정보 추출
+                      const content = message.content || '';
+                      
+                      // 상품 ID 추출
+                      const productIdToUse = productId || productData?.productId || productData?.product_id;
+                      if (!productIdToUse) {
+                        alert('상품 정보를 찾을 수 없습니다.');
+                        return;
+                      }
+
+                      // 날짜 정보 추출 (메시지 내용에서 파싱)
+                      // 형식: "날짜: 2025년 1월 11일 ~ 2025년 1월 15일"
+                      const dateMatch = content.match(/날짜:\s*([\d년월일\s]+)\s*~\s*([\d년월일\s]+)/);
+                      if (!dateMatch) {
+                        alert('대여 기간 정보를 찾을 수 없습니다.');
+                        return;
+                      }
+
+                      // 한글 날짜를 Date 객체로 변환
+                      const parseKoreanDate = (dateStr) => {
+                        const match = dateStr.match(/(\d+)년\s*(\d+)월\s*(\d+)일/);
+                        if (match) {
+                          return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+                        }
+                        return null;
+                      };
+
+                      const startDate = parseKoreanDate(dateMatch[1]);
+                      const endDate = parseKoreanDate(dateMatch[2]);
+
+                      if (!startDate || !endDate) {
+                        alert('날짜 형식을 파싱할 수 없습니다.');
+                        return;
+                      }
+
+                      // 거래 방법 추출
+                      let rentMethod = 'BOTH';
+                      if (content.includes('택배거래')) rentMethod = 'ONLY_ONLINE';
+                      else if (content.includes('직거래')) rentMethod = 'ONLY_OFFLINE';
+
+                      // 기간 계산
+                      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+                      // 가짜 메시지 객체 생성 (RentalRequestCard와 동일한 형식)
+                      const fakeMessage = {
+                        id: message.id,
+                        productId: productIdToUse,
+                        startDate: startDate.toISOString(),
+                        endDate: endDate.toISOString(),
+                        rentMethod: rentMethod,
+                        rentalInfo: {
+                          productId: productIdToUse,
+                          startDate: startDate.toISOString(),
+                          endDate: endDate.toISOString(),
+                          rentMethod: rentMethod,
+                          days: days
+                        }
+                      };
+
+                      // handleRentalAccept 호출 후 모달을 열어야 하므로
+                      // 여기서는 RentalRequestCard와 동일하게 모달을 열 수 있는 방법이 필요
+                      // 하지만 RentalRequestCard는 별도 컴포넌트이므로 여기서 사용 불가
+                      // 대신 별도 모달 상태를 사용해야 함
+                      alert('일반 메시지에서 거래 생성 기능은 개발 중입니다. RentalRequestCard를 사용해주세요.');
+                    }
+                  });
+                }
+                
+                return buttons.length > 0 ? buttons : null;
+              }
 
               // 거래 생성 완료 메시지 (구매자에게만 버튼 표시)
               if (content.includes('✅ 거래 생성 완료') && !isOwn) {
@@ -1444,13 +1532,32 @@ const ChatRoomPage = () => {
         />
       )}
 
-      <RentalCreateModal
-        isOpen={showRentalCreateModal}
-        onClose={() => setShowRentalCreateModal(false)}
-        productId={productId}
-        unavailableDates={unavailableDates || []}
-        onSubmit={handleCreateRental}
+      {/* 대여 다시 요청하기 모달 */}
+      <RentalRequestModal
+        isOpen={showRentalRequestModal}
+        onClose={() => setShowRentalRequestModal(false)}
+        productData={productData}
+        unavailableDates={unavailableDates}
         isLoading={isCreatingRental}
+        onSubmit={async (rentalInfo, rentMethodText) => {
+          try {
+            setIsCreatingRental(true);
+            
+            const messageContent = `📦 대여를 요청했습니다\n\n상품: ${rentalInfo.productTitle}\n날짜: ${new Date(rentalInfo.startDate).toLocaleDateString('ko-KR')} ~ ${new Date(rentalInfo.endDate).toLocaleDateString('ko-KR')}\n거래 방법: ${rentMethodText}`;
+
+            await sendMessage({
+              type: 'TEXT',
+              content: messageContent
+            });
+
+            console.log('대여 요청 메시지 전송 성공');
+          } catch (error) {
+            console.error('대여 요청 전송 실패:', error);
+            throw error;
+          } finally {
+            setIsCreatingRental(false);
+          }
+        }}
       />
 
       {/* 검색 모달 */}

@@ -37,6 +37,8 @@ const ProductDetailPage = () => {
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState(null);
+  // 대여 방식 상태
+  const [rentMethod, setRentMethod] = useState('BOTH');
   // 모바일 캘린더 표시 상태
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   // 사이드바 상태
@@ -221,11 +223,18 @@ const ProductDetailPage = () => {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
-      // 채팅방으로 이동 (채팅방에서 대여 요청하기 버튼을 눌러서 메시지 전송)
+      // 채팅방으로 이동하면서 대여 요청 정보 전달
       navigate(`/chats/${chatRoomId}`, {
         state: {
           productId: product.id,
-          chatRoomData: chatRoomData // 생성 응답 데이터 전달
+          chatRoomData: chatRoomData, // 생성 응답 데이터 전달
+          autoSendRentalRequest: true, // 자동 대여 요청 플래그
+          rentalRequestData: {
+            startDate: dateRange.start.toISOString(),
+            endDate: dateRange.end.toISOString(),
+            rentMethod: rentMethod,
+            productTitle: product.title
+          }
         }
       });
     } catch (error) {
@@ -343,6 +352,48 @@ const ProductDetailPage = () => {
                         onDateRangeChange={handleDateRangeChange}
                         disabledDates={product.disabledDates || []}
                       />
+                      
+                      {/* 대여 방식 선택 */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          대여 방식
+                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="ONLY_ONLINE"
+                              checked={rentMethod === 'ONLY_ONLINE'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">택배거래</span>
+                          </label>
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="ONLY_OFFLINE"
+                              checked={rentMethod === 'ONLY_OFFLINE'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">직거래</span>
+                          </label>
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="BOTH"
+                              checked={rentMethod === 'BOTH'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">둘 다 가능</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
                     {/* 오른쪽: 가격 정보 및 버튼 */}
@@ -652,6 +703,57 @@ const ProductDetailPage = () => {
                     onDateRangeChange={handleDateRangeChange}
                     disabledDates={product.disabledDates || []}
                   />
+                </div>
+
+                {/* 대여 방식 선택 (모바일) */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    대여 방식
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="ONLY_ONLINE"
+                        checked={rentMethod === 'ONLY_ONLINE'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">택배거래</div>
+                        <div className="text-xs text-gray-500">택배로 배송받습니다</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="ONLY_OFFLINE"
+                        checked={rentMethod === 'ONLY_OFFLINE'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">직거래</div>
+                        <div className="text-xs text-gray-500">직접 만나서 받습니다</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="BOTH"
+                        checked={rentMethod === 'BOTH'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">둘 다 가능</div>
+                        <div className="text-xs text-gray-500">택배거래 또는 직거래 가능</div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
 
                 {/* 가격 계산 */}
