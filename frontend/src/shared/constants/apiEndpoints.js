@@ -79,5 +79,11 @@ export const API_ENDPOINTS = {
   // File
   FILE: {
     BASE: '/files'
-  }
+  },
+
+  REGION: {
+      SIDO_LIST: '/regions/sidos', // 시·도 목록 조회
+      GUNGU_LIST: (sidoId) => `/regions/sidos/${sidoId}/gungus`, // 시도 ID로 구군 조회
+      DONG_LIST: (gunguId) => `/regions/gungus/${gunguId}/dongs`, // 구군 ID로 동 조회
+    },
 };

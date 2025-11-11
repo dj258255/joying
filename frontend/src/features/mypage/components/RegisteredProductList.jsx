@@ -50,36 +50,6 @@ const RegisteredProductList = ({
     }
   };
   
-  // 삭제 확인
-  const confirmDelete = async () => {
-    if (!deleteConfirmModal) return;
-    
-    const { productId } = deleteConfirmModal;
-    
-    try {
-      setIsDeleting(true);
-      await productApi.deleteProduct(productId);
-      
-      // 삭제 성공 시 모달 닫기 및 목록 새로고침
-      setDeleteConfirmModal(null);
-      
-      // 현재 페이지의 상품이 모두 삭제된 경우 이전 페이지로 이동
-      if (filteredProducts.length === 1 && currentPage > 0) {
-        await fetchProducts(currentPage - 1, sortBy);
-      } else {
-        // 같은 페이지에서 새로고침
-        await fetchProducts(currentPage, sortBy);
-      }
-      
-      alert('상품이 삭제되었습니다.');
-    } catch (err) {
-      console.error('상품 삭제 실패:', err);
-      alert(err.response?.data?.message || err.message || '상품 삭제에 실패했습니다.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-  
   // 상태 관리
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -142,6 +112,62 @@ const RegisteredProductList = ({
     ? products 
     : products.filter(product => product.uploadType === uploadTypeFilter);
   
+  // 삭제 확인
+  const confirmDelete = async () => {
+    if (!deleteConfirmModal) return;
+    
+    const { productId } = deleteConfirmModal;
+    
+    try {
+      setIsDeleting(true);
+      await productApi.deleteProduct(productId);
+      
+      // 삭제 성공 시 모달 닫기 및 목록 새로고침
+      setDeleteConfirmModal(null);
+      
+      // 현재 페이지의 상품이 모두 삭제된 경우 이전 페이지로 이동
+      if (filteredProducts.length === 1 && currentPage > 0) {
+        await fetchProducts(currentPage - 1, sortBy);
+      } else {
+        // 같은 페이지에서 새로고침
+        await fetchProducts(currentPage, sortBy);
+      }
+      
+      alert('상품이 삭제되었습니다.');
+    } catch (err) {
+      console.error('상품 삭제 실패:', err);
+      alert(err.response?.data?.message || err.message || '상품 삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
+  // Early returns for loading and error states
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+          <div className="text-gray-500">로딩 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 mb-4">{error}</div>
+        <button 
+          onClick={() => fetchProducts(currentPage, sortBy)}
+          className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-4 py-2 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200"
+        >
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+  
   // 상품 데이터 변환 (백엔드 응답 형식을 컴포넌트에서 사용하는 형식으로)
   const transformedProducts = filteredProducts.map(product => ({
     id: product.productId,
@@ -158,23 +184,16 @@ const RegisteredProductList = ({
     liked: product.liked || false,
     isAvailable: true // 백엔드에서 상태 정보가 없으면 기본값
   }));
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-          <div className="text-gray-500">로딩 중...</div>
-        </div>
-      </div>
-    );
-  }
 
-  if (error) {
+  if (transformedProducts.length === 0) {
     return (
-<<<<<<< HEAD
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
-          <div className="text-gray-500 mb-4">등록된 상품이 없습니다.</div>
+          <div className="text-gray-500 mb-4">
+            {uploadTypeFilter !== 'ALL' 
+              ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
+              : '등록된 상품이 없습니다.'}
+          </div>
           <button 
             onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
             className="bg-gradient-to-r from-gray-800 to-gray-900 text-white px-6 py-3 rounded-lg hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
@@ -182,34 +201,6 @@ const RegisteredProductList = ({
             첫 상품 등록하기
           </button>
         </div>
-=======
-      <div className="text-center py-12">
-        <div className="text-red-500 mb-4">{error}</div>
-        <button 
-          onClick={() => fetchProducts(currentPage, sortBy)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          다시 시도
-        </button>
-      </div>
-    );
-  }
-
-  if (transformedProducts.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-gray-500 mb-4">
-          {uploadTypeFilter !== 'ALL' 
-            ? `${uploadTypeFilter === 'RENT' ? '빌려드려요' : '빌려요'} 상품이 없습니다.`
-            : '등록된 상품이 없습니다.'}
-        </div>
-        <button 
-          onClick={() => navigate(ROUTE_PATHS.PRODUCT_CREATE)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          첫 상품 등록하기
-        </button>
->>>>>>> 8f75ec83a855bd19e1a9c684d4f147fc8ae99b43
       </div>
     );
   }

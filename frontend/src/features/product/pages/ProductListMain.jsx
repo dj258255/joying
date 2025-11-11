@@ -10,6 +10,7 @@ import { useProducts } from '../hooks/useProducts';
 import { useSearch } from '../../search/hooks/useSearch';
 import { useCategoryTree } from '@/features/category';
 import { useSearchParams } from 'react-router-dom';
+import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 
 const SEOUL_DISTRICTS = [
   { id: 'gangnam', name: '강남구', areas: ['역삼동', '개포동', '청담동', '삼성동'] },
@@ -57,8 +58,9 @@ const ProductListMain = () => {
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
   const [showCategoryPopover, setShowCategoryPopover] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
-  const [selectedDistricts, setSelectedDistricts] = useState([]);
-  const [selectedAreas, setSelectedAreas] = useState([]);
+  const [selectedSido, setSelectedSido] = useState(null);
+  const [selectedGungu, setSelectedGungu] = useState(null);
+  const [selectedDong, setSelectedDong] = useState(null);
   const [rating, setRating] = useState(0);
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
@@ -71,6 +73,91 @@ const ProductListMain = () => {
   const [products, setProducts] = useState([]);
   const lastAppliedFilters = React.useRef(null);
   const [totalProducts, setTotalProducts] = React.useState(0);
+
+  const [openLevel, setOpenLevel] = useState('sido');
+
+  const { data: sidos = [] } = useSidos();
+  const { data: gungus = [] } = useGungus(selectedSido?.id);
+  const { data: dongs = [] } = useDongs(selectedGungu?.id);
+
+  const handleSidoSelect = (sido) => {
+    if (selectedSido?.id === sido.id) {
+      // 다시 클릭하면 초기화
+      setSelectedSido(null);
+      setSelectedGungu(null);
+      setSelectedDong(null);
+      setOpenLevel('sido');
+    } else {
+      setSelectedSido(sido);
+      setSelectedGungu(null);
+      setSelectedDong(null);
+      setOpenLevel('gungu');
+    }
+  };
+
+  // 구 선택
+  const handleGunguSelect = (gungu) => {
+    if (selectedGungu?.id === gungu.id) {
+      setSelectedGungu(null);
+      setSelectedDong(null);
+      setOpenLevel('gungu');
+    } else {
+      setSelectedGungu(gungu);
+      setSelectedDong(null);
+      setOpenLevel('dong');
+    }
+  };
+
+  // 동 선택
+  const handleDongSelect = (dong) => {
+    if (selectedDong?.id === dong.id) {
+      setSelectedDong(null);
+    } else {
+      setSelectedDong(dong);
+      setOpenLevel(null); // 마지막 단계 닫기
+    }
+  };
+
+  const renderSelectedPath = () => {
+    if (!selectedSido && !selectedGungu && !selectedDong) return null;
+
+    return (
+      <div className="flex flex-col bg-white/70 px-4 py-3 rounded-xl border border-gray-200 shadow-sm">
+        {/* 상단: 시 > 구 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center text-sm text-gray-800 font-medium space-x-1">
+            {selectedSido && <span>{selectedSido.name}</span>}
+            {selectedGungu && (
+              <>
+                <span className="text-gray-400">{'>'}</span>
+                <span>{selectedGungu.name}</span>
+              </>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setSelectedSido(null);
+              setSelectedGungu(null);
+              setSelectedDong(null);
+              setOpenLevel('sido');
+            }}
+            className="text-gray-500 hover:text-gray-800 text-xs ml-2"
+          >
+            ✕ 초기화
+          </button>
+        </div>
+
+        {/* 하단: 동 강조 */}
+        {selectedDong && (
+          <div className="mt-2 text-center">
+            <span className="inline-block bg-gray-900 text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
+              {selectedDong.name}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   React.useEffect(() => {
     if (q) {
@@ -109,10 +196,9 @@ const ProductListMain = () => {
     category: selectedSubcategories.length > 0 ? selectedSubcategories.map(c => c.categoryId) : [],
     "price-min": priceRange.min ? parseInt(priceRange.min.toString().replace(/,/g, ''), 10) : null,
     "price-max": priceRange.max ? parseInt(priceRange.max.toString().replace(/,/g, ''), 10) : null,
-    location: selectedAreas.length > 0 ? selectedAreas[0] : '',
+    dong: selectedDong !== null ? selectedDong.id : null,
     rating: rating,
     sameDayRental: sameDayRental,
-    hashtag: selectedHashtags.map(h => h.id),
     "date-from": selectedDates.start ? formatToLocalDate(selectedDates.start) : null,
     "date-to": selectedDates.end ? formatToLocalDate(selectedDates.end) : null
   }), [
@@ -120,7 +206,7 @@ const ProductListMain = () => {
     searchQuery,
     selectedSubcategories,
     priceRange,
-    selectedAreas,
+    selectedDong,
     rating,
     sameDayRental,
     selectedHashtags,
@@ -194,8 +280,6 @@ const ProductListMain = () => {
 
   const handleDateClick = (date) => {
     if (!date) return;
-
-    console.log(date);
     
     if (!selectedDates.start) {
       setSelectedDates({ start: date, end: null });
@@ -252,7 +336,6 @@ const ProductListMain = () => {
         ? prev.filter(s => s.categoryId !== subcategory.categoryId)
         : [...prev, subcategory]
     );
-    console.log("selectedSubcategories ", selectedSubcategories);
   };
 
   const getSelectedCategoriesText = () => {
@@ -261,8 +344,14 @@ const ProductListMain = () => {
     return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
+  const toggleCity = (cityId) => {
+    setSelectedSido((prev) =>
+      prev.includes(cityId) ? prev.filter((id) => id !== cityId) : [...prev, cityId]
+    );
+  };  
+
   const toggleDistrict = (districtId) => {
-    setSelectedDistricts(prev => 
+    setSelectedGungu(prev => 
       prev.includes(districtId)
         ? prev.filter(d => d !== districtId)
         : [...prev, districtId]
@@ -270,8 +359,7 @@ const ProductListMain = () => {
   };
 
   const toggleArea = (area) => {
-    console.log("area ", area);
-    setSelectedAreas(prev => 
+    setSelectedDong(prev => 
       prev.includes(area)
         ? prev.filter(a => a !== area)
         : [...prev, area]
@@ -291,8 +379,9 @@ const ProductListMain = () => {
     setSelectedDates({ start: null, end: null });
     setPriceRange({ min: '', max: '' });
     setSelectedSubcategories([]);
-    setSelectedDistricts([]);
-    setSelectedAreas([]);
+    setSelectedSido(null);
+    setSelectedGungu(null);
+    setSelectedDong(null);
     setRating(0);
     setSameDayRental(false);
     setSelectedHashtags([]);
@@ -309,6 +398,23 @@ const ProductListMain = () => {
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    if (selectedHashtags.length === 0) return products;
+
+    return products.filter((product) => {
+      if (!product.hashtags || product.hashtags.length === 0) return false;
+
+      const productHashtagNames = product.hashtags.map((h) =>
+        typeof h === "string" ? h : h.name
+      );
+
+      const selectedNames = selectedHashtags.map((h) => h.name);
+
+      // 선택된 모든 해시태그 이름이 포함되어야 함
+      return selectedNames.every((name) => productHashtagNames.includes(name));
+    });
+  }, [products, selectedHashtags]);
+
   const handleApply = async () => {
 
     if (JSON.stringify(apiFilters) === JSON.stringify(lastAppliedFilters.current)) {
@@ -321,8 +427,8 @@ const ProductListMain = () => {
       dateRange: selectedDates,
       priceRange,
       subcategories: selectedSubcategories,
-      districts: selectedDistricts,
-      areas: selectedAreas,
+      districts: selectedGungu,
+      areas: selectedDong,
       rating,
       sameDayRental,
       hashtags: selectedHashtags
@@ -679,91 +785,82 @@ const ProductListMain = () => {
           )}
         </div>
 
-         {/* 지역 (구 → 동) */}
          <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
-          
-           {/* 구 선택 */}
-           <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-             background: 'rgba(255, 255, 255, 0.7)',
-             backdropFilter: 'blur(20px)',
-             border: '1.5px solid rgba(255, 255, 255, 0.4)',
-             boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-           }}>
-             {SEOUL_DISTRICTS.map(district => (
-               <button
-                 key={district.id}
-                 onClick={() => toggleDistrict(district.id)}
-                 className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
-                   selectedDistricts.includes(district.id)
-                     ? 'bg-gray-900 text-white border border-gray-900'
-                     : 'hover:bg-white/60 text-gray-800'
-                 }`}
-               >
-                 <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
-               </button>
-             ))}
-           </div>
+          <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-          {/* 선택된 구의 동 선택 */}
-          {selectedDistricts.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>동 선택</h4>
-               <div className="max-h-40 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                 background: 'rgba(255, 255, 255, 0.7)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-               }}>
-                 {selectedDistricts.map(districtId => {
-                   const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
-                   return district ? (
-                     <div key={districtId} className="space-y-1">
-                       <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
-                       <div className="grid grid-cols-2 gap-1">
-                         {district.areas.map((area, idx) => (
-                           <button
-                             key={idx}
-                             onClick={() => toggleArea(area)}
-                             className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
-                               selectedAreas.includes(area)
-                                 ? 'bg-gray-900 text-white border border-gray-900'
-                                 : 'hover:bg-white/50 text-gray-800'
-                             }`}
-                           >
-                             <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
-                           </button>
-                         ))}
-                       </div>
-                     </div>
-                   ) : null;
-                 })}
-               </div>
+          {/* 선택 경로 */}
+          {renderSelectedPath()}
+
+          {/* 시도 선택 */}
+          <div
+            className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+              openLevel === 'sido' ? 'max-h-52' : 'max-h-0'
+            } overflow-y-auto`}
+          >
+            <div className="p-3 space-y-1">
+              {sidos.map((sido) => (
+                <button
+                  key={sido.id}
+                  onClick={() => handleSidoSelect(sido)}
+                  className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-150 ${
+                    selectedSido?.id === sido.id
+                      ? 'bg-gray-900 text-white border border-gray-900'
+                      : 'hover:bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {sido.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 구 선택 */}
+          {selectedSido && (
+            <div
+              className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+                openLevel === 'gungu' ? 'max-h-52' : 'max-h-0'
+              } overflow-y-auto`}
+            >
+              <div className="p-3 space-y-1">
+                {gungus.map((gungu) => (
+                  <button
+                    key={gungu.id}
+                    onClick={() => handleGunguSelect(gungu)}
+                    className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
+                      selectedGungu?.id === gungu.id
+                        ? 'bg-gray-900 text-white border border-gray-900'
+                        : 'hover:bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {gungu.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {selectedAreas.length > 0 && (
-            <div className="flex flex-wrap gap-2 overflow-hidden">
-              {selectedAreas.map((area, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full transition-all duration-200"
-                   style={{ 
-                     background: 'rgba(17, 24, 39, 0.08)',
-                     color: '#111827',
-                     border: '1px solid rgba(17, 24, 39, 0.2)',
-                     backdropFilter: 'blur(10px)'
-                   }}
-                >
-                  {area}
+          {/* 동 선택 */}
+          {selectedGungu && (
+            <div
+              className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+                openLevel === 'dong' ? 'max-h-52' : 'max-h-0'
+              } overflow-y-auto`}
+            >
+              <div className="p-3 space-y-1">
+                {dongs.map((dong) => (
                   <button
-                    onClick={() => toggleArea(area)}
-                    className="transition-opacity duration-200 hover:opacity-70"
+                    key={dong.id}
+                    onClick={() => handleDongSelect(dong)}
+                    className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
+                      selectedDong?.id === dong.id
+                        ? 'bg-gray-900 text-white border border-gray-900'
+                        : 'hover:bg-gray-100 text-gray-800'
+                    }`}
                   >
-                    ×
+                    {dong.name}
                   </button>
-                </span>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -991,11 +1088,11 @@ const ProductListMain = () => {
            <>
              <div className="mb-4 flex items-center justify-between">
                <p className="text-sm text-gray-600">
-                 총 <span className="font-semibold text-gray-900">{totalProducts}</span>개의 상품
+                 총 <span className="font-semibold text-gray-900">{filteredProducts.length}</span>개의 상품
                </p>
              </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.productId}
                   product={product}
@@ -1103,6 +1200,7 @@ const ProductListMain = () => {
 
              {/* 해시태그 필터 */}
              <HashtagFilter 
+               searchHashtags={hashtags}
                onHashtagSelect={handleHashtagSelect}
                selectedHashtags={selectedHashtags}
              />
@@ -1356,89 +1454,86 @@ const ProductListMain = () => {
                )}
              </div>
 
-             {/* 지역 (구 → 동) */}
-             <div className="space-y-3">
-               <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
-               
-               {/* 구 선택 */}
-               <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                 background: 'rgba(255, 255, 255, 0.7)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-               }}>
-                 {SEOUL_DISTRICTS.map(district => (
-                   <button
-                     key={district.id}
-                     onClick={() => toggleDistrict(district.id)}
-                     className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
-                      selectedDistricts.includes(district.id)
-                        ? 'bg-gray-900 text-white border border-gray-900'
-                        : 'hover:bg-white/60 text-gray-800'
-                    }`}
-                   >
-                     <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
-                   </button>
-                 ))}
-               </div>
+             {/* 지역 (시 → 구 → 동) */}
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-               {/* 선택된 구의 동 선택 */}
-               {selectedDistricts.length > 0 && (
-                 <div className="space-y-2">
-                   <h4 className="text-sm font-medium text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>동 선택</h4>
-                   <div className="max-h-40 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                     background: 'rgba(255, 255, 255, 0.7)',
-                     backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                     boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-                   }}>
-                     {selectedDistricts.map(districtId => {
-                       const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
-                       return district ? (
-                         <div key={districtId} className="space-y-1">
-                           <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
-                           <div className="grid grid-cols-2 gap-1">
-                             {district.areas.map((area, idx) => (
-                               <button
-                                 key={idx}
-                                 onClick={() => toggleArea(area)}
-                                className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
-                                  selectedAreas.includes(area)
-                                    ? 'bg-gray-900 text-white border border-gray-900'
-                                    : 'hover:bg-white/50 text-gray-800'
-                                }`}
-                               >
-                                 <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
-                               </button>
-                             ))}
-                           </div>
-                         </div>
-                       ) : null;
-                     })}
-                   </div>
-                 </div>
-               )}
+              {/* 선택 경로 */}
+              {renderSelectedPath()}
 
-               {/* 선택된 동 표시 */}
-               {selectedAreas.length > 0 && (
-                 <div className="flex flex-wrap gap-2 mt-2">
-                   {selectedAreas.map((area, idx) => (
-                     <span
-                       key={idx}
-                       className="inline-flex items-center px-3 py-1 bg-white/20 text-gray-700 text-sm rounded-full border border-white/30"
-                     >
-                       {area}
-                       <button
-                         onClick={() => toggleArea(area)}
-                         className="ml-2 text-gray-600 hover:text-gray-800"
-                       >
-                         ×
-                       </button>
-                     </span>
-                   ))}
-                 </div>
-               )}
-             </div>
+              {/* 시도 선택 */}
+              <div
+                className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+                  openLevel === 'sido' ? 'max-h-52' : 'max-h-0'
+                } overflow-y-auto`}
+              >
+                <div className="p-3 space-y-1">
+                  {sidos.map((sido) => (
+                    <button
+                      key={sido.id}
+                      onClick={() => handleSidoSelect(sido)}
+                      className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-150 ${
+                        selectedSido?.id === sido.id
+                          ? 'bg-gray-900 text-white border border-gray-900'
+                          : 'hover:bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {sido.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 구 선택 */}
+              {selectedSido && (
+                <div
+                  className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+                    openLevel === 'gungu' ? 'max-h-52' : 'max-h-0'
+                  } overflow-y-auto`}
+                >
+                  <div className="p-3 space-y-1">
+                    {gungus.map((gungu) => (
+                      <button
+                        key={gungu.id}
+                        onClick={() => handleGunguSelect(gungu)}
+                        className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
+                          selectedGungu?.id === gungu.id
+                            ? 'bg-gray-900 text-white border border-gray-900'
+                            : 'hover:bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {gungu.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 동 선택 */}
+              {selectedGungu && (
+                <div
+                  className={`transition-all duration-300 rounded-xl border border-white/40 backdrop-blur-xl bg-white/70 shadow-inner ${
+                    openLevel === 'dong' ? 'max-h-52' : 'max-h-0'
+                  } overflow-y-auto`}
+                >
+                  <div className="p-3 space-y-1">
+                    {dongs.map((dong) => (
+                      <button
+                        key={dong.id}
+                        onClick={() => handleDongSelect(dong)}
+                        className={`w-full text-left px-2 py-1 rounded-lg transition-all ${
+                          selectedDong?.id === dong.id
+                            ? 'bg-gray-900 text-white border border-gray-900'
+                            : 'hover:bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {dong.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
              {/* 최소 평점 */}
              <div className="space-y-3">

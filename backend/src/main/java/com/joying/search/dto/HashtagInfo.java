@@ -6,4 +6,4 @@ import lombok.Builder;
 public record HashtagInfo(
 	int count,
 	Long id,
-	String hashtag) {}
+	String name) {}

@@ -21,7 +21,7 @@ const Section5Triangle = () => {
     <section
       id="section-5"
       className="relative min-h-screen flex items-center justify-end"
-      style={{ zIndex: 60 }}
+      style={{ zIndex: 60, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
     >
       {/* 왼쪽 상단 로고 */}
       <div className="absolute top-8 left-8">
