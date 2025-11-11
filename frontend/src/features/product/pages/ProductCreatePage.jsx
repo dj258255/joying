@@ -626,9 +626,10 @@ function ProductCreatePage() {
         return fileIds.length > 0;
       case 2:
         // 2단계: 기본 정보
-        return form.title && form.content && parseNumber(form.deposit) > 0 && parseNumber(form.rentalFee) > 0;
+        return form.title && form.content && parseNumber(form.deposit) > 0 && parseNumber(form.rentalFee) > 0 && form.categoryId;
       case 3:
-        return form.categoryId && form.sidoId && form.gunguId && form.dongId;
+        // 3단계: 지역
+        return form.sidoId && form.gunguId && form.dongId;
       case 4:
         return form.startRent && (noEndDate || form.endRent || form.endRent === '');
       case 5:

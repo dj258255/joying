@@ -169,21 +169,32 @@ const RegisteredProductList = ({
   }
   
   // 상품 데이터 변환 (백엔드 응답 형식을 컴포넌트에서 사용하는 형식으로)
-  const transformedProducts = filteredProducts.map(product => ({
-    id: product.productId,
-    productId: product.productId,
-    title: product.title,
-    price: product.rentalFee,
-    deposit: product.deposit,
-    rating: product.rating || 0,
-    image: product.thumbnailUrl,
-    location: product.region 
-      ? `${product.region.sido} ${product.region.gungu} ${product.region.dong}`
-      : '',
-    uploadType: product.uploadType,
-    liked: product.liked || false,
-    isAvailable: true // 백엔드에서 상태 정보가 없으면 기본값
-  }));
+  const transformedProducts = filteredProducts.map(product => {
+    console.log('[RegisteredProductList] 원본 product 데이터:', product);
+    console.log('[RegisteredProductList] thumbnailUrl:', product.thumbnailUrl);
+    console.log('[RegisteredProductList] files:', product.files);
+    
+    const imageUrl = product.thumbnailUrl || (product.files && product.files.length > 0 ? product.files[0].url : null);
+    console.log('[RegisteredProductList] 최종 imageUrl:', imageUrl);
+    
+    return {
+      id: product.productId,
+      productId: product.productId,
+      title: product.title,
+      price: product.rentalFee,
+      rentalFee: product.rentalFee,
+      deposit: product.deposit,
+      rating: product.rating || 0,
+      thumbnailUrl: imageUrl, // ProductCard가 thumbnailUrl을 참조
+      image: imageUrl, // 호환성 유지
+      location: product.region 
+        ? `${product.region.sido} ${product.region.gungu} ${product.region.dong}`
+        : '',
+      uploadType: product.uploadType,
+      liked: product.liked || false,
+      isAvailable: true // 백엔드에서 상태 정보가 없으면 기본값
+    };
+  });
 
   if (transformedProducts.length === 0) {
     return (
