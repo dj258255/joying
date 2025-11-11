@@ -36,17 +36,18 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
   };
 
   const handleFile = (file) => {
-    // 파일 타입 검증
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
-
-    if (!allowedTypes.includes(file.type)) {
-      alert('이미지 파일만 업로드 가능합니다. (JPEG, PNG, GIF, WebP)');
-      return;
-    }
+    // 파일 타입 검증은 백엔드에서 자동으로 처리되므로
+    // 여기서는 기본적인 검증만 수행
+    // 이미지: 10MB, 일반 파일: 50MB 제한은 백엔드에서 처리
+    
+    // ContentType 기반으로 이미지 여부 판단
+    const isImage = file.type && file.type.startsWith('image/');
+    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      alert('파일 크기는 10MB 이하여야 합니다.');
+      alert(isImage 
+        ? '이미지 파일 크기는 10MB 이하여야 합니다.' 
+        : '파일 크기는 50MB 이하여야 합니다.');
       return;
     }
 
@@ -106,7 +107,7 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
               파일을 드래그하거나 클릭하여 업로드
             </h3>
             <p className="text-sm text-gray-500 mb-4">
-              이미지 파일만 업로드 가능 (최대 10MB)
+              이미지: 최대 10MB, 일반 파일: 최대 50MB
             </p>
             
             <button
@@ -121,7 +122,7 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="*/*"
             onChange={handleFileInput}
             className="hidden"
           />

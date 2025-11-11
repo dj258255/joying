@@ -1,488 +1,466 @@
-/**
+﻿/**
  * MyPageMain Component
- * 스크롤리스 환경의 시안 블루(#007ACC) 글래스모피즘 디자인
+ * 현대적인 대시보드 스타일 (멤버 페이지 디자인)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DUMMY_PRODUCTS, DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { 
   FiPackage, 
-  FiUsers, 
-  FiEdit3, 
   FiHeart, 
   FiMessageCircle, 
   FiUser, 
-  FiSettings, 
   FiCamera, 
-  FiCreditCard, 
   FiTrash2,
   FiChevronRight,
-  FiGrid,
-  FiUserCheck,
-  FiActivity,
-  FiTrendingUp,
   FiShield,
-  FiEdit,
-  FiBell,
-  FiMoreVertical,
-  FiHome,
-  FiShoppingBag,
-  FiLock,
-  FiX,
-  FiCheck,
-  FiAlertTriangle
+  FiEdit
 } from 'react-icons/fi';
 
-// Tier 1: 프로필 & 실시간 활동 대시보드
-import UserProfileView from '../components/UserProfileView';
-import ProfileImageManager from '../components/ProfileImageManager';
-import MyChatRoomsList from '../components/MyChatRoomsList';
-
-// Tier 2: 상품 관리 및 상세 활동 목록
+// 컴포넌트
+import ProfileImage from '../../../shared/components/ProfileImage';
 import BorrowedHistoryList from '../components/BorrowedHistoryList';
 import LentHistoryList from '../components/LentHistoryList';
 import RegisteredProductList from '../components/RegisteredProductList';
 import LikedProductList from '../components/LikedProductList';
 
-// Tier 3: 계정 관리 및 보안
-import UserInfoEditor from '../components/UserInfoEditor';
-import AccountVerifyForm from '../components/AccountVerifyForm';
-import UserDeletePage from '../components/UserDeletePage';
-
 // 공통 네비게이션
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 
 const MyPageMain = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showModal, setShowModal] = useState(false);
-  const [modalContent, setModalContent] = useState(null);
-  const [isWarningModal, setIsWarningModal] = useState(false);
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('products');
+  const [productTab, setProductTab] = useState('registered');
+  const [reviewTab, setReviewTab] = useState('borrowed');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  
+  const currentUserId = currentUser?.memberId || currentUser?.id;
+  
+  // 등록한 상품 (임시 더미 데이터)
+  const userProducts = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId);
 
-  // 사이드바는 고정이므로 스크롤 이벤트 제거
+  // 찜한 상품 (임시 더미 데이터)
+  const likedProducts = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId);
+  
+  // 채팅방 수
+  const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
 
-  // 탭 구성
-  const tabs = [
-    {
-      id: 'dashboard',
-      label: '대시보드',
-      icon: FiHome,
-      tier: 1
-    },
-    {
-      id: 'products',
-      label: '상품 관리',
-      icon: FiShoppingBag,
-      tier: 2
-    },
-    {
-      id: 'account',
-      label: '계정 관리',
-      icon: FiLock,
-      tier: 3
-    }
-  ];
+  // 별점 렌더링 함수
+  const renderStarRating = (rating) => {
+    const calcStarRates = () => {
+      let tempStarRatesArr = [0, 0, 0, 0, 0];
+      let starScore = rating;
 
-  // 모달 열기 함수
-  const openModal = (content, isWarning = false) => {
-    setModalContent(content);
-    setIsWarningModal(isWarning);
-    setShowModal(true);
+      for (let i = 0; i < 5; i++) {
+        if (starScore >= 1) {
+          tempStarRatesArr[i] = 14;
+          starScore -= 1;
+        } else {
+          tempStarRatesArr[i] = starScore * 14;
+          break;
+        }
+      }
+
+      return tempStarRatesArr;
+    };
+
+    const ratesResArr = calcStarRates();
+    const STAR_IDX_ARR = ['first', 'second', 'third', 'fourth', 'last'];
+
+    return STAR_IDX_ARR.map((item, idx) => {
+      const clipId = `clip-${idx}-${rating}`;
+      const pathId = `path-${idx}-${rating}`;
+
+      return (
+        <span key={`${item}_${idx}`}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={24}
+            height={24}
+            viewBox="0 0 14 13"
+            fill="#cacaca"
+          >
+            <clipPath id={clipId}>
+              <rect width={ratesResArr[idx]} height={24} />
+            </clipPath>
+            <path
+              id={pathId}
+              d="M9,2l2.163,4.279L16,6.969,12.5,10.3l.826,4.7L9,12.779,4.674,15,5.5,10.3,2,6.969l4.837-.69Z"
+              transform="translate(-2 -2)"
+            />
+            <use
+              clipPath={`url(#${clipId})`}
+              href={`#${pathId}`}
+              fill="#FFBF0F"
+            />
+          </svg>
+        </span>
+      );
+    });
   };
 
-  // 모달 닫기 함수
-  const closeModal = () => {
-    setShowModal(false);
-    setModalContent(null);
-    setIsWarningModal(false);
-  };
-
-  // 탭 전환 애니메이션
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-  };
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardView />;
-      case 'products':
-        return <ProductsView />;
-      case 'account':
-        return <AccountView openModal={openModal} />;
-      default:
-        return <DashboardView />;
-    }
-  };
-
-  // Tier 1: 대시보드 뷰 컴포넌트 - 미니멀리즘 디자인
-  const DashboardView = () => {
-    const { user: currentUser } = useAuth();
-    const currentUserId = currentUser?.memberId || currentUser?.id;
-    
-    // 등록한 상품 수 (임시로 더미 데이터 사용, 추후 API 연동 필요)
-    const registeredProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId === currentUserId).length;
-    
-    // 빌린 상품 수 (다른 사용자의 상품)
-    const borrowedProductsCount = DUMMY_PRODUCTS.filter(p => p.sellerId !== currentUserId).length;
-    
-    // 채팅방 수 (임시로 더미 데이터 사용, 추후 API 연동 필요)
-    const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
-    
-    // 읽지 않은 메시지 수
-    const unreadMessagesCount = DUMMY_CHAT_ROOMS.reduce((total, room) => total + room.unreadCount, 0);
-
+  if (!currentUser) {
     return (
-      <div className="glass-scroll-container h-full p-6 space-y-6">
-        {/* 프로필 섹션 - 미니멀 글래스 */}
-        <div className="glass-profile-minimal p-6">
-          <UserProfileView />
-        </div>
-
-        {/* 활동 대시보드 - 통일된 색상 톤 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="glass-card-minimal p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">빌린 상품</p>
-                <p className="text-2xl font-bold text-gray-900">{borrowedProductsCount}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
-                <FiPackage className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="glass-card-minimal p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">등록한 상품</p>
-                <p className="text-2xl font-bold text-gray-900">{registeredProductsCount}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center">
-                <FiEdit3 className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="glass-card-minimal p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">받은 리뷰</p>
-                <p className="text-2xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center">
-                <FiUsers className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="glass-card-minimal p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium mb-1">채팅방</p>
-                <p className="text-2xl font-bold text-gray-900">{chatRoomsCount}</p>
-              </div>
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
-                <FiMessageCircle className="w-6 h-6 text-indigo-600" />
-              </div>
-            </div>
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-center">
+            <div className="text-gray-500 text-6xl mb-4">⚠️</div>
+            <div className="text-gray-700 text-xl mb-6">로그인이 필요합니다.</div>
+            <button
+              onClick={() => navigate('/login')}
+              className="px-6 py-3 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl hover:from-gray-900 hover:to-black transition-all duration-200 font-medium shadow-lg"
+            >
+              로그인하기
+            </button>
           </div>
         </div>
-
-        {/* 최근 활동 - 미니멀 디자인 */}
-        <div className="glass-main-minimal p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 활동</h3>
-          <div className="space-y-3">
-            {DUMMY_CHAT_ROOMS.slice(0, 3).map((room, index) => (
-              <div key={room.id} className="glass-activity-item p-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-2 h-2 rounded-full ${
-                    index === 0 ? 'bg-blue-500' : 
-                    index === 1 ? 'bg-green-500' : 'bg-purple-500'
-                  }`}></div>
-                  <span className="text-sm text-gray-700">
-                    {room.name}님과의 채팅방에서 새로운 메시지
-                  </span>
-                  <span className="text-xs text-gray-500 ml-auto">
-                    {room.lastMessage?.timestamp ? 
-                      new Date(room.lastMessage.timestamp).toLocaleDateString('ko-KR') : 
-                      '방금 전'
-                    }
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      </>
     );
-  };
-
-  // Tier 2: 상품 관리 뷰 - 미니멀리즘 디자인
-  const ProductsView = () => {
-    const [activeSubTab, setActiveSubTab] = useState('registered');
-    
-    const subTabs = [
-      { id: 'registered', label: '등록한 상품', icon: FiEdit3 },
-      { id: 'liked', label: '관심 상품', icon: FiHeart },
-      { id: 'borrowed', label: '빌린 내역', icon: FiPackage },
-      { id: 'lent', label: '빌려준 내역', icon: FiUsers }
-    ];
+  }
 
     return (
-      <div className="glass-scroll-container h-full p-6 space-y-6">
-        {/* 서브 탭 네비게이션 - 미니멀 디자인 */}
-        <div className="glass-tabs-minimal p-4">
-          <div className="flex space-x-1 overflow-x-auto">
-            {subTabs.map((tab) => (
+    <>
+      <SideNavbar />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="flex flex-col lg:flex-row gap-6 px-6 pb-6 pt-6">
+          {/* 왼쪽 사이드바 - 사용자 프로필 */}
+          <div className="lg:w-80 flex-shrink-0">
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6">
+              {/* 사용자 프로필 섹션 */}
+              <div className="text-center mb-6">
+                <ProfileImage 
+                  src={currentUser?.profileImageUrl}
+                  alt={currentUser?.nickname}
+                  size={80}
+                  className="w-20 h-20 mx-auto mb-4"
+                />
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{currentUser?.nickname || '사용자'}</h2>
+                <p className="text-gray-500 text-sm mb-2">{currentUser?.bio || '소개가 없습니다.'}</p>
+                
+                {/* 평점 표시 */}
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="flex gap-1">
+                    {renderStarRating(currentUser?.rating || 0)}
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">{currentUser?.rating || 0}</span>
+        </div>
+
+                {/* 사용자 정보 */}
+                <div className="bg-gray-50 rounded-xl mb-4" style={{ padding: '14px' }}>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="text-center">
+                      <div className="text-gray-600 mb-1">이름</div>
+                      <div className="font-medium text-gray-900">{currentUser?.name || '-'}</div>
+              </div>
+                    <div className="text-center">
+                      <div className="text-gray-600 mb-1">인증 상태</div>
+                      <div className="font-medium text-gray-900">{currentUser?.verified ? '✓ 인증됨' : '미인증'}</div>
+              </div>
+            </div>
+                  {currentUser?.email && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-center">
+                        <div className="text-gray-600 mb-1">이메일</div>
+                        <div className="font-medium text-gray-900 text-xs">{currentUser.email}</div>
+              </div>
+            </div>
+                  )}
+          </div>
+          
+                {/* 통계 */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <button
+                    onClick={() => {
+                      setActiveTab('products');
+                      setProductTab('registered');
+                    }}
+                    className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="text-xl font-bold text-gray-900">{userProducts.length}</div>
+                    <div className="text-xs text-gray-600">등록 상품</div>
+                  </button>
+                  <div className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
+                    <div className="text-xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</div>
+                    <div className="text-xs text-gray-600">리뷰</div>
+              </div>
+            </div>
+          </div>
+          
+              {/* 네비게이션 링크 */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setActiveTab('products')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    activeTab === 'products'
+                      ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg'
+                      : 'text-gray-600 hover:bg-gray-100/50'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <span className="font-medium">상품 관리</span>
+                </button>
+                
+                <button
+                  onClick={() => setActiveTab('account')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    activeTab === 'account'
+                      ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg'
+                      : 'text-gray-600 hover:bg-gray-100/50'
+                  }`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <span className="font-medium">계정 관리</span>
+                </button>
+            </div>
+          </div>
+        </div>
+
+          {/* 중앙 메인 콘텐츠 영역 */}
+          <div className="flex-1">
+            {/* 상품 관리 섹션 */}
+            {activeTab === 'products' && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-100px)] flex flex-col">
+                <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                  <h3 className="text-xl font-bold text-gray-900">상품 관리</h3>
+                  <div className="flex bg-gray-100 rounded-xl p-1">
+                    <button
+                      onClick={() => setProductTab('registered')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        productTab === 'registered'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      등록 상품
+                    </button>
+                    <button
+                      onClick={() => setProductTab('liked')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        productTab === 'liked'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      찜한 상품
+                    </button>
+                    <button
+                      onClick={() => setProductTab('borrowed')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        productTab === 'borrowed'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌린 내역
+                    </button>
               <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`flex-shrink-0 flex items-center space-x-2 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 ${
-                  activeSubTab === tab.id
-                    ? 'glass-subtab-minimal-active'
-                    : 'glass-subtab-minimal-inactive'
+                      onClick={() => setProductTab('lent')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        productTab === 'lent'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                <tab.icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                      빌려준 내역
               </button>
-            ))}
           </div>
         </div>
 
-        {/* 서브 탭 콘텐츠 - 미니멀 컨테이너 */}
-        <div className="glass-content-minimal p-6 glass-scroll-container" style={{ height: 'calc(100vh - 180px)' }}>
-          {activeSubTab === 'registered' && <RegisteredProductList />}
-          {activeSubTab === 'liked' && <LikedProductList />}
-          {activeSubTab === 'borrowed' && <BorrowedHistoryList />}
-          {activeSubTab === 'lent' && <LentHistoryList />}
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <div className="pr-2">
+                    {productTab === 'registered' && <RegisteredProductList />}
+                    {productTab === 'liked' && <LikedProductList />}
+                    {productTab === 'borrowed' && <BorrowedHistoryList />}
+                    {productTab === 'lent' && <LentHistoryList />}
+                  </div>
         </div>
       </div>
-    );
-  };
+            )}
 
-  // Tier 3: 계정 관리 뷰 - 미니멀리즘 디자인
-  const AccountView = ({ openModal }) => {
-    const accountItems = [
-      {
-        id: 'profile',
-        label: '회원 정보',
-        icon: FiUser,
-        description: '회원 정보 조회',
-        action: () => openModal(<UserProfileView />)
-      },
-      {
-        id: 'edit',
-        label: '정보 수정',
-        icon: FiEdit,
-        description: '회원 정보 수정',
-        action: () => openModal(<UserInfoEditor />)
-      },
-      {
-        id: 'image',
-        label: '프로필 이미지',
-        icon: FiCamera,
-        description: '프로필 이미지 관리',
-        action: () => openModal(<ProfileImageManager />)
-      },
-      {
-        id: 'verify',
-        label: '계좌 인증',
-        icon: FiShield,
-        description: '계좌 인증',
-        badge: '인증 필요',
-        action: () => openModal(<AccountVerifyForm />)
-      },
-      {
-        id: 'delete',
-        label: '회원 탈퇴',
-        icon: FiTrash2,
-        description: '회원 탈퇴',
-        isDanger: true,
-        action: () => openModal(<UserDeletePage />, true)
-      }
-    ];
-
-    return (
-      <div className="glass-scroll-container h-full p-6 space-y-4">
-        {accountItems.map((item) => (
+            {/* 계정 관리 섹션 */}
+            {activeTab === 'account' && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-100px)] flex flex-col">
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex-shrink-0">계정 관리</h3>
+                <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-2">
           <button
-            key={item.id}
-            onClick={item.action}
-            className={`w-full glass-account-item p-5 text-left glass-hover-lift ${
-              item.isDanger ? 'glass-account-item-danger' : 'glass-account-item-normal'
-            }`}
+                    onClick={() => navigate('/mypage/profile')}
+                    className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
           >
-            <div className="flex items-center space-x-4">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                item.isDanger ? 'bg-red-50' : 'bg-gray-50'
-              }`}>
-                <item.icon className={`w-6 h-6 ${
-                  item.isDanger ? 'text-red-600' : 'text-gray-600'
-                }`} />
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
+                        <FiUser className="w-5 h-5 text-gray-700" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-base text-gray-900">회원 정보</h3>
+                        <p className="text-xs mt-0.5 text-gray-500">회원 정보 조회</p>
               </div>
-              <div className="flex-1">
-                <h3 className={`font-semibold text-lg ${
-                  item.isDanger ? 'text-red-900' : 'text-gray-900'
-                }`}>
-                  {item.label}
-                </h3>
-                <p className={`text-sm mt-1 ${
-                  item.isDanger ? 'text-red-600' : 'text-gray-500'
-                }`}>
-                  {item.description}
-                </p>
+                      <FiChevronRight className="w-4 h-4 text-gray-400" />
               </div>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/mypage/edit')}
+                    className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
+                  >
               <div className="flex items-center space-x-3">
-                {item.badge && (
-                  <span className="glass-badge-minimal text-xs">
-                    {item.badge}
-                  </span>
-                )}
-                <FiChevronRight className={`w-5 h-5 ${
-                  item.isDanger ? 'text-red-400' : 'text-gray-400'
-                }`} />
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
+                        <FiEdit className="w-5 h-5 text-gray-700" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-base text-gray-900">정보 수정</h3>
+                        <p className="text-xs mt-0.5 text-gray-500">회원 정보 수정</p>
               </div>
+                      <FiChevronRight className="w-4 h-4 text-gray-400" />
             </div>
           </button>
-        ))}
-      </div>
-    );
-  };
 
-  return (
-    <div className="glass-viewport bg-white min-h-screen">
-      <SideNavbar />
-      {/* 좌측 사이드바 - 미니멀 디자인 */}
-      <div className="hidden lg:block fixed left-0 top-0 h-full w-64 z-40">
-        <div className="glass-sidebar-minimal h-full p-6">
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">마이페이지</h1>
+                  <button
+                    onClick={() => navigate('/mypage/image')}
+                    className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
+                        <FiCamera className="w-5 h-5 text-gray-700" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-base text-gray-900">프로필 이미지</h3>
+                        <p className="text-xs mt-0.5 text-gray-500">프로필 이미지 관리</p>
+      </div>
+                      <FiChevronRight className="w-4 h-4 text-gray-400" />
           </div>
+                  </button>
           
-          <div className="space-y-1">
-            {tabs.map((tab) => (
               <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl font-medium transition-all duration-200 text-left ${
-                  activeTab === tab.id
-                    ? 'glass-tab-minimal-active'
-                    : 'glass-tab-minimal-inactive'
-                }`}
-              >
-                <tab.icon className="w-5 h-5" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
+                    onClick={() => navigate('/mypage/verify')}
+                    className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
+                        <FiShield className="w-5 h-5 text-gray-700" />
           </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-base text-gray-900">계좌 인증</h3>
+                        <p className="text-xs mt-0.5 text-gray-500">계좌 인증</p>
         </div>
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md border border-gray-300">
+                        인증 필요
+                      </span>
+                      <FiChevronRight className="w-4 h-4 text-gray-400" />
       </div>
+                  </button>
 
-      {/* 모바일 헤더 */}
-      <div className="lg:hidden glass-nav sticky top-0 z-10">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">마이페이지</h1>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-[#007ACC] to-[#007ACC]/80 rounded-full flex items-center justify-center glass-avatar-ring">
-                <FiUser className="w-4 h-4 text-white" />
+                  <button
+                    onClick={() => navigate('/mypage/delete')}
+                    className="w-full bg-red-50 border border-red-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-100">
+                        <FiTrash2 className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-base text-red-900">회원 탈퇴</h3>
+                        <p className="text-xs mt-0.5 text-red-600">회원 탈퇴</p>
               </div>
+                      <FiChevronRight className="w-4 h-4 text-red-400" />
             </div>
+                  </button>
           </div>
         </div>
+            )}
       </div>
 
-      {/* 메인 콘텐츠 - 사이드바 공간 고려 */}
-      <div className="lg:ml-64 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-12 h-full">
-        {/* 데스크톱 헤더 */}
-
-
-        {/* 모바일 탭 선택 */}
-        <div className="lg:hidden mb-6">
-          <div className="glass-main p-3">
-            <div className="flex space-x-2">
-              {tabs.map((tab) => (
+          {/* 오른쪽 위젯 영역 */}
+          <div className="lg:w-80 flex-shrink-0">
+            <div className="space-y-6">
+              {/* 활동 통계 위젯 */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6">
+                <h4 className="font-semibold text-gray-900 mb-4">활동 통계</h4>
+                <div className="space-y-3">
                 <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`flex-1 flex items-center justify-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'glass-tab-active'
-                      : 'glass-tab-inactive'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                    onClick={() => {
+                      setActiveTab('products');
+                      setProductTab('registered');
+                    }}
+                    className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiPackage className="w-5 h-5 text-gray-700" />
+                      <span className="text-sm font-medium text-gray-700">등록 상품</span>
+                    </div>
+                    <span className="text-lg font-bold text-gray-900">{userProducts.length}</span>
                 </button>
-              ))}
-            </div>
-          </div>
+                  
+                  <button
+                    onClick={() => {
+                      setActiveTab('products');
+                      setProductTab('liked');
+                    }}
+                    className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiHeart className="w-5 h-5 text-gray-700" />
+                      <span className="text-sm font-medium text-gray-700">찜한 상품</span>
         </div>
-
-        {/* 탭 콘텐츠 - 스크롤리스 컨테이너 */}
-        <div className="glass-main h-[calc(86vh-70px)] lg:h-[calc(100vh-70px)]">
-          {renderTabContent()}
-        </div>
-      </div>
-
-
-      {/* 미니멀 글래스모피즘 모달 */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* 미세한 블러 오버레이 */}
-          <div 
-            className={`absolute inset-0 backdrop-blur-sm ${
-              isWarningModal 
-                ? 'bg-red-500/5' 
-                : 'bg-gray-500/10'
-            }`}
-            onClick={closeModal}
-          />
-          
-          {/* 미니멀 모달 컨테이너 */}
-          <div className={`relative backdrop-blur-lg border rounded-3xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden ${
-            isWarningModal
-              ? 'bg-red-50/60 border-red-200/20'
-              : 'bg-white/70 border-white/20'
-          }`}>
-            {/* 모달 헤더 */}
-            <div className={`backdrop-blur-sm border-b px-6 py-5 ${
-              isWarningModal
-                ? 'bg-red-100/40 border-red-200/10'
-                : 'bg-white/50 border-white/10'
-            }`}>
-              <div className="flex items-center justify-between">
-                <h2 className={`text-xl font-semibold ${
-                  isWarningModal ? 'text-red-900' : 'text-gray-900'
-                }`}>
-                  {isWarningModal ? '회원 탈퇴' : '계정 관리'}
-                </h2>
+                    <span className="text-lg font-bold text-gray-900">{likedProducts.length}</span>
+                  </button>
+                  
                 <button
-                  onClick={closeModal}
-                  className={`p-2 rounded-xl transition-all duration-200 hover:scale-105 ${
-                    isWarningModal
-                      ? 'bg-red-200/30 hover:bg-red-200/50'
-                      : 'bg-gray-100/50 hover:bg-gray-100/70'
-                  }`}
-                >
-                  <FiX className={`w-5 h-5 ${
-                    isWarningModal ? 'text-red-600' : 'text-gray-600'
-                  }`} />
+                    onClick={() => navigate('/chats')}
+                    className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FiMessageCircle className="w-5 h-5 text-gray-700" />
+                      <span className="text-sm font-medium text-gray-700">채팅방</span>
+                    </div>
+                    <span className="text-lg font-bold text-gray-900">{chatRoomsCount}</span>
                 </button>
               </div>
             </div>
             
-            {/* 모달 콘텐츠 */}
-            <div className="p-6 glass-scroll-container max-h-[calc(85vh-100px)]">
-              {modalContent}
-            </div>
+              {/* 등록 상품 목록 위젯 */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 h-[calc(100vh-450px)] flex flex-col">
+                <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <div className="space-y-3 pr-2">
+                    {userProducts.length > 0 ? (
+                      userProducts.slice(0, 5).map((product, index) => (
+                        <button
+                          key={product.id}
+                          onClick={() => navigate(`/products/${product.id}`)}
+                          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 text-gray-600 transition-all duration-200"
+                        >
+                          <div className={`w-3 h-3 rounded-full ${
+                            index === 0 ? 'bg-gray-400' :
+                            index === 1 ? 'bg-gray-500' :
+                            index === 2 ? 'bg-gray-600' :
+                            'bg-gray-300'
+                          }`}></div>
+                          <span className="text-sm font-medium truncate">{product.title}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          등록된 상품이 없습니다
           </div>
         </div>
       )}
     </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

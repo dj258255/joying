@@ -1,5 +1,6 @@
 package com.joying.chat.service
 
+import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomRepository
@@ -7,6 +8,7 @@ import com.joying.common.exception.BusinessException
 import com.joying.common.exception.ErrorCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -20,8 +22,10 @@ import java.time.Instant
 @Service
 class ChatMessageService(
     private val chatMessageRepository: ChatMessageRepository,
-    private val chatRoomRepository: ChatRoomRepository
+    private val chatRoomRepository: ChatRoomRepository,
+    private val redisPubSubPublisher: RedisPubSubPublisher
 ) {
+    private val logger = LoggerFactory.getLogger(ChatMessageService::class.java)
 
     /**
      * 채팅방 접근 권한 확인
@@ -54,14 +58,23 @@ class ChatMessageService(
 
             chatMessageRepository
                 .findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, pageable)
-                .map { ChatMessageResponse.from(it) }
+                .map { message ->
+                    val replyMessage = message.replyToMessageId?.let { replyId ->
+                        chatMessageRepository.findById(replyId).orElse(null)
+                    }
+                    ChatMessageResponse.from(message, replyMessage)
+                }
         }
 
     /**
-     * 커서 기반 페이징으로 메시지 조회 (통합)
+     * 커서 기반 페이징으로 메시지 조회 (통합) - runBlocking 방식
      *
      * - before 파라미터: 과거 메시지 조회 (무한 스크롤)
      * - after 파라미터: 놓친 메시지 조회 (재연결 시)
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param before 이 시간 이전의 메시지 조회 (과거 방향, 최신순 정렬)
@@ -70,13 +83,13 @@ class ChatMessageService(
      * @param memberId 요청한 회원 ID (권한 확인용)
      * @return 메시지 목록
      */
-    suspend fun getMessagesBefore(
+    fun getMessagesBefore(
         chatRoomId: Long,
         before: Instant? = null,
         after: Instant? = null,
         size: Int,
         memberId: Long
-    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = kotlinx.coroutines.runBlocking {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
 
@@ -114,11 +127,20 @@ class ChatMessageService(
             }
         }
 
-        messages.map { ChatMessageResponse.from(it) }
+        messages.map { message ->
+            val replyMessage = message.replyToMessageId?.let { replyId ->
+                chatMessageRepository.findById(replyId).orElse(null)
+            }
+            ChatMessageResponse.from(message, replyMessage)
+        }
     }
 
     /**
-     * 채팅방에서 메시지 검색
+     * 채팅방에서 메시지 검색 - runBlocking 방식
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
      *
      * @param chatRoomId 채팅방 ID
      * @param keyword 검색어
@@ -127,13 +149,13 @@ class ChatMessageService(
      * @param memberId 요청한 회원 ID (권한 확인용)
      * @return 검색 결과
      */
-    suspend fun searchMessages(
+    fun searchMessages(
         chatRoomId: Long,
         keyword: String,
         page: Int,
         size: Int,
         memberId: Long
-    ): List<ChatMessageResponse> = withContext(Dispatchers.IO) {
+    ): List<ChatMessageResponse> = kotlinx.coroutines.runBlocking {
         // 권한 확인
         validateChatRoomAccess(chatRoomId, memberId)
         val pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
@@ -144,7 +166,12 @@ class ChatMessageService(
                 keyword,
                 pageable
             )
-            .map { ChatMessageResponse.from(it) }
+            .map { message ->
+                val replyMessage = message.replyToMessageId?.let { replyId ->
+                    chatMessageRepository.findById(replyId).orElse(null)
+                }
+                ChatMessageResponse.from(message, replyMessage)
+            }
     }
 
     /**
@@ -160,7 +187,7 @@ class ChatMessageService(
                 return@withContext 0L
             }
 
-            chatMessageRepository.countByChatRoomIdAndCreatedAtAfter(chatRoomId, lastReadAt)
+            chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(chatRoomId, lastReadAt)
         }
 
     /**
@@ -191,38 +218,102 @@ class ChatMessageService(
                 after,
                 pageable
             )
-            .map { ChatMessageResponse.from(it) }
+            .map { message ->
+                val replyMessage = message.replyToMessageId?.let { replyId ->
+                    chatMessageRepository.findById(replyId).orElse(null)
+                }
+                ChatMessageResponse.from(message, replyMessage)
+            }
     }
 
     /**
-     * 메시지 삭제 (Soft Delete)
+     * 메시지 삭제 (Soft Delete) - 현업 표준 버전
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
+     *
+     * 개선 사항:
+     * - 삭제 후 Redis Pub/Sub 발행 (실시간 동기화)
+     * - 답장 정보 포함
+     * - 에러 처리 강화
      *
      * @param chatRoomId 채팅방 ID
      * @param messageId 메시지 ID
      * @param memberId 요청한 회원 ID (권한 확인용)
      */
-    suspend fun deleteMessage(chatRoomId: Long, messageId: String, memberId: Long) =
-        withContext(Dispatchers.IO) {
-            val message = chatMessageRepository.findById(messageId)
-                .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
+    fun deleteMessage(chatRoomId: Long, messageId: String, memberId: Long) =
+        kotlinx.coroutines.runBlocking {
+            try {
+                val message = chatMessageRepository.findById(messageId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "메시지를 찾을 수 없습니다") }
 
-            // 채팅방 확인
-            if (message.chatRoomId != chatRoomId) {
-                throw IllegalArgumentException("해당 채팅방의 메시지가 아닙니다")
+                // 채팅방 확인
+                if (message.chatRoomId != chatRoomId) {
+                    throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "해당 채팅방의 메시지가 아닙니다")
+                }
+
+                // 본인 메시지만 삭제 가능
+                if (message.senderId != memberId) {
+                    throw BusinessException(ErrorCode.FORBIDDEN, "본인의 메시지만 삭제할 수 있습니다")
+                }
+
+                // 이미 삭제된 메시지
+                if (message.isDeleted) {
+                    throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미 삭제된 메시지입니다")
+                }
+
+                // Soft Delete
+                message.delete()
+                val savedMessage = chatMessageRepository.save(message)
+
+                logger.info(
+                    "메시지 삭제 완료: messageId={}, chatRoomId={}, memberId={}",
+                    messageId,
+                    chatRoomId,
+                    memberId
+                )
+
+                // 답장 메시지 조회
+                val replyMessage = savedMessage.replyToMessageId?.let { replyId ->
+                    chatMessageRepository.findById(replyId).orElse(null)
+                }
+
+                // Redis Pub/Sub 발행 (실시간 동기화)
+                val response = ChatMessageResponse.from(savedMessage, replyMessage)
+                redisPubSubPublisher.publish(response)
+
+                logger.debug("메시지 삭제 이벤트 발행: messageId={}", messageId)
+
+            } catch (e: BusinessException) {
+                throw e
+            } catch (e: Exception) {
+                logger.error(
+                    "메시지 삭제 실패: messageId={}, chatRoomId={}, memberId={}, error={}",
+                    messageId,
+                    chatRoomId,
+                    memberId,
+                    e.message,
+                    e
+                )
+                throw BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 삭제 중 오류가 발생했습니다")
             }
-
-            // 본인 메시지만 삭제 가능
-            if (message.senderId != memberId) {
-                throw IllegalArgumentException("본인의 메시지만 삭제할 수 있습니다")
-            }
-
-            // Soft Delete
-            message.delete()
-            chatMessageRepository.save(message)
         }
 
     /**
-     * 메시지 수정
+     * 메시지 수정 - 현업 표준 버전
+     *
+     * runBlocking 사용 이유:
+     * - Spring MVC 환경에서 SecurityContext 유지
+     * - HTTP Thread에서 응답 반환 보장
+     *
+     * 개선 사항:
+     * - 첫 수정 시 원본 내용 저장 (originalContent)
+     * - 수정 시간 기록 (updatedAt)
+     * - 수정 플래그 설정 (isEdited)
+     * - Redis Pub/Sub 발행 (실시간 동기화)
+     * - 답장 정보 포함
+     * - 에러 처리 강화
      *
      * @param chatRoomId 채팅방 ID
      * @param messageId 메시지 ID
@@ -230,42 +321,90 @@ class ChatMessageService(
      * @param newContent 수정할 내용
      * @return 수정된 메시지 DTO
      */
-    suspend fun updateMessage(
+    fun updateMessage(
         chatRoomId: Long,
         messageId: String,
         memberId: Long,
         newContent: String
-    ): ChatMessageResponse = withContext(Dispatchers.IO) {
-        val message = chatMessageRepository.findById(messageId)
-            .orElseThrow { IllegalArgumentException("메시지를 찾을 수 없습니다") }
+    ): ChatMessageResponse = kotlinx.coroutines.runBlocking {
+        try {
+            // 공백 검증
+            if (newContent.isBlank()) {
+                throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "메시지 내용은 비어 있을 수 없습니다")
+            }
 
-        // 채팅방 확인
-        if (message.chatRoomId != chatRoomId) {
-            throw IllegalArgumentException("해당 채팅방의 메시지가 아닙니다")
+            val message = chatMessageRepository.findById(messageId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "메시지를 찾을 수 없습니다") }
+
+            // 채팅방 확인
+            if (message.chatRoomId != chatRoomId) {
+                throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "해당 채팅방의 메시지가 아닙니다")
+            }
+
+            // 본인 메시지만 수정 가능
+            if (message.senderId != memberId) {
+                throw BusinessException(ErrorCode.FORBIDDEN, "본인의 메시지만 수정할 수 있습니다")
+            }
+
+            // 텍스트 메시지만 수정 가능
+            if (message.type != MessageType.TEXT) {
+                throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "텍스트 메시지만 수정할 수 있습니다")
+            }
+
+            // 삭제된 메시지는 수정 불가
+            if (message.isDeleted) {
+                throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "삭제된 메시지는 수정할 수 없습니다")
+            }
+
+            // 내용이 동일하면 수정하지 않음
+            if (message.content == newContent) {
+                throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "수정할 내용이 기존 내용과 동일합니다")
+            }
+
+            // 수정 (MongoDB data class는 불변이므로 새 객체 생성)
+            val updatedMessage = message.copy(
+                content = newContent,
+                updatedAt = Instant.now(),
+                isEdited = true,
+                // 첫 수정 시에만 원본 저장 (이후 수정은 최초 원본 유지)
+                originalContent = message.originalContent ?: message.content
+            )
+
+            val savedMessage = chatMessageRepository.save(updatedMessage)
+
+            logger.info(
+                "메시지 수정 완료: messageId={}, chatRoomId={}, memberId={}, isFirstEdit={}",
+                messageId,
+                chatRoomId,
+                memberId,
+                message.originalContent == null
+            )
+
+            // 답장 메시지 조회
+            val replyMessage = savedMessage.replyToMessageId?.let { replyId ->
+                chatMessageRepository.findById(replyId).orElse(null)
+            }
+
+            // Redis Pub/Sub 발행 (실시간 동기화)
+            val response = ChatMessageResponse.from(savedMessage, replyMessage)
+            redisPubSubPublisher.publish(response)
+
+            logger.debug("메시지 수정 이벤트 발행: messageId={}", messageId)
+
+            response
+
+        } catch (e: BusinessException) {
+            throw e
+        } catch (e: Exception) {
+            logger.error(
+                "메시지 수정 실패: messageId={}, chatRoomId={}, memberId={}, error={}",
+                messageId,
+                chatRoomId,
+                memberId,
+                e.message,
+                e
+            )
+            throw BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 수정 중 오류가 발생했습니다")
         }
-
-        // 본인 메시지만 수정 가능
-        if (message.senderId != memberId) {
-            throw IllegalArgumentException("본인의 메시지만 수정할 수 있습니다")
-        }
-
-        // 텍스트 메시지만 수정 가능
-        if (message.type != com.joying.chat.document.MessageType.TEXT) {
-            throw IllegalArgumentException("텍스트 메시지만 수정할 수 있습니다")
-        }
-
-        // 삭제된 메시지는 수정 불가
-        if (message.isDeleted) {
-            throw IllegalArgumentException("삭제된 메시지는 수정할 수 없습니다")
-        }
-
-        // 수정 (MongoDB data class는 불변이므로 새 객체 생성)
-        val updatedMessage = message.copy(
-            content = newContent
-        )
-
-        chatMessageRepository.save(updatedMessage)
-
-        ChatMessageResponse.from(updatedMessage)
     }
 }

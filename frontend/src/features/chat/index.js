@@ -21,7 +21,6 @@ export { ChatProvider, useChatContext } from './contexts/ChatContext';
 
 // Hooks
 export * from './hooks/useChatRooms';
-export * from './hooks/useMessages';
 export * from './hooks/useChatSocket';
 export * from './hooks/useRentalRequest';
 

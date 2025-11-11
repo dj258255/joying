@@ -3,14 +3,16 @@
  * 통일된 상품 카드 컴포넌트 - 토스/애플 스타일 글래스모피즘
  */
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 /**
  * @param {Object} props
  * @param {Object} props.product - 상품 정보
  * @param {Function} props.onClick - 카드 클릭 핸들러
- * @param {Function} props.onAction - 액션 버튼 핸들러
- * @param {string} props.actionType - 액션 타입 ('edit', 'delete', 'unlike', 'view')
+ * @param {Function} props.onAction - 액션 버튼 핸들러 (레거시)
+ * @param {Function} props.onEdit - 수정 핸들러
+ * @param {Function} props.onDelete - 삭제 핸들러
+ * @param {string} props.actionType - 액션 타입 ('edit', 'delete', 'unlike', 'view', 'menu')
  * @param {string} props.status - 상품 상태 ('available', 'unavailable', 'rented', 'completed')
  * @param {Object} props.stats - 통계 정보 (viewCount, likeCount, rentalCount)
  * @param {string} props.dateLabel - 날짜 라벨 (예: '등록일', '찜한 날짜', '대여일')
@@ -22,6 +24,8 @@ const ProductCard = ({
   product,
   onClick,
   onAction,
+  onEdit,
+  onDelete,
   actionType = 'view',
   status = 'available',
   stats = {},
@@ -30,6 +34,8 @@ const ProductCard = ({
   showStats = false,
   showDate = false
 }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
   const getStatusConfig = (status) => {
     const configs = {
       available: { text: '대여 가능', className: 'glass-status-available' },
@@ -41,6 +47,23 @@ const ProductCard = ({
     return configs[status] || configs.available;
   };
 
+  // 메뉴 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
+
   const getActionIcon = (actionType) => {
     const icons = {
       edit: (
@@ -51,6 +74,11 @@ const ProductCard = ({
       delete: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      ),
+      menu: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
         </svg>
       ),
       unlike: (
@@ -68,16 +96,39 @@ const ProductCard = ({
     return icons[actionType] || icons.view;
   };
 
+  const handleMenuClick = (e) => {
+    e.stopPropagation();
+    setShowMenu(!showMenu);
+  };
+
+  const handleEditClick = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    if (onEdit) {
+      onEdit();
+    } else if (onAction) {
+      onAction();
+    }
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    if (onDelete) {
+      onDelete();
+    }
+  };
+
   const statusConfig = getStatusConfig(status);
 
   return (
     <div className="glass-product-card-new group" onClick={onClick}>
       {/* 메인 이미지 배경 */}
       <div className="glass-product-image-main">
-        {product?.image ? (
+        {product?.thumbnailUrl ? (
           <img
-            src={product.image}
-            alt={product.title || product.name}
+            src={product.thumbnailUrl}
+            alt={product.title || product.content}
             className="glass-product-image-bg"
           />
         ) : (
@@ -92,16 +143,70 @@ const ProductCard = ({
         <div className="glass-product-gradient-overlay"></div>
         
         {/* 위치 정보 - 왼쪽 상단 */}
-        {product?.location && (
+        {product?.dongId && (
           <div className="absolute top-3 left-3 z-[5]">
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-md text-xs text-white/90">
-              📍 {product.location}
+              📍 {product.sido} {product.gugun} {product.dong}
             </span>
           </div>
         )}
         
-        {/* 액션 버튼 */}
-        {onAction && (
+        {/* 액션 버튼 - 메뉴 모드 */}
+        {(onEdit || onDelete || (onAction && actionType === 'menu')) && (
+          <div className="glass-product-action-overlay" ref={menuRef}>
+            <button
+              onClick={handleMenuClick}
+              className="glass-action-button-new glass-action-menu"
+              title="메뉴"
+            >
+              {getActionIcon('menu')}
+            </button>
+            
+            {/* 드롭다운 메뉴 */}
+            {showMenu && (
+              <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-50">
+                {onEdit && (
+                  <button
+                    onClick={handleEditClick}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    수정
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={handleDeleteClick}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    삭제
+                  </button>
+                )}
+                {/* 레거시: onAction만 있는 경우 */}
+                {!onEdit && !onDelete && onAction && actionType === 'menu' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMenu(false);
+                      onAction();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    액션
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* 레거시: 단일 액션 버튼 (메뉴 모드가 아닐 때) */}
+        {onAction && actionType !== 'menu' && !onEdit && !onDelete && (
           <div className="glass-product-action-overlay">
             <button
               onClick={(e) => {
@@ -120,13 +225,13 @@ const ProductCard = ({
         <div className="glass-product-text-overlay">
           {/* 제품명 */}
           <h3 className="text-sm font-bold text-white mb-2 line-clamp-1">
-            {product?.title || product?.name || '상품명 없음'}
+            {product?.title || '상품명 없음'}
           </h3>
           
           {/* 가격 & 평점 */}
           <div className="flex items-center justify-between">
             <p className="text-white font-semibold text-xs">
-              {product?.price ? `${product.price.toLocaleString()}원/일` : '가격 정보 없음'}
+              {product?.rentalFee ? `${product.rentalFee.toLocaleString()}원/일` : '가격 정보 없음'}
             </p>
             
             {/* 별점 표시 */}

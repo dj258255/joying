@@ -214,15 +214,20 @@ const ProductDetailPage = () => {
       
       console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
       
-      // 채팅방 ID 추출
-      const chatRoomId = chatRoomData.chatRoomId || chatRoomData.id;
+      // 채팅방 ID 추출 (백엔드 응답: ChatRoomResponse.chatRoomId)
+      const chatRoomId = chatRoomData.chatRoomId;
       
       if (!chatRoomId) {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
-      // 채팅방으로 이동 (대여 요청 메시지 전송은 채팅방에서 처리)
-      navigate(`/chats/${chatRoomId}?productId=${product.id}`);
+      // 채팅방으로 이동 (생성된 채팅방 데이터를 state로 전달하여 조회 API 호출 생략)
+      navigate(`/chats/${chatRoomId}`, {
+        state: { 
+          productId: product.id,
+          chatRoomData: chatRoomData // 생성 응답 데이터 전달
+        }
+      });
     } catch (error) {
       console.error('대여 요청 실패:', error);
       alert(`대여 요청에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
@@ -336,7 +341,7 @@ const ProductDetailPage = () => {
                     <div className="flex-shrink-0">
                       <DateRangeCalendar
                         onDateRangeChange={handleDateRangeChange}
-                        disabledDates={[]}
+                        disabledDates={product.disabledDates || []}
                       />
                     </div>
 
@@ -645,7 +650,7 @@ const ProductDetailPage = () => {
                 <div className="mb-6">
                   <DateRangeCalendar
                     onDateRangeChange={handleDateRangeChange}
-                    disabledDates={[]}
+                    disabledDates={product.disabledDates || []}
                   />
                 </div>
 

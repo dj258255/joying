@@ -14,7 +14,7 @@ const Section6System = () => {
     <section
       id="section-6"
       className="relative min-h-screen flex items-center overflow-hidden"
-      style={{ zIndex: 60 }}
+      style={{ zIndex: 60, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
     >
       {/* 로고 - 모바일/PC 모두 우측 하단 */}
       <div className="absolute bottom-8 right-8">

@@ -1,6 +1,7 @@
 package com.joying.chat.service
 
 import com.joying.chat.document.ChatMessage
+import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.SendMessageRequest
@@ -34,7 +35,9 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val redisPubSubPublisher: RedisPubSubPublisher,
     private val unreadCountService: UnreadCountService,
-    private val permissionCache: ChatRoomPermissionCache
+    private val permissionCache: ChatRoomPermissionCache,
+    private val webPushService: WebPushService,
+    private val chatPresenceService: ChatPresenceService,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -54,92 +57,114 @@ class ChatService(
     suspend fun sendMessage(
         chatRoomId: Long,
         senderId: Long,
-        request: SendMessageRequest
+        request: SendMessageRequest,
     ): ChatMessageResponse {
-        // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms ⭐
+        // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms
         if (!permissionCache.hasPermission(chatRoomId, senderId)) {
             throw BusinessException(ErrorCode.FORBIDDEN, "메시지 전송 권한이 없습니다")
         }
 
         // 2. 채팅방 활성 상태 확인 (권한 확인 시 이미 조회했으므로 캐시에서 가져올 수 있음)
-        val chatRoom = withContext(Dispatchers.IO) {
-            chatRoomRepository.findById(chatRoomId)
-                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
-        }
+        val chatRoom =
+            withContext(Dispatchers.IO) {
+                chatRoomRepository
+                    .findById(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+            }
 
         if (!chatRoom.isActive()) {
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료된 채팅방입니다")
         }
 
         // ChatMessage 생성
-        val chatMessage = when (request.type) {
-            com.joying.chat.document.MessageType.TEXT -> {
-                ChatMessage.createTextMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    content = request.content,
-                    replyToMessageId = request.replyToMessageId
-                )
+        val chatMessage =
+            when (request.type) {
+                MessageType.TEXT -> {
+                    ChatMessage.createTextMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        content = request.content,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.IMAGE -> {
+                    ChatMessage.createImageMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        imageUrl = request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"),
+                        fileName = request.fileName ?: "image.jpg",
+                        fileSize = request.fileSize ?: 0L,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.FILE -> {
+                    ChatMessage.createFileMessage(
+                        chatRoomId = chatRoomId,
+                        senderId = senderId,
+                        fileUrl = request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"),
+                        fileName = request.fileName ?: "file",
+                        fileSize = request.fileSize ?: 0L,
+                        replyToMessageId = request.replyToMessageId,
+                    )
+                }
+                MessageType.SYSTEM -> {
+                    ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = request.content,
+                    )
+                }
             }
-            com.joying.chat.document.MessageType.IMAGE -> {
-                ChatMessage.createImageMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    imageUrl = request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"),
-                    fileName = request.fileName ?: "image.jpg",
-                    fileSize = request.fileSize ?: 0L,
-                    replyToMessageId = request.replyToMessageId
-                )
-            }
-            com.joying.chat.document.MessageType.FILE -> {
-                ChatMessage.createFileMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = senderId,
-                    fileUrl = request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"),
-                    fileName = request.fileName ?: "file",
-                    fileSize = request.fileSize ?: 0L,
-                    replyToMessageId = request.replyToMessageId
-                )
-            }
-            com.joying.chat.document.MessageType.SYSTEM -> {
-                ChatMessage.createSystemMessage(
-                    chatRoomId = chatRoomId,
-                    content = request.content
-                )
-            }
-        }
 
         // 현재 시간 설정
         chatMessage.createdAt = Instant.now()
 
         // 3. MongoDB에 저장 (영구 저장) - withContext로 blocking I/O 처리
-        val savedMessage = withContext(Dispatchers.IO) {
-            chatMessageRepository.save(chatMessage)
-        }
+        val savedMessage =
+            withContext(Dispatchers.IO) {
+                chatMessageRepository.save(chatMessage)
+            }
 
-        // 4. DTO 변환
-        val messageDto = ChatMessageResponse.from(savedMessage)
+        // 4. 답장 대상 메시지 조회 (있을 경우)
+        val replyMessage =
+            savedMessage.replyToMessageId?.let { replyId ->
+                withContext(Dispatchers.IO) {
+                    chatMessageRepository.findById(replyId).orElse(null)
+                }
+            }
 
-        // 5. Redis Pub/Sub로 발행 (실시간 전달)
+        // 5. DTO 변환 (답장 정보 포함)
+        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage)
+
+        // 6. Redis Pub/Sub로 발행 (실시간 전달)
         redisPubSubPublisher.publish(messageDto)
 
         logger.info(
             "메시지 전송 완료: messageId={}, chatRoomId={}, senderId={}",
             savedMessage.id,
             chatRoomId,
-            senderId
+            senderId,
         )
 
         // 6. 상대방 안읽은 개수 증가 (Redis)
-        val receiverId = if (senderId == chatRoom.buyer.getMemberId()) {
-            chatRoom.seller.getMemberId()!!
-        } else {
-            chatRoom.buyer.getMemberId()!!
-        }
+        val receiverId =
+            if (senderId == chatRoom.buyer.memberId) {
+                chatRoom.seller.memberId!!
+            } else {
+                chatRoom.buyer.memberId!!
+            }
 
         unreadCountService.increment(chatRoomId, receiverId)
 
-        // 7. lastMessage 업데이트 (비동기) - 20-30ms 절감 ⭐
+        // 7. 푸시 알림 전송 (비동기)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                sendPushNotification(chatRoomId, receiverId, senderId, savedMessage)
+            } catch (e: Exception) {
+                logger.error("푸시 알림 전송 실패: chatRoomId={}, receiverId={}, error={}", chatRoomId, receiverId, e.message, e)
+            }
+        }
+
+        // 8. lastMessage 업데이트 (비동기) - 20-30ms 절감
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateLastMessageAsync(chatRoomId, savedMessage.content, savedMessage.createdAt!!)
@@ -155,10 +180,15 @@ class ChatService(
      * lastMessage 비동기 업데이트
      * (메시지 전송 응답 속도에 영향 없음)
      */
-    private suspend fun updateLastMessageAsync(chatRoomId: Long, content: String, createdAt: Instant) {
+    private suspend fun updateLastMessageAsync(
+        chatRoomId: Long,
+        content: String,
+        createdAt: Instant,
+    ) {
         withContext(Dispatchers.IO) {
-            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null)
-                ?: return@withContext
+            val chatRoom =
+                chatRoomRepository.findById(chatRoomId).orElse(null)
+                    ?: return@withContext
 
             chatRoom.updateLastMessage(content, createdAt)
             chatRoomRepository.save(chatRoom)
@@ -175,9 +205,14 @@ class ChatService(
      * @param memberId 회원 ID
      */
     @Transactional
-    fun markAsRead(chatRoomId: Long, memberId: Long) {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
+    fun markAsRead(
+        chatRoomId: Long,
+        memberId: Long,
+    ) {
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
         // MySQL lastReadAt 업데이트
         chatRoomMember.markAsRead()
@@ -202,10 +237,12 @@ class ChatService(
         chatRoomId: Long,
         memberId: Long,
         isPinned: Boolean?,
-        isMuted: Boolean?
+        isMuted: Boolean?,
     ): ChatRoomSettingsResponse {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
         // 고정 설정 업데이트
         if (isPinned != null && chatRoomMember.isPinned != isPinned) {
@@ -221,7 +258,134 @@ class ChatService(
 
         return ChatRoomSettingsResponse(
             isPinned = chatRoomMember.isPinned,
-            isMuted = chatRoomMember.isMuted
+            isMuted = chatRoomMember.isMuted,
         )
+    }
+
+    /**
+     * 푸시 알림 전송
+     * 조건: 수신자가 오프라인이거나 채팅방에 없고, 알림이 켜져 있을 때만 전송
+     */
+    private suspend fun sendPushNotification(
+        chatRoomId: Long,
+        receiverId: Long,
+        senderId: Long,
+        message: ChatMessage,
+    ) {
+        withContext(Dispatchers.IO) {
+            // 1. 수신자의 알림 설정 확인
+            val receiverMember =
+                chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoomId, receiverId)
+                    .orElse(null) ?: return@withContext
+
+            // 알림이 꺼져 있으면 전송하지 않음
+            if (receiverMember.isMuted) {
+                logger.debug("푸시 알림 건너뜀 (알림 꺼짐): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+                return@withContext
+            }
+
+            // 2. 수신자가 현재 온라인 상태인지 확인
+            val isOnline = chatPresenceService.isOnline(receiverId)
+            if (isOnline) {
+                logger.debug("푸시 알림 건너뜀 (온라인): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+                return@withContext
+            }
+
+            // 3. 발신자 정보 조회 (채팅방에서 가져옴)
+            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return@withContext
+            val sender =
+                if (senderId == chatRoom.buyer.memberId) {
+                    chatRoom.buyer
+                } else {
+                    chatRoom.seller
+                }
+
+            // 4. 발신자 프로필 이미지 URL 가져오기
+
+            val senderProfileUrl = sender.profileImage?.let { file ->
+                "${file.directory}/${file.fileName}"
+            } ?: sender.kakaoProfileImageUrl
+
+            // 5. 푸시 알림 페이로드 생성
+            val payload = createPushPayload(sender.nickname, senderProfileUrl, message, chatRoomId)
+
+            // 5. 푸시 알림 전송
+            webPushService.sendNotification(receiverId, payload)
+            logger.info("푸시 알림 전송: chatRoomId={}, receiverId={}, type={}", chatRoomId, receiverId, message.type)
+        }
+    }
+
+    /**
+     * 푸시 알림 페이로드 생성
+     */
+    private fun createPushPayload(
+        senderNickname: String,
+        senderProfileUrl: String?,
+        message: ChatMessage,
+        chatRoomId: Long,
+    ): PushNotificationPayload {
+        return when (message.type) {
+            MessageType.TEXT -> {
+                PushNotificationPayload(
+                    title = "${senderNickname}님의 메시지",
+                    body = message.content,
+                    icon = senderProfileUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.IMAGE -> {
+                PushNotificationPayload(
+                    title = "${senderNickname}님이 사진을 보냈습니다",
+                    body = "이미지 1장",
+                    icon = senderProfileUrl,
+                    image = message.imageUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.FILE -> {
+                val fileSize =
+                    message.fileSize?.let { size ->
+                        when {
+                            size < 1024 -> "$size B"
+                            size < 1024 * 1024 -> "${size / 1024} KB"
+                            else -> "${size / (1024 * 1024)} MB"
+                        }
+                    } ?: ""
+
+                PushNotificationPayload(
+                    title = "${senderNickname}님이 파일을 보냈습니다",
+                    body = "${message.fileName} ($fileSize)",
+                    icon = senderProfileUrl,
+                    tag = "chat-room-$chatRoomId",
+                    data =
+                        mapOf(
+                            "chatRoomId" to chatRoomId,
+                            "messageId" to (message.id ?: ""),
+                            "url" to "/chat/$chatRoomId",
+                        ),
+                )
+            }
+            MessageType.SYSTEM -> {
+                // 시스템 메시지는 푸시 알림 전송하지 않음
+                return PushNotificationPayload(
+                    title = "",
+                    body = "",
+                    data = emptyMap(),
+                )
+            }
+        }
     }
 }

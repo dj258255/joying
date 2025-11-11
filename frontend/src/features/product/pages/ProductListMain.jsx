@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from '../../mypage/components/ProductCard';
 import HashtagFilter from '../components/HashtagFilter';
@@ -7,44 +8,21 @@ import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
+import { useSearch } from '../../search/hooks/useSearch';
 import { useCategoryTree } from '@/features/category';
-
-const SEOUL_DISTRICTS = [
-  { id: 'gangnam', name: '강남구', areas: ['역삼동', '개포동', '청담동', '삼성동'] },
-  { id: 'gangdong', name: '강동구', areas: ['천호동', '성내동', '길동', '둔촌동'] },
-  { id: 'gangbuk', name: '강북구', areas: ['미아동', '번동', '수유동', '우이동'] },
-  { id: 'gangseo', name: '강서구', areas: ['염창동', '등촌동', '화곡동', '가양동'] },
-  { id: 'gwanak', name: '관악구', areas: ['신림동', '봉천동', '남현동', '서원동'] },
-  { id: 'gwangjin', name: '광진구', areas: ['구의동', '광장동', '자양동', '화양동'] },
-  { id: 'guro', name: '구로구', areas: ['구로동', '가리봉동', '신도림동', '고척동'] },
-  { id: 'nowon', name: '노원구', areas: ['상계동', '중계동', '하계동', '공릉동'] },
-  { id: 'dobong', name: '도봉구', areas: ['쌍문동', '방학동', '창동', '도봉동'] },
-  { id: 'dongdaemun', name: '동대문구', areas: ['용신동', '제기동', '전농동', '답십리동'] },
-  { id: 'dongjak', name: '동작구', areas: ['노량진동', '상도동', '사당동', '대방동'] },
-  { id: 'mapo', name: '마포구', areas: ['공덕동', '아현동', '도화동', '용강동'] },
-  { id: 'seodaemun', name: '서대문구', areas: ['충현동', '천연동', '신촌동', '연희동'] },
-  { id: 'seocho', name: '서초구', areas: ['방배동', '양재동', '내곡동', '원지동'] },
-  { id: 'seongdong', name: '성동구', areas: ['왕십리동', '마장동', '사근동', '행당동'] },
-  { id: 'seongbuk', name: '성북구', areas: ['성북동', '삼선동', '동선동', '돈암동'] },
-  { id: 'songpa', name: '송파구', areas: ['잠실동', '문정동', '장지동', '방이동'] },
-  { id: 'yangcheon', name: '양천구', areas: ['목동', '신월동', '신정동', '염창동'] },
-  { id: 'yeongdeungpo', name: '영등포구', areas: ['여의도동', '당산동', '도림동', '문래동'] },
-  { id: 'yongsan', name: '용산구', areas: ['남영동', '원효로동', '이촌동', '한강로동'] },
-  { id: 'eunpyeong', name: '은평구', areas: ['수색동', '녹번동', '불광동', '갈현동'] },
-  { id: 'jongno', name: '종로구', areas: ['청운동', '신교동', '궁정동', '효자동'] },
-  { id: 'jung', name: '중구', areas: ['소공동', '회현동', '명동', '필동'] },
-  { id: 'jungnang', name: '중랑구', areas: ['면목동', '상봉동', '중화동', '망우동'] }
-];
+import { useSearchParams } from 'react-router-dom';
+import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const [searchParams] = useSearchParams();
   
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   
   // 필터 상태
-  const [activeTab, setActiveTab] = useState('lend');
+  const [activeTab, setActiveTab] = useState('rent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,12 +32,54 @@ const ProductListMain = () => {
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
   const [showCategoryPopover, setShowCategoryPopover] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
-  const [selectedDistricts, setSelectedDistricts] = useState([]);
-  const [selectedAreas, setSelectedAreas] = useState([]);
+  const [selectedSido, setSelectedSido] = useState(null);
+  const [selectedGungu, setSelectedGungu] = useState(null);
+  const [selectedDong, setSelectedDong] = useState(null);
   const [rating, setRating] = useState(0);
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const q = searchParams.get('q') || '';
+
+  const [page, setPage] = useState(1);
+  const [fetchCount, setFetchCount] = useState(0);
+  const [products, setProducts] = useState([]);
+  const lastAppliedFilters = React.useRef(null);
+  const [totalProducts, setTotalProducts] = React.useState(0);
+
+  // 지역 팝오버 관련 상태
+  const [showRegionPopover, setShowRegionPopover] = useState(false);
+  const [activeSidoId, setActiveSidoId] = useState(null);
+  const [activeGunguId, setActiveGunguId] = useState(null);
+  const [selectedRegionName, setSelectedRegionName] = useState('');
+  const regionButtonRef = React.useRef(null);
+  const [popoverPosition, setPopoverPosition] = React.useState({ top: 0, left: 0 });
+  const categoryButtonRef = React.useRef(null);
+  const [categoryPopoverPosition, setCategoryPopoverPosition] = React.useState({ top: 0, left: 0 });
+
+  const { data: sidos = [], isLoading: isSidosLoading } = useSidos();
+  const { data: gungus = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
+  const { data: dongs = [], isLoading: isDongsLoading } = useDongs(activeGunguId);
+
+  // 첫 번째 시도 자동 선택
+  React.useEffect(() => {
+    if (sidos.length > 0 && !activeSidoId && showRegionPopover) {
+      setActiveSidoId(sidos[0].sidoId || sidos[0].id);
+    }
+  }, [sidos, activeSidoId, showRegionPopover]);
+
+  React.useEffect(() => {
+    if (q) {
+      setSearchQuery(q);
+    }
+  }, [q]);
+
+  React.useEffect(() => {
+    // 컴포넌트 처음 마운트 시 한 번 실행
+    refetch();
+    lastAppliedFilters.current = apiFilters;
+  }, []);
   
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
@@ -71,25 +91,32 @@ const ProductListMain = () => {
     }
   }, [categories, activeCategoryId]);
 
+  const formatToLocalDate = (date) => {
+    if (!date) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // API 필터 파라미터 생성
   const apiFilters = useMemo(() => ({
-    type: activeTab, // 'lend' 또는 'borrow'
-    search: searchQuery,
-    category: selectedSubcategories.length > 0 ? selectedSubcategories[0] : '',
-    minPrice: priceRange.min ? parseInt(priceRange.min) : 0,
-    maxPrice: priceRange.max ? parseInt(priceRange.max) : Infinity,
-    location: selectedAreas.length > 0 ? selectedAreas[0] : '',
-    minRating: rating,
+    uploadType: activeTab, // 'rent' 또는 'borrow'
+    q: searchQuery,
+    category: selectedSubcategories.length > 0 ? selectedSubcategories.map(c => c.categoryId) : [],
+    "price-min": priceRange.min ? parseInt(priceRange.min.toString().replace(/,/g, ''), 10) : null,
+    "price-max": priceRange.max ? parseInt(priceRange.max.toString().replace(/,/g, ''), 10) : null,
+    dong: selectedDong !== null ? selectedDong.id : null,
+    rating: rating,
     sameDayRental: sameDayRental,
-    hashtags: selectedHashtags.map(h => h.name),
-    startDate: selectedDates.start ? selectedDates.start.toISOString() : null,
-    endDate: selectedDates.end ? selectedDates.end.toISOString() : null
+    "date-from": selectedDates.start ? formatToLocalDate(selectedDates.start) : null,
+    "date-to": selectedDates.end ? formatToLocalDate(selectedDates.end) : null
   }), [
     activeTab,
     searchQuery,
     selectedSubcategories,
     priceRange,
-    selectedAreas,
+    selectedDong,
     rating,
     sameDayRental,
     selectedHashtags,
@@ -97,11 +124,43 @@ const ProductListMain = () => {
   ]);
 
   // React Query로 상품 데이터 가져오기
-  const { data: productsData, isLoading, isError, error } = useProducts(apiFilters);
+  const { searchResponses, total, hashtags, isLoading, isError, error, refetch, fetchCount: newFetchCount } = useSearch(q, apiFilters, page);
+
+  React.useEffect(() => {
+    if (!searchResponses) return;
+
+    if (page === 1) {
+      // 첫 페이지일 땐 새로 세팅
+      setProducts(searchResponses);
+      setTotalProducts(total || searchResponses.length);
+    } else if (page > 1) {
+      // 다음 페이지일 땐 누적
+      setProducts(prev => {
+        const merged = [...prev, ...searchResponses];
+        const unique = merged.filter(
+          (v, i, a) => a.findIndex(t => t.productId === v.productId) === i
+        );
+        return unique;
+      });
+
+      // totalProducts도 누적 (중복 제외)
+      setTotalProducts(prev => {
+        const newUnique = searchResponses.filter(
+          r => !products.some(p => p.productId === r.productId)
+        );
+        return prev + newUnique.length;
+      });
+    }
+  }, [searchResponses]);
+
+  React.useEffect(() => {
+    if (newFetchCount !== undefined) {
+      setFetchCount(newFetchCount);
+    }
+  }, [newFetchCount]);
 
   // 상품 목록 추출
-  const products = productsData?.items || [];
-  const totalProducts = productsData?.total || 0;
+  //const products = searchResponses || [];
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -182,34 +241,26 @@ const ProductListMain = () => {
   };
 
   const toggleSubcategory = (subcategory) => {
-    setSelectedSubcategories(prev => 
-      prev.includes(subcategory) 
-        ? prev.filter(s => s !== subcategory)
-        : [...prev, subcategory]
-    );
+    setSelectedSubcategories(prev => {
+      // 이미 선택된 항목이면 아무 일도 하지 않음
+      if (prev.some(s => s.categoryId === subcategory.categoryId)) {
+        return prev;
+      }
+      // 새로운 항목이면 이전 선택을 취소하고 새로운 것만 선택
+      return [subcategory];
+    });
+  };
+
+  const removeSubcategory = (subcategory) => {
+    setSelectedSubcategories([]);
   };
 
   const getSelectedCategoriesText = () => {
     if (selectedSubcategories.length === 0) return '선택하세요';
-    if (selectedSubcategories.length === 1) return selectedSubcategories[0];
-    return `${selectedSubcategories[0]} 외 ${selectedSubcategories.length - 1}개`;
+    if (selectedSubcategories.length === 1) return selectedSubcategories[0].categoryName;
+    return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
-  const toggleDistrict = (districtId) => {
-    setSelectedDistricts(prev => 
-      prev.includes(districtId)
-        ? prev.filter(d => d !== districtId)
-        : [...prev, districtId]
-    );
-  };
-
-  const toggleArea = (area) => {
-    setSelectedAreas(prev => 
-      prev.includes(area)
-        ? prev.filter(a => a !== area)
-        : [...prev, area]
-    );
-  };
 
   const handleStarClick = (e, starIndex) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -224,10 +275,15 @@ const ProductListMain = () => {
     setSelectedDates({ start: null, end: null });
     setPriceRange({ min: '', max: '' });
     setSelectedSubcategories([]);
-    setSelectedDistricts([]);
-    setSelectedAreas([]);
+    setSelectedSido(null);
+    setSelectedGungu(null);
+    setSelectedDong(null);
+    setActiveSidoId(null);
+    setActiveGunguId(null);
+    setSelectedRegionName('');
     setRating(0);
     setSameDayRental(false);
+    setSelectedHashtags([]);
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
@@ -241,18 +297,50 @@ const ProductListMain = () => {
     }
   };
 
-  const handleApply = () => {
+  const filteredProducts = useMemo(() => {
+    if (selectedHashtags.length === 0) return products;
+
+    return products.filter((product) => {
+      if (!product.hashtags || product.hashtags.length === 0) return false;
+
+      const productHashtagNames = product.hashtags.map((h) =>
+        typeof h === "string" ? h : h.name
+      );
+
+      const selectedNames = selectedHashtags.map((h) => h.name);
+
+      // 선택된 모든 해시태그 이름이 포함되어야 함
+      return selectedNames.every((name) => productHashtagNames.includes(name));
+    });
+  }, [products, selectedHashtags]);
+
+  const handleApply = async () => {
+
+    if (JSON.stringify(apiFilters) === JSON.stringify(lastAppliedFilters.current)) {
+      handleCloseFilter();
+      return;
+    }
+
     console.log('Applied filters:', {
       searchQuery,
       dateRange: selectedDates,
       priceRange,
       subcategories: selectedSubcategories,
-      districts: selectedDistricts,
-      areas: selectedAreas,
+      districts: selectedGungu,
+      areas: selectedDong,
       rating,
       sameDayRental,
       hashtags: selectedHashtags
     });
+    try {
+      await refetch(); // 수동으로 /search 요청
+      setPage(1);
+      setFetchCount(0);
+      setProducts([]);
+    } catch (err) {
+      console.error('검색 실패:', err);
+    }
+    lastAppliedFilters.current = apiFilters;
     handleCloseFilter();
   };
 
@@ -267,6 +355,31 @@ const ProductListMain = () => {
   const handleCreateProduct = () => {
     navigate(ROUTE_PATHS.PRODUCT_CREATE);
   };
+
+  const observerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!observerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          setPage((prev) => {
+            // fetchCount = 0이면 그냥 다음 페이지
+            // fetchCount > 0이면 건너뛴 만큼 더함
+            const nextPage = prev + (fetchCount || 1);
+            return nextPage;
+          });
+        }
+      },
+      { threshold: 1.0 }
+    );
+
+    observer.observe(observerRef.current);
+
+    return () => observer.disconnect();
+  }, [observerRef, isLoading, fetchCount, products.length, totalProducts]);
 
   return (
     <div className="flex h-screen bg-white">
@@ -302,9 +415,9 @@ const ProductListMain = () => {
           <div className="mb-4">
            <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
              <button
-               onClick={() => setActiveTab('lend')}
+               onClick={() => setActiveTab('rent')}
                className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                 activeTab === 'lend'
+                 activeTab === 'rent'
                    ? 'bg-gray-900 text-white shadow-sm'
                    : 'text-gray-600 hover:text-gray-900'
                }`}
@@ -464,7 +577,17 @@ const ProductListMain = () => {
            <h3 className="text-base font-semibold text-gray-900">카테고리</h3>
           
           <button
-            onClick={() => setShowCategoryPopover(!showCategoryPopover)}
+            ref={categoryButtonRef}
+            onClick={() => {
+              if (!showCategoryPopover && categoryButtonRef.current) {
+                const rect = categoryButtonRef.current.getBoundingClientRect();
+                setCategoryPopoverPosition({
+                  top: rect.top,
+                  left: rect.right + 8
+                });
+              }
+              setShowCategoryPopover(!showCategoryPopover);
+            }}
             className="w-full px-4 py-3 text-left text-sm text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
             style={{ 
               background: 'rgba(255, 255, 255, 0.7)',
@@ -476,73 +599,81 @@ const ProductListMain = () => {
             {getSelectedCategoriesText()}
           </button>
 
-          {showCategoryPopover && (
-            <div className="absolute top-full left-0 right-0 mt-2 rounded-xl overflow-hidden z-30" style={{ 
-              maxWidth: '95%', 
-              height: '350px',
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
-            }}>
-             <div className="flex" style={{ height: 'calc(100% - 60px)' }}>
-               {/* 상위 카테고리 */}
-               <div className="w-2/5 overflow-y-auto scrollbar-hide bg-gray-50" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                  {isCategoriesLoading ? (
-                    <div className="p-4 text-center text-xs text-gray-500">카테고리 로딩 중...</div>
-                  ) : categories.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-gray-500">카테고리가 없습니다</div>
-                  ) : (
-                    categories.map(category => (
-                      <button
-                        key={category.categoryId}
-                        onClick={() => setActiveCategoryId(category.categoryId)}
-                        className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
-                          activeCategoryId === category.categoryId
-                            ? 'bg-white font-medium text-gray-900 border-l-2 border-gray-900'
-                            : 'text-gray-600 hover:bg-white/50'
-                        }`}
-                      >
-                        {category.categoryName}
-                      </button>
-                    ))
-                  )}
-                </div>
+          {showCategoryPopover && ReactDOM.createPortal(
+            <>
+              {/* 백드롭 */}
+              <div 
+                className="hidden lg:block fixed inset-0 z-[150]"
+                onClick={() => setShowCategoryPopover(false)}
+              />
+              
+              {/* 우측 팝오버 - 버튼 옆에 표시 */}
+              <div 
+                className="hidden lg:block fixed rounded-xl overflow-hidden z-[160] animate-slideInFromLeft" 
+                style={{ 
+                  top: `${categoryPopoverPosition.top}px`,
+                  left: `${categoryPopoverPosition.left}px`,
+                  width: '400px',
+                  maxHeight: 'min(400px, calc(100vh - 200px))',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                }}
+              >
+                <div className="flex" style={{ height: '340px' }}>
+                  {/* 상위 카테고리 */}
+                  <div className="w-1/2 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {isCategoriesLoading ? (
+                      <div className="p-4 text-center text-xs text-gray-500">카테고리 로딩 중...</div>
+                    ) : categories.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-gray-500">카테고리가 없습니다</div>
+                    ) : (
+                      categories.map(category => (
+                        <button
+                          key={category.categoryId}
+                          onClick={() => setActiveCategoryId(category.categoryId)}
+                          className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                            activeCategoryId === category.categoryId
+                              ? 'bg-gray-900 text-white font-medium'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {category.categoryName}
+                        </button>
+                      ))
+                    )}
+                  </div>
 
-                 {/* 하위 카테고리 */}
-                 <div className="w-3/5 overflow-y-auto scrollbar-hide p-2">
-                  <div className="grid grid-cols-1 gap-1">
+                  {/* 하위 카테고리 */}
+                  <div className="w-1/2 h-full overflow-y-auto scrollbar-hide">
                     {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                       <button
                         key={sub.categoryId}
-                        onClick={() => toggleSubcategory(sub.categoryName)}
-                        className={`w-full text-left py-2 px-3 rounded-md text-xs transition-all duration-200 flex items-center justify-between ${
-                          selectedSubcategories.includes(sub.categoryName)
+                        onClick={() => toggleSubcategory(sub)}
+                        className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
+                          selectedSubcategories.some(s => s.categoryId === sub.categoryId)
                             ? 'bg-gray-900 text-white'
                             : 'hover:bg-gray-100 text-gray-700'
                         }`}
                       >
-                        <span className="leading-tight">{sub.categoryName}</span>
-                        {selectedSubcategories.includes(sub.categoryName) && (
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
+                        {sub.categoryName}
                       </button>
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
-                <button
-                  onClick={() => setShowCategoryPopover(false)}
-                  className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
-                >
-                  선택 완료 ({selectedSubcategories.length})
-                </button>
+                <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                  <button
+                    onClick={() => setShowCategoryPopover(false)}
+                    className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
+                  >
+                    선택 완료
+                  </button>
+                </div>
               </div>
-            </div>
+            </>,
+            document.body
           )}
 
           {selectedSubcategories.length > 0 && (
@@ -558,9 +689,9 @@ const ProductListMain = () => {
                      backdropFilter: 'blur(10px)'
                    }}
                 >
-                  <span className="truncate">{sub}</span>
+                  <span className="truncate">{sub.categoryName}</span>
                   <button
-                    onClick={() => toggleSubcategory(sub)}
+                    onClick={() => removeSubcategory(sub)}
                     className="flex-shrink-0 transition-opacity duration-200 hover:opacity-70"
                   >
                     ×
@@ -571,92 +702,156 @@ const ProductListMain = () => {
           )}
         </div>
 
-         {/* 지역 (구 → 동) */}
-         <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
-          
-           {/* 구 선택 */}
-           <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-             background: 'rgba(255, 255, 255, 0.7)',
-             backdropFilter: 'blur(20px)',
-             border: '1.5px solid rgba(255, 255, 255, 0.4)',
-             boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-           }}>
-             {SEOUL_DISTRICTS.map(district => (
-               <button
-                 key={district.id}
-                 onClick={() => toggleDistrict(district.id)}
-                 className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
-                   selectedDistricts.includes(district.id)
-                     ? 'bg-gray-900 text-white border border-gray-900'
-                     : 'hover:bg-white/60 text-gray-800'
-                 }`}
-               >
-                 <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
-               </button>
-             ))}
-           </div>
+         <div className="space-y-3 relative">
+          <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-          {/* 선택된 구의 동 선택 */}
-          {selectedDistricts.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>동 선택</h4>
-               <div className="max-h-40 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                 background: 'rgba(255, 255, 255, 0.7)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-               }}>
-                 {selectedDistricts.map(districtId => {
-                   const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
-                   return district ? (
-                     <div key={districtId} className="space-y-1">
-                       <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
-                       <div className="grid grid-cols-2 gap-1">
-                         {district.areas.map((area, idx) => (
-                           <button
-                             key={idx}
-                             onClick={() => toggleArea(area)}
-                             className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
-                               selectedAreas.includes(area)
-                                 ? 'bg-gray-900 text-white border border-gray-900'
-                                 : 'hover:bg-white/50 text-gray-800'
-                             }`}
-                           >
-                             <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
-                           </button>
-                         ))}
-                       </div>
-                     </div>
-                   ) : null;
-                 })}
-               </div>
-            </div>
-          )}
+          <button
+            ref={regionButtonRef}
+            type="button"
+            onClick={() => {
+              if (!showRegionPopover && regionButtonRef.current) {
+                const rect = regionButtonRef.current.getBoundingClientRect();
+                setPopoverPosition({
+                  top: rect.top,
+                  left: rect.right + 8
+                });
+              }
+              setShowRegionPopover(!showRegionPopover);
+            }}
+            className="w-full px-4 py-3 text-left text-sm text-gray-700 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(20px)',
+              border: '1.5px solid rgba(255, 255, 255, 0.4)',
+              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+            }}
+          >
+            {selectedRegionName || '지역을 선택하세요'}
+          </button>
 
-          {selectedAreas.length > 0 && (
-            <div className="flex flex-wrap gap-2 overflow-hidden">
-              {selectedAreas.map((area, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs rounded-full transition-all duration-200"
-                   style={{ 
-                     background: 'rgba(17, 24, 39, 0.08)',
-                     color: '#111827',
-                     border: '1px solid rgba(17, 24, 39, 0.2)',
-                     backdropFilter: 'blur(10px)'
-                   }}
-                >
-                  {area}
+          {showRegionPopover && ReactDOM.createPortal(
+            <>
+              {/* 백드롭 */}
+              <div 
+                className="hidden lg:block fixed inset-0 z-[150]"
+                onClick={() => setShowRegionPopover(false)}
+              />
+              
+              {/* 우측 팝오버 - 버튼 옆에 표시 */}
+              <div 
+                className="hidden lg:block fixed rounded-xl overflow-hidden z-[160] animate-slideInFromLeft" 
+                style={{ 
+                  top: `${popoverPosition.top}px`,
+                  left: `${popoverPosition.left}px`,
+                  width: '400px',
+                  maxHeight: 'min(310px, calc(100vh - 200px))',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(0, 0, 0, 0.1)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+                }}
+              >
+                <div className="flex" style={{ height: '240px' }}>
+                  {/* 시/도 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {isSidosLoading ? (
+                      <div className="p-4 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : sidos.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-gray-500">시/도가 없습니다</div>
+                    ) : (
+                      sidos.map((sido) => (
+                        <button
+                          key={sido.sidoId || sido.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveSidoId(sido.sidoId || sido.id);
+                            setActiveGunguId(null);
+                            setSelectedSido(sido);
+                            setSelectedGungu(null);
+                            setSelectedDong(null);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-xs transition-all duration-200 ${
+                            activeSidoId === (sido.sidoId || sido.id)
+                              ? 'bg-gray-900 text-white font-medium'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {sido.sidoName || sido.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {/* 구/군 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    {!activeSidoId ? null : isGungusLoading ? (
+                      <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : gungus.length === 0 ? (
+                      <div className="p-2 text-center text-xs text-gray-500">구·군이 없습니다</div>
+                    ) : (
+                      gungus.map((gungu) => (
+                        <button
+                          key={gungu.gunguId || gungu.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveGunguId(gungu.gunguId || gungu.id);
+                            setSelectedGungu(gungu);
+                            setSelectedDong(null);
+                          }}
+                          className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
+                            activeGunguId === (gungu.gunguId || gungu.id)
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {gungu.gunguName || gungu.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  {/* 동 */}
+                  <div className="w-1/3 h-full overflow-y-auto scrollbar-hide">
+                    {!activeGunguId ? null : isDongsLoading ? (
+                      <div className="p-2 text-center text-xs text-gray-500">로딩 중...</div>
+                    ) : dongs.length === 0 ? (
+                      <div className="p-2 text-center text-xs text-gray-500">동이 없습니다</div>
+                    ) : (
+                      dongs.map((dong) => (
+                        <button
+                          key={dong.dongId || dong.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDong(dong);
+                            setSelectedRegionName(
+                              `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
+                            );
+                          }}
+                          className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
+                            selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {dong.dongName || dong.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                   <button
-                    onClick={() => toggleArea(area)}
-                    className="transition-opacity duration-200 hover:opacity-70"
+                    type="button"
+                    onClick={() => setShowRegionPopover(false)}
+                    className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
                   >
-                    ×
+                    선택 완료
                   </button>
-                </span>
-              ))}
-            </div>
+                </div>
+              </div>
+            </>,
+            document.body
           )}
         </div>
 
@@ -783,21 +978,21 @@ const ProductListMain = () => {
            {/* 토글 스위치 */}
            <div className="relative">
              <button
-               onClick={() => setActiveTab(activeTab === 'lend' ? 'borrow' : 'lend')}
+               onClick={() => setActiveTab(activeTab === 'rent' ? 'borrow' : 'rent')}
                className="relative w-40 h-12 rounded-lg p-1 transition-all duration-300 bg-gray-200"
              >
                {/* 슬라이더 */}
                <div
                  className="absolute top-1 h-10 w-[calc(50%-4px)] rounded-md shadow-md transition-all duration-300 flex items-center justify-center bg-gray-900"
                  style={{
-                   left: activeTab === 'lend' ? '4px' : 'calc(50% + 0px)'
+                   left: activeTab === 'rent' ? '4px' : 'calc(50% + 0px)'
                  }}
                />
                
                {/* 텍스트 레이어 */}
                <div className="absolute inset-0 flex items-center pointer-events-none">
                  <div className="w-1/2 flex items-center justify-center">
-                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'lend' ? 'text-white' : 'text-gray-600'}`}>
+                   <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'rent' ? 'text-white' : 'text-gray-600'}`}>
                      빌려줘
                    </span>
                  </div>
@@ -847,6 +1042,7 @@ const ProductListMain = () => {
       {/* 해시태그 필터 - 스티키 */}
       <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
         <HashtagFilter 
+          hashtags={hashtags}
           onHashtagSelect={handleHashtagSelect}
           selectedHashtags={selectedHashtags}
         />
@@ -882,15 +1078,15 @@ const ProductListMain = () => {
            <>
              <div className="mb-4 flex items-center justify-between">
                <p className="text-sm text-gray-600">
-                 총 <span className="font-semibold text-gray-900">{totalProducts}</span>개의 상품
+                 총 <span className="font-semibold text-gray-900">{filteredProducts.length}</span>개의 상품
                </p>
              </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <ProductCard
-                  key={product.id}
+                  key={product.productId}
                   product={product}
-                  onClick={() => navigate(`/products/${product.id}`)}
+                  onClick={() => navigate(`/products/${product.productId}`)}
                   actionType="view"
                   status={product.isAvailable ? 'available' : 'unavailable'}
                   showStats={false}
@@ -898,6 +1094,9 @@ const ProductListMain = () => {
                 />
               ))}
             </div>
+
+            {/* 👇 이 div가 화면에 보이면 다음 페이지 불러옴 */}
+            <div ref={observerRef} className="h-10" />
            </>
          )}
 
@@ -957,13 +1156,13 @@ const ProductListMain = () => {
                  boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                }}>
                  <button
-                   onClick={() => setActiveTab('lend')}
+                   onClick={() => setActiveTab('rent')}
                    className={`flex-1 px-4 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-center ${
-                     activeTab === 'lend'
+                     activeTab === 'rent'
                        ? 'text-gray-900 shadow-md drop-shadow-sm'
                        : 'text-gray-700 hover:bg-white/20'
                    }`}
-                   style={activeTab === 'lend' ? {
+                   style={activeTab === 'rent' ? {
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(10px)',
                      boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
@@ -991,6 +1190,7 @@ const ProductListMain = () => {
 
              {/* 해시태그 필터 */}
              <HashtagFilter 
+               searchHashtags={hashtags}
                onHashtagSelect={handleHashtagSelect}
                selectedHashtags={selectedHashtags}
              />
@@ -1165,7 +1365,7 @@ const ProductListMain = () => {
                </button>
 
               {showCategoryPopover && (
-                <div className="absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                <div className="lg:hidden absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
                   background: 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(25px)',
                   border: '1.5px solid rgba(255, 255, 255, 0.6)',
@@ -1196,18 +1396,18 @@ const ProductListMain = () => {
                       )}
                     </div>
                     {/* 하위 카테고리 */}
-                    <div className="w-1/2 overflow-y-auto scrollbar-hide p-3">
+                    <div className="w-1/2 overflow-y-auto scrollbar-hide">
                       {categories.find(c => c.categoryId === activeCategoryId)?.children?.map((sub) => (
                         <button
                           key={sub.categoryId}
-                          onClick={() => toggleSubcategory(sub.categoryName)}
-                          className={`w-full text-left py-2 px-2 rounded transition-all duration-200 ${
-                           selectedSubcategories.includes(sub.categoryName)
+                          onClick={() => toggleSubcategory(sub)}
+                          className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                           selectedSubcategories.some(s => s.categoryId === sub.categoryId)
                              ? 'bg-gray-900 text-white border border-gray-900'
                              : 'hover:bg-gray-50'
                          }`}
                         >
-                          <span className={`text-xs leading-tight ${selectedSubcategories.includes(sub.categoryName) ? 'text-white' : 'text-gray-800'}`}>{sub.categoryName}</span>
+                          <span className={`text-sm font-medium ${selectedSubcategories.some(s => s.categoryId === sub.categoryId) ? 'text-white' : 'text-gray-800'}`}>{sub.categoryName}</span>
                         </button>
                       ))}
                     </div>
@@ -1231,9 +1431,9 @@ const ProductListMain = () => {
                        key={idx}
                        className="inline-flex items-center px-3 py-1 bg-white/20 text-gray-700 text-sm rounded-full border border-white/30"
                      >
-                       {sub}
+                       {sub.categoryName}
                        <button
-                         onClick={() => toggleSubcategory(sub)}
+                         onClick={() => removeSubcategory(sub)}
                          className="ml-2 text-gray-600 hover:text-gray-800"
                        >
                          ×
@@ -1244,89 +1444,132 @@ const ProductListMain = () => {
                )}
              </div>
 
-             {/* 지역 (구 → 동) */}
-             <div className="space-y-3">
-               <h3 className="text-base font-semibold text-gray-900">지역 (구 · 동)</h3>
-               
-               {/* 구 선택 */}
-               <div className="max-h-48 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                 background: 'rgba(255, 255, 255, 0.7)',
-                 backdropFilter: 'blur(20px)',
-                 border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-               }}>
-                 {SEOUL_DISTRICTS.map(district => (
-                   <button
-                     key={district.id}
-                     onClick={() => toggleDistrict(district.id)}
-                     className={`w-full text-left px-2 py-1.5 rounded-lg transition-all duration-200 ${
-                      selectedDistricts.includes(district.id)
-                        ? 'bg-gray-900 text-white border border-gray-900'
-                        : 'hover:bg-white/60 text-gray-800'
-                    }`}
-                   >
-                     <span className={`text-sm ${selectedDistricts.includes(district.id) ? 'text-white' : 'text-gray-800'}`}>{district.name}</span>
-                   </button>
-                 ))}
-               </div>
+             {/* 지역 (시 → 구 → 동) */}
+            <div className="space-y-3 relative">
+              <h3 className="text-base font-semibold text-gray-900">지역 (시 · 구 · 동)</h3>
 
-               {/* 선택된 구의 동 선택 */}
-               {selectedDistricts.length > 0 && (
-                 <div className="space-y-2">
-                   <h4 className="text-sm font-medium text-gray-800" style={{ color: 'rgb(59 130 246 / 1)' }}>동 선택</h4>
-                   <div className="max-h-40 overflow-y-auto scrollbar-hide p-3 rounded-xl space-y-2" style={{ 
-                     background: 'rgba(255, 255, 255, 0.7)',
-                     backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
-                     boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-                   }}>
-                     {selectedDistricts.map(districtId => {
-                       const district = SEOUL_DISTRICTS.find(d => d.id === districtId);
-                       return district ? (
-                         <div key={districtId} className="space-y-1">
-                           <div className="text-xs font-semibold px-2 text-gray-900">{district.name}</div>
-                           <div className="grid grid-cols-2 gap-1">
-                             {district.areas.map((area, idx) => (
-                               <button
-                                 key={idx}
-                                 onClick={() => toggleArea(area)}
-                                className={`w-full text-left px-2 py-1 rounded-lg transition-all duration-200 ${
-                                  selectedAreas.includes(area)
-                                    ? 'bg-gray-900 text-white border border-gray-900'
-                                    : 'hover:bg-white/50 text-gray-800'
-                                }`}
-                               >
-                                 <span className={`text-xs ${selectedAreas.includes(area) ? 'text-white' : 'text-gray-800'}`}>{area}</span>
-                               </button>
-                             ))}
-                           </div>
-                         </div>
-                       ) : null;
-                     })}
-                   </div>
-                 </div>
-               )}
+              <button
+                type="button"
+                onClick={() => setShowRegionPopover(!showRegionPopover)}
+                className="w-full px-4 py-3 text-left text-sm text-gray-800 overflow-hidden whitespace-nowrap text-ellipsis rounded-xl transition-all duration-300 hover:shadow-lg"
+                style={{ 
+                  background: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                  boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+                }}
+              >
+                {selectedRegionName || '지역을 선택하세요'}
+              </button>
 
-               {/* 선택된 동 표시 */}
-               {selectedAreas.length > 0 && (
-                 <div className="flex flex-wrap gap-2 mt-2">
-                   {selectedAreas.map((area, idx) => (
-                     <span
-                       key={idx}
-                       className="inline-flex items-center px-3 py-1 bg-white/20 text-gray-700 text-sm rounded-full border border-white/30"
-                     >
-                       {area}
-                       <button
-                         onClick={() => toggleArea(area)}
-                         className="ml-2 text-gray-600 hover:text-gray-800"
-                       >
-                         ×
-                       </button>
-                     </span>
-                   ))}
-                 </div>
-               )}
-             </div>
+              {showRegionPopover && (
+                <div className="lg:hidden absolute top-full left-0 right-0 mt-2 rounded-2xl overflow-hidden z-50" style={{ 
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(25px)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.6)',
+                  boxShadow: '0 20px 40px rgba(31, 38, 135, 0.2)',
+                  maxHeight: '310px'
+                }}>
+                  <div className="flex" style={{ height: '240px' }}>
+                    {/* 시/도 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide" style={{ borderRight: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                      {isSidosLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : sidos.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">시/도가 없습니다</div>
+                      ) : (
+                        sidos.map((sido) => (
+                          <button
+                            key={sido.sidoId || sido.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveSidoId(sido.sidoId || sido.id);
+                              setActiveGunguId(null);
+                              setSelectedSido(sido);
+                              setSelectedGungu(null);
+                              setSelectedDong(null);
+                            }}
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                              activeSidoId === (sido.sidoId || sido.id)
+                                ? 'bg-gray-900 text-white border-r-2 border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${activeSidoId === (sido.sidoId || sido.id) ? 'text-white' : 'text-gray-800'}`}>{sido.sidoName || sido.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* 구/군 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide">
+                      {!activeSidoId ? null : isGungusLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : gungus.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">구·군이 없습니다</div>
+                      ) : (
+                        gungus.map((gungu) => (
+                          <button
+                            key={gungu.gunguId || gungu.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveGunguId(gungu.gunguId || gungu.id);
+                              setSelectedGungu(gungu);
+                              setSelectedDong(null);
+                            }}
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                              activeGunguId === (gungu.gunguId || gungu.id)
+                                ? 'bg-gray-900 text-white border border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${activeGunguId === (gungu.gunguId || gungu.id) ? 'text-white' : 'text-gray-800'}`}>{gungu.gunguName || gungu.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* 동 */}
+                    <div className="w-1/3 overflow-y-auto scrollbar-hide">
+                      {!activeGunguId ? null : isDongsLoading ? (
+                        <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>
+                      ) : dongs.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">동이 없습니다</div>
+                      ) : (
+                        dongs.map((dong) => (
+                          <button
+                            key={dong.dongId || dong.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDong(dong);
+                              setSelectedRegionName(
+                                `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
+                              );
+                            }}
+                            className={`w-full text-left py-3 px-4 transition-all duration-200 ${
+                              selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
+                                ? 'bg-gray-900 text-white border border-gray-900'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className={`text-sm font-medium ${(selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)) ? 'text-white' : 'text-gray-800'}`}>{dong.dongName || dong.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                    <button 
+                      type="button"
+                      onClick={() => setShowRegionPopover(false)}
+                      className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                    >
+                      선택 완료
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
              {/* 최소 평점 */}
              <div className="space-y-3">

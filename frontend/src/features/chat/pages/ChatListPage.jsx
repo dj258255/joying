@@ -15,18 +15,40 @@ const ChatListPage = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const { chatRooms, totalUnreadCount, isLoading, error, refetch } = useChatRooms();
 
+  const resolveRoomId = (room) => {
+    if (!room) return null;
+    return room.chatRoomId ?? room.id ?? null;
+  };
+
+  const normalizeChatRoomId = (id) => {
+    if (id == null) return null;
+    const numeric = Number(id);
+    return Number.isNaN(numeric) ? id : numeric;
+  };
+
   // React Query의 refetchInterval이 이미 설정되어 있으므로
   // 추가 polling은 필요 없음 (나중에 WebSocket으로 대체 예정)
 
   const handleChatRoomClick = (chatRoomId) => {
-    navigate(`/chats/${chatRoomId}`);
+    const id = normalizeChatRoomId(chatRoomId);
+    if (!id) return;
+    navigate(`/chats/${id}`);
   };
 
   const handleOpenContextById = (chatRoomId, x, y) => {
     // chatRoomId로 채팅방 찾기 (id 또는 chatRoomId 모두 확인)
-    const room = chatRooms.find(r => (r.id === chatRoomId) || (r.chatRoomId === chatRoomId));
+    const room = chatRooms.find((r) => {
+      const roomId = resolveRoomId(r);
+      if (roomId == null) return false;
+      return Number(roomId) === Number(chatRoomId);
+    });
     if (!room) return;
-    setContextMenu({ x: x ?? window.innerWidth / 2, y: y ?? window.innerHeight / 2, chatRoom: room });
+    setContextMenu({
+      x: x ?? window.innerWidth / 2,
+      y: y ?? window.innerHeight / 2,
+      chatRoom: room,
+      roomId: normalizeChatRoomId(resolveRoomId(room))
+    });
   };
 
 
@@ -35,8 +57,12 @@ const ChatListPage = () => {
   };
 
   const handleTogglePin = async (chatRoomId) => {
+    const id = normalizeChatRoomId(chatRoomId);
+    if (!id) return;
+    const room = chatRooms.find((r) => normalizeChatRoomId(resolveRoomId(r)) === id);
+    const nextPinned = !(room?.isPinned ?? false);
     try {
-      await chatApi.togglePinChatRoom(chatRoomId);
+      await chatApi.togglePinChatRoom(id, nextPinned);
       refetch();
       closeContextMenu();
     } catch (error) {
@@ -46,8 +72,12 @@ const ChatListPage = () => {
   };
 
   const handleToggleMute = async (chatRoomId) => {
+    const id = normalizeChatRoomId(chatRoomId);
+    if (!id) return;
+    const room = chatRooms.find((r) => normalizeChatRoomId(resolveRoomId(r)) === id);
+    const nextMuted = !(room?.isMuted ?? false);
     try {
-      await chatApi.toggleMuteChatRoom(chatRoomId);
+      await chatApi.toggleMuteChatRoom(id, nextMuted);
       refetch();
       closeContextMenu();
     } catch (error) {
@@ -57,9 +87,11 @@ const ChatListPage = () => {
   };
 
   const handleDeleteChat = async (chatRoomId) => {
+    const id = normalizeChatRoomId(chatRoomId);
+    if (!id) return;
     if (window.confirm('정말로 이 채팅방을 삭제하시겠습니까?')) {
       try {
-        await chatApi.leaveChatRoom(chatRoomId);
+        await chatApi.leaveChatRoom(id);
         refetch();
         closeContextMenu();
       } catch (error) {
@@ -130,7 +162,7 @@ const ChatListPage = () => {
           <div className="divide-y divide-gray-100">
             {chatRooms.map((chatRoom) => {
               // 백엔드 응답 형식에 맞게 ID 추출
-              const roomId = chatRoom.chatRoomId || chatRoom.id;
+              const roomId = normalizeChatRoomId(resolveRoomId(chatRoom));
               return (
                 <div key={roomId}>
                   <ChatRoomListItem
@@ -177,7 +209,7 @@ const ChatListPage = () => {
           >
             <div className="space-y-1">
               <button
-                onClick={() => handleTogglePin(contextMenu.chatRoom.id)}
+                onClick={() => handleTogglePin(contextMenu.roomId)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100/50 rounded-xl transition-all duration-200"
               >
                 <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
@@ -189,7 +221,7 @@ const ChatListPage = () => {
               </button>
               
               <button
-                onClick={() => handleToggleMute(contextMenu.chatRoom.id)}
+                onClick={() => handleToggleMute(contextMenu.roomId)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100/50 rounded-xl transition-all duration-200"
               >
                 <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
@@ -203,7 +235,7 @@ const ChatListPage = () => {
               <div className="border-t border-gray-200/50 my-1"></div>
               
               <button
-                onClick={() => handleDeleteChat(contextMenu.chatRoom.id)}
+                onClick={() => handleDeleteChat(contextMenu.roomId)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50/50 rounded-xl transition-all duration-200"
               >
                 <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -21,14 +21,27 @@ data class ChatMessageResponse(
     val fileSize: Long? = null,
     val replyToMessageId: String? = null,
     val createdAt: Instant?,
-    val isDeleted: Boolean = false
+    val updatedAt: Instant? = null,
+    val isEdited: Boolean = false,
+    val originalContent: String? = null,
+    val isDeleted: Boolean = false,
+    val replyTo: ReplyMessageInfo? = null,
 ) {
+    data class ReplyMessageInfo(
+        val id: String?,
+        val senderId: Long?,
+        val content: String?,
+        val isDeleted: Boolean = false
+    )
     companion object {
         /**
          * ChatMessage → ChatMessageResponse 변환
+         *
+         * @param message 변환할 메시지
+         * @param replyMessage 답장 대상 메시지 (있을 경우)
          */
-        fun from(message: ChatMessage): ChatMessageResponse {
-            return ChatMessageResponse(
+        fun from(message: ChatMessage, replyMessage: ChatMessage? = null): ChatMessageResponse =
+            ChatMessageResponse(
                 id = message.id,
                 chatRoomId = message.chatRoomId,
                 senderId = message.senderId,
@@ -40,8 +53,18 @@ data class ChatMessageResponse(
                 fileSize = message.fileSize,
                 replyToMessageId = message.replyToMessageId,
                 createdAt = message.createdAt,
-                isDeleted = message.isDeleted
+                updatedAt = message.updatedAt,
+                isEdited = message.isEdited,
+                originalContent = message.originalContent,
+                isDeleted = message.isDeleted,
+                replyTo = replyMessage?.let {
+                    ReplyMessageInfo(
+                        id = it.id,
+                        senderId = it.senderId,
+                        content = if (it.isDeleted) null else it.content,
+                        isDeleted = it.isDeleted
+                    )
+                }
             )
-        }
     }
 }

@@ -69,18 +69,26 @@ const getRefreshEndpoint = () => {
 // 요청 인터셉터
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 토큰이 있으면 헤더에 추가
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn('[axiosInstance] accessToken이 없습니다. 인증이 필요할 수 있습니다.');
+    // 백엔드는 쿠키 기반 인증을 사용하므로 Authorization 헤더를 설정하지 않음
+    // 쿠키는 withCredentials: true로 자동 전송됨
+    // 토큰 리프레시 후 재요청 시에만 Authorization 헤더를 사용 (쿠키가 아직 설정되지 않았을 수 있음)
+    if (config._retry && config.headers.Authorization) {
+      // 재요청 시에만 Authorization 헤더 유지 (토큰 리프레시 후 재요청)
+      // 이 경우 쿠키와 Authorization 헤더 모두 포함되어 백엔드가 둘 중 하나로 인증 가능
     }
+    // 일반 요청 시에는 쿠키만 사용 (Authorization 헤더 설정하지 않음)
+    
+    // 쿠키 전송 확인 (디버깅용)
+    const cookies = document.cookie;
+    const hasAccessTokenCookie = cookies.includes('access_token=');
     
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
-      hasToken: !!token,
-      url: config.url
+      hasCredentials: config.withCredentials,
+      hasAccessTokenCookie,
+      isRetry: config._retry || false,
+      hasAuthHeader: !!config.headers.Authorization
     });
+    
     return config;
   },
   (error) => {
@@ -140,12 +148,30 @@ axiosInstance.interceptors.response.use(
         const accessToken = response.data?.accessToken;
         if (accessToken) {
           localStorage.setItem('accessToken', accessToken);
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        }
+        
+        // 쿠키 확인 (백엔드가 Set-Cookie 헤더로 access_token 쿠키를 설정했는지 확인)
+        const cookies = document.cookie;
+        const hasAccessTokenCookie = cookies.includes('access_token=');
+        
+        if (!hasAccessTokenCookie) {
+          console.warn('[Token Refresh] 쿠키가 설정되지 않았습니다. 백엔드 응답 헤더 확인 필요.');
+          // 쿠키가 없으면 Authorization 헤더를 사용 (폴백)
+          if (accessToken) {
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+            console.log('[Token Refresh] 쿠키가 설정되지 않았습니다. Authorization 헤더를 사용합니다.');
+          }
+        } else {
+          console.log('[Token Refresh] 쿠키가 설정되었습니다. 쿠키 기반 인증 사용.');
         }
         
         // originalRequest 재요청 시 baseURL 중복 방지
         // error.config.url은 이미 baseURL이 결합된 전체 경로일 수 있음
-        const retryConfig = { ...originalRequest };
+        const retryConfig = { 
+          ...originalRequest,
+          _retry: true, // 재요청 플래그 설정
+          withCredentials: true // 쿠키 전송 보장
+        };
         
         // originalRequest.url에서 baseURL 제거 (중복 방지)
         if (retryConfig.url) {
@@ -164,7 +190,10 @@ axiosInstance.interceptors.response.use(
         // baseURL 초기화 (axiosInstance의 baseURL 사용)
         delete retryConfig.baseURL;
         
-        console.log('[Token Refresh] Retry URL:', retryConfig.url);
+        console.log('[Token Refresh] Retry URL:', retryConfig.url, {
+          hasAuthHeader: !!retryConfig.headers.Authorization,
+          hasCredentials: retryConfig.withCredentials
+        });
         // baseURL이 포함되지 않은 순수 경로로 재요청
         return axiosInstance(retryConfig);
       } catch (refreshError) {
