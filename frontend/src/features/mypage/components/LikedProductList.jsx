@@ -59,7 +59,11 @@ const LikedProductList = ({
         {displayProducts.map((product) => (
           <ProductCard
             key={product.id}
-            product={product}
+            product={{
+              ...product,
+              thumbnailUrl: product.thumbnailUrl || product.image || (product.files && product.files.length > 0 ? product.files[0].url : null),
+              rentalFee: product.rentalFee || product.price
+            }}
             onClick={() => navigate(`/products/${product.id}`)}
             onAction={() => onUnlikeProduct(product.id)}
             actionType="unlike"

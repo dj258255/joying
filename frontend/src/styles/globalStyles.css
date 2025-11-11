@@ -534,11 +534,11 @@
  
   /* 액션 버튼 오버레이 */
   .glass-product-action-overlay {
-    @apply absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200;
+    @apply absolute top-2 right-2 z-10 opacity-100;
   }
 
  .glass-action-button-new {
-   @apply p-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 hover:scale-110;
+   @apply p-3 bg-transparent rounded-lg transition-all duration-200 hover:scale-110 flex items-center justify-end;
  }
 
  .glass-action-edit {
@@ -583,7 +583,7 @@
   }
 
   .glass-action-button-new:focus {
-    @apply outline-none ring-2 ring-gray-900/50 ring-offset-1;
+    @apply outline-none;
   }
    
   /* 리스트 항목 - Minimal Glass */
