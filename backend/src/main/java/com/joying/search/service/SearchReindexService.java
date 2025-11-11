@@ -115,6 +115,7 @@ public class SearchReindexService {
 					.rating(p.getRating() != null ? p.getRating() : null)
 					.reviewCount(p.getRatingCount())
 					.thumbnailFileId(thumbnailMap.get(p.getProductId()))
+					.uploadType(p.getUploadType().name())
 					.build())
 				.toList();
 
