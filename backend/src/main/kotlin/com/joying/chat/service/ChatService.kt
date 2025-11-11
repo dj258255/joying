@@ -76,6 +76,17 @@ class ChatService(
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료된 채팅방입니다")
         }
 
+        // 나간 채팅방에 메시지 보내면 자동 재입장
+        val senderMember = withContext(Dispatchers.IO) {
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, senderId)
+                .orElse(null)
+        }
+        if (senderMember != null && senderMember.isLeft) {
+            senderMember.rejoin()
+            logger.info("메시지 전송으로 채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, senderId)
+        }
+
         // ChatMessage 생성
         val chatMessage =
             when (request.type) {
@@ -155,12 +166,14 @@ class ChatService(
 
         unreadCountService.increment(chatRoomId, receiverId)
 
-        // 7. 푸시 알림 전송 (비동기)
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                sendPushNotification(chatRoomId, receiverId, senderId, savedMessage)
-            } catch (e: Exception) {
-                logger.error("푸시 알림 전송 실패: chatRoomId={}, receiverId={}, error={}", chatRoomId, receiverId, e.message, e)
+        // 7. 푸시 알림 전송 (비동기) - 푸시 서비스가 활성화된 경우에만
+        if (webPushService.isPushEnabled()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    sendPushNotification(chatRoomId, receiverId, senderId, savedMessage)
+                } catch (e: Exception) {
+                    logger.error("푸시 알림 전송 실패: chatRoomId={}, receiverId={}, error={}", chatRoomId, receiverId, e.message, e)
+                }
             }
         }
 
