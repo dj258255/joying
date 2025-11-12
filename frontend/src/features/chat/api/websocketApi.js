@@ -277,6 +277,24 @@ export const websocketApi = {
     });
   },
 
+  sendHeartbeat() {
+    if (!client || !client.connected) {
+      console.warn('[websocketApi] Heartbeat 전송 실패: WebSocket이 연결되지 않았습니다.');
+      return false;
+    }
+
+    try {
+      client.publish({
+        destination: '/app/chat/heartbeat',
+        body: ''
+      });
+      return true;
+    } catch (error) {
+      console.warn('[websocketApi] Heartbeat 전송 오류:', error);
+      return false;
+    }
+  },
+
   isConnected() {
     return Boolean(client?.connected);
   }

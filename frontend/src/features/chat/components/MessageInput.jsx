@@ -14,6 +14,8 @@ import FileUploadModal from './FileUploadModal';
  * @param {boolean} props.disabled - 입력 비활성화 여부
  * @param {Object} props.replyTo - 답장할 메시지
  * @param {Function} props.onCancelReply - 답장 취소 핸들러
+ * @param {Object} props.previewMessage - 미리보기 메시지 (하단이 아닐 때 상대방 메시지)
+ * @param {Function} props.onPreviewClick - 미리보기 클릭 핸들러
  */
 const MessageInput = ({ 
   onSendMessage, 
@@ -21,7 +23,9 @@ const MessageInput = ({
   onTyping,
   disabled = false, 
   replyTo = null,
-  onCancelReply 
+  onCancelReply,
+  previewMessage = null,
+  onPreviewClick = null
 }) => {
   const [message, setMessage] = useState('');
   const [showFileModal, setShowFileModal] = useState(false);
@@ -102,12 +106,49 @@ const MessageInput = ({
 
   return (
     <>
+      {/* 미리보기 (하단이 아닐 때 상대방 메시지) */}
+      {previewMessage && !replyTo && (
+        <div className="bg-gray-50 border-t border-gray-200 px-4 py-2">
+          <button
+            onClick={onPreviewClick}
+            className="w-full text-left flex items-center gap-2 hover:bg-gray-100 rounded-lg p-2 transition-colors"
+          >
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 overflow-hidden">
+              {previewMessage.sender?.profileImageUrl ? (
+                <img
+                  src={previewMessage.sender.profileImageUrl}
+                  alt={previewMessage.sender.nickname || '상대방'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs text-gray-600">
+                  {previewMessage.sender?.nickname?.[0] || '?'}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium text-gray-700 mb-0.5">
+                {previewMessage.sender?.nickname || '상대방'}
+              </div>
+              <div className="text-sm text-gray-600 truncate">
+                {previewMessage.type === 'image' ? '📷 사진' : 
+                 previewMessage.type === 'file' ? '📎 파일' :
+                 previewMessage.content || '메시지'}
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      )}
+      
       {/* 답장 표시 */}
       {replyTo && (
-        <div className="bg-blue-50/80 border-t border-blue-200 px-4 py-3">
+        <div className="bg-gray-50/80 border-t border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-blue-600 mb-1 flex items-center gap-1">
+              <div className="text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                 </svg>
@@ -162,7 +203,7 @@ const MessageInput = ({
               placeholder="메시지를 입력하세요..."
               disabled={disabled}
               rows={1}
-              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
+              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
               style={{ minHeight: '40px', caretColor: '#111827' }}
             />
             
@@ -170,7 +211,7 @@ const MessageInput = ({
             <button
               type="submit"
               disabled={!message.trim() || disabled}
-              className="absolute right-2 bottom-2 p-2 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="absolute right-2 bottom-2 p-2 rounded-full bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

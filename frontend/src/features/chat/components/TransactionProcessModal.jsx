@@ -107,7 +107,8 @@ const TransactionProcessModal = ({
         setCurrentStep(userRole === 'buyer' ? 'payment_confirm' : 'payment_waiting');
         break;
       case 'RESERVED':
-        setCurrentStep('payment_waiting');
+        // RESERVED 상태: 구매자는 결제 확인 모달, 판매자는 대기
+        setCurrentStep(userRole === 'buyer' ? 'payment_confirm' : 'payment_waiting');
         break;
       case 'PAYMENT_PENDING':
         setCurrentStep('payment_waiting');
@@ -182,16 +183,6 @@ const TransactionProcessModal = ({
       setTransactionData(newTransactionData);
       setCurrentStep('payment_waiting');
 
-      // localStorage에 거래 데이터 저장 (채팅방별로)
-      // productData에서 chatRoomId를 가져올 수 없으므로, window.location에서 추출
-      const pathMatch = window.location.pathname.match(/\/chats\/(\d+)/);
-      if (pathMatch && pathMatch[1]) {
-        const chatRoomId = pathMatch[1];
-        const storageKey = `chatRoom_${chatRoomId}_rental`;
-        localStorage.setItem(storageKey, JSON.stringify(newTransactionData));
-        console.log('[TransactionProcessModal] 거래 데이터 저장:', storageKey, newTransactionData);
-      }
-
       // 부모 컴포넌트에 거래 생성 알림
       if (onTransactionCreated) {
         onTransactionCreated(newTransactionData);
@@ -199,7 +190,7 @@ const TransactionProcessModal = ({
 
       // 채팅방에 거래 생성 완료 메시지 전송
       if (sendMessage) {
-        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!`;
+        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\n 주문 번호:${result.data.rentalHisId}`;
 
         await sendMessage({
           type: 'TEXT',
@@ -293,18 +284,9 @@ const TransactionProcessModal = ({
       };
       setTransactionData(updatedRentalData);
 
-      // localStorage 업데이트
-      const pathMatch = window.location.pathname.match(/\/chats\/(\d+)/);
-      if (pathMatch && pathMatch[1]) {
-        const chatRoomId = pathMatch[1];
-        const storageKey = `chatRoom_${chatRoomId}_rental`;
-        localStorage.setItem(storageKey, JSON.stringify(updatedRentalData));
-        console.log('[TransactionProcessModal] 결제 완료 데이터 저장:', storageKey);
-      }
-
       // 채팅방에 결제 완료 메시지 전송
       if (sendMessage) {
-        const messageContent = `✅ 결제 완료\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n\n판매자가 물건을 발송할 때까지 기다려주세요!`;
+        const messageContent = `✅ 결제 완료\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n\n판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${transactionData.rentalHisId}`;
 
         await sendMessage({
           type: 'TEXT',
@@ -728,14 +710,14 @@ const TransactionProcessModal = ({
                   disabled={isLoading}
                   className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
-                  {isLoading ? '취소 중...' : '취소하기'}
+                  {isLoading ? '취소 중...' : '거래 취소하기'}
                 </button>
                 <button
                   onClick={handleProceedPayment}
                   disabled={isLoading}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  결제하기
+                  결제하러 가기
                 </button>
               </div>
             </div>

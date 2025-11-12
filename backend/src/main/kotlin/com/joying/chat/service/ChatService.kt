@@ -4,6 +4,7 @@ import com.joying.chat.document.ChatMessage
 import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
+import com.joying.chat.dto.ChatRoomUpdateEvent
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -38,6 +40,7 @@ class ChatService(
     private val permissionCache: ChatRoomPermissionCache,
     private val webPushService: WebPushService,
     private val chatPresenceService: ChatPresenceService,
+    private val messagingTemplate: SimpMessagingTemplate,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -143,10 +146,18 @@ class ChatService(
                 }
             }
 
-        // 5. DTO 변환 (답장 정보 포함)
-        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage)
+        // 5. 수신자 ID 계산 (WebSocket 브로드캐스트 최적화 + 안읽은 개수 관리)
+        val receiverId =
+            if (senderId == chatRoom.buyer.memberId) {
+                chatRoom.seller.memberId!!
+            } else {
+                chatRoom.buyer.memberId!!
+            }
 
-        // 6. Redis Pub/Sub로 발행 (실시간 전달)
+        // 6. DTO 변환 (답장 정보 + 수신자 정보 포함)
+        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
+
+        // 7. Redis Pub/Sub로 발행 (실시간 전달)
         redisPubSubPublisher.publish(messageDto)
 
         logger.info(
@@ -156,17 +167,10 @@ class ChatService(
             senderId,
         )
 
-        // 6. 상대방 안읽은 개수 증가 (Redis)
-        val receiverId =
-            if (senderId == chatRoom.buyer.memberId) {
-                chatRoom.seller.memberId!!
-            } else {
-                chatRoom.buyer.memberId!!
-            }
-
+        // 8. 상대방 안읽은 개수 증가 (Redis)
         unreadCountService.increment(chatRoomId, receiverId)
 
-        // 7. 푸시 알림 전송 (비동기) - 푸시 서비스가 활성화된 경우에만
+        // 9. 푸시 알림 전송 (비동기) - 푸시 서비스가 활성화된 경우에만
         if (webPushService.isPushEnabled()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -177,7 +181,7 @@ class ChatService(
             }
         }
 
-        // 8. lastMessage 업데이트 (비동기) - 20-30ms 절감
+        // 10. lastMessage 업데이트 (비동기) - 20-30ms 절감
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 updateLastMessageAsync(chatRoomId, savedMessage.content, savedMessage.createdAt!!)
@@ -185,6 +189,28 @@ class ChatService(
                 logger.error("채팅방 lastMessage 업데이트 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
             }
         }
+
+        // 11. 채팅방 목록 업데이트 이벤트 전송 (실시간 반영)
+        val unreadCount = unreadCountService.get(chatRoomId, receiverId)
+        val chatRoomUpdate = ChatRoomUpdateEvent(
+            chatRoomId = chatRoomId,
+            lastMessage = savedMessage.content,
+            lastMessageAt = savedMessage.createdAt!!,
+            unreadCount = unreadCount
+        )
+
+        messagingTemplate.convertAndSendToUser(
+            receiverId.toString(),
+            "/queue/chatroom-update",
+            chatRoomUpdate
+        )
+
+        logger.debug(
+            "채팅방 목록 업데이트 이벤트 전송: chatRoomId={}, receiverId={}, unreadCount={}",
+            chatRoomId,
+            receiverId,
+            unreadCount
+        )
 
         return messageDto
     }

@@ -87,6 +87,33 @@ export const rentalApi = {
   },
 
   /**
+   * 상품의 최신 대여 거래 조회
+   * @param {number|string} productId - 상품 ID
+   * @returns {Promise<Object>} 최신 대여 거래 정보
+   */
+  getLatestRentalByProduct: async (productId) => {
+    const productIdNum = Number(productId);
+    if (isNaN(productIdNum)) {
+      throw new Error(`유효하지 않은 상품 ID: ${productId}`);
+    }
+
+    console.log('[rentalApi] 상품의 최신 거래 조회:', productIdNum);
+
+    try {
+      const response = await axiosInstance.get(`/rentals/products/${productIdNum}/latest`);
+      console.log('[rentalApi] 최신 거래 조회 성공:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('[rentalApi] 최신 거래 조회 실패:', {
+        productId: productIdNum,
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      throw error;
+    }
+  },
+
+  /**
    * 발송 처리 (운송장 번호 등록)
    * @param {number} rentalHisId - 대여 이력 ID
    * @param {Object} data - 발송 데이터
