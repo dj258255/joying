@@ -1282,7 +1282,7 @@ const ProductListMain = () => {
       </div>
 
        {/* 상품 목록 */}
-       <div className="flex-1 p-6 overflow-y-auto">
+       <div className="flex-1 p-6">
          {/* 로딩 상태 */}
          {isLoading && (
            <div className="flex items-center justify-center py-20">
