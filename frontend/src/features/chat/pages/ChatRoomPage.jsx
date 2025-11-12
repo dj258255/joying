@@ -247,6 +247,11 @@ const ChatRoomPage = () => {
   // 생성된 채팅방 데이터 (location.state에서 가져옴)
   const existingChatRoomData = location.state?.chatRoomData || null;
   
+  // 대여 요청 자동 전송을 위한 정보 (location.state에서 가져옴)
+  const shouldSendRentalRequest = location.state?.shouldSendRentalRequest || false;
+  const rentalRequestData = location.state?.rentalRequestData || null;
+  const hasSentRentalRequestRef = useRef(false); // 대여 요청 메시지 전송 여부 추적
+  
   useEffect(() => {
     if (!chatRoomId) return;
 
@@ -258,17 +263,138 @@ const ChatRoomPage = () => {
       return;
     }
 
-    try {
-      setCurrentChatRoom(desiredId, existingChatRoomData);
-    } catch (error) {
-      console.error('채팅방 로드 실패:', error);
-      // 나간 채팅방 접근 시도 시 채팅방 목록으로 리다이렉트
-      if (error.message?.includes('나간 채팅방')) {
-        alert('나간 채팅방입니다.');
-        navigate('/chats');
+    // async 함수 내부에서 호출하여 에러 처리
+    const loadChatRoom = async () => {
+      try {
+        await setCurrentChatRoom(desiredId, existingChatRoomData);
+      } catch (error) {
+        console.error('채팅방 로드 실패:', error);
+        
+        // 나간 채팅방 접근 시도 시 채팅방 목록으로 리다이렉트
+        const errorMessage = error.message || '';
+        if (
+          errorMessage.includes('나간 채팅방') ||
+          errorMessage.includes('접근할 권한이 없습니다') ||
+          error.response?.status === 403
+        ) {
+          alert('나간 채팅방입니다.');
+          navigate('/chats', { replace: true });
+          return;
+        }
+        
+        // 다른 에러는 콘솔에만 로그 (사용자에게는 표시하지 않음)
+        // 이미 setCurrentChatRoom 내부에서 에러 처리가 되어 있음
       }
-    }
+    };
+
+    loadChatRoom();
   }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom, navigate]);
+  
+  // 대여 요청 메시지 자동 전송 (채팅방 로드 후, WebSocket 연결 후)
+  useEffect(() => {
+    // 이미 전송했으면 중복 전송 방지
+    if (hasSentRentalRequestRef.current) {
+      return;
+    }
+    
+    // 대여 요청을 전송해야 하는 조건 확인
+    if (!shouldSendRentalRequest || !rentalRequestData || !currentChatRoom || !isConnected) {
+      return;
+    }
+    
+    // 채팅방이 로드되고 WebSocket이 연결되었을 때만 전송
+    const roomId = currentChatRoom?.chatRoomId || currentChatRoom?.id;
+    if (!roomId) {
+      return;
+    }
+    
+    // 대여 요청 데이터 확인
+    const { dateRange, product, rentMethod } = rentalRequestData;
+    if (!dateRange || !dateRange.start || !dateRange.end || !product) {
+      console.warn('[ChatRoomPage] 대여 요청 데이터가 불완전합니다:', { dateRange, product });
+      return;
+    }
+    
+    // 대여 요청 메시지 전송 (약간의 지연을 두어 WebSocket 연결이 완전히 안정화되도록)
+    const sendRentalRequest = async () => {
+      try {
+        hasSentRentalRequestRef.current = true;
+        
+        console.log('[ChatRoomPage] 대여 요청 메시지 자동 전송 시작:', {
+          roomId,
+          productId: product.id,
+          dateRange,
+          rentMethod
+        });
+        
+        // 대여 기간 계산
+        const startDate = new Date(dateRange.start);
+        const endDate = new Date(dateRange.end);
+        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // 대여 요청 정보 객체 생성
+        const rentalInfo = {
+          type: 'RENTAL_REQUEST',
+          productId: Number(product.id),
+          productTitle: product.title || product.name || '상품',
+          productImageUrl: product.imageUrl || product.images?.[0] || product.mainImageUrl || null,
+          startDate: new Date(dateRange.start).toISOString(),
+          endDate: new Date(dateRange.end).toISOString(),
+          days: days,
+          rentMethod: rentMethod || 'BOTH',
+          dailyPrice: product.price || product.dailyPrice || 0,
+          deposit: product.deposit || 0,
+          totalPrice: (product.price || product.dailyPrice || 0) * days + (product.deposit || 0),
+          requesterId: user?.id || user?.memberId || user?.member_id,
+          requesterName: user?.nickname || user?.name || '사용자',
+          requesterProfileUrl: user?.profileImage || user?.profileImageUrl || null,
+          status: 'pending'
+        };
+        
+        // 대여 요청 메시지 내용 생성 (백엔드가 TEXT 타입만 지원하므로 TEXT로 전송)
+        // content에 JSON 문자열로 대여 요청 정보 포함
+        const rentalRequestContent = JSON.stringify(rentalInfo);
+
+        console.log('[ChatRoomPage] 대여 요청 메시지 전송:', {
+          type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
+          content: rentalRequestContent,
+          rentalInfo
+        });
+
+        // 대여 요청 메시지를 WebSocket을 통해 전송 (TEXT 타입으로 전송하되 rentalInfo는 별도로 포함)
+        // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT 타입으로 전송
+        await sendMessage({
+          type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
+          content: rentalRequestContent,
+          productId: Number(product.id),
+          rentalInfo: rentalInfo
+        });
+        
+        console.log('[ChatRoomPage] 대여 요청 메시지 자동 전송 완료');
+        
+        // state에서 대여 요청 정보 제거 (중복 전송 방지)
+        navigate(`/chats/${roomId}`, { 
+          replace: true,
+          state: {
+            productId: product.id,
+            chatRoomData: existingChatRoomData
+          }
+        });
+      } catch (error) {
+        console.error('[ChatRoomPage] 대여 요청 메시지 자동 전송 실패:', error);
+        hasSentRentalRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
+      }
+    };
+    
+    // WebSocket 연결 후 약간의 지연을 두어 전송
+    const timer = setTimeout(() => {
+      sendRentalRequest();
+    }, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [shouldSendRentalRequest, rentalRequestData, currentChatRoom, isConnected, sendMessage, user, existingChatRoomData, navigate]);
 
   // 나간 채팅방 접근 차단 (currentChatRoom이 설정된 후 확인)
   useEffect(() => {
@@ -790,46 +916,75 @@ const ChatRoomPage = () => {
       return;
     }
 
+    // 상품 정보 확인
+    if (!productData) {
+      alert('상품 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     try {
       setIsCreatingRental(true);
       
-      // 현재 사용자 정보 (이미 위에서 확인된 currentUserId 사용)
-      const currentUserInfo = {
-        id: currentUserId,
-        username: user?.nickname || user?.name || '사용자',
-        profileImageUrl: user?.profileImage || user?.profileImageUrl || null
-      };
-
-      // 대여 요청 메시지 전송 (API 호출이 아닌 채팅 메시지로 전송)
-      const rentalRequestData = {
-        productId: productId,
+      // 대여 기간 계산
+      const startDate = new Date(rentalData.startRen);
+      const endDate = new Date(rentalData.endRen);
+      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+      
+      // 대여 요청 정보 객체 생성
+      const rentalInfo = {
+        type: 'RENTAL_REQUEST',
+        productId: Number(productId),
+        productTitle: productData.title || productData.name || '상품',
+        productImageUrl: productData.imageUrl || (productData.images && productData.images.length > 0 ? productData.images[0] : null) || null,
         startDate: rentalData.startRen,
         endDate: rentalData.endRen,
+        days: days,
         rentMethod: rentalData.rentMethod,
-        rentalInfo: {
-          productTitle: productData?.title || productData?.name || '상품',
-          startDate: rentalData.startRen,
-          endDate: rentalData.endRen,
-          rentMethod: rentalData.rentMethod,
-          productId: productId
-        },
-        sender: currentUserInfo
+        dailyPrice: productData.dailyPrice || productData.price || 0,
+        deposit: productData.deposit || 0,
+        totalPrice: (productData.dailyPrice || productData.price || 0) * days + (productData.deposit || 0),
+        requesterId: currentUserId,
+        requesterName: user?.nickname || user?.name || '사용자',
+        requesterProfileUrl: user?.profileImage || user?.profileImageUrl || null,
+        status: 'pending'
       };
-
-      await messageApi.sendRentalRequest(chatRoomId, rentalRequestData);
       
-      console.log('대여 요청 메시지 전송 성공');
+      // 대여 요청 메시지 내용 생성 (백엔드가 TEXT 타입만 지원하므로 TEXT로 전송)
+      // content에 JSON 문자열로 대여 요청 정보 포함
+      const rentalRequestContent = JSON.stringify(rentalInfo);
+
+      console.log('[ChatRoomPage] 대여 요청 메시지 전송 (handleCreateRental):', {
+        type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
+        content: rentalRequestContent,
+        rentalInfo
+      });
+
+      // 대여 요청 메시지를 WebSocket을 통해 전송 (TEXT 타입으로 전송하되 rentalInfo는 별도로 포함)
+      // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT 타입으로 전송
+      await sendMessage({
+        type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
+        content: rentalRequestContent,
+        productId: Number(productId),
+        rentalInfo: rentalInfo
+      });
+      
+      console.log('[ChatRoomPage] 대여 요청 메시지 전송 성공:', {
+        productId,
+        productTitle: productData.title || productData.name,
+        startDate: rentalData.startRen,
+        endDate: rentalData.endRen,
+        days,
+        rentMethod: rentalData.rentMethod
+      });
       
       // 모달 닫기
       setShowRentalCreateModal(false);
       
-      // 채팅방 새로고침하여 메시지 반영
-      setCurrentChatRoom(chatRoomId);
-      
       alert('대여 요청을 전송했습니다. 상대방의 승인을 기다려주세요.');
     } catch (error) {
-      console.error('대여 요청 전송 실패:', error);
-      alert('대여 요청 전송에 실패했습니다.');
+      console.error('[ChatRoomPage] 대여 요청 전송 실패:', error);
+      alert('대여 요청 전송에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
+      hasSentRentalRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
     } finally {
       setIsCreatingRental(false);
     }
@@ -1516,153 +1671,22 @@ const ChatRoomPage = () => {
               </div>
             );
             
-            // 대여 요청 메시지 처리
-            if (message.type === 'rental_request') {
-              const currentUserId = user?.id || user?.memberId;
-              const senderId = message.sender?.id;
-              const isOwn = Number(currentUserId) === Number(senderId);
-              
-              // 판매자 여부 확인
+            // 모든 메시지는 MessageBubble을 통해 렌더링
+            const currentUserId = user?.id || user?.memberId;
+            const senderId = message.sender?.id;
+            const isOwn = Number(currentUserId) === Number(senderId);
+            
+            // 대여 요청 메시지의 경우 판매자 여부 확인 (승인/거절 버튼 표시용)
+            let isSeller = false;
+            if (message.type === 'rental_request' && !isOwn && message.status === 'pending') {
               const sellerId = productData?.sellerId 
                 || productData?.writer?.memberId 
                 || productData?.writer?.member_id
                 || productData?.seller?.id 
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-              
-              // 판매자이고 pending 상태면 RentalRequestCard 표시
-              if (isSeller && message.status === 'pending') {
-                // rentalRequestMessage에서 rentalInfo 구조 변환
-                const rentalInfo = {
-                  productTitle: message.rentalInfo?.productTitle || productData?.title || productData?.name || '상품',
-                  productImage: message.rentalInfo?.productImage || productData?.images?.[0] || null,
-                  startDate: message.startDate || message.rentalInfo?.startDate,
-                  endDate: message.endDate || message.rentalInfo?.endDate,
-                  days: message.rentalInfo?.days || (() => {
-                    if (message.startDate && message.endDate) {
-                      const start = new Date(message.startDate);
-                      const end = new Date(message.endDate);
-                      return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-                    }
-                    return 0;
-                  })(),
-                  dailyPrice: message.rentalInfo?.dailyPrice || productData?.price || 0,
-                  deposit: message.rentalInfo?.deposit || productData?.deposit || 0,
-                  totalPrice: message.rentalInfo?.totalPrice || (() => {
-                    const days = message.rentalInfo?.days || (() => {
-                      if (message.startDate && message.endDate) {
-                        const start = new Date(message.startDate);
-                        const end = new Date(message.endDate);
-                        return Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-                      }
-                      return 0;
-                    })();
-                    const dailyPrice = message.rentalInfo?.dailyPrice || productData?.price || 0;
-                    const deposit = message.rentalInfo?.deposit || productData?.deposit || 0;
-                    return (dailyPrice * days) + deposit;
-                  })(),
-                  requesterName: message.sender?.username || message.sender?.name || '요청자',
-                  requesterProfile: message.sender?.profileImageUrl || message.sender?.profileImage || null
-                };
-                
-                return (
-                  <React.Fragment key={key}>
-                    {showDateDivider && <DateDivider />}
-                    <div id={anchorId} className="mb-4">
-                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className="max-w-[85%]">
-                        <RentalRequestCard
-                          rentalInfo={rentalInfo}
-                          onAccept={() => handleRentalAccept(message)}
-                          onReject={() => handleRentalReject(message)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  </React.Fragment>
-                );
-              }
-              
-              // 승인된 요청이고 요청자(isOwn)이면 결제 승인 버튼 표시
-              if (isOwn && message.status === 'approved' && message.orderId && !message.paymentConfirmed) {
-                return (
-                  <React.Fragment key={key}>
-                    {showDateDivider && <DateDivider />}
-                    <div id={anchorId} className="mb-4">
-                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className="max-w-[85%]">
-                        <div className={`rounded-2xl p-4 ${
-                          isOwn
-                            ? 'bg-blue-500 text-white' 
-                            : 'bg-gray-200 text-gray-900'
-                        }`}>
-                          <div className="font-medium mb-2">
-                            대여 요청이 승인되었습니다
-                          </div>
-                          <div className="text-sm opacity-90 mb-3">
-                            {message.content}
-                          </div>
-                          <div className="bg-white/10 rounded-lg p-3 mb-3">
-                            <div className="text-xs opacity-90 mb-1">주문번호</div>
-                            <div className="text-sm font-semibold">{message.orderId}</div>
-                            <div className="text-xs opacity-90 mt-2 mb-1">결제 금액</div>
-                            <div className="text-lg font-bold">
-                              {message.totalAmount?.toLocaleString() || '0'}원
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handlePaymentConfirmClick(message)}
-                            disabled={isConfirmingPayment}
-                            className="w-full py-2 px-4 bg-white text-blue-600 rounded-lg font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isConfirmingPayment ? '결제 승인 중...' : '결제 승인하기'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  </React.Fragment>
-                );
-              }
-
-              // 일반 메시지 버블로 표시 (승인/거절된 요청 또는 요청자 화면)
-              return (
-                <React.Fragment key={key}>
-                  {showDateDivider && <DateDivider />}
-                  <div id={anchorId} className="mb-4">
-                  <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl p-4 ${
-                      isOwn
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-900'
-                    }`}>
-                      <div className="font-medium mb-2">
-                        {isOwn 
-                          ? '대여 요청을 보냈습니다' 
-                          : '대여 요청을 받았습니다'}
-                      </div>
-                      <div className="text-sm opacity-90">
-                        {message.content}
-                      </div>
-                      {message.status && (
-                        <div className="mt-2 text-xs opacity-75">
-                          {message.status === 'pending' && '대기 중'}
-                          {message.status === 'approved' && '✓ 승인됨'}
-                          {message.status === 'rejected' && '✗ 거절됨'}
-                          {message.status === 'payment_completed' && '✓ 결제 완료'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                </React.Fragment>
-              );
+              isSeller = sellerId && Number(sellerId) === Number(currentUserId);
             }
-            
-            const currentUserId = user?.id || user?.memberId;
-            const senderId = message.sender?.id;
-            const isOwn = Number(currentUserId) === Number(senderId);
             
             return (
               <React.Fragment key={key}>
@@ -1674,11 +1698,13 @@ const ChatRoomPage = () => {
                 onReply={handleReply}
                 onDelete={handleDeleteMessage}
                 onEdit={handleEditMessage}
-                  onReplyClick={async (replyMessageId) => {
-                    if (replyMessageId) {
-                      await scrollToMessage(replyMessageId);
-                    }
-                  }}
+                onReplyClick={async (replyMessageId) => {
+                  if (replyMessageId) {
+                    await scrollToMessage(replyMessageId);
+                  }
+                }}
+                onRentalAccept={message.type === 'rental_request' && isSeller && message.status === 'pending' ? handleRentalAccept : undefined}
+                onRentalReject={message.type === 'rental_request' && isSeller && message.status === 'pending' ? handleRentalReject : undefined}
               />
               </React.Fragment>
             );
@@ -1723,7 +1749,13 @@ const ChatRoomPage = () => {
         onSendMessage={handleSendMessage}
         onSendFile={handleSendFile}
         onTyping={sendTyping}
-        disabled={isChatRoomDisabled || isConfirmingPayment || currentChatRoom?.status === 'AUTO_CLOSED'}
+        disabled={
+          isChatRoomDisabled || 
+          isConfirmingPayment || 
+          currentChatRoom?.status === 'AUTO_CLOSED' ||
+          currentChatRoom?.otherMember?.isLeft === true ||
+          currentChatRoom?.otherMemberIsLeft === true
+        }
         replyTo={replyTo}
         onCancelReply={handleCancelReply}
       />

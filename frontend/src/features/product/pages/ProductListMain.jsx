@@ -227,8 +227,8 @@ const ProductListMain = () => {
     // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
     if (lastAppliedFilters.current !== null) {
       console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
-      console.log('📋 [ProductListMain] 현재 apiFilters:', apiFilters);
-      console.log('📋 [ProductListMain] 현재 appliedFiltersKey:', appliedFiltersKey);
+      setPage(1); // ✅ page를 1로 리셋
+      setProducts([]); // ✅ 기존 상품 목록 초기화
       refetch().then((result) => {
         console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
       }).catch((err) => {
@@ -313,11 +313,17 @@ const ProductListMain = () => {
     return unsubscribe;
   }, [queryClient, products.length, activeTab]);
 
+  // 🔥 스크롤 위치 보존을 위한 ref
+  const scrollPositionRef = React.useRef(0);
+  const isAppendingRef = React.useRef(false);
+
   React.useEffect(() => {
     if (!searchResponses) return;
 
     console.log('[ProductListMain] searchResponses 수신:', {
       count: searchResponses.length,
+      page,
+      total,
       likedFields: searchResponses.map(p => ({
         productId: p.productId || p.id,
         liked: p.liked,
@@ -330,8 +336,17 @@ const ProductListMain = () => {
     if (page === 1) {
       // 첫 페이지일 땐 새로 세팅
       setProducts(searchResponses);
-      setTotalProducts(total || searchResponses.length);
+      setTotalProducts(total || 0);
+      isAppendingRef.current = false;
     } else if (page > 1) {
+      // ✅ 스크롤 위치 저장 (데이터 추가 전)
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer) {
+        scrollPositionRef.current = scrollContainer.scrollTop;
+        console.log('📍 [ProductListMain] 스크롤 위치 저장:', scrollPositionRef.current);
+      }
+      isAppendingRef.current = true;
+
       // 다음 페이지일 땐 누적
       setProducts(prev => {
         const merged = [...prev, ...searchResponses];
@@ -340,16 +355,23 @@ const ProductListMain = () => {
         );
         return unique;
       });
-
-      // totalProducts도 누적 (중복 제외)
-      setTotalProducts(prev => {
-        const newUnique = searchResponses.filter(
-          r => !products.some(p => p.productId === r.productId)
-        );
-        return prev + newUnique.length;
-      });
     }
-  }, [searchResponses]);
+  }, [searchResponses, page, total]);
+
+  // 🔥 데이터 추가 후 스크롤 위치 복원
+  React.useEffect(() => {
+    if (isAppendingRef.current && products.length > 0) {
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer && scrollPositionRef.current > 0) {
+        // 다음 프레임에 스크롤 복원 (DOM 업데이트 후)
+        requestAnimationFrame(() => {
+          scrollContainer.scrollTop = scrollPositionRef.current;
+          console.log('📍 [ProductListMain] 스크롤 위치 복원:', scrollPositionRef.current);
+          isAppendingRef.current = false;
+        });
+      }
+    }
+  }, [products.length]);
 
   React.useEffect(() => {
     if (newFetchCount !== undefined) {
@@ -605,6 +627,14 @@ const ProductListMain = () => {
 
   const observerRef = React.useRef(null);
 
+  // 🔥 현업 해결책: page 변경 시 자동 refetch (무한스크롤 핵심 로직)
+  React.useEffect(() => {
+    if (page > 1) {
+      console.log('📄 [ProductListMain] page 변경 감지 - refetch 호출:', page);
+      refetch();
+    }
+  }, [page, refetch]);
+
   React.useEffect(() => {
     if (!observerRef.current) return;
 
@@ -612,10 +642,12 @@ const ProductListMain = () => {
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          console.log('👁️ [ProductListMain] Observer 트리거 - 다음 페이지 로드');
           setPage((prev) => {
             // fetchCount = 0이면 그냥 다음 페이지
             // fetchCount > 0이면 건너뛴 만큼 더함
             const nextPage = prev + (fetchCount || 1);
+            console.log(`📄 [ProductListMain] page 증가: ${prev} → ${nextPage}`);
             return nextPage;
           });
         }
@@ -1302,7 +1334,7 @@ const ProductListMain = () => {
       </div>
 
        {/* 상품 목록 */}
-       <div className="flex-1 p-6 overflow-y-auto">
+       <div className="flex-1 p-6">
          {/* 로딩 상태 */}
          {isLoading && (
            <div className="flex items-center justify-center py-20">

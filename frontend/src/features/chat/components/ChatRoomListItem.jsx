@@ -90,8 +90,33 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
     // 백엔드 응답: lastMessage는 문자열일 수 있음
     if (!lastMessage) return '메시지가 없습니다';
     
-    // 문자열인 경우 그대로 반환
+    // 문자열인 경우 JSON 형식인지 확인
     if (typeof lastMessage === 'string') {
+      // JSON 형식인 경우 "대여 요청"으로 변환
+      try {
+        const contentStr = lastMessage.trim();
+        const jsonStartIndex = contentStr.indexOf('{');
+        const jsonEndIndex = contentStr.lastIndexOf('}');
+        
+        if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+          const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+          const parsed = JSON.parse(jsonStr);
+          
+          // RENTAL_REQUEST 타입이면 "대여 요청"으로 표시
+          if (parsed && parsed.type === 'RENTAL_REQUEST') {
+            return '대여 요청';
+          }
+        } else if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+          // 전체가 JSON 문자열인 경우
+          const parsed = JSON.parse(contentStr);
+          if (parsed && parsed.type === 'RENTAL_REQUEST') {
+            return '대여 요청';
+          }
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 원본 반환
+      }
+      
       return lastMessage;
     }
     
@@ -102,7 +127,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
       } else if (lastMessage.type === 'file') {
         return '📎 파일';
       } else if (lastMessage.type === 'rental_request') {
-        return '🏠 대여 요청';
+        return '대여 요청';
       } else {
         return lastMessage.content || '메시지가 없습니다';
       }

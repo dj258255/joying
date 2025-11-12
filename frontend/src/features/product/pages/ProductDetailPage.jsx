@@ -317,10 +317,38 @@ const ProductDetailPage = () => {
       }
 
       // 채팅방으로 이동 (생성된 채팅방 데이터를 state로 전달하여 조회 API 호출 생략)
+      // 대여 요청 메시지를 자동으로 전송하기 위해 dateRange와 product 정보도 전달
+      // product 객체를 전달할 때 필요한 정보만 추출하여 전달 (직렬화 가능하도록)
+      const productDataForRental = {
+        id: product.id,
+        title: product.title,
+        name: product.title, // 호환성을 위해 name도 포함
+        imageUrl: product.images && product.images.length > 0 ? product.images[0] : null,
+        images: product.images || [],
+        mainImageUrl: product.images && product.images.length > 0 ? product.images[0] : null,
+        price: product.price,
+        dailyPrice: product.price, // 호환성을 위해 dailyPrice도 포함
+        deposit: product.deposit || 0
+      };
+      
+      console.log('[ProductDetailPage] 대여 요청 데이터 전달:', {
+        chatRoomId,
+        dateRange,
+        product: productDataForRental,
+        rentMethod: 'BOTH'
+      });
+      
       navigate(`/chats/${chatRoomId}`, {
         state: { 
           productId: product.id,
-          chatRoomData: chatRoomData // 생성 응답 데이터 전달
+          chatRoomData: chatRoomData, // 생성 응답 데이터 전달
+          // 대여 요청 메시지 자동 전송을 위한 정보
+          shouldSendRentalRequest: true,
+          rentalRequestData: {
+            dateRange: dateRange,
+            product: productDataForRental,
+            rentMethod: 'BOTH' // 기본값 (채팅방 내에서 변경 가능)
+          }
         }
       });
     } catch (error) {

@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import ProfileImage from '../ProfileImage';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useChatRooms } from '@/features/chat/hooks/useChatRooms';
 
 const SideNavbar = ({ isOpen = false, onClose }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuth();
+  const { totalUnreadCount } = useChatRooms();
   
   // 채팅방 페이지에서 navbar 호버 비활성화 여부 확인
   const isChatRoom = location.pathname.startsWith('/chats/');
@@ -159,13 +161,16 @@ const SideNavbar = ({ isOpen = false, onClose }) => {
           <div className="flex-1 py-6">
             <nav className="space-y-2">
               {navItems.map((item) => {
-                const isActive = location.pathname === item.path;
+                const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                const hasUnreadChat = item.id === 'chat' && totalUnreadCount > 0;
+                // 활성화된 상태가 아닐 때만 알림 표시
+                const showUnreadBadge = hasUnreadChat && !isActive;
                 return (
                   <Link
                     key={item.id}
                     to={item.path}
                     onClick={onClose}
-                    className={`flex items-center space-x-3 px-6 py-3 mx-4 rounded-xl transition-all duration-200 ${
+                    className={`flex items-center space-x-3 px-6 py-3 mx-4 rounded-xl transition-all duration-200 relative ${
                       isActive
                         ? 'bg-gray-900 text-white'
                         : 'text-gray-700 hover:bg-white/50 hover:text-gray-900'
@@ -177,6 +182,12 @@ const SideNavbar = ({ isOpen = false, onClose }) => {
                     <span className="font-medium">{item.name}</span>
                     {isActive && (
                       <div className="ml-auto w-2 h-2 bg-white rounded-full"></div>
+                    )}
+                    {showUnreadBadge && (
+                      <div className="ml-auto relative flex items-center justify-center">
+                        {/* 깜빡이는 빨간 점 */}
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-blink"></div>
+                      </div>
                     )}
                   </Link>
                 );
