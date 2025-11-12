@@ -108,15 +108,34 @@ class ChatService(
             senderMember.rejoin()
             logger.info("메시지 전송으로 채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, senderId)
 
-            // 재입장 알림 전송 (비동기)
+            // 시스템 메시지 저장 및 재입장 알림 전송 (비동기)
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val rejoiningMemberNickname = chatRoom.buyer.nickname.takeIf { senderId == chatRoom.buyer.memberId }
+                        ?: chatRoom.seller.nickname
+
+                    // 1. 시스템 메시지 생성 및 저장
+                    val systemMessage = ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = "${rejoiningMemberNickname}님이 다시 들어왔습니다"
+                    )
+                    systemMessage.createdAt = Instant.now()
+
+                    val savedMessage = withContext(Dispatchers.IO) {
+                        chatMessageRepository.save(systemMessage)
+                    }
+
+                    // 2. Redis Pub/Sub로 발행 (실시간 전달)
+                    val messageDto = ChatMessageResponse.from(savedMessage, null)
+                        .copy(receiverId = receiverId)
+                    redisPubSubPublisher.publish(messageDto)
+
+                    // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
                     val event = ChatRoomStatusEvent(
                         chatRoomId = chatRoomId,
                         eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
                         memberId = senderId,
-                        memberNickname = chatRoom.buyer.nickname.takeIf { senderId == chatRoom.buyer.memberId }
-                            ?: chatRoom.seller.nickname
+                        memberNickname = rejoiningMemberNickname
                     )
 
                     messagingTemplate.convertAndSendToUser(
@@ -125,9 +144,9 @@ class ChatService(
                         event
                     )
 
-                    logger.debug("채팅방 재입장 이벤트 전송: chatRoomId={}, to={}", chatRoomId, receiverId)
+                    logger.debug("채팅방 재입장 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, receiverId)
                 } catch (e: Exception) {
-                    logger.error("채팅방 재입장 이벤트 전송 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+                    logger.error("채팅방 재입장 메시지 저장 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
                 }
             }
         }
