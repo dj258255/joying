@@ -27,4 +27,11 @@ public class ReservationCreateRequest {
 
     @NotNull(message = "거래 방법은 필수입니다")
     private RentMethod rentMethod;  // ONLINE, OFFLINE
+
+    /**
+     * 대여자(구매자) ID (Optional)
+     * - 판매자가 구매자를 위해 거래를 생성하는 경우 전달
+     * - 없으면 현재 요청한 사용자가 대여자가 됨
+     */
+    private Long renterId;
 }

@@ -1998,6 +1998,7 @@ const ChatRoomPage = () => {
           setCurrentRentalData(newRentalData);
         }}
         sendMessage={sendMessage}
+        otherMemberId={currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId}
       />
     </div>
     </>

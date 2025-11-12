@@ -28,6 +28,7 @@ import { calculateRentalDays, calculateTotalAmount, getVideoType, getModalTitle 
  * @param {Object} props.requestedDateRange - 대여 요청된 날짜 범위 {start, end}
  * @param {Function} props.onTransactionCreated - 거래 생성 시 콜백
  * @param {Function} props.sendMessage - 채팅 메시지 전송 함수
+ * @param {number} props.otherMemberId - 채팅방 상대방의 memberId (거래 생성 시 renterId로 사용)
  */
 const TransactionProcessModal = ({
   isOpen,
@@ -38,7 +39,8 @@ const TransactionProcessModal = ({
   userRole = 'buyer',
   requestedDateRange = null,
   onTransactionCreated,
-  sendMessage
+  sendMessage,
+  otherMemberId = null
 }) => {
   const { user } = useAuth();
 
@@ -154,7 +156,9 @@ const TransactionProcessModal = ({
       const rentalRequestData = {
         startRen: new Date(dateRange.start).toISOString(),
         endRen: new Date(dateRange.end).toISOString(),
-        rentMethod: rentMethod
+        rentMethod: rentMethod,
+        // 판매자가 거래를 생성하는 경우, 상대방(구매자)의 memberId를 renterId로 전달
+        ...(userRole === 'seller' && otherMemberId ? { renterId: otherMemberId } : {})
       };
 
       // 대여 거래 생성
@@ -190,7 +194,7 @@ const TransactionProcessModal = ({
 
       // 채팅방에 거래 생성 완료 메시지 전송
       if (sendMessage) {
-        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\n 주문 번호:${result.data.rentalHisId}`;
+        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\nrentalHisId:${result.data.rentalHisId}`;
 
         await sendMessage({
           type: 'TEXT',
