@@ -395,6 +395,7 @@ public class SearchService {
 			if (totalHits <= (long)(page + fetchCount) * size) break;
 			if (available.size() < size) break;
 			fetchCount += 1;
+			page++;
 		}
 
 		List<Long> fileIds = available.stream()
@@ -414,6 +415,7 @@ public class SearchService {
 			List<Long> likedProductIds = productLikeRepository.findLikedProductIdsByMemberAndProductIds(authId, productIds);
 
 			likeMap = productIds.stream()
+				.distinct()
 				.collect(Collectors.toMap(
 					id -> id,
 					likedProductIds::contains
