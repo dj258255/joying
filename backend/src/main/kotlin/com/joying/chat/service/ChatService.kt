@@ -5,6 +5,7 @@ import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.ChatRoomUpdateEvent
+import com.joying.chat.dto.ChatRoomStatusEvent
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -88,6 +89,35 @@ class ChatService(
         if (senderMember != null && senderMember.isLeft) {
             senderMember.rejoin()
             logger.info("메시지 전송으로 채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, senderId)
+
+            // 재입장 알림 전송 (비동기)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val receiverId = if (senderId == chatRoom.buyer.memberId) {
+                        chatRoom.seller.memberId!!
+                    } else {
+                        chatRoom.buyer.memberId!!
+                    }
+
+                    val event = ChatRoomStatusEvent(
+                        chatRoomId = chatRoomId,
+                        eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
+                        memberId = senderId,
+                        memberNickname = chatRoom.buyer.nickname.takeIf { senderId == chatRoom.buyer.memberId }
+                            ?: chatRoom.seller.nickname
+                    )
+
+                    messagingTemplate.convertAndSendToUser(
+                        receiverId.toString(),
+                        "/queue/chatroom-status",
+                        event
+                    )
+
+                    logger.debug("채팅방 재입장 이벤트 전송: chatRoomId={}, to={}", chatRoomId, receiverId)
+                } catch (e: Exception) {
+                    logger.error("채팅방 재입장 이벤트 전송 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+                }
+            }
         }
 
         // ChatMessage 생성
