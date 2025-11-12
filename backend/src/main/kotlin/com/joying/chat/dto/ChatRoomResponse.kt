@@ -25,6 +25,7 @@ data class ChatRoomResponse(
     val status: ChatRoomStatus,
     val isPinned: Boolean,
     val isMuted: Boolean,
+    val isLeft: Boolean = false,  // 내가 나간 채팅방인지
 
     // 상세 조회 시에만 포함 (선택적)
     val member: MemberInfo? = null

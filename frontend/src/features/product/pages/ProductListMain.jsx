@@ -24,7 +24,7 @@ const ProductListMain = () => {
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
   
-  // 필터 상태
+  // 필터 상태 (임시 - UI에만 반영)
   const [activeTab, setActiveTab] = useState('rent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFilterClosing, setIsFilterClosing] = useState(false);
@@ -43,7 +43,20 @@ const ProductListMain = () => {
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // 적용된 필터 상태 (실제 API 호출에 사용)
+  const [appliedFilters, setAppliedFilters] = useState({
+    searchQuery: '',
+    selectedDates: { start: null, end: null },
+    priceRange: { min: '', max: '' },
+    selectedSubcategories: [],
+    selectedDong: null,
+    rating: 0,
+    sameDayRental: false,
+    selectedHashtags: []
+  });
+
   const q = searchParams.get('q') || '';
+  const categoryParam = searchParams.get('category') || '';
 
   const [page, setPage] = useState(1);
   const [fetchCount, setFetchCount] = useState(0);
@@ -80,6 +93,41 @@ const ProductListMain = () => {
 
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
+
+  // URL에서 category 파라미터를 읽어 자동으로 필터 적용
+  // 컴포넌트 마운트 시 한 번만 실행 (categoryParam이 있을 때만)
+  const categoryAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    // 이미 적용했거나, categoryParam이 없거나, categories가 로드되지 않았으면 스킵
+    if (categoryAppliedRef.current || !categoryParam || categories.length === 0) {
+      return;
+    }
+    
+    const categoryId = parseInt(categoryParam, 10);
+    
+    // 하위 카테고리에서 찾기
+    for (const mainCat of categories) {
+      const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
+      if (subCategory) {
+        console.log('🏷️ [ProductListMain] URL 카테고리 파라미터 적용:', subCategory.categoryName);
+        setSelectedSubcategories([subCategory]);
+        setAppliedFilters(prev => ({
+          ...prev,
+          selectedSubcategories: [subCategory]
+        }));
+        categoryAppliedRef.current = true; // 적용 완료 표시
+        break;
+      }
+    }
+  }, [categoryParam, categories]);
+  
+  // URL 파라미터가 없어지면 (상세 페이지에서 /products로 돌아올 때) ref 초기화
+  React.useEffect(() => {
+    if (!categoryParam && categoryAppliedRef.current) {
+      console.log('🔄 [ProductListMain] URL 카테고리 파라미터 제거 감지 - ref 초기화');
+      categoryAppliedRef.current = false;
+    }
+  }, [categoryParam]);
   
   // 카테고리 로드 후 첫 번째 카테고리 자동 선택
   React.useEffect(() => {
@@ -96,43 +144,110 @@ const ProductListMain = () => {
     return `${year}-${month}-${day}`;
   }
 
-  // API 필터 파라미터 생성
+  // API 필터 파라미터 생성 (적용된 필터 기반)
   const apiFilters = useMemo(() => ({
-    uploadType: activeTab, // 'rent' 또는 'borrow'
-    q: searchQuery,
-    category: selectedSubcategories.length > 0 ? selectedSubcategories.map(c => c.categoryId) : [],
-    "price-min": priceRange.min ? parseInt(priceRange.min.toString().replace(/,/g, ''), 10) : null,
-    "price-max": priceRange.max ? parseInt(priceRange.max.toString().replace(/,/g, ''), 10) : null,
-    dong: selectedDong !== null ? selectedDong.id : null,
-    rating: rating,
-    sameDayRental: sameDayRental,
-    "date-from": selectedDates.start ? formatToLocalDate(selectedDates.start) : null,
-    "date-to": selectedDates.end ? formatToLocalDate(selectedDates.end) : null
+    uploadType: activeTab, // 'rent' 또는 'borrow' (즉시 반영)
+    q: appliedFilters.searchQuery,
+    category: appliedFilters.selectedSubcategories.length > 0 ? appliedFilters.selectedSubcategories.map(c => c.categoryId) : [],
+    "price-min": appliedFilters.priceRange.min ? parseInt(appliedFilters.priceRange.min.toString().replace(/,/g, ''), 10) : null,
+    "price-max": appliedFilters.priceRange.max ? parseInt(appliedFilters.priceRange.max.toString().replace(/,/g, ''), 10) : null,
+    dong: appliedFilters.selectedDong !== null ? appliedFilters.selectedDong.id : null,
+    rating: appliedFilters.rating,
+    sameDayRental: appliedFilters.sameDayRental,
+    "date-from": appliedFilters.selectedDates.start ? formatToLocalDate(appliedFilters.selectedDates.start) : null,
+    "date-to": appliedFilters.selectedDates.end ? formatToLocalDate(appliedFilters.selectedDates.end) : null
   }), [
     activeTab,
-    searchQuery,
-    selectedSubcategories,
-    priceRange,
-    selectedDong,
-    rating,
-    sameDayRental,
-    selectedHashtags,
-    selectedDates
+    appliedFilters.searchQuery,
+    appliedFilters.selectedSubcategories,
+    appliedFilters.priceRange,
+    appliedFilters.selectedDong,
+    appliedFilters.rating,
+    appliedFilters.sameDayRental,
+    appliedFilters.selectedHashtags,
+    appliedFilters.selectedDates
   ]);
 
   // React Query로 상품 데이터 가져오기
   const { searchResponses, total, hashtags, isLoading, isError, error, refetch, fetchCount: newFetchCount } = useSearch(q, apiFilters, page);
 
+  console.log('🎯 [ProductListMain] useSearch 결과:', {
+    searchResponsesCount: searchResponses?.length || 0,
+    total,
+    hashtagsCount: hashtags?.length || 0,
+    isLoading,
+    isError,
+    error: error?.message,
+    page
+  });
+
   React.useEffect(() => {
+    console.log('🔄 [ProductListMain] 컴포넌트 마운트 - refetch 호출');
     // 컴포넌트 처음 마운트 시 한 번 실행
-    refetch();
+    refetch().then((result) => {
+      console.log('✅ [ProductListMain] refetch 완료:', result);
+    }).catch((err) => {
+      console.error('❌ [ProductListMain] refetch 에러:', err);
+    });
     lastAppliedFilters.current = apiFilters;
   }, []);
+
+  // activeTab(빌려줘/구해요) 변경 시 즉시 검색 재실행
+  React.useEffect(() => {
+    // 첫 마운트가 아닐 때만 실행 (lastAppliedFilters가 설정된 후)
+    if (lastAppliedFilters.current !== null) {
+      console.log('🔄 [ProductListMain] activeTab 변경 감지 - 즉시 refetch:', activeTab);
+      setPage(1);
+      setProducts([]);
+      refetch().then((result) => {
+        console.log('✅ [ProductListMain] activeTab refetch 완료:', result);
+      }).catch((err) => {
+        console.error('❌ [ProductListMain] activeTab refetch 에러:', err);
+      });
+      lastAppliedFilters.current = apiFilters;
+    }
+  }, [activeTab]);
+
+  // appliedFilters 변경 시 검색 재실행 (필터 적용 버튼 클릭 시)
+  // 필터 직렬화 for 정확한 비교
+  const appliedFiltersKey = React.useMemo(() => {
+    return JSON.stringify({
+      searchQuery: appliedFilters.searchQuery,
+      selectedDates: appliedFilters.selectedDates,
+      priceRange: appliedFilters.priceRange,
+      selectedSubcategories: appliedFilters.selectedSubcategories.map(c => c.categoryId),
+      selectedDong: appliedFilters.selectedDong?.id,
+      rating: appliedFilters.rating,
+      sameDayRental: appliedFilters.sameDayRental,
+      selectedHashtags: appliedFilters.selectedHashtags.map(h => h.id || h.name)
+    });
+  }, [appliedFilters]);
+
+  React.useEffect(() => {
+    // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
+    if (lastAppliedFilters.current !== null) {
+      console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
+      setPage(1); // ✅ page를 1로 리셋
+      setProducts([]); // ✅ 기존 상품 목록 초기화
+      refetch().then((result) => {
+        console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
+      }).catch((err) => {
+        console.error('❌ [ProductListMain] appliedFilters refetch 에러:', err);
+      });
+      lastAppliedFilters.current = apiFilters;
+    }
+  }, [appliedFiltersKey, refetch, apiFilters]);
 
   // SEARCH 쿼리 무효화 시 자동 refetch
   React.useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event?.query?.queryKey?.[0] === QUERY_KEYS.SEARCH) {
+        // 현재 activeTab과 일치하는 쿼리인지 확인
+        const queryFilters = event?.query?.queryKey?.[2];
+        if (queryFilters?.uploadType !== activeTab) {
+          return; // 다른 탭의 쿼리는 무시
+        }
+        
         if (event?.type === 'removed' || (event?.type === 'updated' && event?.query?.isInvalidated)) {
           // 쿼리가 무효화되면 refetch
           console.log('[ProductListMain] SEARCH 쿼리 무효화 감지, refetch 실행');
@@ -142,12 +257,19 @@ const ProductListMain = () => {
     });
     
     return unsubscribe;
-  }, [queryClient, refetch]);
+  }, [queryClient, refetch, activeTab]);
 
   // SEARCH 쿼리 캐시 변경 감지하여 products state 업데이트
   React.useEffect(() => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // queryKey의 첫 번째 요소가 SEARCH인 모든 쿼리 감지
       if (event?.query?.queryKey?.[0] === QUERY_KEYS.SEARCH && event?.type === 'updated') {
+        // 현재 activeTab과 일치하는 쿼리인지 확인
+        const queryFilters = event?.query?.queryKey?.[2];
+        if (queryFilters?.uploadType !== activeTab) {
+          return; // 다른 탭의 쿼리는 무시
+        }
+        
         const searchQueryData = event.query.state.data;
         if (!searchQueryData) return;
         
@@ -163,16 +285,21 @@ const ProductListMain = () => {
               const cachedProduct = cachedSearchResponses.find(
                 p => String(p.productId || p.id) === String(product.productId || product.id)
               );
-              if (cachedProduct && (cachedProduct.liked !== product.liked || cachedProduct.isLiked !== product.isLiked)) {
+              // liked, isLiked, isLike 모두 체크
+              const cachedLiked = cachedProduct?.liked ?? cachedProduct?.isLiked ?? cachedProduct?.isLike;
+              const currentLiked = product.liked ?? product.isLiked ?? product.isLike;
+              
+              if (cachedProduct && cachedLiked !== currentLiked) {
                 console.log('[ProductListMain] 상품 liked 상태 업데이트:', {
                   productId: product.productId || product.id,
-                  oldLiked: product.liked || product.isLiked,
-                  newLiked: cachedProduct.liked || cachedProduct.isLiked
+                  oldLiked: currentLiked,
+                  newLiked: cachedLiked
                 });
                 return {
                   ...product,
-                  liked: cachedProduct.liked !== undefined ? cachedProduct.liked : (cachedProduct.isLiked !== undefined ? cachedProduct.isLiked : product.liked),
-                  isLiked: cachedProduct.isLiked !== undefined ? cachedProduct.isLiked : (cachedProduct.liked !== undefined ? cachedProduct.liked : product.isLiked)
+                  liked: cachedLiked,
+                  isLiked: cachedLiked,
+                  isLike: cachedLiked
                 };
               }
               return product;
@@ -184,25 +311,42 @@ const ProductListMain = () => {
     });
     
     return unsubscribe;
-  }, [queryClient, products.length]);
+  }, [queryClient, products.length, activeTab]);
+
+  // 🔥 스크롤 위치 보존을 위한 ref
+  const scrollPositionRef = React.useRef(0);
+  const isAppendingRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!searchResponses) return;
 
     console.log('[ProductListMain] searchResponses 수신:', {
       count: searchResponses.length,
+      page,
+      total,
       likedFields: searchResponses.map(p => ({
         productId: p.productId || p.id,
-        liked: p.liked || p.isLiked,
-        hasLikedField: 'liked' in p || 'isLiked' in p
+        liked: p.liked,
+        isLiked: p.isLiked,
+        isLike: p.isLike,
+        hasLikedField: 'liked' in p || 'isLiked' in p || 'isLike' in p
       }))
     });
 
     if (page === 1) {
       // 첫 페이지일 땐 새로 세팅
       setProducts(searchResponses);
-      setTotalProducts(total || searchResponses.length);
+      setTotalProducts(total || 0);
+      isAppendingRef.current = false;
     } else if (page > 1) {
+      // ✅ 스크롤 위치 저장 (데이터 추가 전)
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer) {
+        scrollPositionRef.current = scrollContainer.scrollTop;
+        console.log('📍 [ProductListMain] 스크롤 위치 저장:', scrollPositionRef.current);
+      }
+      isAppendingRef.current = true;
+
       // 다음 페이지일 땐 누적
       setProducts(prev => {
         const merged = [...prev, ...searchResponses];
@@ -211,16 +355,23 @@ const ProductListMain = () => {
         );
         return unique;
       });
-
-      // totalProducts도 누적 (중복 제외)
-      setTotalProducts(prev => {
-        const newUnique = searchResponses.filter(
-          r => !products.some(p => p.productId === r.productId)
-        );
-        return prev + newUnique.length;
-      });
     }
-  }, [searchResponses]);
+  }, [searchResponses, page, total]);
+
+  // 🔥 데이터 추가 후 스크롤 위치 복원
+  React.useEffect(() => {
+    if (isAppendingRef.current && products.length > 0) {
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer && scrollPositionRef.current > 0) {
+        // 다음 프레임에 스크롤 복원 (DOM 업데이트 후)
+        requestAnimationFrame(() => {
+          scrollContainer.scrollTop = scrollPositionRef.current;
+          console.log('📍 [ProductListMain] 스크롤 위치 복원:', scrollPositionRef.current);
+          isAppendingRef.current = false;
+        });
+      }
+    }
+  }, [products.length]);
 
   React.useEffect(() => {
     if (newFetchCount !== undefined) {
@@ -231,7 +382,7 @@ const ProductListMain = () => {
   // 페이지 포커스 시 SEARCH 쿼리 무효화되어 있으면 refetch
   React.useEffect(() => {
     const handleFocus = () => {
-      const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH]);
+      const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH, q, apiFilters, page]);
       if (searchQuery && (searchQuery.isInvalidated || searchQuery.isStale)) {
         console.log('[ProductListMain] 페이지 포커스, SEARCH 쿼리 refetch');
         refetch();
@@ -240,7 +391,7 @@ const ProductListMain = () => {
     
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [queryClient, refetch]);
+  }, [queryClient, refetch, q, apiFilters, page]);
 
   // 상품 목록 추출
   //const products = searchResponses || [];
@@ -354,6 +505,7 @@ const ProductListMain = () => {
   };
 
   const handleReset = () => {
+    // 임시 필터 초기화
     setSearchQuery('');
     setSelectedDates({ start: null, end: null });
     setPriceRange({ min: '', max: '' });
@@ -367,6 +519,18 @@ const ProductListMain = () => {
     setRating(0);
     setSameDayRental(false);
     setSelectedHashtags([]);
+    
+    // 적용된 필터도 초기화
+    setAppliedFilters({
+      searchQuery: '',
+      selectedDates: { start: null, end: null },
+      priceRange: { min: '', max: '' },
+      selectedSubcategories: [],
+      selectedDong: null,
+      rating: 0,
+      sameDayRental: false,
+      selectedHashtags: []
+    });
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
@@ -398,32 +562,36 @@ const ProductListMain = () => {
   }, [products, selectedHashtags]);
 
   const handleApply = async () => {
-
-    if (JSON.stringify(apiFilters) === JSON.stringify(lastAppliedFilters.current)) {
-      handleCloseFilter();
-      return;
-    }
-
-    console.log('Applied filters:', {
+    console.log('🔵 [ProductListMain] 필터 적용 시작:', {
       searchQuery,
       dateRange: selectedDates,
       priceRange,
       subcategories: selectedSubcategories,
-      districts: selectedGungu,
-      areas: selectedDong,
+      region: selectedDong,
       rating,
       sameDayRental,
       hashtags: selectedHashtags
     });
-    try {
-      await refetch(); // 수동으로 /search 요청
-      setPage(1);
-      setFetchCount(0);
-      setProducts([]);
-    } catch (err) {
-      console.error('검색 실패:', err);
-    }
-    lastAppliedFilters.current = apiFilters;
+
+    // 페이지 및 상품 목록 초기화 (필터 적용 전에 먼저 실행)
+    setPage(1);
+    setFetchCount(0);
+    setProducts([]);
+    
+    // 임시 필터를 적용된 필터로 복사 (이것이 useEffect를 트리거)
+    setAppliedFilters({
+      searchQuery,
+      selectedDates,
+      priceRange,
+      selectedSubcategories,
+      selectedDong,
+      rating,
+      sameDayRental,
+      selectedHashtags
+    });
+
+    console.log('✅ [ProductListMain] 필터 적용 완료 - useEffect가 refetch를 트리거할 것입니다');
+    
     handleCloseFilter();
   };
 
@@ -435,11 +603,37 @@ const ProductListMain = () => {
     }, 300); // 애니메이션 시간과 동일 (0.3s)
   };
 
+  // 검색 실행 함수
+  const handleSearch = () => {
+    setAppliedFilters(prev => ({
+      ...prev,
+      searchQuery
+    }));
+    console.log('🔍 [ProductListMain] 검색 실행:', searchQuery);
+    setPage(1);
+    setProducts([]);
+  };
+
+  // Enter 키 검색
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   const handleCreateProduct = () => {
     navigate(ROUTE_PATHS.PRODUCT_CREATE);
   };
 
   const observerRef = React.useRef(null);
+
+  // 🔥 현업 해결책: page 변경 시 자동 refetch (무한스크롤 핵심 로직)
+  React.useEffect(() => {
+    if (page > 1) {
+      console.log('📄 [ProductListMain] page 변경 감지 - refetch 호출:', page);
+      refetch();
+    }
+  }, [page, refetch]);
 
   React.useEffect(() => {
     if (!observerRef.current) return;
@@ -448,10 +642,12 @@ const ProductListMain = () => {
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          console.log('👁️ [ProductListMain] Observer 트리거 - 다음 페이지 로드');
           setPage((prev) => {
             // fetchCount = 0이면 그냥 다음 페이지
             // fetchCount > 0이면 건너뛴 만큼 더함
             const nextPage = prev + (fetchCount || 1);
+            console.log(`📄 [ProductListMain] page 증가: ${prev} → ${nextPage}`);
             return nextPage;
           });
         }
@@ -523,19 +719,25 @@ const ProductListMain = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="상품 검색..."
+            placeholder="상품명 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={handleSearchKeyPress}
             className="w-full px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
           />
-          <svg 
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+          <button
+            onClick={handleSearch}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:text-gray-900 transition-colors"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+            <svg 
+              className="w-4 h-4 text-gray-400" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
         </div>
 
         {/* 날짜 기간 */}
@@ -1132,7 +1334,7 @@ const ProductListMain = () => {
       </div>
 
        {/* 상품 목록 */}
-       <div className="flex-1 p-6 overflow-y-auto">
+       <div className="flex-1 p-6">
          {/* 로딩 상태 */}
          {isLoading && (
            <div className="flex items-center justify-center py-20">
@@ -1285,6 +1487,7 @@ const ProductListMain = () => {
                  placeholder="상품 검색..."
                  value={searchQuery}
                  onChange={(e) => setSearchQuery(e.target.value)}
+                 onKeyPress={handleSearchKeyPress}
                  className="w-full px-5 py-3.5 pr-12 text-sm text-gray-800 placeholder-gray-400 rounded-2xl transition-all duration-300 focus:outline-none focus:ring-2"
                  style={{ 
                    background: 'rgba(255, 255, 255, 0.8)',
@@ -1294,14 +1497,19 @@ const ProductListMain = () => {
                    '--tw-ring-color': 'rgb(59 130 246 / 0.3)'
                  }}
                />
-               <svg 
-                 className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
-                 fill="none" 
-                 stroke="currentColor" 
-                 viewBox="0 0 24 24"
+               <button
+                 onClick={handleSearch}
+                 className="absolute right-4 top-1/2 transform -translate-y-1/2 hover:text-gray-900 transition-colors"
                >
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-               </svg>
+                 <svg 
+                   className="w-5 h-5 text-gray-400" 
+                   fill="none" 
+                   stroke="currentColor" 
+                   viewBox="0 0 24 24"
+                 >
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                 </svg>
+               </button>
              </div>
 
            {/* 날짜 기간 */}

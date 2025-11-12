@@ -4,6 +4,7 @@ import { ROUTE_PATHS } from '@/shared/constants';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import logo from '@/assets/icons/logo.png';
 import { searchApi } from '@/features/search/api/searchApi';
+import { useCategoryTree } from '@/features/category/hooks/useCategories';
 
 /**
  * Section 1: Hero
@@ -19,6 +20,7 @@ const Section1Hero = () => {
   const [isFocused, setIsFocused] = useState(false);
   const debounceRef = useRef(null);
   const { isAuthenticated, user } = useAuth();
+  const { data: categories = [] } = useCategoryTree();
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -186,30 +188,51 @@ const Section1Hero = () => {
             </div>
           </div>
 
-          {/* 인기 검색어 */}
+          {/* 인기 카테고리 */}
           <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
-            <span className="text-sm text-gray-400 font-medium">🔥 인기 검색어</span>
-            {['카메라', '캠핑', '게임기', '노트북'].map((keyword) => (
-              <button
-                key={keyword}
-                type="button"
-                onClick={() => {
-                  setSearchQuery(keyword);
-                  navigate(`${ROUTE_PATHS.PRODUCTS}?q=${encodeURIComponent(keyword)}`);
-                }}
-                className="group/keyword relative px-5 py-2.5 rounded-full 
-                           bg-white/5 backdrop-blur-sm
-                           border border-white/10 
-                           text-sm text-gray-300 font-medium
-                           hover:bg-white/10 hover:border-white hover:text-white 
-                           transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-white/20
-                           active:scale-95"
-              >
-                <span className="relative z-10">{keyword}</span>
-                {/* 호버 시 배경 그라데이션 */}
-                <div className="absolute inset-0 rounded-full bg-white/5 opacity-0 group-hover/keyword:opacity-100 transition-opacity duration-300" />
-              </button>
-            ))}
+            <span className="text-sm text-gray-400 font-medium">🔥 인기 카테고리</span>
+            {categories.slice(0, 4).map((mainCategory) => {
+              // 각 상위 카테고리의 첫 번째 하위 카테고리 선택
+              const subCategory = mainCategory.children?.[0];
+              if (!subCategory) return null;
+
+              // 하위 카테고리 아이콘 매핑
+              const getCategoryIcon = (subName) => {
+                const iconMap = {
+                  '카메라': '📷',
+                  '3D프린터': '🖨️',
+                  '콘솔 게임기': '🎮',
+                  '텐트': '⛺'
+                };
+                
+                return iconMap[subName] || '📦';
+              };
+
+              return (
+                <button
+                  key={subCategory.categoryId}
+                  type="button"
+                  onClick={() => {
+                    // 하위 카테고리 ID로 필터링된 ProductListPage로 이동
+                    navigate(`${ROUTE_PATHS.PRODUCTS}?category=${subCategory.categoryId}`);
+                  }}
+                  className="group/keyword relative px-5 py-2.5 rounded-full 
+                             bg-white/5 backdrop-blur-sm
+                             border border-white/10 
+                             text-sm text-gray-300 font-medium
+                             hover:bg-white/10 hover:border-white hover:text-white 
+                             transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-white/20
+                             active:scale-95"
+                >
+                  <span className="relative z-10 flex items-center gap-1.5">
+                    <span>{getCategoryIcon(subCategory.categoryName)}</span>
+                    <span>{subCategory.categoryName}</span>
+                  </span>
+                  {/* 호버 시 배경 그라데이션 */}
+                  <div className="absolute inset-0 rounded-full bg-white/5 opacity-0 group-hover/keyword:opacity-100 transition-opacity duration-300" />
+                </button>
+              );
+            })}
           </div>
         </form>
       </div>

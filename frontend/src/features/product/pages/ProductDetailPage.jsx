@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ImageGallery from '../components/ImageGallery';
 import ProductInfo from '../components/ProductInfo';
 import SellerProfile from '../../../features/seller/components/SellerProfile';
@@ -27,6 +27,7 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 const ProductDetailPage = () => {
   const { id: routeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
   
@@ -81,18 +82,24 @@ const ProductDetailPage = () => {
   // productResponse가 변경되면 isLiked 상태 동기화
   useEffect(() => {
     if (productResponse) {
-      // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined
-      const newLiked = productResponse?.liked !== undefined ? productResponse.liked : undefined;
+      // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined (liked, isLiked, isLike 모두 체크)
+      const newLiked = productResponse?.liked !== undefined 
+        ? productResponse.liked 
+        : (productResponse?.isLiked !== undefined 
+          ? productResponse.isLiked 
+          : (productResponse?.isLike !== undefined ? productResponse.isLike : undefined));
       console.log('[ProductDetailPage] productResponse 변경 감지:', { 
         productId, 
         oldLiked: isLiked, 
         newLiked,
-        hasLikedField: 'liked' in (productResponse || {})
+        hasLikedField: 'liked' in (productResponse || {}),
+        hasIsLikedField: 'isLiked' in (productResponse || {}),
+        hasIsLikeField: 'isLike' in (productResponse || {})
       });
       // undefined일 경우 false로 표시 (UI용)
       setIsLiked(newLiked ?? false);
     }
-  }, [productResponse?.liked, productId]);
+  }, [productResponse?.liked, productResponse?.isLiked, productResponse?.isLike, productId]);
   
   const handleLikeClick = () => {
     if (isLikeLoading || !productResponse || !productId) {
@@ -199,11 +206,21 @@ const ProductDetailPage = () => {
       },
       hashtags: productResponse?.hashtags || [],
       reviews: reviews,
-      isLiked: productResponse?.liked !== undefined ? productResponse.liked : false,
+      isLiked: productResponse?.liked !== undefined 
+        ? productResponse.liked 
+        : (productResponse?.isLiked !== undefined 
+          ? productResponse.isLiked 
+          : (productResponse?.isLike !== undefined ? productResponse.isLike : false)),
       disabledDates: disabledDates,
       category: productResponse?.category?.name || productResponse?.category || '',
       rating: Number(productResponse?.rating) || 0,
       totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
+      // 추가 정보
+      rentMethod: productResponse?.rentMethod || 'BOTH',
+      videoNecessary: productResponse?.videoNecessary || false,
+      startRent: productResponse?.startRent || null,
+      endRent: productResponse?.endRent || null,
+      uploadType: productResponse?.uploadType || 'RENT',
     };
   }, [productResponse, sellerUser]);
 
@@ -236,6 +253,19 @@ const ProductDetailPage = () => {
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
+  };
+
+  // 뒤로가기 핸들러: 물품 등록 직후라면 마이페이지 등록 물품 탭으로, 아니면 이전 페이지로
+  const handleBackClick = () => {
+    if (location.state?.fromCreate) {
+      // 물품 등록 직후: 마이페이지 등록 물품 탭으로 이동
+      navigate(ROUTE_PATHS.MYPAGE, {
+        state: { activeTab: 'products', productTab: 'registered' }
+      });
+    } else {
+      // 일반적인 경우: 프로덕트 목록 페이지로 (URL 파라미터 없이 깨끗하게)
+      navigate(ROUTE_PATHS.PRODUCTS);
+    }
   };
 
   // 터치 이벤트 핸들러
@@ -288,16 +318,42 @@ const ProductDetailPage = () => {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
 
+      // 채팅방으로 이동 (생성된 채팅방 데이터를 state로 전달하여 조회 API 호출 생략)
+      // 대여 요청 메시지를 자동으로 전송하기 위해 dateRange와 product 정보도 전달
+      // product 객체를 전달할 때 필요한 정보만 추출하여 전달 (직렬화 가능하도록)
+      const productDataForRental = {
+        id: product.id,
+        title: product.title,
+        name: product.title, // 호환성을 위해 name도 포함
+        imageUrl: product.images && product.images.length > 0 ? product.images[0] : null,
+        images: product.images || [],
+        mainImageUrl: product.images && product.images.length > 0 ? product.images[0] : null,
+        price: product.price,
+        dailyPrice: product.price, // 호환성을 위해 dailyPrice도 포함
+        deposit: product.deposit || 0
+      };
+      
+      console.log('[ProductDetailPage] 대여 요청 데이터 전달:', {
+        chatRoomId,
+        dateRange,
+        product: productDataForRental,
+        rentMethod: 'BOTH'
+      });
+      
       // 채팅방으로 이동하면서 대여 요청 정보 전달
       navigate(`/chats/${chatRoomId}`, {
         state: {
           productId: product.id,
           chatRoomData: chatRoomData, // 생성 응답 데이터 전달
+          // 대여 요청 메시지 자동 전송을 위한 정보
+          shouldSendRentalRequest: true,
           autoSendRentalRequest: true, // 자동 대여 요청 플래그
           rentalRequestData: {
+            dateRange: dateRange,
+            product: productDataForRental,
+            rentMethod: 'BOTH', // 기본값 (채팅방 내에서 변경 가능)
             startDate: dateRange.start.toISOString(),
             endDate: dateRange.end.toISOString(),
-            rentMethod: rentMethod,
             productTitle: product.title
           }
         }
@@ -322,11 +378,11 @@ const ProductDetailPage = () => {
       <div className="min-h-screen bg-gray-50">
         {/* 데스크톱 레이아웃 */}
         <div className="hidden lg:block h-screen overflow-hidden">
-          <div className="max-w-[1400px] mx-auto px-6 py-8 h-full flex flex-col">
+          <div className="max-w-[1400px] mx-auto px-6 py-3 h-full flex flex-col">
             {/* 헤더: 뒤로가기 버튼 + 프로필 */}
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <button
-                onClick={() => navigate(-1)}
+                onClick={handleBackClick}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,6 +460,57 @@ const ProductDetailPage = () => {
                   <div className="text-sm text-gray-600 mb-6">
                     보증금: {product.deposit.toLocaleString()}원
                   </div>
+
+                  {/* 추가 정보 */}
+                  <div className="space-y-3 mb-6">
+                    {/* 거래 방식 */}
+                    <div className="flex items-center gap-2">
+                      {product.rentMethod === 'BOTH' && (
+                        <>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                            🚗 직접 거래
+                          </span>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                            📦 택배 거래
+                          </span>
+                        </>
+                      )}
+                      {product.rentMethod === 'ONLY_OFFLINE' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                          🚗 직접 거래만 가능
+                        </span>
+                      )}
+                      {product.rentMethod === 'ONLY_ONLINE' && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
+                          📦 택배 거래만 가능
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 영상 촬영 필요 */}
+                    {product.videoNecessary && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium">
+                          📹 수령/반납 시 영상 촬영 필수
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 대여 가능 기간 */}
+                    {(product.startRent || product.endRent) && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>
+                          대여 가능 기간: {' '}
+                          {product.startRent && new Date(product.startRent).toLocaleDateString('ko-KR')}
+                          {' ~ '}
+                          {product.endRent ? new Date(product.endRent).toLocaleDateString('ko-KR') : '제한 없음'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* 대여 기간 선택 */}
@@ -416,6 +523,8 @@ const ProductDetailPage = () => {
                       <DateRangeCalendar
                         onDateRangeChange={handleDateRangeChange}
                         disabledDates={product.disabledDates || []}
+                        availableStartDate={product.startRent}
+                        availableEndDate={product.endRent}
                       />
                       
                       {/* 대여 방식 선택 */}
@@ -583,10 +692,10 @@ const ProductDetailPage = () => {
         {/* 모바일 레이아웃 */}
         <div className="lg:hidden">
           {/* 모바일 헤더 */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => navigate(-1)}
+                onClick={handleBackClick}
                 className="flex items-center gap-2 text-gray-600"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -668,6 +777,56 @@ const ProductDetailPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   {product.location}
+                </div>
+
+                {/* 추가 정보 - 모바일 */}
+                <div className="space-y-2 mt-4 pt-4 border-t border-gray-200">
+                  {/* 거래 방식 */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {product.rentMethod === 'BOTH' && (
+                      <>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                          🚗 직접 거래
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                          📦 택배 거래
+                        </span>
+                      </>
+                    )}
+                    {product.rentMethod === 'ONLY_OFFLINE' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                        🚗 직접 거래만 가능
+                      </span>
+                    )}
+                    {product.rentMethod === 'ONLY_ONLINE' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                        📦 택배 거래만 가능
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 영상 촬영 필요 */}
+                  {product.videoNecessary && (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
+                        📹 영상 촬영 필수
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 대여 가능 기간 */}
+                  {(product.startRent || product.endRent) && (
+                    <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>
+                        {product.startRent && new Date(product.startRent).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                        {' ~ '}
+                        {product.endRent ? new Date(product.endRent).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '제한 없음'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -771,6 +930,8 @@ const ProductDetailPage = () => {
                   <DateRangeCalendar
                     onDateRangeChange={handleDateRangeChange}
                     disabledDates={product.disabledDates || []}
+                    availableStartDate={product.startRent}
+                    availableEndDate={product.endRent}
                   />
                 </div>
 

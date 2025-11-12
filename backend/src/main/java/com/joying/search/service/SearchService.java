@@ -393,7 +393,7 @@ public class SearchService {
 
 			totalHits = hits.getTotalHits();
 			if (totalHits <= (long)(page + fetchCount) * size) break;
-			if (available.size() < size) break;
+			if (available.size() == size) break;
 			fetchCount += 1;
 			page++;
 		}
@@ -444,7 +444,7 @@ public class SearchService {
 		return SearchResponseDto.builder()
 			.searchResponses(responses)
 			.hashtags(hashtags)
-			.totalElements((long)available.size())
+			.totalElements(totalHits)
 			.page(page)
 			.size(size)
 			.fetchCount(fetchCount)

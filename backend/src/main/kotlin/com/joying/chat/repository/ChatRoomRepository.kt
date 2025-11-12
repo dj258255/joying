@@ -78,4 +78,23 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
         WHERE cr.chatRoomId = :chatRoomId
     """)
     fun findByIdWithFetchJoin(@Param("chatRoomId") chatRoomId: Long): Optional<ChatRoom>
+
+    /**
+     * 채팅방 ID로 조회 (프로필 이미지까지 Fetch Join 적용)
+     * Product, Buyer, Seller, ProfileImage(File)를 한 번에 조회
+     *
+     * 푸시 알림 전송 시 LazyInitializationException 방지용
+     * - withContext(Dispatchers.IO)에서 별도 스레드로 전환되면 Hibernate Session이 끊김
+     * - Member.profileImage (File 엔티티)까지 미리 로드하여 세션 없이도 접근 가능
+     */
+    @Query("""
+        SELECT DISTINCT cr FROM ChatRoom cr
+        LEFT JOIN FETCH cr.product p
+        LEFT JOIN FETCH cr.buyer b
+        LEFT JOIN FETCH b.profileImage
+        LEFT JOIN FETCH cr.seller s
+        LEFT JOIN FETCH s.profileImage
+        WHERE cr.chatRoomId = :chatRoomId
+    """)
+    fun findByIdWithProfileImages(@Param("chatRoomId") chatRoomId: Long): Optional<ChatRoom>
 }

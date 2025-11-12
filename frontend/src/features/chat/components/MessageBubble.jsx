@@ -15,9 +15,11 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} props.onEdit - 수정 핸들러
  * @param {string} [props.messageId] - 메시지 ID (검색 시 스크롤용)
  * @param {Function} [props.onReplyClick] - 답장 메시지 클릭 핸들러 (원본 메시지로 점프)
+ * @param {Function} [props.onRentalAccept] - 대여 요청 승인 핸들러
+ * @param {Function} [props.onRentalReject] - 대여 요청 거절 핸들러
  * @param {Array} [props.actionButtons] - 메시지 하단에 표시할 액션 버튼들
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick  }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick, onRentalAccept, onRentalReject }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);
@@ -212,42 +214,191 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
 
   // 대여 요청 메시지
   if (type === 'rental_request') {
-    return (
-      <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
-        <div className="max-w-sm">
-          <div 
-            className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-3"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
+    const rentalInfo = message.rentalInfo;
+    
+    // rentalInfo가 있으면 상세 정보 표시
+    if (rentalInfo) {
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+          const date = new Date(dateStr);
+          return date.toLocaleDateString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } catch (e) {
+          return dateStr;
+        }
+      };
+
+      return (
+        <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+          <div className="max-w-md w-full">
+            {/* 글래스모피즘 스타일 적용 - 양쪽 동일하게, 더 투명하고 밝게 */}
+            <div className="rounded-2xl p-5 backdrop-blur-xl bg-white/40 border border-white/30 shadow-xl">
+              {/* 요청자 프로필 정보 */}
+              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/20">
+                {rentalInfo.requesterProfileUrl ? (
+                  <>
+                    <img 
+                      src={rentalInfo.requesterProfileUrl} 
+                      alt={rentalInfo.requesterName || '요청자'}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-white/40 shadow-lg"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) {
+                          e.target.nextSibling.style.display = 'flex';
+                        }
+                      }}
+                    />
+                    <div 
+                      className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-white/40 shadow-lg hidden bg-white/30 backdrop-blur-sm"
+                    >
+                      <span className="text-black/80 text-base font-bold">
+                        {(rentalInfo.requesterName || '사용자')[0]}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-white/40 shadow-lg bg-white/30 backdrop-blur-sm">
+                    <span className="text-black/80 text-base font-bold">
+                      {(rentalInfo.requesterName || '사용자')[0]}
+                    </span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-base font-bold text-black/90 truncate mb-1">
+                    {rentalInfo.requesterName || '사용자'}
+                  </div>
+                  <div className="text-xs text-black/70">
+                    대여를 요청했습니다
+                  </div>
+                </div>
               </div>
-              <span className="text-sm font-medium text-gray-900">대여 요청</span>
+
+              {/* 상품 정보 카드 */}
+              <div className="rounded-xl p-4 mb-4 backdrop-blur-md bg-white/30 border border-white/40 shadow-lg">
+                <div className="flex gap-4">
+                  {rentalInfo.productImageUrl && (
+                    <div className="w-24 h-24 bg-white/20 rounded-xl overflow-hidden flex-shrink-0 border border-white/30 shadow-md">
+                      <img 
+                        src={rentalInfo.productImageUrl} 
+                        alt={rentalInfo.productTitle || '상품'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = '<div class="w-full h-full bg-white/20 flex items-center justify-center backdrop-blur-sm"><svg class="w-8 h-8 text-black/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>';
+                        }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-black/90 text-base mb-3 line-clamp-2">
+                      {rentalInfo.productTitle || '상품'}
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2 text-sm text-black/80">
+                        <svg className="w-5 h-5 mt-0.5 flex-shrink-0 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="font-semibold text-black/90 mb-0.5">대여 기간</div>
+                          <div className="text-sm text-black/75">
+                            {formatDate(rentalInfo.startDate)} ~ {formatDate(rentalInfo.endDate)}
+                          </div>
+                          <div className="text-xs text-black/65 mt-1">
+                            총 {rentalInfo.days}일
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 가격 정보 */}
+              {(rentalInfo.dailyPrice || rentalInfo.deposit || rentalInfo.totalPrice) && (
+                <div className="rounded-xl p-4 mb-4 backdrop-blur-md bg-white/30 border border-white/40 shadow-lg">
+                  <div className="space-y-3">
+                    {rentalInfo.dailyPrice && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-black/75">일일 대여료</span>
+                        <span className="font-bold text-black/90">{rentalInfo.dailyPrice.toLocaleString()}원</span>
+                      </div>
+                    )}
+                    {rentalInfo.deposit && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-black/75">보증금</span>
+                        <span className="font-bold text-black/90">{rentalInfo.deposit.toLocaleString()}원</span>
+                      </div>
+                    )}
+                    {rentalInfo.totalPrice && (
+                      <div className="border-t border-white/30 pt-3 mt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-base text-black/90">총 금액</span>
+                          <span className="font-bold text-xl text-black/90">
+                            {rentalInfo.totalPrice.toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 상태 표시 (대기 중 제외) */}
+              {rentalInfo.status && rentalInfo.status !== 'pending' && (
+                <div className="text-xs font-medium px-3 py-1.5 rounded-full inline-block mb-3 backdrop-blur-md bg-white/40 text-black/80 border border-white/50 shadow-md">
+                  {rentalInfo.status === 'approved' && '승인됨'}
+                  {rentalInfo.status === 'rejected' && '거절됨'}
+                </div>
+              )}
+
+              {/* 승인/거절 버튼 (판매자이고 pending 상태일 때만) */}
+              {!isOwn && rentalInfo.status === 'pending' && onRentalAccept && onRentalReject && (
+                <div className="flex gap-2 mt-3 pt-3 border-t border-white/30">
+                  <button
+                    onClick={() => onRentalAccept(message)}
+                    className="flex-1 py-2.5 px-4 bg-black/70 text-white rounded-lg font-semibold hover:bg-black/80 transition-colors text-sm shadow-lg backdrop-blur-md border border-white/20"
+                  >
+                    승인
+                  </button>
+                  <button
+                    onClick={() => onRentalReject(message)}
+                    className="flex-1 py-2.5 px-4 bg-white/60 text-black/80 rounded-lg font-semibold hover:bg-white/70 transition-colors text-sm shadow-lg backdrop-blur-md border border-white/40"
+                  >
+                    거절
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="text-sm text-gray-700">{content}</p>
-          </div>
-          <div 
-            className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500 flex items-center gap-1 relative`}
-          >
-            <span>{formatTime(timestamp)}</span>
-            {/* 액션 버튼 (항시 표시) */}
-            {!isDeleted && (
-              <button
-                onClick={handleActionButtonClick}
-                className="ml-2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors opacity-70 hover:opacity-100"
-                aria-label="메시지 액션"
-              >
-                <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
-              </button>
-            )}
+            <div 
+              className={`text-xs mt-2 ${isOwn ? 'text-right' : 'text-left'} text-black/60 flex items-center gap-1 relative`}
+            >
+              <span>{formatTime(timestamp)}</span>
+              {/* 액션 버튼 (항시 표시) */}
+              {!isDeleted && (
+                <button
+                  onClick={handleActionButtonClick}
+                  className="ml-2 p-1 rounded-full hover:bg-white/30 transition-colors opacity-70 hover:opacity-100 backdrop-blur-sm"
+                  aria-label="메시지 액션"
+                >
+                  <svg className="w-4 h-4 text-black/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+    
+    // rentalInfo가 없으면 렌더링하지 않음 (데이터 오류)
+    // normalizeMessage에서 rentalInfo를 파싱해야 하는데 실패한 경우
+    console.warn('[MessageBubble] rental_request 타입이지만 rentalInfo가 없음:', message);
+    return null;
   }
 
   // 결제 완료 메시지
