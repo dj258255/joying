@@ -64,23 +64,34 @@ public class ReviewController {
 		return ApiResponse.ok("리뷰 조회 성공", reviewResponseDto);
 	}
 
+	@Operation(summary = "리뷰 단건 조회", description = "리뷰 ID로 단건 리뷰를 조회합니다.")
+	@GetMapping("/{reviewId}")
+	public ResponseEntity<?> getReview(
+		@PathVariable Long reviewId,
+		Authentication authentication
+	) {
+		Long authId = Long.parseLong(authentication.getName());
+		ReviewResponseDto response = reviewService.getReview(reviewId, authId);
+		return ApiResponse.ok(response);
+	}
+
 	@Operation(summary = "상품 리뷰 작성", description = "물품에 대한 리뷰를 작성합니다.")
 	@PostMapping
 	public ResponseEntity<?> createReview(
 		@RequestBody ReviewRequestDto dto,
 		Authentication authentication) {
 		Long authId = Long.parseLong(authentication.getName());
-		Long reviewId = reviewService.createReview(dto, authId);
-		return ApiResponse.created(reviewId);
+		return ApiResponse.created(reviewService.createReview(dto, authId));
 	}
 
 	@Operation(summary = "리뷰 수정", description = "리뷰를 수정합니다.(제목, 내용, 평점)")
-	@PatchMapping
+	@PatchMapping("/{reviewId}")
 	public ResponseEntity<?> updateReview(
+		@PathVariable Long reviewId,
 		@RequestBody ReviewRequestDto dto,
 		Authentication authentication) {
 		Long authId = Long.parseLong(authentication.getName());
-		reviewService.updateReview(dto, authId);
+		reviewService.updateReview(reviewId, dto, authId);
 		return ApiResponse.ok("리뷰가 수정되었습니다.", null);
 	}
 

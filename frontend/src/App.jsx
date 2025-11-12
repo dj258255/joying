@@ -28,6 +28,8 @@ const UserProfilePage = React.lazy(() => import('@/features/mypage/pages/UserPro
 const BorrowedHistoryPage = React.lazy(() => import('@/features/mypage/pages/BorrowedHistoryPage'))
 const LentHistoryPage = React.lazy(() => import('@/features/mypage/pages/LentHistoryPage'))
 const RentalApiTestPage = React.lazy(() => import('@/features/rental/pages/RentalApiTestPage'))
+const ReviewListPage = React.lazy(() => import('@/features/review/pages/ReviewListPage'))
+const ReviewWritePage = React.lazy(() => import('@/features/review/pages/ReviewWritePage'))
 
 function App() {
   return (
@@ -42,7 +44,9 @@ function App() {
             <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
             <Route path="/auth/callback" element={<OAuth2CallbackPage />} />
             <Route path={ROUTE_PATHS.PRODUCTS} element={<ProductListPage />} />
-            
+            <Route path="/reviews/product/:productId" element={<ReviewListPage type="product" />} />
+            <Route path="/reviews/member/:memberId" element={<ReviewListPage type="member" />} />
+
             {/* 보호된 라우트 */}
             <Route path={ROUTE_PATHS.PRODUCT_CREATE} element={
               <ProtectedRoute>
@@ -104,6 +108,17 @@ function App() {
             <Route path="/mypage/lent/:rentalId" element={
               <ProtectedRoute>
                 <LentHistoryPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path={ROUTE_PATHS.REVIEW_WRITE} element={
+              <ProtectedRoute>
+                <ReviewWritePage mode="create" />
+              </ProtectedRoute>
+            } />
+            <Route path="/reviews/:reviewId/edit" element={
+              <ProtectedRoute>
+                <ReviewWritePage mode="edit" />
               </ProtectedRoute>
             } />
             

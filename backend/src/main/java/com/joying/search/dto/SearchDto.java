@@ -22,7 +22,8 @@ public record SearchDto(
 	Long categoryId,
 	double rating,
 	String thumbnailUrl,
-	List<String> hashtags) {
+	List<String> hashtags,
+	Boolean isLike) {
 
 	public static SearchDto fromEntityRDB(Product product) {
 		return SearchDto.builder()
@@ -41,7 +42,7 @@ public record SearchDto(
 			.build();
 	}
 
-	public static SearchDto fromEntity(SearchDocument searchDocument, String thumbnailUrl) {
+	public static SearchDto fromEntity(SearchDocument searchDocument, String thumbnailUrl, Boolean isLike) {
 		return SearchDto.builder()
 			.productId(searchDocument.getProductId())
 			.title(searchDocument.getTitle())
@@ -56,6 +57,7 @@ public record SearchDto(
 			.rating(searchDocument.getRating())
 			.thumbnailUrl(thumbnailUrl)
 			.hashtags(searchDocument.getHashtags())
+			.isLike(isLike)
 			.build();
 	}
 }

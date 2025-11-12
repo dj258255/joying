@@ -25,7 +25,7 @@ import org.hibernate.annotations.Comment;
         },
         uniqueConstraints = {
                 // 한 멤버가 같은 상품에 리뷰를 한 번만
-                @UniqueConstraint(name = "uk_review_reviewer_product", columnNames = {"reviewer_id", "product_id", "reviewed_id"})
+                @UniqueConstraint(name = "uk_review_reviewer_rental_his", columnNames = {"reviewer_id", "rental_his_id"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

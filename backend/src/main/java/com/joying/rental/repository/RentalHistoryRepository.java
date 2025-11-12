@@ -115,4 +115,13 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
             @Param("productId") Long productId,
             @Param("statuses") List<RentalStatus> statuses
     );
+
+    @Query("""
+        SELECT rh FROM RentalHistory rh
+        JOIN FETCH rh.rentalProduct rp
+        JOIN FETCH rp.writer
+        JOIN FETCH rh.member
+        WHERE rh.rentalHisId = :id
+    """)
+    Optional<RentalHistory> findWithProductAndMemberById(Long id);
 }

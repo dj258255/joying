@@ -9,35 +9,18 @@ import { productReviewApi } from '../api/productReviewApi';
 import { userReviewApi } from '../api/userReviewApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
-export const useReviewWrite = (type = 'general') => {
+export const useReviewWrite = (type = 'general', targetId = null) => {
   const queryClient = useQueryClient();
 
-  // 일반 리뷰 작성
+  // 리뷰 작성
   const createReviewMutation = useMutation({
-    mutationFn: reviewApi.createReview,
+    mutationFn: async (reviewData) => {
+      const res = await reviewApi.createReview(reviewData);
+      return res.data.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.REVIEWS]);
-    }
-  });
-
-  // 상품 리뷰 작성
-  const createProductReviewMutation = useMutation({
-    mutationFn: ({ productId, reviewData }) => 
-      productReviewApi.createProductReview(productId, reviewData),
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.REVIEWS]);
-      queryClient.invalidateQueries([QUERY_KEYS.PRODUCTS]);
-    }
-  });
-
-  // 사용자 리뷰 작성
-  const createUserReviewMutation = useMutation({
-    mutationFn: ({ userId, reviewData }) => 
-      userReviewApi.createUserReview(userId, reviewData),
-    onSuccess: () => {
-      queryClient.invalidateQueries([QUERY_KEYS.REVIEWS]);
-      queryClient.invalidateQueries([QUERY_KEYS.USER]);
-    }
+    },
   });
 
   // 리뷰 수정
@@ -57,27 +40,20 @@ export const useReviewWrite = (type = 'general') => {
     }
   });
 
-  const getMutationByType = () => {
-    switch (type) {
-      case 'product':
-        return createProductReviewMutation;
-      case 'user':
-        return createUserReviewMutation;
-      default:
-        return createReviewMutation;
-    }
+  const getReviewDetail = async (reviewId) => {
+    const res = await reviewApi.getReviewDetail(reviewId);
+    return res?.data;
   };
 
-  const mutation = getMutationByType();
-
   return {
-    createReview: mutation.mutateAsync,
+    createReview: createReviewMutation.mutateAsync,
     updateReview: updateReviewMutation.mutateAsync,
     deleteReview: deleteReviewMutation.mutateAsync,
-    isCreating: mutation.isPending,
+    getReviewDetail,
+    isCreating: createReviewMutation.isPending,
     isUpdating: updateReviewMutation.isPending,
     isDeleting: deleteReviewMutation.isPending,
-    createError: mutation.error,
+    createError: createReviewMutation.error,
     updateError: updateReviewMutation.error,
     deleteError: deleteReviewMutation.error
   };

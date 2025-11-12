@@ -96,7 +96,10 @@ public class SecurityConfig {
 					"/api/v1/search/**",
 					"/api/v1/category/**",
 					"/api/v1/hashtag/**",
-					"/api/v1/regions/**"
+					"/api/v1/regions/**",
+					"/api/v1/review/member/**",
+					"/api/v1/review/product/**",
+					"/api/v1/review/rental/**"
 				).permitAll()
 				// OAuth2 로그인 엔드포인트
 				.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
