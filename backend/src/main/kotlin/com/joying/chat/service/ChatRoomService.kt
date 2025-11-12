@@ -98,6 +98,15 @@ class ChatRoomService(
             if (requestMemberRecord != null && requestMemberRecord.isLeft) {
                 requestMemberRecord.rejoin()
                 logger.info("채팅방 재입장 (요청자): chatRoomId={}, memberId={}", chatRoom.chatRoomId, requestMemberId)
+
+                // 재입장 알림 전송 (비동기)
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        sendRejoinNotification(chatRoom.chatRoomId!!, requestMemberId)
+                    } catch (e: Exception) {
+                        logger.error("재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}", chatRoom.chatRoomId, requestMemberId, e.message, e)
+                    }
+                }
             }
 
             // 2. 상대방도 나간 상태면 함께 재입장 (채팅방 재활성화)
@@ -169,7 +178,12 @@ class ChatRoomService(
      */
     @Transactional
     fun getOrCreateChatRoomResponse(productId: Long, buyerId: Long): ChatRoomResponse {
+        // 채팅방 생성 또는 조회
         val chatRoom = getOrCreateChatRoom(productId, buyerId)
+
+        // 내 설정 조회
+        val myMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, buyerId)
+            .orElse(null)
 
         // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
         return ChatRoomResponse(
@@ -196,8 +210,9 @@ class ChatRoomService(
             lastMessageAt = chatRoom.lastMessageAt,
             unreadCount = 0L,
             status = chatRoom.status,
-            isPinned = false,
-            isMuted = false
+            isPinned = myMember?.isPinned ?: false,
+            isMuted = myMember?.isMuted ?: false,
+            isLeft = myMember?.isLeft ?: false
         )
     }
 
@@ -269,7 +284,8 @@ class ChatRoomService(
                 unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
                 status = chatRoom.status,
                 isPinned = settings.isPinned,
-                isMuted = settings.isMuted
+                isMuted = settings.isMuted,
+                isLeft = settings.isLeft
             )
         }
     }
@@ -346,6 +362,7 @@ class ChatRoomService(
             status = chatRoom.status,
             isPinned = settings.isPinned,
             isMuted = settings.isMuted,
+            isLeft = settings.isLeft,
             member = memberInfo  // ← 선택적 포함
         )
     }
@@ -427,6 +444,38 @@ class ChatRoomService(
     }
 
     /**
+     * 채팅방 재입장
+     * 나간 사용자가 메시지를 보내면 자동으로 다시 입장
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param memberId 회원 ID
+     * @return 재입장 여부 (이미 입장 상태면 false)
+     */
+    @Transactional
+    fun rejoinChatRoom(chatRoomId: Long, memberId: Long): Boolean {
+        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+            .orElse(null) ?: return false
+
+        // 이미 입장 상태면 아무것도 하지 않음
+        if (!chatRoomMember.isLeft) {
+            return false
+        }
+
+        // 재입장 처리
+        chatRoomMember.rejoin()
+
+        // 명시적으로 저장 (JPA Dirty Checking도 작동하지만 명시적으로 저장하는 것이 더 안전)
+        chatRoomMemberRepository.save(chatRoomMember)
+
+        // 권한 캐시 복원 (필요시)
+        permissionCache.invalidate(chatRoomId, memberId)
+
+        logger.info("채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, memberId)
+
+        return true
+    }
+
+    /**
      * 30일 미사용 채팅방 자동 종료
      * (스케줄러에서 호출)
      */
@@ -439,9 +488,28 @@ class ChatRoomService(
             chatRoom.autoClose()
             logger.info("채팅방 자동 종료: chatRoomId={}, lastMessageAt={}", chatRoom.chatRoomId, chatRoom.lastMessageAt)
 
-            // 양쪽 멤버에게 실시간 알림 전송 (비동기)
+            // 시스템 메시지 저장 및 양쪽 멤버에게 실시간 알림 전송 (비동기)
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    // 1. 시스템 메시지 생성 및 저장
+                    val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoom.chatRoomId!!,
+                        content = "채팅방이 30일 미사용으로 자동 종료되었습니다"
+                    )
+                    systemMessage.createdAt = Instant.now()
+
+                    val savedMessage = chatMessageRepository.save(systemMessage)
+
+                    // 2. Redis Pub/Sub로 발행 (실시간 전달) - 양쪽에게 전송
+                    val buyerMessageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
+                        .copy(receiverId = chatRoom.buyer.memberId!!)
+                    redisPubSubPublisher.publish(buyerMessageDto)
+
+                    val sellerMessageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
+                        .copy(receiverId = chatRoom.seller.memberId!!)
+                    redisPubSubPublisher.publish(sellerMessageDto)
+
+                    // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
                     val event = ChatRoomStatusEvent(
                         chatRoomId = chatRoom.chatRoomId!!,
                         eventType = ChatRoomStatusEvent.EventType.ROOM_CLOSED,
@@ -465,13 +533,13 @@ class ChatRoomService(
                     )
 
                     logger.debug(
-                        "채팅방 자동 종료 이벤트 전송: chatRoomId={}, to=[{}, {}]",
+                        "채팅방 자동 종료 메시지 저장 및 이벤트 전송: chatRoomId={}, to=[{}, {}]",
                         chatRoom.chatRoomId,
                         chatRoom.buyer.memberId,
                         chatRoom.seller.memberId
                     )
                 } catch (e: Exception) {
-                    logger.error("채팅방 자동 종료 이벤트 전송 실패: chatRoomId={}, error={}", chatRoom.chatRoomId, e.message, e)
+                    logger.error("채팅방 자동 종료 메시지 저장 실패: chatRoomId={}, error={}", chatRoom.chatRoomId, e.message, e)
                 }
             }
         }
@@ -563,5 +631,73 @@ class ChatRoomService(
         val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
 
         return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
+    }
+
+    /**
+     * 재입장 알림 전송
+     *
+     * 재입장 시 시스템 메시지 저장 및 WebSocket 알림 전송
+     *
+     * @param chatRoomId 채팅방 ID
+     * @param memberId 재입장한 회원 ID
+     */
+    private suspend fun sendRejoinNotification(chatRoomId: Long, memberId: Long) {
+        withContext(Dispatchers.IO) {
+            try {
+                // 채팅방 정보 조회
+                val chatRoom = chatRoomRepository.findById(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+                // 재입장한 사용자 닉네임
+                val rejoiningMemberNickname = if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.buyer.nickname
+                } else {
+                    chatRoom.seller.nickname
+                }
+
+                // 상대방 ID 계산
+                val receiverId = if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.seller.memberId!!
+                } else {
+                    chatRoom.buyer.memberId!!
+                }
+
+                // 1. 시스템 메시지 생성 및 저장 (MongoDB)
+                val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
+                    chatRoomId = chatRoomId,
+                    content = "${rejoiningMemberNickname}님이 다시 들어왔습니다"
+                )
+                systemMessage.createdAt = Instant.now()
+
+                val savedMessage = chatMessageRepository.save(systemMessage)
+
+                logger.info("재입장 시스템 메시지 MongoDB 저장: chatRoomId={}, memberId={}", chatRoomId, memberId)
+
+                // 2. Redis Pub/Sub로 발행 (실시간 전달)
+                val messageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
+                    .copy(receiverId = receiverId)
+                redisPubSubPublisher.publish(messageDto)
+
+                logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+
+                // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
+                val event = ChatRoomStatusEvent(
+                    chatRoomId = chatRoomId,
+                    eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
+                    memberId = memberId,
+                    memberNickname = rejoiningMemberNickname
+                )
+
+                messagingTemplate.convertAndSendToUser(
+                    receiverId.toString(),
+                    "/queue/chatroom-status",
+                    event
+                )
+
+                logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
+            } catch (e: Exception) {
+                logger.error("채팅방 재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}", chatRoomId, memberId, e.message, e)
+            }
+        }
     }
 }
