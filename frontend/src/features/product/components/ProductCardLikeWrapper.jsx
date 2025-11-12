@@ -25,8 +25,12 @@ const ProductCardLikeWrapper = ({
   showDate = false
 }) => {
   const productId = product?.productId || product?.id;
-  // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined (임의로 false 설정하지 않음)
-  const initialLiked = product?.liked !== undefined ? product.liked : (product?.isLiked !== undefined ? product.isLiked : undefined);
+  // 서버 응답의 liked 필드 체크 (liked, isLiked, isLike 모두 체크)
+  const initialLiked = product?.liked !== undefined 
+    ? product.liked 
+    : (product?.isLiked !== undefined 
+      ? product.isLiked 
+      : (product?.isLike !== undefined ? product.isLike : undefined));
   
   // 로컬 상태로 즉시 UI 반영 (undefined일 경우 false로 표시)
   const [isLiked, setIsLiked] = useState(initialLiked ?? false);
@@ -35,19 +39,28 @@ const ProductCardLikeWrapper = ({
 
   // product가 변경되면 isLiked 상태 동기화
   useEffect(() => {
-    // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined
-    const newLiked = product?.liked !== undefined ? product.liked : (product?.isLiked !== undefined ? product.isLiked : undefined);
+    // 서버 응답의 liked 필드 체크 (liked, isLiked, isLike 모두 체크)
+    const newLiked = product?.liked !== undefined 
+      ? product.liked 
+      : (product?.isLiked !== undefined 
+        ? product.isLiked 
+        : (product?.isLike !== undefined ? product.isLike : undefined));
+    
     console.log('[ProductCardLikeWrapper] product 변경 감지:', { 
       productId, 
       oldLiked: isLiked, 
       newLiked,
       initialLiked,
       hasLikedField: 'liked' in (product || {}),
-      hasIsLikedField: 'isLiked' in (product || {})
+      hasIsLikedField: 'isLiked' in (product || {}),
+      hasIsLikeField: 'isLike' in (product || {}),
+      productLiked: product?.liked,
+      productIsLiked: product?.isLiked,
+      productIsLike: product?.isLike
     });
     // undefined일 경우 false로 표시 (UI용)
     setIsLiked(newLiked ?? false);
-  }, [product?.liked, product?.isLiked, productId]);
+  }, [product?.liked, product?.isLiked, product?.isLike, productId]);
 
   const handleLike = (currentLiked) => {
     if (isLoading || !productId) {

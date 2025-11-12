@@ -8,20 +8,40 @@ import { searchApi } from '../api/searchApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 export const useSearch = (query, filters = {}, page) => {
+  console.log('🔍 [useSearch] 훅 호출됨 - 파라미터:', { query, filters, page });
+  
   // 통합 검색
   const {
     data: searchResults,
     isLoading,
     error,
-    refetch
+    isError,
+    refetch,
+    dataUpdatedAt
   } = useQuery({
-    queryKey: [QUERY_KEYS.SEARCH],
-    queryFn: () => searchApi.search({ query, ...filters, page, size: 20 }),
+    queryKey: [QUERY_KEYS.SEARCH, query, filters, page],
+    queryFn: () => {
+      console.log('🚀 [useSearch] queryFn 실행 중...');
+      return searchApi.search({ query, ...filters, page, size: 20 });
+    },
     enabled: false,
-    staleTime: 1000 * 60 * 2 // 2분
+    staleTime: 1000 * 60 * 2, // 2분
+    retry: false // 디버깅을 위해 재시도 비활성화
   });
 
   const data = searchResults?.data?.data;
+
+  console.log('📊 [useSearch] 상태:', {
+    query,
+    filters,
+    page,
+    isLoading,
+    isError,
+    error: error?.message,
+    hasSearchResults: !!searchResults,
+    searchResponsesCount: data?.searchResponses?.length || 0,
+    totalElements: data?.totalElements || 0
+  });
 
   return {
     searchResponses: data?.searchResponses || [],
@@ -29,9 +49,10 @@ export const useSearch = (query, filters = {}, page) => {
     total: data?.totalElements || 0,
     page: data?.page || 1,
     size: data?.size || 14,
+    fetchCount: data?.fetchCount || 0,
     isLoading,
     error,
-    isError: false,
+    isError,
     refetch
   };
 };
