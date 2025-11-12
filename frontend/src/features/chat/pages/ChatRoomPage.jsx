@@ -13,12 +13,12 @@ import ChatSettingsModal from '../components/ChatSettingsModal';
 import RentalRequestCard from '../components/RentalRequestCard';
 import RentalCreateModal from '../components/RentalCreateModal';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
+import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { messageApi } from '../api/messageApi';
 import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
-import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { chatApi } from '../api/chatApi';
@@ -28,10 +28,27 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 const SEARCH_PAGE_SIZE = 20;
 
 // 커스텀 날짜 선택 컴포넌트
-const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
+const DatePicker = ({ selectedDate, onSelectDate, onClose, messagesWithDates = [] }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  
+  // 메시지가 있는 날짜 집합 (날짜 문자열로 변환)
+  const datesWithMessages = useMemo(() => {
+    const dateSet = new Set();
+    messagesWithDates.forEach((msg) => {
+      if (msg.createdAt || msg.timestamp) {
+        const msgDate = new Date(msg.createdAt || msg.timestamp);
+        const dateStr = msgDate.toDateString();
+        dateSet.add(dateStr);
+      }
+    });
+    return dateSet;
+  }, [messagesWithDates]);
+  
+  const hasMessage = (date) => {
+    return datesWithMessages.has(date.toDateString());
+  };
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -143,13 +160,14 @@ const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
           const dateStr = day.date.toDateString();
           const isTodayDate = isToday(day.date);
           const isSelectedDate = isSelected(day.date);
+          const hasMessageOnDate = hasMessage(day.date);
           
           return (
             <button
               key={index}
               onClick={() => handleDateClick(day.date)}
               className={`
-                aspect-square text-sm rounded transition-all
+                aspect-square text-sm rounded transition-all relative
                 ${!day.isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
                 ${isTodayDate ? 'bg-gray-100 font-bold ring-2 ring-gray-900' : ''}
                 ${isSelectedDate ? 'bg-gray-900 text-white font-bold' : ''}
@@ -157,6 +175,10 @@ const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
               `}
             >
               {day.date.getDate()}
+              {/* 메시지가 있는 날짜에 빨간 점 표시 */}
+              {hasMessageOnDate && day.isCurrentMonth && (
+                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+              )}
             </button>
           );
         })}
@@ -191,6 +213,14 @@ const ChatRoomPage = () => {
   const [searchError, setSearchError] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showNoMessageModal, setShowNoMessageModal] = useState(false);
+  const [noMessageDate, setNoMessageDate] = useState(null);
+  
+  // 메시지 점프 관련 상태 (useEffect보다 먼저 선언되어야 함)
+  const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
+  const [pendingScrollMessageId, setPendingScrollMessageId] = useState(null);
+  const [isScrollingToMessage, setIsScrollingToMessage] = useState(false); // 스크롤 중 플래그 (자동 스크롤 방지용)
+  const lastJumpTimeRef = useRef(0); // 마지막 메시지 점프 시간 (자동 스크롤 방지용)
   
   // 상태 관리
   const [rentalRequestMessage, setRentalRequestMessage] = useState(null);
@@ -279,7 +309,22 @@ const ChatRoomPage = () => {
     }
   }, [messages]);
 
-  const scrollToBottom = useCallback((behavior = 'auto') => {
+  const scrollToBottom = useCallback((behavior = 'auto', force = false) => {
+    // 메시지 점프 후 일정 시간 동안은 자동 스크롤 비활성화 (force가 true가 아닌 경우)
+    if (!force) {
+      const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
+      if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
+        console.log('[scrollToBottom] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
+        return;
+      }
+    }
+    
+    // 메시지 점프 중이면 자동 스크롤하지 않음
+    if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+      console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
+      return;
+    }
+    
     if (messagesContainerRef.current) {
       if (behavior === 'smooth') {
         messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
@@ -289,26 +334,60 @@ const ChatRoomPage = () => {
     } else {
       messagesEndRef.current?.scrollIntoView({ behavior });
     }
-  }, []);
+  }, [isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
 
   useEffect(() => {
+    // 메시지 점프 후 일정 시간 동안은 자동 스크롤 완전히 비활성화
+    const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
+    if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
+      console.log('[useEffect sortedMessages] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
+      return;
+    }
+    
+    // 메시지 점프 중이거나 대기 중이면 자동 스크롤하지 않음
+    if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+      return;
+    }
     if (isNearBottom) {
       scrollToBottom('auto');
     }
-  }, [sortedMessages, isNearBottom, scrollToBottom]);
+  }, [sortedMessages, isNearBottom, scrollToBottom, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
 
   useEffect(() => {
+    // 메시지 점프 후 일정 시간 동안은 자동 스크롤 완전히 비활성화
+    const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
+    if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
+      // 읽음 처리만 실행
+      if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
+        sendReadReceipt();
+      }
+      return;
+    }
+    
+    // 메시지 점프 중이거나 대기 중이면 자동 스크롤하지 않음
+    if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+      // 읽음 처리만 실행
+      if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
+        sendReadReceipt();
+      }
+      return;
+    }
     scrollToBottom('auto');
     // 채팅방 진입 시 읽음 처리
     if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
       sendReadReceipt();
     }
-  }, [currentChatRoom?.chatRoomId, scrollToBottom, sendReadReceipt]);
+  }, [currentChatRoom?.chatRoomId, scrollToBottom, sendReadReceipt, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
 
-  // 메시지 전송 시 자동 스크롤
+  // 메시지 전송 시 자동 스크롤 (메시지 점프 중이 아니면)
   useEffect(() => {
     const handleMessageSent = () => {
-      scrollToBottom('smooth');
+      // 메시지 점프 후 일정 시간 동안은 자동 스크롤 비활성화
+      const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
+      if (timeSinceLastJump < 5000) {
+        return;
+      }
+      scrollToBottom('smooth', true); // 메시지 전송은 강제로 실행
     };
     window.addEventListener('chat:message-sent', handleMessageSent);
     return () => {
@@ -341,9 +420,20 @@ const ChatRoomPage = () => {
         });
     }
 
-    const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
-    setIsNearBottom(distanceFromBottom < 80);
-  }, [hasMorePast, isLoadingHistory, loadOlderMessages]);
+    // 메시지 점프 후 일정 시간 동안은 isNearBottom 업데이트를 건너뛰어 자동 스크롤 방지
+    const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
+    const shouldIgnoreScrollUpdate = timeSinceLastJump < 5000; // 5초 동안 무시
+    
+    if (!shouldIgnoreScrollUpdate && !isJumpingToMessage && !pendingScrollMessageId && !isScrollingToMessage) {
+      const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
+      setIsNearBottom(distanceFromBottom < 80);
+    } else {
+      // 메시지 점프 후에는 강제로 하단이 아님을 유지 (자동 스크롤 방지)
+      if (shouldIgnoreScrollUpdate || isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+        setIsNearBottom(false);
+      }
+    }
+  }, [hasMorePast, isLoadingHistory, loadOlderMessages, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
 
   const handleSendMessage = async (messageData) => {
     if (!messageData || !messageData.content) return;
@@ -744,13 +834,6 @@ const ChatRoomPage = () => {
   }, [isSearchOpen]);
 
   const openSearch = useCallback(() => {
-    // 채팅방 상단으로 이동
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-    }
     setIsSearchOpen(true);
     setSearchKeyword('');
     setSearchResults([]);
@@ -807,79 +890,64 @@ const ChatRoomPage = () => {
   // 메시지 점프 및 스크롤 (메시지 점프 API 사용)
   const scrollToMessage = useCallback(async (messageId, options = {}) => {
     if (!messageId || !currentChatRoom) {
+      console.warn('[scrollToMessage] 메시지 ID 또는 채팅방이 없습니다:', { messageId, currentChatRoom });
       return false;
     }
 
+    const messageIdStr = String(messageId);
+    console.log('[scrollToMessage] 시작:', { messageId: messageIdStr, currentMessagesCount: sortedMessages.length });
+
     try {
+      // 먼저 현재 메시지 목록에서 메시지가 있는지 확인
+      const messageExists = sortedMessages.some(msg => {
+        const msgId = String(msg.id || '');
+        return msgId === messageIdStr;
+      });
+      
+      console.log('[scrollToMessage] 현재 목록에 메시지 존재 여부:', messageExists);
+
+      if (messageExists) {
+        // 현재 목록에 있으면 바로 스크롤 (API 호출 없이)
+        // 메시지 점프 시작 시간 기록
+        lastJumpTimeRef.current = Date.now();
+        setPendingScrollMessageId(messageIdStr);
+        return true;
+      }
+
+      // 현재 목록에 없으면 메시지 점프 API 호출
+      console.log('[scrollToMessage] 메시지 점프 API 호출 시작:', messageIdStr);
       setIsJumpingToMessage(true);
       setSearchError('');
-
-      // 메시지 점프 API 호출
-      const result = await jumpToMessage(messageId, { before: 20, after: 20, ...options });
+      // 메시지 점프 시작 시간 기록
+      lastJumpTimeRef.current = Date.now();
+      
+      const result = await jumpToMessage(messageIdStr, { before: 20, after: 20, ...options });
       
       if (!result || !result.success) {
+        console.error('[scrollToMessage] 메시지 점프 API 실패:', result);
         setSearchError('메시지를 찾을 수 없습니다.');
+        setIsJumpingToMessage(false);
         return false;
       }
 
-      // DOM 업데이트 대기 후 스크롤
-      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      await wait(100);
+      console.log('[scrollToMessage] 메시지 점프 API 성공:', { 
+        messageId: messageIdStr, 
+        mergedMessagesCount: result.messages?.length,
+        targetMessageIndex: result.targetMessageIndex 
+      });
 
-      const container = messagesContainerRef.current;
-      if (!container) {
-        setSearchError('메시지 컨테이너를 찾을 수 없습니다.');
-        return false;
-      }
-
-      // DOM 요소를 찾을 때까지 여러 번 시도
-      let element = null;
-      for (let attempt = 0; attempt < 30; attempt++) {
-        await wait(100);
-        element = document.getElementById(`message-${messageId}`);
-        if (element) break;
-      }
-
-      if (element) {
-        setIsNearBottom(false);
-        setIsSearchOpen(false);
-        
-        // 하이라이트 효과 추가
-        element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
-        
-        // 스크롤 컨테이너 내에서 요소의 위치 계산
-        const elementTop = element.offsetTop;
-        const elementHeight = element.offsetHeight;
-        const containerHeight = container.clientHeight;
-        
-        // 요소를 컨테이너 중앙에 위치시키기
-        const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-        
-        // 스크롤 실행
-        container.scrollTo({
-          top: Math.max(0, targetScrollTop),
-          behavior: 'smooth'
-        });
-        
-        // 2초 후 하이라이트 제거
-        setTimeout(() => {
-          element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
-        }, 2000);
-        
-        return true;
-      } else {
-        console.warn('[scrollToMessage] DOM 요소를 찾을 수 없음:', messageId);
-        setSearchError('메시지 요소를 찾을 수 없습니다.');
-        return false;
-      }
+      // 메시지가 업데이트되면 useEffect가 자동으로 스크롤 처리
+      // 메시지 점프 시작 시간 기록
+      lastJumpTimeRef.current = Date.now();
+      setPendingScrollMessageId(messageIdStr);
+      return true;
     } catch (error) {
       console.error('[scrollToMessage] 메시지 점프 실패:', error);
       setSearchError(error.message || '메시지 점프에 실패했습니다.');
-      return false;
-    } finally {
       setIsJumpingToMessage(false);
+      return false;
     }
-  }, [currentChatRoom, jumpToMessage, setIsNearBottom, setIsSearchOpen, setSearchError]);
+  }, [currentChatRoom, jumpToMessage, setIsNearBottom, setIsSearchOpen, setSearchError, sortedMessages]);
 
   // 날짜로 검색 (해당 날짜의 첫 메시지로 이동)
   const handleDateSearch = useCallback(async (date) => {
@@ -891,33 +959,24 @@ const ChatRoomPage = () => {
     nextDay.setDate(nextDay.getDate() + 1);
     
     try {
-      // 먼저 현재 메시지 목록에서 해당 날짜의 메시지 찾기
-      const messagesOnDate = messagesRef.current.filter((msg) => {
-        if (!msg.timestamp) return false;
-        const msgDate = new Date(msg.timestamp);
-        return msgDate >= targetDate && msgDate < nextDay;
-      });
+      setSearchError('');
+      console.log('[handleDateSearch] 날짜 검색 시작:', { date, targetDate: targetDate.toISOString(), nextDay: nextDay.toISOString() });
       
-      if (messagesOnDate.length > 0) {
-        // 가장 첫 메시지로 이동 (메시지 점프 API 사용)
-        const firstMessage = messagesOnDate[0];
-        await scrollToMessage(firstMessage.id);
-        return;
-      }
-
-      // 현재 목록에 없으면 해당 날짜의 첫 메시지를 찾기 위해
-      // 날짜 시작 시간 이후의 메시지를 조회 (after 파라미터 사용)
       const roomId = currentChatRoom.chatRoomId || currentChatRoom.id;
       if (!roomId) {
         setSearchError('채팅방 ID를 확인할 수 없습니다.');
         return;
       }
 
-      // 날짜 시작 시간 이후의 메시지 조회
+      console.log('[handleDateSearch] API로 메시지 조회 시작:', roomId);
+      
+      // 날짜 시작 시간 이후의 메시지 조회 (더 많은 메시지를 가져와서 해당 날짜의 메시지를 찾을 수 있도록)
       const dateMessages = await messageApi.getMessages(roomId, {
         after: targetDate.toISOString(),
-        size: 100
+        size: 200 // 더 많은 메시지를 가져와서 해당 날짜의 메시지를 찾을 수 있도록
       });
+
+      console.log('[handleDateSearch] API로 조회한 메시지 수:', dateMessages.length);
 
       // 해당 날짜의 메시지 필터링 (다음 날 이전)
       const messagesOnTargetDate = dateMessages.filter((msg) => {
@@ -926,20 +985,228 @@ const ChatRoomPage = () => {
         return msgDate >= targetDate && msgDate < nextDay;
       });
       
+      console.log('[handleDateSearch] 필터링된 메시지 수:', messagesOnTargetDate.length);
+      
       if (messagesOnTargetDate.length > 0) {
-        // 가장 첫 메시지로 이동 (메시지 점프 API 사용)
-        const firstMessage = messagesOnTargetDate[0];
-        await scrollToMessage(firstMessage.id);
+        // 시간순으로 정렬하여 가장 첫 메시지 찾기
+        const sortedMessagesOnTargetDate = messagesOnTargetDate.sort((a, b) => {
+          const aTime = new Date(a.createdAt || a.timestamp).getTime();
+          const bTime = new Date(b.createdAt || b.timestamp).getTime();
+          return aTime - bTime;
+        });
+        const firstMessage = sortedMessagesOnTargetDate[0];
+        console.log('[handleDateSearch] API에서 첫 메시지 찾음:', firstMessage.id || firstMessage._id);
+        
+        // 메시지 ID 확인 (다양한 형식 지원)
+        const messageId = firstMessage.id || firstMessage._id || firstMessage.messageId;
+        if (messageId) {
+          await scrollToMessage(messageId);
+        } else {
+          console.error('[handleDateSearch] 메시지 ID를 찾을 수 없음:', firstMessage);
+          setSearchError('메시지 ID를 찾을 수 없습니다.');
+        }
       } else {
-        setSearchError('해당 날짜에 메시지가 없습니다.');
+        // 해당 날짜에 메시지가 없으면 모달 표시
+        const formattedDate = new Intl.DateTimeFormat('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long'
+        }).format(targetDate);
+        
+        setNoMessageDate(formattedDate);
+        setShowNoMessageModal(true);
       }
     } catch (error) {
       console.error('[handleDateSearch] 날짜 검색 실패:', error);
-      setSearchError('날짜 검색에 실패했습니다.');
+      setSearchError(error.message || '날짜 검색에 실패했습니다.');
     }
-  }, [currentChatRoom, messagesRef, scrollToMessage, setSearchError]);
+  }, [currentChatRoom, scrollToMessage, setSearchError]);
 
-  const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
+  // 메시지가 업데이트된 후 스크롤 처리
+  useEffect(() => {
+    if (!pendingScrollMessageId || !messagesContainerRef.current) return;
+    
+    // 스크롤 시작 플래그 설정
+    setIsScrollingToMessage(true);
+
+    // 메시지가 목록에 있는지 확인
+    const messageExists = sortedMessages.some(msg => String(msg.id) === String(pendingScrollMessageId));
+    if (!messageExists) {
+      // 메시지가 아직 목록에 없으면 대기 (다음 업데이트 때 다시 확인)
+      console.log('[useEffect scroll] 메시지가 아직 목록에 없음, 대기 중:', pendingScrollMessageId);
+      return;
+    }
+
+    const scrollToPendingMessage = async () => {
+      const messageId = pendingScrollMessageId;
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      
+      // DOM 렌더링 대기
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+      await wait(300);
+
+      const container = messagesContainerRef.current;
+      if (!container) {
+        console.warn('[useEffect scroll] 컨테이너를 찾을 수 없습니다');
+        setPendingScrollMessageId(null);
+        setIsJumpingToMessage(false);
+        return;
+      }
+
+      // DOM 요소 찾기
+      let element = null;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        element = document.getElementById(`message-${messageId}`);
+        if (element) {
+          console.log('[useEffect scroll] DOM 요소 찾음 (시도 횟수):', attempt + 1);
+          break;
+        }
+        await wait(50);
+      }
+
+      if (element) {
+        console.log('[useEffect scroll] DOM 요소 찾음, 스크롤 실행:', messageId);
+        setIsNearBottom(false);
+        setIsSearchOpen(false);
+        
+        // 하이라이트 효과 추가
+        element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
+        
+        // 요소가 컨테이너 내에 있는지 확인
+        const isElementInContainer = container.contains(element);
+        console.log('[useEffect scroll] 요소가 컨테이너 내에 있음:', isElementInContainer);
+        
+        if (!isElementInContainer) {
+          console.error('[useEffect scroll] 요소가 컨테이너 내에 없습니다!');
+          setPendingScrollMessageId(null);
+          setIsJumpingToMessage(false);
+          return;
+        }
+        
+        // 원본 요소 저장 (루프에서 변경되므로)
+        const targetElement = element;
+        
+        // 방법: getBoundingClientRect 사용 (가장 정확)
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = targetElement.getBoundingClientRect();
+        const currentScrollTop = container.scrollTop;
+        
+        // 요소의 현재 위치 (컨테이너 기준)
+        // 요소의 상대 위치 = 요소의 뷰포트 상대 위치 + 현재 스크롤 위치
+        const elementTopFromContainer = elementRect.top - containerRect.top + currentScrollTop;
+        
+        // 요소를 컨테이너 상단에 위치시키기 (약간의 여백 포함)
+        const targetScrollTop = Math.max(0, elementTopFromContainer - 20);
+        
+        // 컨테이너의 최대 스크롤 위치 확인
+        const maxScrollTop = container.scrollHeight - container.clientHeight;
+        const finalScrollTop = Math.min(targetScrollTop, maxScrollTop);
+        
+        console.log('[useEffect scroll] 스크롤 위치 계산:', { 
+          elementTopFromContainer,
+          targetScrollTop,
+          finalScrollTop,
+          currentScrollTop: container.scrollTop,
+          maxScrollTop,
+          containerHeight: container.clientHeight,
+          scrollHeight: container.scrollHeight,
+          elementHeight: targetElement.offsetHeight,
+          elementRectTop: elementRect.top,
+          containerRectTop: containerRect.top,
+          elementId: targetElement.id
+        });
+        
+        // 스크롤 실행
+        console.log('[useEffect scroll] 스크롤 실행 전:', {
+          currentScrollTop: container.scrollTop,
+          targetScrollTop: finalScrollTop,
+          scrollDifference: finalScrollTop - container.scrollTop
+        });
+        
+        // 먼저 즉시 스크롤 (사용자가 즉시 볼 수 있도록)
+        container.scrollTop = finalScrollTop;
+        
+        // 강제로 리플로우 발생 (스크롤이 즉시 적용되도록)
+        void container.offsetHeight;
+        
+        console.log('[useEffect scroll] 즉시 스크롤 실행 후:', {
+          scrollTop: container.scrollTop,
+          expected: finalScrollTop,
+          matched: Math.abs(container.scrollTop - finalScrollTop) < 1
+        });
+        
+        // 추가 확인: 만약 스크롤이 적용되지 않았다면 다시 시도
+        requestAnimationFrame(() => {
+          const actualScroll = container.scrollTop;
+          if (Math.abs(actualScroll - finalScrollTop) > 5) {
+            console.warn('[useEffect scroll] 스크롤이 적용되지 않음, 재시도');
+            container.scrollTop = finalScrollTop;
+          }
+        });
+        
+        // 스크롤이 제대로 되었는지 확인
+        setTimeout(() => {
+          const actualScrollTop = container.scrollTop;
+          const elementRectAfter = targetElement.getBoundingClientRect();
+          const containerRectAfter = container.getBoundingClientRect();
+          const elementTopRelative = elementRectAfter.top - containerRectAfter.top;
+          
+          console.log('[useEffect scroll] 스크롤 후 확인:', {
+            actualScrollTop,
+            finalScrollTop,
+            diff: Math.abs(actualScrollTop - finalScrollTop),
+            elementTopRelative,
+            isVisible: elementTopRelative >= -10 && elementTopRelative < containerRectAfter.height + 10,
+            containerScrollTop: container.scrollTop,
+            containerScrollHeight: container.scrollHeight
+          });
+          
+          // 요소가 여전히 보이지 않으면 다시 시도
+          if (elementTopRelative < -100 || elementTopRelative > containerRectAfter.height + 100) {
+            console.warn('[useEffect scroll] 요소가 여전히 보이지 않음, 재시도');
+            const newElementRect = targetElement.getBoundingClientRect();
+            const newContainerRect = container.getBoundingClientRect();
+            const newRelativeTop = newElementRect.top - newContainerRect.top + container.scrollTop;
+            container.scrollTop = Math.max(0, newRelativeTop - 20);
+          }
+        }, 300);
+        
+        // 2초 후 하이라이트 제거
+        setTimeout(() => {
+          targetElement.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
+        }, 2000);
+      } else {
+        // 디버깅을 위해 모든 메시지 ID 출력
+        const allMessageElements = document.querySelectorAll('[id^="message-"]');
+        const allMessageIds = Array.from(allMessageElements).map(el => el.id);
+        console.error('[useEffect scroll] DOM 요소를 찾을 수 없음:', {
+          messageId,
+          totalElements: allMessageIds.length,
+          sampleIds: allMessageIds.slice(0, 10)
+        });
+      }
+
+      // 메시지 점프 완료 시간 기록
+      lastJumpTimeRef.current = Date.now();
+      
+      setPendingScrollMessageId(null);
+      setIsJumpingToMessage(false);
+      
+      // isNearBottom을 false로 유지하여 자동 스크롤 방지
+      setIsNearBottom(false);
+      
+      // 스크롤 완료 후 플래그 해제 (더 긴 지연을 두어 자동 스크롤이 발생하지 않도록)
+      // 주의: lastJumpTimeRef는 이미 업데이트되었으므로 handleScroll에서도 자동 스크롤이 방지됨
+      setTimeout(() => {
+        setIsScrollingToMessage(false);
+      }, 2000); // 2초 후 플래그 해제 (lastJumpTimeRef는 5초 동안 유지)
+    };
+
+    scrollToPendingMessage();
+  }, [pendingScrollMessageId, sortedMessages, setIsNearBottom, setIsSearchOpen]);
 
   const handleResultClick = useCallback(async (message) => {
     if (!message || !message.id) {
@@ -948,15 +1215,46 @@ const ChatRoomPage = () => {
     }
 
     try {
-      const success = await scrollToMessage(message.id);
-      if (success) {
-        setIsSearchOpen(false);
+      const messageId = String(message.id);
+      console.log('[handleResultClick] 검색 결과 클릭:', messageId);
+      
+      // 먼저 현재 목록에서 확인
+      const messageExists = sortedMessages.some(msg => String(msg.id) === messageId);
+      
+      if (messageExists) {
+        // 현재 목록에 있으면 바로 스크롤
+        // 메시지 점프 시작 시간 기록
+        lastJumpTimeRef.current = Date.now();
+        setPendingScrollMessageId(messageId);
+      } else {
+        // 현재 목록에 없으면 메시지 점프 API 호출
+        setIsJumpingToMessage(true);
+        setSearchError('');
+        // 메시지 점프 시작 시간 기록
+        lastJumpTimeRef.current = Date.now();
+        
+        try {
+          const result = await jumpToMessage(messageId, { before: 20, after: 20 });
+          
+          if (result && result.success) {
+            // 메시지가 업데이트되면 useEffect가 자동으로 스크롤 처리
+            setPendingScrollMessageId(messageId);
+          } else {
+            setSearchError('메시지를 찾을 수 없습니다.');
+            setIsJumpingToMessage(false);
+          }
+        } catch (error) {
+          console.error('[handleResultClick] 메시지 점프 실패:', error);
+          setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
+          setIsJumpingToMessage(false);
+        }
       }
     } catch (error) {
       console.error('[handleResultClick] 검색 결과 클릭 실패:', error);
       setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
+      setIsJumpingToMessage(false);
     }
-  }, [scrollToMessage, setIsSearchOpen, setSearchError]);
+  }, [sortedMessages, jumpToMessage, setIsSearchOpen, setSearchError]);
 
   // 하단이 아닐 때 상대방의 마지막 메시지 찾기 (Hook은 early return 이전에 호출되어야 함)
   const lastOpponentMessage = useMemo(() => {
@@ -1106,7 +1404,7 @@ const ChatRoomPage = () => {
             {productId && (
               <button
                 onClick={() => setShowRentalCreateModal(true)}
-                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
               >
                 거래 시작하기
               </button>
@@ -1120,6 +1418,17 @@ const ChatRoomPage = () => {
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            {/* 날짜 검색 버튼 (캘린더 아이콘) */}
+            <button
+              onClick={() => setShowDatePicker(true)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="날짜로 검색"
+              title="날짜로 검색"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
             {/* 설정 버튼 */}
@@ -1151,6 +1460,49 @@ const ChatRoomPage = () => {
           sortedMessages.map((message, index) => {
             const key = message.id || `${message.timestamp || 'message'}-${index}`;
             const anchorId = message.id ? `message-${message.id}` : undefined;
+            
+            // 날짜 구분선 표시 (이전 메시지와 날짜가 다를 때)
+            const showDateDivider = (() => {
+              if (index === 0) return true; // 첫 메시지는 항상 날짜 표시
+              
+              const currentDate = new Date(message.timestamp || message.createdAt);
+              const prevMessage = sortedMessages[index - 1];
+              if (!prevMessage) return false;
+              
+              const prevDate = new Date(prevMessage.timestamp || prevMessage.createdAt);
+              
+              // 날짜가 다르면 구분선 표시
+              return (
+                currentDate.getFullYear() !== prevDate.getFullYear() ||
+                currentDate.getMonth() !== prevDate.getMonth() ||
+                currentDate.getDate() !== prevDate.getDate()
+              );
+            })();
+            
+            // 날짜 포맷 함수
+            const formatDate = (date) => {
+              const d = new Date(date);
+              const year = d.getFullYear();
+              const month = d.getMonth() + 1;
+              const day = d.getDate();
+              const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+              const weekday = weekdays[d.getDay()];
+              return `${year}년 ${month}월 ${day}일 ${weekday}`;
+            };
+            
+            // 날짜 구분선 컴포넌트
+            const DateDivider = () => (
+              <div className="flex items-center justify-center my-4 px-4">
+                <div className="flex items-center gap-2 w-full max-w-md mx-auto">
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                  <span className="text-xs text-gray-600 px-4 py-2 bg-blue-100 rounded-full whitespace-nowrap font-medium">
+                    {formatDate(message.timestamp || message.createdAt)}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-300"></div>
+                </div>
+              </div>
+            );
+            
             // 대여 요청 메시지 처리
             if (message.type === 'rental_request') {
               const currentUserId = user?.id || user?.memberId;
@@ -1202,24 +1554,29 @@ const ChatRoomPage = () => {
                 };
                 
                 return (
-                  <div key={key} id={anchorId} className="mb-4">
-                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className="max-w-[85%]">
-                        <RentalRequestCard
-                          rentalInfo={rentalInfo}
-                          onAccept={() => handleRentalAccept(message)}
-                          onReject={() => handleRentalReject(message)}
-                        />
+                  <React.Fragment key={key}>
+                    {showDateDivider && <DateDivider />}
+                    <div id={anchorId} className="mb-4">
+                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        <div className="max-w-[85%]">
+                          <RentalRequestCard
+                            rentalInfo={rentalInfo}
+                            onAccept={() => handleRentalAccept(message)}
+                            onReject={() => handleRentalReject(message)}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               }
               
               // 승인된 요청이고 요청자(isOwn)이면 결제 승인 버튼 표시
               if (isOwn && message.status === 'approved' && message.orderId && !message.paymentConfirmed) {
                 return (
-                  <div key={key} id={anchorId} className="mb-4">
+                  <React.Fragment key={key}>
+                    {showDateDivider && <DateDivider />}
+                    <div id={anchorId} className="mb-4">
                     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div className="max-w-[85%]">
                         <div className={`rounded-2xl p-4 ${
@@ -1252,37 +1609,41 @@ const ChatRoomPage = () => {
                       </div>
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               }
 
               // 일반 메시지 버블로 표시 (승인/거절된 요청 또는 요청자 화면)
               return (
-                <div key={key} id={anchorId} className="mb-4">
-                  <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl p-4 ${
-                      isOwn
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-900'
-                    }`}>
-                      <div className="font-medium mb-2">
-                        {isOwn 
-                          ? '대여 요청을 보냈습니다' 
-                          : '대여 요청을 받았습니다'}
-                      </div>
-                      <div className="text-sm opacity-90">
-                        {message.content}
-                      </div>
-                      {message.status && (
-                        <div className="mt-2 text-xs opacity-75">
-                          {message.status === 'pending' && '대기 중'}
-                          {message.status === 'approved' && '✓ 승인됨'}
-                          {message.status === 'rejected' && '✗ 거절됨'}
-                          {message.status === 'payment_completed' && '✓ 결제 완료'}
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <div id={anchorId} className="mb-4">
+                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[80%] rounded-2xl p-4 ${
+                        isOwn
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-200 text-gray-900'
+                      }`}>
+                        <div className="font-medium mb-2">
+                          {isOwn 
+                            ? '대여 요청을 보냈습니다' 
+                            : '대여 요청을 받았습니다'}
                         </div>
-                      )}
+                        <div className="text-sm opacity-90">
+                          {message.content}
+                        </div>
+                        {message.status && (
+                          <div className="mt-2 text-xs opacity-75">
+                            {message.status === 'pending' && '대기 중'}
+                            {message.status === 'approved' && '✓ 승인됨'}
+                            {message.status === 'rejected' && '✗ 거절됨'}
+                            {message.status === 'payment_completed' && '✓ 결제 완료'}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </React.Fragment>
               );
             }
             
@@ -1291,20 +1652,22 @@ const ChatRoomPage = () => {
             const isOwn = Number(currentUserId) === Number(senderId);
             
             return (
-              <MessageBubble
-                key={key}
-                message={message}
-                messageId={message.id}
-                isOwn={isOwn}
-                onReply={handleReply}
-                onDelete={handleDeleteMessage}
-                onEdit={handleEditMessage}
-                onReplyClick={async (replyMessageId) => {
-                  if (replyMessageId) {
-                    await scrollToMessage(replyMessageId);
-                  }
-                }}
-              />
+              <React.Fragment key={key}>
+                {showDateDivider && <DateDivider />}
+                <MessageBubble
+                  message={message}
+                  messageId={message.id}
+                  isOwn={isOwn}
+                  onReply={handleReply}
+                  onDelete={handleDeleteMessage}
+                  onEdit={handleEditMessage}
+                  onReplyClick={async (replyMessageId) => {
+                    if (replyMessageId) {
+                      await scrollToMessage(replyMessageId);
+                    }
+                  }}
+                />
+              </React.Fragment>
             );
           })
         ) : (
@@ -1340,7 +1703,7 @@ const ChatRoomPage = () => {
         previewMessage={lastOpponentMessage}
         onPreviewClick={() => {
           if (lastOpponentMessage) {
-            scrollToBottom('smooth');
+            scrollToBottom('smooth', true); // 사용자 클릭은 강제로 실행
             setIsNearBottom(true);
           }
         }}
@@ -1385,6 +1748,80 @@ const ChatRoomPage = () => {
         onSubmit={handleCreateRental}
         isLoading={isCreatingRental}
       />
+
+      {/* 날짜 검색 모달 (캘린더) */}
+      {showDatePicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setShowDatePicker(false)}
+        >
+          <div
+            className="bg-white w-full max-w-md mx-4 rounded-2xl shadow-xl p-6 relative"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowDatePicker(false)}
+              className="absolute top-3 right-3 p-2 rounded-full hover:bg-gray-100"
+              aria-label="날짜 검색 닫기"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h2 className="text-lg font-semibold text-gray-900">날짜로 검색</h2>
+            </div>
+
+            <DatePicker
+              selectedDate={selectedDate}
+              onSelectDate={(date) => {
+                setSelectedDate(date);
+                setShowDatePicker(false);
+                handleDateSearch(date);
+              }}
+              onClose={() => setShowDatePicker(false)}
+              messagesWithDates={sortedMessages}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 메시지 없음 모달 */}
+      <Modal
+        isOpen={showNoMessageModal}
+        onClose={() => {
+          setShowNoMessageModal(false);
+          setNoMessageDate(null);
+        }}
+        title="메시지 없음"
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-gray-900 font-medium mb-2">
+            {noMessageDate}에는 채팅이 없습니다.
+          </p>
+          <p className="text-gray-500 text-sm">
+            다른 날짜를 선택해주세요.
+          </p>
+          <button
+            onClick={() => {
+              setShowNoMessageModal(false);
+              setNoMessageDate(null);
+            }}
+            className="mt-6 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            확인
+          </button>
+        </div>
+      </Modal>
 
       {/* 검색 모달 */}
       {isSearchOpen && (
@@ -1438,35 +1875,6 @@ const ChatRoomPage = () => {
                   {isSearching ? '검색 중...' : '검색'}
                 </button>
               </form>
-              
-              {/* 날짜 선택 버튼 */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowDatePicker(!showDatePicker)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {selectedDate ? new Date(selectedDate).toLocaleDateString('ko-KR') : '날짜로 검색'}
-                </button>
-                
-                {/* 캘린더 */}
-                {showDatePicker && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
-                    <DatePicker
-                      selectedDate={selectedDate}
-                      onSelectDate={(date) => {
-                        setSelectedDate(date);
-                        setShowDatePicker(false);
-                        handleDateSearch(date);
-                      }}
-                      onClose={() => setShowDatePicker(false)}
-                    />
-                  </div>
-                )}
-              </div>
             </div>
 
             {searchError && (

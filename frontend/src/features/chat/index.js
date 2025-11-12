@@ -22,7 +22,6 @@ export { ChatProvider, useChatContext } from './contexts/ChatContext';
 // Hooks
 export * from './hooks/useChatRooms';
 export * from './hooks/useChatSocket';
-export * from './hooks/useRentalRequest';
 
 // Pages
 export { default as ChatListPage } from './pages/ChatListPage';

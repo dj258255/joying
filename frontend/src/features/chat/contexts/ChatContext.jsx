@@ -112,8 +112,9 @@ const chatReducer = (state, action) => {
           messages: mergeMessages(state.messages, [updatedMessage])
         };
       }
+      // 서버에서 받은 메시지로 완전히 교체 (병합하지 않음)
       const updatedMessages = [...state.messages];
-      updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], ...updatedMessage };
+      updatedMessages[messageIndex] = updatedMessage;
       return {
         ...state,
         messages: sortMessagesAscending(updatedMessages)
@@ -383,8 +384,11 @@ export const ChatProvider = ({ children }) => {
       }
     }
 
+    // 메시지 ID 추출 (다양한 형식 지원: id, _id, messageId)
+    const messageId = rawMessage.id || rawMessage._id || rawMessage.messageId || `msg_${Date.now()}`;
+    
     const message = {
-      id: rawMessage.id || `msg_${Date.now()}`,
+      id: messageId,
       chatRoomId: rawMessage.chatRoomId ?? chatRoomOverride?.chatRoomId ?? chatRoomOverride?.id ?? state.currentChatRoom?.chatRoomId ?? state.currentChatRoom?.id ?? null,
       type,
       content: type === 'image' ? (rawMessage.imageUrl || rawMessage.content || '') : rawMessage.content || '',
@@ -495,15 +499,19 @@ export const ChatProvider = ({ children }) => {
         .map((msg) => normalizeMessage(msg, snapshot.currentChatRoom))
         .filter(Boolean);
 
-      // 메시지 목록 교체
-      dispatch({ type: 'SET_MESSAGES', payload: normalized });
+      // 기존 메시지와 병합 (교체하지 않고 추가)
+      const existingMessages = snapshot.messages || [];
+      const mergedMessages = mergeMessages(existingMessages, normalized);
+
+      // 병합된 메시지 목록 설정
+      dispatch({ type: 'SET_MESSAGES', payload: mergedMessages });
 
       // 하이라이트할 메시지 ID 반환 (스크롤 및 하이라이트는 호출하는 컴포넌트에서 처리)
       return {
         success: true,
         messageId,
-        messages: normalized,
-        targetMessageIndex: normalized.findIndex(msg => String(msg.id) === String(messageId))
+        messages: mergedMessages,
+        targetMessageIndex: mergedMessages.findIndex(msg => String(msg.id) === String(messageId))
       };
     } catch (error) {
       console.error('[ChatContext] 메시지 점프 실패:', error);
@@ -593,7 +601,6 @@ export const ChatProvider = ({ children }) => {
       onMessage: (rawMessage) => {
         const normalized = normalizeMessage(rawMessage, chatRoomData);
         if (normalized) {
-          // 본인이 보낸 메시지이고 임시 메시지가 있으면 교체, 아니면 추가
           const snapshot = stateRef.current;
           const isOwnMessage = Number(normalized.senderId) === Number(currentUserId);
           
@@ -605,6 +612,37 @@ export const ChatProvider = ({ children }) => {
             });
           }
           
+          // 기존 메시지 확인 (수정/삭제된 메시지 처리 우선)
+          // 메시지 ID를 문자열로 변환하여 비교 (ObjectId와 문자열 모두 처리)
+          const existingMessage = snapshot.messages.find((msg) => {
+            if (!msg || !normalized) return false;
+            // ID가 정확히 일치하는지 확인
+            if (String(msg.id) === String(normalized.id)) return true;
+            // ID가 없지만 다른 속성으로 매칭할 수 있는지 확인 (임시 메시지 제외)
+            if (!msg.id || !normalized.id) return false;
+            return false;
+          });
+          
+          // 기존 메시지가 있는 경우 (수정/삭제 또는 일반 업데이트)
+          if (existingMessage) {
+            // 기존 메시지를 서버에서 받은 메시지로 완전히 교체 (수정/삭제 상태 반영)
+            // 수정/삭제된 메시지는 서버에서 받은 상태를 그대로 반영
+            dispatch({ type: 'UPDATE_MESSAGE', payload: normalized });
+            // 채팅 목록 업데이트 (lastMessage는 변경될 수 있으므로 업데이트)
+            // 메시지 수정/삭제는 unreadCount에 영향 없음
+            updateChatRoomList(normalized, false);
+            return;
+          }
+          
+          // 기존 메시지가 없고, 수정/삭제된 메시지인 경우 (이상한 경우이지만 처리)
+          if (normalized.isDeleted || normalized.isEdited) {
+            // 수정/삭제된 메시지가 목록에 없으면 추가 (나중에 로드된 메시지일 수 있음)
+            dispatch({ type: 'ADD_MESSAGE', payload: normalized });
+            updateChatRoomList(normalized, false);
+            return;
+          }
+          
+          // 본인이 보낸 새 메시지이고 임시 메시지가 있으면 교체
           if (isOwnMessage) {
             // 임시 메시지(temp_로 시작하거나 status가 'sending'/'pending'인 메시지) 찾기
             const tempMessage = snapshot.messages.find(
@@ -619,25 +657,17 @@ export const ChatProvider = ({ children }) => {
             if (tempMessage) {
               // 임시 메시지를 실제 메시지로 교체
               dispatch({ type: 'REPLACE_MESSAGE', payload: { oldId: tempMessage.id, newMessage: normalized } });
+              // 채팅 목록 업데이트
+              updateChatRoomList(normalized, false);
               return;
             }
           }
           
-          // 메시지 업데이트 (수정/삭제된 메시지 처리)
-          const existingMessage = snapshot.messages.find((msg) => msg.id === normalized.id);
-          if (existingMessage) {
-            // 기존 메시지가 있으면 업데이트 (수정 또는 삭제 상태 반영)
-            dispatch({ type: 'UPDATE_MESSAGE', payload: normalized });
-            // 채팅 목록 업데이트 (lastMessage는 변경될 수 있으므로 업데이트)
-            // 메시지 수정/삭제는 unreadCount에 영향 없음
-            updateChatRoomList(normalized, false);
-          } else {
-            // 새 메시지 추가
-            dispatch({ type: 'ADD_MESSAGE', payload: normalized });
-            // 채팅 목록 업데이트
-            // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
-            updateChatRoomList(normalized, false);
-          }
+          // 새 메시지 추가
+          dispatch({ type: 'ADD_MESSAGE', payload: normalized });
+          // 채팅 목록 업데이트
+          // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
+          updateChatRoomList(normalized, false);
         }
       },
       onError: (errorLike) => {
