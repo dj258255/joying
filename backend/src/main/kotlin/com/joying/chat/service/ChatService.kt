@@ -105,7 +105,16 @@ class ChatService(
                 .orElse(null)
         }
         if (senderMember != null && senderMember.isLeft) {
-            senderMember.rejoin()
+            // 재입장 처리 (트랜잭션 필요)
+            withContext(Dispatchers.IO) {
+                val member = chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoomId, senderId)
+                    .orElse(null)
+                if (member != null && member.isLeft) {
+                    member.rejoin()
+                    chatRoomMemberRepository.save(member)  // 명시적 저장
+                }
+            }
             logger.info("메시지 전송으로 채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, senderId)
 
             // 시스템 메시지 저장 및 재입장 알림 전송 (비동기)
