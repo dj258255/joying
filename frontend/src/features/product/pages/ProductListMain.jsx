@@ -56,6 +56,7 @@ const ProductListMain = () => {
   });
 
   const q = searchParams.get('q') || '';
+  const categoryParam = searchParams.get('category') || '';
 
   const [page, setPage] = useState(1);
   const [fetchCount, setFetchCount] = useState(0);
@@ -92,6 +93,26 @@ const ProductListMain = () => {
 
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
+
+  // URL에서 category 파라미터를 읽어 자동으로 필터 적용
+  React.useEffect(() => {
+    if (categoryParam && categories.length > 0) {
+      const categoryId = parseInt(categoryParam, 10);
+      
+      // 하위 카테고리에서 찾기
+      for (const mainCat of categories) {
+        const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
+        if (subCategory) {
+          setSelectedSubcategories([subCategory]);
+          setAppliedFilters(prev => ({
+            ...prev,
+            selectedSubcategories: [subCategory]
+          }));
+          break;
+        }
+      }
+    }
+  }, [categoryParam, categories]);
   
   // 카테고리 로드 후 첫 번째 카테고리 자동 선택
   React.useEffect(() => {
@@ -633,7 +654,7 @@ const ProductListMain = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="상품 검색..."
+            placeholder="상품명 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyPress={handleSearchKeyPress}

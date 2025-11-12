@@ -371,9 +371,9 @@ const ProductDetailPage = () => {
       <div className="min-h-screen bg-gray-50">
         {/* 데스크톱 레이아웃 */}
         <div className="hidden lg:block h-screen overflow-hidden">
-          <div className="max-w-[1400px] mx-auto px-6 py-8 h-full flex flex-col">
+          <div className="max-w-[1400px] mx-auto px-6 py-3 h-full flex flex-col">
             {/* 헤더: 뒤로가기 버튼 + 프로필 */}
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <button
                 onClick={handleBackClick}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -643,7 +643,7 @@ const ProductDetailPage = () => {
         {/* 모바일 레이아웃 */}
         <div className="lg:hidden">
           {/* 모바일 헤더 */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2">
             <div className="flex items-center justify-between">
               <button
                 onClick={handleBackClick}
