@@ -52,7 +52,7 @@ public class RentalController {
         Long memberId = Long.parseLong(authentication.getName());
 
         // renterId가 요청에 포함되어 있으면 사용, 없으면 현재 사용자를 대여자로 설정
-        Long renterId = request.getRenterId() != null ? request.getRenterId() : memberId;
+        Long renterId = request.getRenterId();
 
         log.info("[POST /rentals/{}/reservations] 대여 생성 요청: memberId={}, renterId={}",
                 productId, memberId, renterId);

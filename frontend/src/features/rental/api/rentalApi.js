@@ -38,6 +38,7 @@ export const rentalApi = {
       : 'BOTH';
 
     const requestBody = {
+      ...data,
       startRen,
       endRen,
       rentMethod

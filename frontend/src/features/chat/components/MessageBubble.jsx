@@ -17,8 +17,7 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} [props.onReplyClick] - 답장 메시지 클릭 핸들러 (원본 메시지로 점프)
  * @param {Array} [props.actionButtons] - 메시지 하단에 표시할 액션 버튼들
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, onReplyClick }) => {
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick  }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);

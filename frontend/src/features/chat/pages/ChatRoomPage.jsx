@@ -200,6 +200,7 @@ const ChatRoomPage = () => {
   const [showRentalRequestModal, setShowRentalRequestModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [currentRentalData, setCurrentRentalData] = useState(null);
+  const [requestedDateRange, setRequestedDateRange] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [isCreatingRental, setIsCreatingRental] = useState(false);
@@ -497,6 +498,17 @@ const ChatRoomPage = () => {
       return;
     }
 
+    const renterId =
+      message.senderId ||
+      message.sender?.id ||
+      message.sender?.memberId ||
+      message.rentalInfo?.renterId;
+
+    if (!renterId) {
+      console.error('[handleRentalAccept] 대여자 ID를 찾을 수 없습니다.', message);
+      alert('대여자 정보를 찾을 수 없습니다.');
+      return;
+    }
     // productId 추출
     const productId = message.productId || message.rentalInfo?.productId;
     if (!productId) {
@@ -531,7 +543,8 @@ const ChatRoomPage = () => {
       const rentalData = {
         startRen: startDateObj.toISOString(),
         endRen: endDateObj.toISOString(),
-        rentMethod: message.rentalInfo?.rentMethod || message.rentMethod || 'BOTH'
+        rentMethod: message.rentalInfo?.rentMethod || message.rentMethod || 'BOTH',
+        renterId
       };
 
       console.log('[handleRentalAccept] API 호출 전:', {
@@ -1370,26 +1383,26 @@ const ChatRoomPage = () => {
 
                       // 기간 계산
                       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-                      
-                      const rentalInfo = {
+
+                      console.log('[ChatRoomPage] 거래 생성하기 버튼 클릭:', {
                         productId: productIdToUse,
-                        startDate: startDate.toISOString(),
-                        endDate: endDate.toISOString(),
+                        startDate,
+                        endDate,
                         rentMethod,
-                        days,
-                      };
-                      // 가짜 메시지 객체 생성 (RentalRequestCard와 동일한 형식)
-                      const fakeMessage = {
-                        id: message.id,
-                        productId: productIdToUse,
-                        startDate: startDate.toISOString(),
-                        endDate: endDate.toISOString(),
-                        rentMethod,
-                        rentalInfo,
-                        isNewTransaction: true,
-                        
-                      };
-                      setCurrentRentalData(fakeMessage);
+                        days
+                      });
+
+                      // rentalData를 null로 설정하고, requestedDateRange만 전달
+                      // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
+                      setCurrentRentalData(null);
+
+                      // requestedDateRange를 state로 관리하거나, 직접 설정
+                      // 여기서는 간단하게 바로 모달을 열고, productData에 날짜 정보를 임시로 저장
+                      setRequestedDateRange({
+                        start: startDate,
+                        end: endDate
+                      });
+
                       setShowTransactionModal(true);
                       
                     }
@@ -1736,7 +1749,10 @@ const ChatRoomPage = () => {
       {/* 통합 거래 프로세스 모달 */}
       <TransactionProcessModal
         isOpen={showTransactionModal}
-        onClose={() => setShowTransactionModal(false)}
+        onClose={() => {
+          setShowTransactionModal(false);
+          setRequestedDateRange(null); // 모달 닫을 때 초기화
+        }}
         productData={productData}
         rentalData={currentRentalData}
         unavailableDates={unavailableDates || []}
@@ -1750,8 +1766,8 @@ const ChatRoomPage = () => {
             || productData?.seller?.member_id;
           return sellerId && Number(sellerId) === Number(currentUserId) ? 'seller' : 'buyer';
         })()}
-        requestedDateRange={(() => {
-          // 최근 대여 요청 메시지에서 날짜 가져오기
+        requestedDateRange={requestedDateRange || (() => {
+          // state에 requestedDateRange가 없으면 최근 대여 요청 메시지에서 날짜 가져오기
           if (messages && messages.length > 0) {
             const rentalRequests = messages
               .filter(msg => msg.type === 'rental_request')

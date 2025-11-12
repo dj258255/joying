@@ -1,6 +1,7 @@
 package com.joying.rental.domain;
 
 import com.joying.member.domain.Member;
+import com.joying.payment.domain.Payment;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import jakarta.persistence.*;
@@ -11,6 +12,8 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Entity
@@ -84,6 +87,14 @@ public class RentalHistory {
     @Comment("연장 횟수")
     @Column(name = "extension_count")
     private Integer extensionCount;
+
+    @OneToMany(mappedBy = "rentalHistory", cascade = CascadeType.ALL, orphanRemoval = false)
+    @Comment("결제 내역")
+    private List<Payment> payments = new ArrayList<>();
+
+    public void addPayment(Payment payment) {
+        this.payments.add(payment);
+    }
 
     /**
      * 대여 생성 (예약)

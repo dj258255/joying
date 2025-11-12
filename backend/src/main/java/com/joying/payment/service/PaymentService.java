@@ -126,7 +126,12 @@ public class PaymentService {
         // 저장
         Payment savedPayment = paymentRepository.save(payment);
 
-        log.info("결제 생성 완료: paymentId={}, orderId={}", savedPayment.getPaymentId(), orderId);
+        rentalHistory.addPayment(savedPayment);
+        rentalHistory.markAsEscrow();
+        rentalHistoryRepository.save(rentalHistory);
+
+        log.info("결제 생성 완료 및 대여내역 연결: rentalHisId={}, paymentId={}, orderId={}",
+                rentalHistory.getRentalHisId(), savedPayment.getPaymentId(), orderId);
 
         return PaymentCreateResponse.builder()
                 .paymentId(savedPayment.getPaymentId())

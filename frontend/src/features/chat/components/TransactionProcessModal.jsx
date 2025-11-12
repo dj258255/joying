@@ -153,6 +153,16 @@ const TransactionProcessModal = ({
       setIsLoading(true);
       setError(null);
 
+      const productId = productData.id || productData.productId;
+      console.log('[TransactionProcessModal] 거래 생성 시작:', {
+        productId,
+        dateRange,
+        rentMethod,
+        userRole,
+        otherMemberId,
+        productData
+      });
+
       const rentalRequestData = {
         startRen: new Date(dateRange.start).toISOString(),
         endRen: new Date(dateRange.end).toISOString(),
@@ -161,8 +171,13 @@ const TransactionProcessModal = ({
         ...(userRole === 'seller' && otherMemberId ? { renterId: otherMemberId } : {})
       };
 
+      console.log('[TransactionProcessModal] 요청 데이터:', {
+        productId,
+        rentalRequestData
+      });
+
       // 대여 거래 생성
-      const result = await rentalApi.createRentalReservation(productData.id || productData.productId, rentalRequestData);
+      const result = await rentalApi.createRentalReservation(productId, rentalRequestData);
 
       console.log('[TransactionProcessModal] 거래 생성 성공:', result);
 
@@ -205,7 +220,31 @@ const TransactionProcessModal = ({
       alert('거래가 생성되었습니다. 구매자가 결제할 때까지 기다려주세요.');
     } catch (err) {
       console.error('[TransactionProcessModal] 거래 생성 실패:', err);
-      setError(err.response?.data?.message || err.message || '거래 생성에 실패했습니다.');
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 백엔드 에러 메시지 추출
+      let errorMessage = '거래 생성에 실패했습니다.';
+
+      if (err.response?.data) {
+        // 백엔드 에러 응답 구조에 따라 메시지 추출
+        if (err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } else if (err.response.data.error) {
+          errorMessage = err.response.data.error;
+        } else if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
+          // 배열 형태의 에러 메시지
+          errorMessage = err.response.data.errors.map(e => e.message || e).join(', ');
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      alert(errorMessage); // 사용자에게 바로 알림
     } finally {
       setIsLoading(false);
     }
@@ -261,7 +300,9 @@ const TransactionProcessModal = ({
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 거래 취소 실패:', err);
-      setError(err.response?.data?.message || err.message || '거래 취소에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '거래 취소에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -304,7 +345,9 @@ const TransactionProcessModal = ({
       alert('결제가 완료되었습니다. 판매자가 물건을 발송할 때까지 기다려주세요.');
     } catch (err) {
       console.error('[TransactionProcessModal] 결제 승인 실패:', err);
-      setError(err.response?.data?.message || err.message || '결제 승인에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '결제 승인에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -341,7 +384,9 @@ const TransactionProcessModal = ({
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 발송 처리 실패:', err);
-      setError(err.response?.data?.message || err.message || '발송 처리에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '발송 처리에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -395,7 +440,9 @@ const TransactionProcessModal = ({
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 영상 업로드 실패:', err);
-      setError(err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -418,7 +465,9 @@ const TransactionProcessModal = ({
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 수령 확인 실패:', err);
-      setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '수령 확인에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -448,7 +497,9 @@ const TransactionProcessModal = ({
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 반납 처리 실패:', err);
-      setError(err.response?.data?.message || err.message || '반납 처리에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '반납 처리에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -466,7 +517,9 @@ const TransactionProcessModal = ({
       alert('거래가 완료되었습니다.');
     } catch (err) {
       console.error('[TransactionProcessModal] 회수 확인 실패:', err);
-      setError(err.response?.data?.message || err.message || '회수 확인에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '회수 확인에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -501,7 +554,9 @@ const TransactionProcessModal = ({
       onClose();
     } catch (err) {
       console.error('[TransactionProcessModal] 취소 요청 실패:', err);
-      setError(err.response?.data?.message || err.message || '취소 요청에 실패했습니다.');
+      const errorMessage = err.response?.data?.message || err.message || '취소 요청에 실패했습니다.';
+      setError(errorMessage);
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
