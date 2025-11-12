@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import com.joying.product.domain.UploadType;
+import com.joying.product.repository.ProductLikeRepository;
 import com.joying.product.repository.ProductRepository;
 import com.joying.search.domain.SearchDocument;
 import com.joying.search.dto.HashtagInfo;
@@ -71,6 +73,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SearchService {
 
 	private final ProductRepository productRepository;
+	private final ProductLikeRepository productLikeRepository;
 	private final HashtagHistoryRepository hashtagHistoryRepository;
 	private final SearchRepository searchRepository;
 	private final ElasticsearchOperations elasticsearchOperations;
@@ -145,7 +148,8 @@ public class SearchService {
 		List<Long> hashtagIds,
 		Boolean sameDayRental,
 		int page,
-		int size) {
+		int size,
+		Long authId) {
 		UploadType uploadType = null;
 		if (uploadTypeStr != null) {
 			try {
@@ -401,16 +405,30 @@ public class SearchService {
 		Map<Long, File> fileMap = fileRepository.findAllById(fileIds).stream()
 			.collect(Collectors.toMap(File::getFileId, Function.identity()));
 
+		List<Long> productIds = available.stream()
+			.map(SearchDocument::getProductId)
+			.toList();
+
+		Map<Long, Boolean> likeMap;
+		if (authId != null) {
+			List<Long> likedProductIds = productLikeRepository.findLikedProductIdsByMemberAndProductIds(authId, productIds);
+
+			likeMap = productIds.stream()
+				.collect(Collectors.toMap(
+					id -> id,
+					likedProductIds::contains
+				));
+		} else {
+			likeMap = new HashMap<>();
+		}
+
 		List<SearchDto> responses = available.stream()
 			.map(s -> {
 				File file = fileMap.get(s.getThumbnailFileId());
-				if (file == null) return SearchDto.fromEntity(s, null);
-				return SearchDto.fromEntity(s, fileUrlResolver.toPublicUrl(file));
+				Boolean isLike = likeMap.getOrDefault(s.getProductId(), false);
+				if (file == null) return SearchDto.fromEntity(s, null, isLike);
+				return SearchDto.fromEntity(s, fileUrlResolver.toPublicUrl(file), isLike);
 			})
-			.toList();
-
-		List<Long> productIds = available.stream()
-			.map(SearchDocument::getProductId)
 			.toList();
 
 		List<HashtagInfo> hashtags = hashtagHistoryRepository.findHashtagCountInProducts(productIds).stream()
