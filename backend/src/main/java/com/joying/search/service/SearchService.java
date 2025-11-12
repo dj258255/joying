@@ -393,7 +393,7 @@ public class SearchService {
 
 			totalHits = hits.getTotalHits();
 			if (totalHits <= (long)(page + fetchCount) * size) break;
-			if (available.size() < size) break;
+			if (available.size() == size) break;
 			fetchCount += 1;
 			page++;
 		}
