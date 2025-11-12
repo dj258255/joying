@@ -188,15 +188,7 @@ class ChatService(
                 }
             }
 
-        // 5. 수신자 ID 계산 (WebSocket 브로드캐스트 최적화 + 안읽은 개수 관리)
-        val receiverId =
-            if (senderId == chatRoom.buyer.memberId) {
-                chatRoom.seller.memberId!!
-            } else {
-                chatRoom.buyer.memberId!!
-            }
-
-        // 6. DTO 변환 (답장 정보 + 수신자 정보 포함)
+        // 5. DTO 변환 (답장 정보 + 수신자 정보 포함)
         val messageDto = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
 
         // 7. Redis Pub/Sub로 발행 (실시간 전달)
