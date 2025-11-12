@@ -284,6 +284,10 @@ const ProductListMain = () => {
     return unsubscribe;
   }, [queryClient, products.length, activeTab]);
 
+  // 🔥 스크롤 위치 보존을 위한 ref
+  const scrollPositionRef = React.useRef(0);
+  const isAppendingRef = React.useRef(false);
+
   React.useEffect(() => {
     if (!searchResponses) return;
 
@@ -303,8 +307,17 @@ const ProductListMain = () => {
     if (page === 1) {
       // 첫 페이지일 땐 새로 세팅
       setProducts(searchResponses);
-      setTotalProducts(total || 0); // ✅ 서버에서 제공하는 total 사용
+      setTotalProducts(total || 0);
+      isAppendingRef.current = false;
     } else if (page > 1) {
+      // ✅ 스크롤 위치 저장 (데이터 추가 전)
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer) {
+        scrollPositionRef.current = scrollContainer.scrollTop;
+        console.log('📍 [ProductListMain] 스크롤 위치 저장:', scrollPositionRef.current);
+      }
+      isAppendingRef.current = true;
+
       // 다음 페이지일 땐 누적
       setProducts(prev => {
         const merged = [...prev, ...searchResponses];
@@ -313,9 +326,23 @@ const ProductListMain = () => {
         );
         return unique;
       });
-      // ✅ totalProducts는 page 1에서 이미 설정됨 - 여기서는 변경하지 않음
     }
   }, [searchResponses, page, total]);
+
+  // 🔥 데이터 추가 후 스크롤 위치 복원
+  React.useEffect(() => {
+    if (isAppendingRef.current && products.length > 0) {
+      const scrollContainer = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
+      if (scrollContainer && scrollPositionRef.current > 0) {
+        // 다음 프레임에 스크롤 복원 (DOM 업데이트 후)
+        requestAnimationFrame(() => {
+          scrollContainer.scrollTop = scrollPositionRef.current;
+          console.log('📍 [ProductListMain] 스크롤 위치 복원:', scrollPositionRef.current);
+          isAppendingRef.current = false;
+        });
+      }
+    }
+  }, [products.length]);
 
   React.useEffect(() => {
     if (newFetchCount !== undefined) {
