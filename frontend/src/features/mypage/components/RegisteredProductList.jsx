@@ -197,14 +197,14 @@ const RegisteredProductList = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {/* 필터 및 정렬 컨트롤 - 항상 표시 */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-start sm:items-center justify-between">
         {/* uploadType 필터 */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <button
             onClick={() => setUploadTypeFilter('ALL')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               uploadTypeFilter === 'ALL'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -214,7 +214,7 @@ const RegisteredProductList = ({
           </button>
           <button
             onClick={() => setUploadTypeFilter('BORROW')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               uploadTypeFilter === 'BORROW'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -224,7 +224,7 @@ const RegisteredProductList = ({
           </button>
           <button
             onClick={() => setUploadTypeFilter('RENT')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               uploadTypeFilter === 'RENT'
                 ? 'bg-gray-900 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -235,12 +235,12 @@ const RegisteredProductList = ({
         </div>
         
         {/* 정렬 선택 */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600">정렬:</label>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <label className="text-xs sm:text-sm text-gray-600">정렬:</label>
           <select
             value={sortBy}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="productId">등록 순</option>
             <option value="rating">평점 순</option>
@@ -249,7 +249,7 @@ const RegisteredProductList = ({
       </div>
 
       {/* 상품 개수 표시 */}
-      <div className="text-sm text-gray-600">
+      <div className="text-xs sm:text-sm text-gray-600">
         총 {totalElements}개의 상품 중 {transformedProducts.length}개 표시
       </div>
 
@@ -272,7 +272,7 @@ const RegisteredProductList = ({
         </div>
       ) : (
         /* 상품 그리드 */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-4 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
           {transformedProducts.map((product) => (
             <ProductCard
               key={product.id || product.productId}
