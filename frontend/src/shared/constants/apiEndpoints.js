@@ -87,4 +87,11 @@ export const API_ENDPOINTS = {
       GUNGU_LIST: (sidoId) => `/regions/sidos/${sidoId}/gungus`, // 시도 ID로 구군 조회
       DONG_LIST: (gunguId) => `/regions/gungus/${gunguId}/dongs`, // 구군 ID로 동 조회
     },
+
+  // Push Notification
+  PUSH: {
+    VAPID_PUBLIC_KEY: '/push/vapid-public-key',
+    SUBSCRIBE: '/push/subscribe',
+    UNSUBSCRIBE: '/push/unsubscribe'
+  },
 };
