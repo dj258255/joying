@@ -1,5 +1,6 @@
 package com.joying.review.service;
 
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.review.domain.Review;
 import com.joying.review.dto.request.ReviewRequestDto;
+import com.joying.review.dto.response.ReviewCreateResponse;
 import com.joying.review.dto.response.ReviewResponseDto;
 import com.joying.review.exception.UnauthorizedReviewAccessException;
 import com.joying.review.repository.ReviewRepository;
@@ -37,78 +39,90 @@ public class ReviewService {
 
 	private final FileUrlResolver fileUrlResolver;
 	private final MemberRepository memberRepository;
-	private final ProductRepository productRepository;
 	private final RentalHistoryRepository rentalHistoryRepository;
 	private final FileRepository fileRepository;
 	private final ReviewFileRepository reviewFileRepository;
 	private final ReviewRepository reviewRepository;
 
+	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getReviews(Long productId, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
 		Page<Review> reviews = reviewRepository.findProductReviews(productId, UploadType.BORROW, pageRequest);
-
-		return reviews.map(review -> ReviewResponseDto.fromEntity(review, fileUrlResolver));
+		return reviews.map(this::toResponseDto);
 	}
 
 	@Transactional(readOnly = true)
 	public ReviewResponseDto getRentalReview(Long rentalId, UploadType uploadType) {
-		Review review;
+		Review review = reviewRepository.findRentalReview(
+			rentalId, uploadType.name()
+		);
+		return toResponseDto(review);
+	}
 
-		if (uploadType.equals(UploadType.RENT)) {
-			review = reviewRepository.findRentalReview(rentalId, UploadType.RENT.name());
-		} else {
-			review = reviewRepository.findRentalReview(rentalId, UploadType.BORROW.name());
+	@Transactional(readOnly = true)
+	public ReviewResponseDto getReview(Long reviewId, Long authId) {
+		Review review = reviewRepository.findByIdWithWriterAndProduct(reviewId)
+			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 리뷰입니다."));
+
+		if (!review.getReviewer().getMemberId().equals(authId)) {
+			throw new UnauthorizedReviewAccessException("리뷰를 조회할 권한이 없습니다.");
 		}
 
-		return ReviewResponseDto.fromEntity(review, fileUrlResolver);
+		return toResponseDto(review);
 	}
 
 	@Transactional
-	public Long createReview(ReviewRequestDto dto, Long authId) {
-		if (dto == null)
-			throw new IllegalArgumentException("리뷰 요청 데이터가 비어 있습니다.");
-		if (dto.reviewerId() == null)
-			throw new IllegalArgumentException("리뷰 작성자 ID가 필요합니다.");
-		if (dto.uploadType() == null
-			|| !(dto.uploadType() == UploadType.BORROW || dto.uploadType() == UploadType.RENT))
-			throw new IllegalArgumentException("적절한 리뷰 타입(uploadType)이 필요합니다.");
-		if (dto.productId() == null)
-			throw new IllegalArgumentException("리뷰 대상 상품 ID가 필요합니다.");
+	public ReviewCreateResponse createReview(ReviewRequestDto dto, Long authId) {
+		if (dto == null) throw new IllegalArgumentException("리뷰 요청 데이터가 비어 있습니다.");
 		if (dto.rentalHistoryId() == null)
 			throw new IllegalArgumentException("대여 이력 ID가 필요합니다.");
 
-		if (!dto.reviewerId().equals(authId)) {
-			throw new UnauthorizedReviewAccessException("리뷰 작성 권한이 없습니다.");
-		}
-
-		// if (dto.reviewerId().equals(dto.reviewedId())) {
-		// 	throw new UnauthorizedReviewAccessException("본인에 대한 리뷰를 작성할 수 없습니다.");
-		// }
-
-		Member reviewer = memberRepository.findById(dto.reviewerId())
+		// 로그인 사용자
+		Member reviewer = memberRepository.findById(authId)
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 작성자입니다."));
 
-		Product product = productRepository.findById(dto.productId())
-			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품입니다."));
-
-		RentalHistory rentalHistory = rentalHistoryRepository.findById(dto.rentalHistoryId())
+		// 대여 이력
+		RentalHistory rentalHistory = rentalHistoryRepository.findWithProductAndMemberById(dto.rentalHistoryId())
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 대여 이력입니다."));
 
-		Member reviewed = null;
-		if (dto.uploadType().equals(UploadType.RENT)) {
-			if (dto.reviewedId() == null)
-				throw new IllegalArgumentException("대여자/차용자 리뷰에는 대상 사용자 ID가 필요합니다.");
-			reviewed = memberRepository.findById(dto.reviewerId())
-				.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 작성자입니다."));
-			reviewed.updateRating(dto.rating());
+		UploadType uploadType;
+		if (!rentalHistory.getMember().equals(reviewer) && !rentalHistory.getRentalProduct().getWriter().equals(reviewer)) {
+			throw new UnauthorizedReviewAccessException("해당 대여에 리뷰를 작성할 수 없습니다.");
+		} else if (rentalHistory.getMember().equals(reviewer)) {
+			uploadType = UploadType.BORROW;
 		} else {
-			product.updateRating(dto.rating());
+			uploadType = UploadType.RENT;
+		}
+
+		// 상품
+		Product product = rentalHistory.getRentalProduct();
+
+		Member reviewed = null;
+		if (uploadType == UploadType.BORROW) {
+			// 빌린 사람이 리뷰 작성 → 리뷰 대상은 빌려준 사람
+			if (!rentalHistory.getMember().getMemberId().equals(authId)) {
+				throw new UnauthorizedReviewAccessException("해당 대여에 대한 리뷰 작성 권한이 없습니다.");
+			}
+			if (product.getWriter().getMemberId().equals(reviewer.getMemberId())) {
+				throw new UnauthorizedReviewAccessException("본인이 본인 상품에 대한 리뷰를 작성할 수 없습니다.");
+			}
+			product.updateRating(dto.rating()); // 상품 평점 업데이트
+		} else {
+			// 빌려준 사람이 리뷰 작성 → 리뷰 대상은 빌린 사람
+			if (!product.getWriter().getMemberId().equals(authId)) {
+				throw new UnauthorizedReviewAccessException("해당 대여에 대한 리뷰 작성 권한이 없습니다.");
+			}
+			reviewed = rentalHistory.getMember();
+			if (reviewed.getMemberId().equals(reviewer.getMemberId())) {
+				throw new UnauthorizedReviewAccessException("본인에 대한 리뷰를 작성할 수 없습니다.");
+			}
+			reviewed.updateRating(dto.rating()); // 사용자 평점 업데이트
 		}
 
 		Review review = reviewRepository.save(Review.builder()
 			.title(dto.title())
 			.content(dto.content())
-			.uploadType(dto.uploadType())
+			.uploadType(uploadType)
 			.rating(dto.rating())
 			.reviewer(reviewer)
 			.product(product)
@@ -120,17 +134,22 @@ public class ReviewService {
 			connectFile(dto, review);
 		}
 
-		return review.getReviewId();
+		return new ReviewCreateResponse(
+			review.getReviewId(),
+			review.getUploadType(),
+			review.getProduct() != null ? product.getProductId() : null,
+			reviewed != null ? reviewed.getMemberId() : null
+		);
 	}
 
 	@Transactional
-	public void updateReview(ReviewRequestDto dto, Long authId) {
-		if (dto == null || dto.reviewId() == null)
+	public void updateReview(Long reviewId, ReviewRequestDto dto, Long authId) {
+		if (dto == null || reviewId == null)
 			throw new IllegalArgumentException("리뷰 ID가 필요합니다.");
 		if (authId == null)
 			throw new UnauthorizedReviewAccessException("로그인이 필요한 요청입니다.");
 
-		Review review = reviewRepository.findById(dto.reviewId())
+		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 리뷰입니다."));
 
 		Long reviewerId = review.getReviewer().getMemberId();
@@ -175,8 +194,33 @@ public class ReviewService {
 	public Page<ReviewResponseDto> getMemberReviews(Long memberId, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
 		Page<Review> reviews = reviewRepository.findByReviewed_MemberId(memberId, pageRequest);
+		return reviews.map(this::toResponseDto);
+	}
 
-		return reviews.map(review -> ReviewResponseDto.fromEntity(review, fileUrlResolver));
+	/** 리뷰 이미지 URL 목록 생성 */
+	private List<String> resolveReviewImageUrls(Review review) {
+		if (review.getReviewFiles() == null || review.getReviewFiles().isEmpty()) return List.of();
+
+		return review.getReviewFiles().stream()
+			.sorted(Comparator.comparingInt(ReviewFile::getSortOrder))
+			.map(ReviewFile::getFile)
+			.map(fileUrlResolver::toPublicUrl)
+			.toList();
+	}
+
+	/** 리뷰 작성자 프로필 이미지 URL 생성 */
+	private String resolveReviewerProfileImage(Review review) {
+		if (review.getReviewer().getProfileImage() == null) {
+			return review.getReviewer().getKakaoProfileImageUrl();
+		}
+		return fileUrlResolver.toPublicUrl(review.getReviewer().getProfileImage());
+	}
+
+	/** Review → DTO 변환 (공통) */
+	private ReviewResponseDto toResponseDto(Review review) {
+		List<String> imageUrls = resolveReviewImageUrls(review);
+		String profileImageUrl = resolveReviewerProfileImage(review);
+		return ReviewResponseDto.fromEntity(review, profileImageUrl, imageUrls);
 	}
 
 	private void connectFile(ReviewRequestDto dto, Review review) {
