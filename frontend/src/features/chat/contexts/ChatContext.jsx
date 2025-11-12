@@ -230,19 +230,22 @@ const chatReducer = (state, action) => {
         }
       };
     case 'UPDATE_CHAT_ROOM_STATUS':
-      // 채팅방 상태 업데이트 (나가기, 재입장, 자동 종료)
+      // 채팅방 상태 업데이트 (나가기, 자동 종료)
       const { chatRoomId, status, isLeft } = action.payload;
       if (!state.currentChatRoom || (state.currentChatRoom.chatRoomId || state.currentChatRoom.id) !== chatRoomId) {
         return state;
       }
+      // isLeft 값이 명시적으로 전달된 경우에만 업데이트 (undefined가 아닌 경우)
+      const updatedIsLeft = isLeft !== undefined ? isLeft : state.currentChatRoom.otherMember?.isLeft ?? false;
       return {
         ...state,
         currentChatRoom: {
           ...state.currentChatRoom,
           status: status ?? state.currentChatRoom.status,
+          otherMemberIsLeft: updatedIsLeft, // 상위 레벨 필드도 업데이트
           otherMember: {
             ...state.currentChatRoom.otherMember,
-            isLeft: isLeft ?? state.currentChatRoom.otherMember.isLeft
+            isLeft: updatedIsLeft
           }
         }
       };
@@ -349,13 +352,51 @@ export const ChatProvider = ({ children }) => {
   }, [currentUserId, state.currentChatRoom?.otherMember, state.currentChatRoom?.participants, user?.nickname, user?.name, user?.profileImage, user?.profileImageUrl]);
 
   const normalizeMessage = useCallback((rawMessage, chatRoomOverride = null) => {
-    if (!rawMessage) return null;
+    if (!rawMessage) {
+      console.warn('[ChatContext] normalizeMessage: rawMessage is null or undefined');
+      return null;
+    }
 
-    const type = (rawMessage.type || 'TEXT').toString().toLowerCase();
+    // 타입 정규화 (대소문자 구분 없이 처리)
+    let type = rawMessage.type || rawMessage.messageType || 'TEXT';
+    if (typeof type === 'string') {
+      type = type.toLowerCase();
+    } else {
+      type = type.toString().toLowerCase();
+    }
+    
+    // 시스템 메시지인 경우 타입 강제 설정 (내용 기반 감지 포함)
+    // 단, 대여 요청 메시지는 시스템 메시지가 아니므로 JSON 파싱 전에 체크하지 않음
+    if (type === 'system' || 
+        rawMessage.type === 'SYSTEM' || 
+        rawMessage.messageType === 'SYSTEM' ||
+        (rawMessage.content && 
+         typeof rawMessage.content === 'string' &&
+         !rawMessage.content.trim().startsWith('{') && // JSON 문자열이 아닌 경우만
+         (
+          rawMessage.content.includes('나갔습니다') || 
+          rawMessage.content.includes('자동 종료')
+         ))) {
+      type = 'system';
+    }
+    
     const senderId = rawMessage.senderId ?? rawMessage.sender?.id ?? rawMessage.sender_id ?? null;
-    const sender = resolveSenderInfo(senderId, chatRoomOverride);
+    
+    // 시스템 메시지인 경우 sender를 null로 설정
+    const sender = type === 'system' ? null : resolveSenderInfo(senderId, chatRoomOverride);
 
     const timestamp = rawMessage.createdAt || rawMessage.timestamp || new Date().toISOString();
+    
+    // 디버깅: 시스템 메시지 감지 시 로그
+    if (type === 'system') {
+      console.log('[ChatContext] normalizeMessage: 시스템 메시지 감지:', {
+        rawMessage,
+        type,
+        content: rawMessage.content,
+        senderId,
+        timestamp
+      });
+    }
     
     // 답장 정보 정규화
     let replyTo = null;
@@ -415,12 +456,166 @@ export const ChatProvider = ({ children }) => {
 
     // 메시지 ID 추출 (다양한 형식 지원: id, _id, messageId)
     const messageId = rawMessage.id || rawMessage._id || rawMessage.messageId || `msg_${Date.now()}`;
+
+    // 대여 요청 메시지인 경우 rentalInfo 파싱
+    // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT 타입으로 전송되지만,
+    // content에 JSON 문자열로 대여 요청 정보가 포함되어 있음
+    let rentalInfo = rawMessage.rentalInfo || null;
     
+    // rentalInfo가 없고 content가 JSON 문자열인 경우 파싱 시도
+    // type이 'text'이거나 'rental_request'인 경우 모두 확인
+    if (!rentalInfo && rawMessage.content) {
+      try {
+        // content에서 JSON 문자열 추출 (여러 줄일 수 있으므로 JSON 부분만 추출)
+        const contentStr = String(rawMessage.content).trim();
+        
+        // JSON 객체를 찾기 위해 '{' 부터 '}' 까지 추출
+        const jsonStartIndex = contentStr.indexOf('{');
+        const jsonEndIndex = contentStr.lastIndexOf('}');
+        
+        if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+          const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+          
+          console.log('[ChatContext] normalizeMessage: JSON 문자열 추출:', {
+            originalContent: contentStr.substring(0, 100) + '...',
+            jsonStr: jsonStr.substring(0, 100) + '...',
+            jsonStartIndex,
+            jsonEndIndex
+          });
+          
+          const parsed = JSON.parse(jsonStr);
+          console.log('[ChatContext] normalizeMessage: JSON 파싱 결과:', {
+            parsed,
+            hasType: !!parsed?.type,
+            type: parsed?.type
+          });
+          
+          if (parsed && parsed.type === 'RENTAL_REQUEST') {
+            rentalInfo = {
+              productId: parsed.productId,
+              productTitle: parsed.productTitle,
+              productImageUrl: parsed.productImageUrl,
+              startDate: parsed.startDate,
+              endDate: parsed.endDate,
+              days: parsed.days,
+              rentMethod: parsed.rentMethod,
+              dailyPrice: parsed.dailyPrice,
+              deposit: parsed.deposit,
+              totalPrice: parsed.totalPrice,
+              requesterId: parsed.requesterId,
+              requesterName: parsed.requesterName,
+              requesterProfileUrl: parsed.requesterProfileUrl,
+              status: parsed.status || 'pending'
+            };
+            
+            console.log('[ChatContext] normalizeMessage: rentalInfo 추출 성공:', {
+              rentalInfo,
+              productId: rentalInfo.productId,
+              productTitle: rentalInfo.productTitle
+            });
+            
+            // 대여 요청 메시지인 경우 타입을 rental_request로 설정
+            if (type === 'text' && rentalInfo) {
+              type = 'rental_request';
+              console.log('[ChatContext] 대여 요청 메시지 감지 (content 파싱): text -> rental_request', {
+                parsed,
+                rentalInfo,
+                type,
+                productId: rentalInfo.productId,
+                productTitle: rentalInfo.productTitle
+              });
+            }
+          } else {
+            console.log('[ChatContext] normalizeMessage: JSON 파싱 성공했지만 RENTAL_REQUEST 타입 아님:', {
+              parsedType: parsed?.type,
+              parsed
+            });
+          }
+        } else {
+          // JSON 문자열이 직접 시작하고 끝나는 경우 (단일 JSON 문자열)
+          if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+            const parsed = JSON.parse(contentStr);
+            console.log('[ChatContext] normalizeMessage: JSON 파싱 결과 (직접 파싱):', {
+              parsed,
+              hasType: !!parsed?.type,
+              type: parsed?.type
+            });
+            
+            if (parsed && parsed.type === 'RENTAL_REQUEST') {
+              rentalInfo = {
+                productId: parsed.productId,
+                productTitle: parsed.productTitle,
+                productImageUrl: parsed.productImageUrl,
+                startDate: parsed.startDate,
+                endDate: parsed.endDate,
+                days: parsed.days,
+                rentMethod: parsed.rentMethod,
+                dailyPrice: parsed.dailyPrice,
+                deposit: parsed.deposit,
+                totalPrice: parsed.totalPrice,
+                requesterId: parsed.requesterId,
+                requesterName: parsed.requesterName,
+                requesterProfileUrl: parsed.requesterProfileUrl,
+                status: parsed.status || 'pending'
+              };
+              
+              if (type === 'text' && rentalInfo) {
+                type = 'rental_request';
+                console.log('[ChatContext] 대여 요청 메시지 감지 (직접 파싱): text -> rental_request', {
+                  rentalInfo,
+                  type
+                });
+              }
+            }
+          } else {
+            console.log('[ChatContext] normalizeMessage: JSON 문자열이 아님 (일반 텍스트):', {
+              content: contentStr.substring(0, 50) + '...'
+            });
+          }
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 일반 텍스트 메시지로 처리
+        console.log('[ChatContext] normalizeMessage: JSON 파싱 실패 (일반 텍스트 메시지):', {
+          error: e.message,
+          content: String(rawMessage.content).substring(0, 50) + '...'
+        });
+      }
+    } else if (rentalInfo) {
+      console.log('[ChatContext] normalizeMessage: rentalInfo가 이미 있음 (rawMessage에서):', {
+        rentalInfo,
+        productId: rentalInfo.productId,
+        productTitle: rentalInfo.productTitle
+      });
+    }
+    
+    // rentalInfo가 있으면 타입을 rental_request로 설정 (이중 체크)
+    if (rentalInfo && type === 'text') {
+      type = 'rental_request';
+      console.log('[ChatContext] 대여 요청 메시지 타입 변경: text -> rental_request (rentalInfo 있음)', {
+        rentalInfo,
+        type,
+        productId: rentalInfo.productId,
+        productTitle: rentalInfo.productTitle
+      });
+    }
+
+    // 대여 요청 메시지인 경우 content를 빈 문자열로 설정 (rentalInfo에서 표시하므로)
+    // 일반 텍스트 메시지가 아닌 경우만 content 유지
+    let messageContent = rawMessage.content || '';
+    if (type === 'rental_request' && rentalInfo) {
+      // 대여 요청 메시지는 rentalInfo로 표시하므로 content는 숨김
+      messageContent = '';
+    } else if (type === 'image') {
+      messageContent = rawMessage.imageUrl || rawMessage.content || '';
+    } else if (type === 'system') {
+      messageContent = rawMessage.content || '';
+    }
+
     const message = {
       id: messageId,
       chatRoomId: rawMessage.chatRoomId ?? chatRoomOverride?.chatRoomId ?? chatRoomOverride?.id ?? state.currentChatRoom?.chatRoomId ?? state.currentChatRoom?.id ?? null,
       type,
-      content: type === 'image' ? (rawMessage.imageUrl || rawMessage.content || '') : rawMessage.content || '',
+      content: messageContent,
       imageUrl: rawMessage.imageUrl || null,
       fileUrl: rawMessage.fileUrl || null,
       fileName: rawMessage.fileName || null,
@@ -434,7 +629,10 @@ export const ChatProvider = ({ children }) => {
       showReadIndicator: false, // 일시적 읽음 표시 (기본값: 숨김)
       isDeleted: rawMessage.isDeleted ?? false,
       isEdited: rawMessage.isEdited ?? false,
-      status: rawMessage.status || null
+      status: rawMessage.status || null,
+      // 대여 요청 메시지인 경우 추가 정보 포함
+      productId: rawMessage.productId || rentalInfo?.productId || null,
+      rentalInfo: rentalInfo
     };
 
     return message;
@@ -584,16 +782,64 @@ export const ChatProvider = ({ children }) => {
       const isOwnMessage = Number(message.senderId) === Number(currentUserId);
       
       // lastMessage와 lastMessageAt 업데이트 (실시간으로 미리보기 업데이트)
-      const lastMessage = message.type === 'image' 
-        ? '[이미지]' 
-        : message.type === 'file'
-        ? `[파일] ${message.fileName || '파일'}`
-        : message.content || '';
+      let lastMessage = '';
+      if (message.type === 'system') {
+        // 시스템 메시지: 그대로 표시
+        lastMessage = message.content || '';
+      } else if (message.type === 'image') {
+        lastMessage = '[이미지]';
+      } else if (message.type === 'file') {
+        lastMessage = `[파일] ${message.fileName || '파일'}`;
+      } else if (message.type === 'rental_request' || message.rentalInfo) {
+        // 대여 요청 메시지: "대여 요청"으로 표시
+        lastMessage = '대여 요청';
+      } else {
+        // content에 JSON이 포함되어 있는지 확인 (대여 요청 메시지 감지)
+        const content = message.content || '';
+        if (content && typeof content === 'string') {
+          try {
+            // JSON 문자열 추출 시도
+            const contentStr = content.trim();
+            const jsonStartIndex = contentStr.indexOf('{');
+            const jsonEndIndex = contentStr.lastIndexOf('}');
+            
+            if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+              const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+              const parsed = JSON.parse(jsonStr);
+              
+              // RENTAL_REQUEST 타입이면 "대여 요청"으로 표시
+              if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                lastMessage = '대여 요청';
+              } else {
+                lastMessage = content;
+              }
+            } else if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+              // 전체가 JSON 문자열인 경우
+              const parsed = JSON.parse(contentStr);
+              if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                lastMessage = '대여 요청';
+              } else {
+                lastMessage = content;
+              }
+            } else {
+              lastMessage = content;
+            }
+          } catch (e) {
+            // JSON 파싱 실패 시 일반 텍스트로 처리
+            lastMessage = content;
+          }
+        } else {
+          lastMessage = content;
+        }
+      }
       const lastMessageAt = message.timestamp || new Date().toISOString();
       
       // unreadCount 업데이트
       let unreadCount = room.unreadCount || 0;
-      if (isOwnMessage) {
+      // 시스템 메시지는 unreadCount에 영향 없음
+      if (message.type === 'system') {
+        // 시스템 메시지는 unreadCount 유지
+      } else if (isOwnMessage) {
         // 내가 보낸 메시지는 unreadCount에 영향 없음
         // (상대방이 읽지 않은 내 메시지는 메시지 아래에 "1"로 표시됨)
       } else {
@@ -646,10 +892,81 @@ export const ChatProvider = ({ children }) => {
     resetConnectionPromise();
     connect(roomId, {
       onMessage: (rawMessage) => {
+        console.log('[ChatContext] WebSocket 메시지 수신 (raw):', {
+          rawMessage,
+          type: rawMessage?.type,
+          content: rawMessage?.content,
+          senderId: rawMessage?.senderId,
+          chatRoomId: rawMessage?.chatRoomId
+        });
+        
         const normalized = normalizeMessage(rawMessage, chatRoomData);
+        console.log('[ChatContext] WebSocket 메시지 정규화 후:', {
+          normalized,
+          type: normalized?.type,
+          content: normalized?.content,
+          senderId: normalized?.senderId,
+          chatRoomId: normalized?.chatRoomId
+        });
+        
         if (normalized) {
           const snapshot = stateRef.current;
           const isOwnMessage = Number(normalized.senderId) === Number(currentUserId);
+          
+          // 시스템 메시지 처리 (재입장, 나가기 등) - 타입 체크를 더 엄격하게
+          const isSystemMessage = normalized.type === 'system' || 
+                                  normalized.type === 'SYSTEM' ||
+                                  rawMessage?.type === 'SYSTEM' ||
+                                  rawMessage?.type === 'system' ||
+                                  rawMessage?.messageType === 'SYSTEM' ||
+                                  rawMessage?.messageType === 'system';
+          
+          if (isSystemMessage) {
+            // 재입장 메시지는 무시 (표시하지 않음)
+            if (normalized.content?.includes('다시 들어왔습니다') || normalized.content?.includes('재입장')) {
+              console.log('[ChatContext] 재입장 시스템 메시지 무시:', normalized);
+              return;
+            }
+            
+            console.log('[ChatContext] 시스템 메시지 감지 (onMessage):', {
+              normalized,
+              rawMessage,
+              type: normalized.type,
+              content: normalized.content
+            });
+            
+            // 기존 메시지 확인 (동일한 시스템 메시지가 이미 있는지 확인)
+            const existingSystemMessage = snapshot.messages.find((msg) => {
+              if (!msg) return false;
+              const msgType = msg.type?.toLowerCase?.() || msg.type || '';
+              if (msgType !== 'system') return false;
+              
+              // 내용이 정확히 일치하면 중복
+              if (msg.content === normalized.content) {
+                console.log('[ChatContext] 동일한 내용의 시스템 메시지 발견:', msg);
+                return true;
+              }
+              
+              return false;
+            });
+            
+            if (existingSystemMessage) {
+              console.log('[ChatContext] 동일한 시스템 메시지가 이미 존재함, 무시:', {
+                existing: existingSystemMessage,
+                incoming: normalized
+              });
+              return;
+            }
+            
+            // 시스템 메시지 추가
+            console.log('[ChatContext] 시스템 메시지 추가 (중복 없음):', normalized);
+            dispatch({ type: 'ADD_MESSAGE', payload: normalized });
+            
+            // 채팅 목록 업데이트
+            updateChatRoomList(normalized, false);
+            
+            return;
+          }
           
           // 상대방이 메시지를 보냈으면 온라인 상태로 업데이트
           if (!isOwnMessage) {
@@ -710,11 +1027,11 @@ export const ChatProvider = ({ children }) => {
             }
           }
           
-          // 새 메시지 추가
-          dispatch({ type: 'ADD_MESSAGE', payload: normalized });
-          // 채팅 목록 업데이트
-          // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
-          updateChatRoomList(normalized, false);
+            // 새 메시지 추가
+            dispatch({ type: 'ADD_MESSAGE', payload: normalized });
+            // 채팅 목록 업데이트
+            // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
+            updateChatRoomList(normalized, false);
         }
       },
       onError: (errorLike) => {
@@ -877,16 +1194,52 @@ export const ChatProvider = ({ children }) => {
         chatRoom = chatRoomData;
       } else {
         console.log('[ChatContext] 채팅방 상세 조회 API 호출:', chatRoomId);
-        chatRoom = await chatApi.getChatRoomDetail(chatRoomId, { include: 'member' });
+        try {
+          chatRoom = await chatApi.getChatRoomDetail(chatRoomId, { include: 'member' });
+        } catch (error) {
+          // 403 에러는 나간 채팅방 접근 시도로 간주
+          if (error.response?.status === 403 || error.message?.includes('접근할 권한이 없습니다')) {
+            console.warn('[ChatContext] 나간 채팅방 접근 시도 (403 에러). 접근 차단.');
+            dispatch({ type: 'SET_LOADING', payload: false });
+            throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
+          }
+          // 다른 에러는 그대로 전파
+          throw error;
+        }
       }
 
       const roomId = chatRoom?.chatRoomId || chatRoomId;
 
       // 본인이 나간 상태(isLeft=true)인지 확인하여 접근 차단
-      if (chatRoom.isLeft === true) {
-        console.warn('[ChatContext] 본인이 나간 채팅방에 접근 시도. 접근 차단.');
+      // 백엔드 API 응답에 isLeft 필드가 포함되어 있는지 확인
+      if (chatRoom.isLeft === true || chatRoom.isLeft === 'true') {
+        console.warn('[ChatContext] 본인이 나간 채팅방에 접근 시도 (isLeft=true). 접근 차단.');
         dispatch({ type: 'SET_LOADING', payload: false });
         throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
+      }
+      
+      // 추가 검증: 채팅방 목록에서 해당 채팅방이 있는지 확인
+      // 백엔드가 나간 채팅방을 목록에서 제외하므로, 목록에 없으면 나간 채팅방일 가능성이 높음
+      // 단, 목록이 로드되지 않은 경우는 제외 (직접 URL 접근 등)
+      try {
+        const chatRoomsData = queryClient.getQueryData([QUERY_KEYS.CHATS, 'rooms']);
+        if (chatRoomsData && chatRoomsData.chatRooms && Array.isArray(chatRoomsData.chatRooms)) {
+          const roomExists = chatRoomsData.chatRooms.some((room) => {
+            const existingRoomId = room.chatRoomId || room.id;
+            return existingRoomId && Number(existingRoomId) === Number(roomId);
+          });
+          
+          // 목록이 로드되어 있고, 해당 채팅방이 목록에 없으면 나간 채팅방으로 간주
+          // 단, 목록이 비어있으면 정상 채팅방일 수도 있으므로 차단하지 않음
+          if (chatRoomsData.chatRooms.length > 0 && !roomExists) {
+            console.warn('[ChatContext] 나간 채팅방 접근 시도 (목록에 없음). 접근 차단.');
+            dispatch({ type: 'SET_LOADING', payload: false });
+            throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
+          }
+        }
+      } catch (error) {
+        // 목록 확인 중 에러가 발생하면 무시 (API 응답에 의존)
+        console.warn('[ChatContext] 채팅방 목록 확인 중 에러:', error);
       }
 
       // 채팅방 상태 확인 (자동 종료 여부) 및 입력창 비활성화 설정
@@ -927,6 +1280,7 @@ export const ChatProvider = ({ children }) => {
           name,
           participants,
           otherMember,
+          otherMemberIsLeft: otherMember.isLeft ?? false, // 상위 레벨 필드도 포함
         };
       })();
 
@@ -1003,7 +1357,7 @@ export const ChatProvider = ({ children }) => {
           const room = chatRoomsMap.get(roomId);
           if (room) {
             chatRoomsMap.set(roomId, { ...room, unreadCount: 0 });
-          }
+            }
           
           const uniqueChatRooms = Array.from(chatRoomsMap.values());
           
@@ -1018,14 +1372,14 @@ export const ChatProvider = ({ children }) => {
           });
           
           const totalUnreadCount = uniqueChatRooms.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
-          
-          return {
-            ...oldData,
+            
+            return {
+              ...oldData,
             chatRooms: uniqueChatRooms,
-            totalUnreadCount
-          };
-        });
-      }
+              totalUnreadCount
+            };
+          });
+        }
       
       // WebSocket 연결이 완료된 후 읽음 처리
       connectionPromiseRef.current
@@ -1076,7 +1430,10 @@ export const ChatProvider = ({ children }) => {
         fileUrl: messageData.fileUrl ?? null,
         fileName: messageData.fileName ?? null,
         fileSize: messageData.fileSize ?? null,
-        replyToMessageId: messageData.replyToMessageId ?? messageData.replyTo ?? null
+        replyToMessageId: messageData.replyToMessageId ?? messageData.replyTo ?? null,
+        // 대여 요청 메시지인 경우 추가 정보 포함
+        productId: messageData.productId ?? null,
+        rentalInfo: messageData.rentalInfo ?? null
       };
 
       if (!socketConnected || !websocketApi.isConnected?.()) {
@@ -1084,10 +1441,19 @@ export const ChatProvider = ({ children }) => {
         await connectionPromiseRef.current;
       }
 
+      // 대여 요청 메시지인 경우 타입 확인
+      // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT 타입으로 전송되지만,
+      // 프론트엔드에서는 rentalInfo가 있으면 rental_request 타입으로 표시
+      let messageType = payload.type.toLowerCase();
+      if (payload.rentalInfo && messageType === 'text') {
+        messageType = 'rental_request';
+        console.log('[ChatContext] 대여 요청 메시지 감지 (optimistic): text -> rental_request');
+      }
+      
       const optimisticMessage = {
         id: `temp_${Date.now()}`,
         chatRoomId: roomId,
-        type: payload.type.toLowerCase(),
+        type: messageType,
         content: payload.content,
         imageUrl: payload.imageUrl,
         fileUrl: payload.fileUrl,
@@ -1098,7 +1464,10 @@ export const ChatProvider = ({ children }) => {
         sender: resolveSenderInfo(currentUserId, state.currentChatRoom),
         timestamp: new Date().toISOString(),
         isRead: false, // 상대방이 읽기 전이므로 false
-        status: 'pending'
+        status: 'pending',
+        // 대여 요청 메시지인 경우 추가 정보 포함
+        productId: payload.productId,
+        rentalInfo: payload.rentalInfo
       };
 
       dispatch({ type: 'ADD_MESSAGE', payload: optimisticMessage });
@@ -1364,14 +1733,47 @@ export const ChatProvider = ({ children }) => {
   // 채팅방 상태 변경 알림 처리 함수
   const handleChatRoomStatusEvent = useCallback((event) => {
     try {
-      console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신:', event);
+      console.log('[ChatContext] handleChatRoomStatusEvent 호출:', {
+        event,
+        eventType: event?.eventType,
+        chatRoomId: event?.chatRoomId,
+        memberId: event?.memberId,
+        memberNickname: event?.memberNickname,
+        timestamp: event?.timestamp
+      });
+      
+      if (!event || !event.eventType) {
+        console.warn('[ChatContext] 유효하지 않은 채팅방 상태 변경 이벤트:', event);
+        return;
+      }
       
       const { chatRoomId, eventType, memberId, memberNickname, status, timestamp } = event;
       const snapshot = stateRef.current;
       const currentRoomId = snapshot.currentChatRoom?.chatRoomId || snapshot.currentChatRoom?.id;
       
+      console.log('[ChatContext] 채팅방 상태 변경 이벤트 처리:', {
+        eventType,
+        chatRoomId: Number(chatRoomId),
+        currentRoomId: Number(currentRoomId),
+        isCurrentRoom: currentRoomId && Number(currentRoomId) === Number(chatRoomId),
+        memberId,
+        memberNickname,
+        timestamp
+      });
+      
       // 현재 채팅방이 해당 채팅방인 경우에만 처리
-      if (currentRoomId && Number(currentRoomId) === Number(chatRoomId)) {
+      const isCurrentRoom = currentRoomId && Number(currentRoomId) === Number(chatRoomId);
+      
+      console.log('[ChatContext] 채팅방 상태 변경 이벤트 처리 조건 확인:', {
+        isCurrentRoom,
+        currentRoomId: Number(currentRoomId),
+        eventChatRoomId: Number(chatRoomId),
+        eventType,
+        memberNickname
+      });
+      
+      if (isCurrentRoom) {
+        console.log('[ChatContext] 현재 채팅방과 일치, 이벤트 처리 시작:', eventType);
         switch (eventType) {
           case 'MEMBER_LEFT':
             // 상대방이 나갔습니다
@@ -1394,7 +1796,10 @@ export const ChatProvider = ({ children }) => {
               }
             });
             
-            // 채팅방 목록 상태 업데이트
+            // 채팅방 목록 업데이트 (시스템 메시지 포함)
+            updateChatRoomList(leaveSystemMessage, false);
+            
+            // 채팅방 목록 상태 업데이트 (otherMemberIsLeft 추가)
             queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
               if (!oldData || !oldData.chatRooms) return oldData;
               
@@ -1446,16 +1851,13 @@ export const ChatProvider = ({ children }) => {
             break;
             
           case 'MEMBER_REJOINED':
-            // 상대방이 다시 들어왔습니다
-            const rejoinSystemMessage = {
-              id: `system-rejoin-${chatRoomId}-${Date.now()}`,
-              type: 'system',
-              content: `${memberNickname || '상대방'}님이 다시 들어왔습니다`,
-              timestamp: timestamp || new Date().toISOString(),
-              chatRoomId: Number(chatRoomId),
-              senderId: memberId || 0
-            };
-            dispatch({ type: 'ADD_MESSAGE', payload: rejoinSystemMessage });
+            // 재입장 이벤트는 무시 (재입장 메시지 표시하지 않음)
+            // 상대방 상태만 업데이트
+            console.log('[ChatContext] 재입장 이벤트 수신 (메시지 표시하지 않음):', {
+              chatRoomId,
+              memberId,
+              memberNickname
+            });
             
             // 상대방 상태 업데이트 (다시 들어옴)
             dispatch({
@@ -1466,7 +1868,7 @@ export const ChatProvider = ({ children }) => {
               }
             });
             
-            // 채팅방 목록 상태 업데이트
+            // 채팅방 목록 상태 업데이트 (otherMemberIsLeft 업데이트)
             queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
               if (!oldData || !oldData.chatRooms) return oldData;
               
@@ -1541,7 +1943,10 @@ export const ChatProvider = ({ children }) => {
             // 입력창 비활성화
             dispatch({ type: 'SET_CHAT_ROOM_DISABLED', payload: true });
             
-            // 채팅방 목록 상태 업데이트
+            // 채팅방 목록 업데이트 (시스템 메시지 포함)
+            updateChatRoomList(closeSystemMessage, false);
+            
+            // 채팅방 목록 상태 업데이트 (status 업데이트)
             queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
               if (!oldData || !oldData.chatRooms) return oldData;
               
@@ -1596,8 +2001,38 @@ export const ChatProvider = ({ children }) => {
             console.warn('[ChatContext] 알 수 없는 채팅방 상태 변경 이벤트:', eventType);
         }
       } else {
-        // 현재 채팅방이 아닌 경우, 채팅방 목록만 업데이트
-        if (eventType === 'ROOM_CLOSED') {
+        // 현재 채팅방이 아닌 경우, 채팅방 목록만 업데이트 (시스템 메시지 표시)
+        let systemMessage = null;
+        
+        if (eventType === 'MEMBER_LEFT') {
+          systemMessage = {
+            id: `system-leave-${chatRoomId}-${Date.now()}`,
+            type: 'system',
+            content: `${memberNickname || '상대방'}님이 채팅방을 나갔습니다`,
+            timestamp: timestamp || new Date().toISOString(),
+            chatRoomId: Number(chatRoomId),
+            senderId: memberId || 0
+          };
+        } else if (eventType === 'MEMBER_REJOINED') {
+          // 재입장 메시지는 표시하지 않음 (상태만 업데이트)
+          systemMessage = null;
+        } else if (eventType === 'ROOM_CLOSED') {
+          systemMessage = {
+            id: `system-closed-${chatRoomId}-${Date.now()}`,
+            type: 'system',
+            content: '채팅방이 30일 미사용으로 자동 종료되었습니다',
+            timestamp: timestamp || new Date().toISOString(),
+            chatRoomId: Number(chatRoomId),
+            senderId: 0
+          };
+        }
+        
+        // 시스템 메시지가 있으면 채팅방 목록 업데이트
+        if (systemMessage) {
+          // 채팅방 목록 업데이트 (시스템 메시지 포함)
+          updateChatRoomList(systemMessage, false);
+          
+          // 채팅방 목록 상태 업데이트 (상태 필드 업데이트)
           queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
             if (!oldData || !oldData.chatRooms) return oldData;
             
@@ -1626,10 +2061,18 @@ export const ChatProvider = ({ children }) => {
             const roomId = Number(chatRoomId);
             const room = chatRoomsMap.get(roomId);
             if (room) {
-              chatRoomsMap.set(roomId, {
-                ...room,
-                status: status || 'AUTO_CLOSED'
-              });
+              const updatedRoom = { ...room };
+              
+              if (eventType === 'MEMBER_LEFT') {
+                updatedRoom.otherMemberIsLeft = true;
+              } else if (eventType === 'MEMBER_REJOINED') {
+                // 재입장 시 상태만 업데이트 (메시지 표시하지 않음)
+                updatedRoom.otherMemberIsLeft = false;
+              } else if (eventType === 'ROOM_CLOSED') {
+                updatedRoom.status = status || 'AUTO_CLOSED';
+              }
+              
+              chatRoomsMap.set(roomId, updatedRoom);
             }
             
             const uniqueChatRooms = Array.from(chatRoomsMap.values());
@@ -1651,7 +2094,7 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.error('[ChatContext] 채팅방 상태 변경 이벤트 처리 실패:', error);
     }
-  }, [queryClient]);
+  }, [queryClient, updateChatRoomList]);
 
   // 전역 WebSocket 연결 (채팅방 상태 변경 알림 구독)
   useEffect(() => {
@@ -1694,13 +2137,32 @@ export const ChatProvider = ({ children }) => {
           // 채팅방 상태 변경 알림 구독
           subscription = client.subscribe('/user/queue/chatroom-status', (message) => {
             try {
+              console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (raw):', {
+                body: message.body,
+                headers: message.headers
+              });
+              
               const event = JSON.parse(message.body);
-              console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신:', event);
+              console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (parsed):', {
+                event,
+                eventType: event.eventType,
+                chatRoomId: event.chatRoomId,
+                memberId: event.memberId,
+                memberNickname: event.memberNickname,
+                timestamp: event.timestamp
+              });
+              
               handleChatRoomStatusEvent(event);
             } catch (error) {
-              console.error('[ChatContext] 채팅방 상태 변경 이벤트 파싱 오류:', error);
+              console.error('[ChatContext] 채팅방 상태 변경 이벤트 파싱 오류:', {
+                error,
+                body: message.body,
+                headers: message.headers
+              });
             }
           });
+          
+          console.log('[ChatContext] 채팅방 상태 변경 알림 구독 완료: /user/queue/chatroom-status');
 
           // Heartbeat 시작 (30초마다)
           heartbeatInterval = setInterval(() => {
@@ -1776,7 +2238,7 @@ export const ChatProvider = ({ children }) => {
       if (!document.hidden) {
         // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송
         if (websocketApi.isConnected?.()) {
-          websocketApi.sendHeartbeat();
+        websocketApi.sendHeartbeat();
         }
         // 전역 WebSocket Heartbeat도 전송
         if (globalWebSocketClientRef.current?.connected) {
