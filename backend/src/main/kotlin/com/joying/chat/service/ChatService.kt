@@ -343,8 +343,10 @@ class ChatService(
                 return@withContext
             }
 
-            // 3. 발신자 정보 조회 (채팅방에서 가져옴)
-            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return@withContext
+            // 3. 발신자 정보 조회 (프로필 이미지까지 Fetch Join)
+            // LazyInitializationException 방지: withContext(Dispatchers.IO)에서 Hibernate Session이 끊기므로
+            // Member.profileImage (File 엔티티)까지 미리 로드해야 함
+            val chatRoom = chatRoomRepository.findByIdWithProfileImages(chatRoomId).orElse(null) ?: return@withContext
             val sender =
                 if (senderId == chatRoom.buyer.memberId) {
                     chatRoom.buyer
@@ -353,7 +355,6 @@ class ChatService(
                 }
 
             // 4. 발신자 프로필 이미지 URL 가져오기
-
             val senderProfileUrl = sender.profileImage?.let { file ->
                 "${file.directory}/${file.fileName}"
             } ?: sender.kakaoProfileImageUrl
