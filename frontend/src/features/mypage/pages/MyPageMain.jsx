@@ -9,6 +9,7 @@ import { DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useMyProducts } from '@/features/product/hooks/useMyProducts';
 import { useLikedProducts } from '@/features/product/hooks/useLikedProducts';
+import { ROUTE_PATHS } from '@/shared/constants/routePaths';
 import { 
   FiPackage, 
   FiHeart, 
@@ -179,7 +180,18 @@ const MyPageMain = () => {
           {/* 모바일: activeTab이 null일 때만 표시, 데스크톱: 항상 표시 */}
           <div className={`w-full lg:w-80 flex-shrink-0 ${activeTab !== null ? 'hidden lg:block' : 'flex flex-col h-full'}`}>
             {/* 프로필 카드 */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-4 lg:mb-0">
+            <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 mb-4 lg:mb-0">
+              {/* 홈 버튼 (모바일만) */}
+              <button
+                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
+                className="lg:hidden absolute top-3 right-3 p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200"
+                title="상품 목록으로 이동"
+              >
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              </button>
+              
               {/* 사용자 프로필 섹션 */}
               <div className="text-center mb-4 sm:mb-6">
                 <ProfileImage 

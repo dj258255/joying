@@ -261,8 +261,8 @@ const ProductDetailPage = () => {
         state: { activeTab: 'products', productTab: 'registered' }
       });
     } else {
-      // 일반적인 경우: 이전 페이지로
-      navigate(-1);
+      // 일반적인 경우: 프로덕트 목록 페이지로 (URL 파라미터 없이 깨끗하게)
+      navigate(ROUTE_PATHS.PRODUCTS);
     }
   };
 
