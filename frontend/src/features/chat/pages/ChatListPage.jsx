@@ -18,7 +18,7 @@ import { getWebSocketUrl } from '../api/websocketApi';
 const ChatListPage = () => {
   const navigate = useNavigate();
   const [contextMenu, setContextMenu] = useState(null);
-  const { chatRooms, totalUnreadCount, isLoading, error, refetch } = useChatRooms();
+  const { chatRooms, totalUnreadCount, isLoading, error, refetch, leaveChatRoom, isLeaving } = useChatRooms();
   const queryClient = useQueryClient();
   const stompClientRef = useRef(null);
   const subscriptionRef = useRef(null);
@@ -77,22 +77,98 @@ const ChatListPage = () => {
               queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
                 if (!oldData || !oldData.chatRooms) return oldData;
 
-                const chatRooms = [...oldData.chatRooms];
-                const roomIndex = chatRooms.findIndex(
-                  (room) => (room.chatRoomId || room.id) === update.chatRoomId
-                );
+                // 중복 제거를 위한 Map 사용 (chatRoomId 기준)
+                const chatRoomsMap = new Map();
+                
+                // 기존 채팅방 목록을 Map에 추가 (중복 제거)
+                oldData.chatRooms.forEach((room) => {
+                  const roomId = room.chatRoomId || room.id;
+                  if (roomId) {
+                    // 같은 chatRoomId를 가진 채팅방이 이미 있으면 최신 것만 유지
+                    const existingRoom = chatRoomsMap.get(roomId);
+                    if (!existingRoom) {
+                      chatRoomsMap.set(roomId, room);
+                    } else {
+                      // 최신 활동 시간 비교하여 최신 것만 유지
+                      const existingTime = new Date(existingRoom.lastMessageAt || existingRoom.updatedAt || 0).getTime();
+                      const currentTime = new Date(room.lastMessageAt || room.updatedAt || 0).getTime();
+                      if (currentTime > existingTime) {
+                        chatRoomsMap.set(roomId, room);
+                      }
+                    }
+                  }
+                });
 
-                if (roomIndex === -1) {
+                const roomId = update.chatRoomId;
+                const existingRoom = chatRoomsMap.get(roomId);
+
+                if (!existingRoom) {
                   // 채팅방 목록에 없는 경우 (새 채팅방)
                   // API로 채팅방 정보 조회 후 추가
-                  chatApi.getChatRoomDetail(update.chatRoomId)
+                  chatApi.getChatRoomDetail(roomId)
                     .then((newRoom) => {
                       queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (prevData) => {
                         if (!prevData || !prevData.chatRooms) return prevData;
+                        
+                        // 중복 제거를 위한 Map 사용
+                        const roomsMap = new Map();
+                        
+                        // 기존 채팅방 목록을 Map에 추가 (중복 제거)
+                        prevData.chatRooms.forEach((room) => {
+                          const id = room.chatRoomId || room.id;
+                          if (id) {
+                            const existing = roomsMap.get(id);
+                            if (!existing) {
+                              roomsMap.set(id, room);
+                            } else {
+                              // 최신 활동 시간 비교하여 최신 것만 유지
+                              const existingTime = new Date(existing.lastMessageAt || existing.updatedAt || 0).getTime();
+                              const currentTime = new Date(room.lastMessageAt || room.updatedAt || 0).getTime();
+                              if (currentTime > existingTime) {
+                                roomsMap.set(id, room);
+                              }
+                            }
+                          }
+                        });
+                        
+                        // 새 채팅방 추가 (중복 체크)
+                        const newRoomId = newRoom.chatRoomId || newRoom.id;
+                        if (newRoomId) {
+                          const existing = roomsMap.get(newRoomId);
+                          if (!existing) {
+                            roomsMap.set(newRoomId, newRoom);
+                          } else {
+                            // 최신 활동 시간 비교하여 최신 것만 유지
+                            const existingTime = new Date(existing.lastMessageAt || existing.updatedAt || 0).getTime();
+                            const newTime = new Date(newRoom.lastMessageAt || newRoom.updatedAt || 0).getTime();
+                            if (newTime > existingTime) {
+                              roomsMap.set(newRoomId, newRoom);
+                            }
+                          }
+                        }
+                        
+                        const uniqueChatRooms = Array.from(roomsMap.values());
+                        
+                        // 최신 활동 순으로 정렬 (고정 채팅방 우선)
+                        uniqueChatRooms.sort((a, b) => {
+                          const aPinned = !!a.isPinned;
+                          const bPinned = !!b.isPinned;
+                          if (aPinned !== bPinned) return aPinned ? -1 : 1;
+                          const aTime = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+                          const bTime = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+                          return bTime - aTime;
+                        });
+                        
+                        // totalUnreadCount 계산
+                        const totalUnreadCount = uniqueChatRooms.reduce(
+                          (sum, room) => sum + (room.unreadCount || 0),
+                          0
+                        );
+                        
                         return {
                           ...prevData,
-                          chatRooms: [newRoom, ...prevData.chatRooms],
-                          totalUnreadCount: prevData.totalUnreadCount + (update.unreadCount || 0)
+                          chatRooms: uniqueChatRooms,
+                          totalUnreadCount
                         };
                       });
                     })
@@ -103,19 +179,20 @@ const ChatListPage = () => {
                 }
 
                 // 기존 채팅방 업데이트
-                const room = chatRooms[roomIndex];
-                const oldUnreadCount = room.unreadCount || 0;
+                const oldUnreadCount = existingRoom.unreadCount || 0;
                 const newUnreadCount = update.unreadCount || 0;
 
-                chatRooms[roomIndex] = {
-                  ...room,
+                chatRoomsMap.set(roomId, {
+                  ...existingRoom,
                   lastMessage: update.lastMessage,
                   lastMessageAt: update.lastMessageAt,
                   unreadCount: newUnreadCount
-                };
+                });
+
+                const uniqueChatRooms = Array.from(chatRoomsMap.values());
 
                 // 최신 활동 순으로 정렬 (고정 채팅방 우선)
-                chatRooms.sort((a, b) => {
+                uniqueChatRooms.sort((a, b) => {
                   const aPinned = !!a.isPinned;
                   const bPinned = !!b.isPinned;
                   if (aPinned !== bPinned) return aPinned ? -1 : 1;
@@ -125,14 +202,14 @@ const ChatListPage = () => {
                 });
 
                 // totalUnreadCount 계산
-                const totalUnreadCount = chatRooms.reduce(
+                const totalUnreadCount = uniqueChatRooms.reduce(
                   (sum, room) => sum + (room.unreadCount || 0),
                   0
                 );
 
                 return {
                   ...oldData,
-                  chatRooms,
+                  chatRooms: uniqueChatRooms,
                   totalUnreadCount
                 };
               });
@@ -272,12 +349,13 @@ const ChatListPage = () => {
     if (!id) return;
     if (window.confirm('정말로 이 채팅방을 삭제하시겠습니까?')) {
       try {
-        await chatApi.leaveChatRoom(id);
-        refetch();
+        // useChatRooms의 leaveChatRoom mutation 사용 (낙관적 업데이트 포함)
+        await leaveChatRoom(id);
+        // refetch()는 필요 없음 (낙관적 업데이트로 즉시 반영됨)
         closeContextMenu();
       } catch (error) {
         console.error('채팅방 삭제 실패:', error);
-        alert('채팅방 삭제에 실패했습니다.');
+        alert(error.message || '채팅방 삭제에 실패했습니다.');
       }
     }
   };

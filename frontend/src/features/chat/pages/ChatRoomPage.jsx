@@ -192,7 +192,7 @@ const ChatRoomPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, jumpToMessage, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus } = useChatContext();
+  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, jumpToMessage, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus, isChatRoomDisabled } = useChatContext();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -269,6 +269,19 @@ const ChatRoomPage = () => {
       }
     }
   }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom, navigate]);
+
+  // 나간 채팅방 접근 차단 (currentChatRoom이 설정된 후 확인)
+  useEffect(() => {
+    if (!currentChatRoom) return;
+    
+    // 본인이 나간 채팅방인지 확인 (isLeft는 본인이 나갔는지 여부)
+    if (currentChatRoom.isLeft === true) {
+      console.warn('[ChatRoomPage] 나간 채팅방 접근 차단:', currentChatRoom.chatRoomId || currentChatRoom.id);
+      alert('나간 채팅방입니다.');
+      navigate('/chats');
+      return;
+    }
+  }, [currentChatRoom, navigate]);
 
   // 주기적으로 채팅방 정보 갱신 (온라인 상태 실시간 반영)
   useEffect(() => {
@@ -425,8 +438,8 @@ const ChatRoomPage = () => {
     const shouldIgnoreScrollUpdate = timeSinceLastJump < 5000; // 5초 동안 무시
     
     if (!shouldIgnoreScrollUpdate && !isJumpingToMessage && !pendingScrollMessageId && !isScrollingToMessage) {
-      const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
-      setIsNearBottom(distanceFromBottom < 80);
+    const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
+    setIsNearBottom(distanceFromBottom < 80);
     } else {
       // 메시지 점프 후에는 강제로 하단이 아님을 유지 (자동 스크롤 방지)
       if (shouldIgnoreScrollUpdate || isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
@@ -940,7 +953,7 @@ const ChatRoomPage = () => {
       // 메시지 점프 시작 시간 기록
       lastJumpTimeRef.current = Date.now();
       setPendingScrollMessageId(messageIdStr);
-      return true;
+          return true;
     } catch (error) {
       console.error('[scrollToMessage] 메시지 점프 실패:', error);
       setSearchError(error.message || '메시지 점프에 실패했습니다.');
@@ -1043,13 +1056,13 @@ const ChatRoomPage = () => {
       const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
       
       // DOM 렌더링 대기
-      for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 5; i++) {
         await new Promise(resolve => requestAnimationFrame(resolve));
       }
       await wait(300);
 
-      const container = messagesContainerRef.current;
-      if (!container) {
+        const container = messagesContainerRef.current;
+        if (!container) {
         console.warn('[useEffect scroll] 컨테이너를 찾을 수 없습니다');
         setPendingScrollMessageId(null);
         setIsJumpingToMessage(false);
@@ -1060,17 +1073,17 @@ const ChatRoomPage = () => {
       let element = null;
       for (let attempt = 0; attempt < 100; attempt++) {
         element = document.getElementById(`message-${messageId}`);
-        if (element) {
+          if (element) {
           console.log('[useEffect scroll] DOM 요소 찾음 (시도 횟수):', attempt + 1);
           break;
-        }
+          }
         await wait(50);
       }
-
-      if (element) {
+        
+          if (element) {
         console.log('[useEffect scroll] DOM 요소 찾음, 스크롤 실행:', messageId);
-        setIsNearBottom(false);
-        setIsSearchOpen(false);
+            setIsNearBottom(false);
+            setIsSearchOpen(false);
         
         // 하이라이트 효과 추가
         element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
@@ -1148,7 +1161,7 @@ const ChatRoomPage = () => {
         });
         
         // 스크롤이 제대로 되었는지 확인
-        setTimeout(() => {
+            setTimeout(() => {
           const actualScrollTop = container.scrollTop;
           const elementRectAfter = targetElement.getBoundingClientRect();
           const containerRectAfter = container.getBoundingClientRect();
@@ -1228,8 +1241,8 @@ const ChatRoomPage = () => {
         setPendingScrollMessageId(messageId);
       } else {
         // 현재 목록에 없으면 메시지 점프 API 호출
-        setIsJumpingToMessage(true);
-        setSearchError('');
+    setIsJumpingToMessage(true);
+    setSearchError('');
         // 메시지 점프 시작 시간 기록
         lastJumpTimeRef.current = Date.now();
         
@@ -1246,8 +1259,8 @@ const ChatRoomPage = () => {
         } catch (error) {
           console.error('[handleResultClick] 메시지 점프 실패:', error);
           setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
-          setIsJumpingToMessage(false);
-        }
+      setIsJumpingToMessage(false);
+    }
       }
     } catch (error) {
       console.error('[handleResultClick] 검색 결과 클릭 실패:', error);
@@ -1557,16 +1570,16 @@ const ChatRoomPage = () => {
                   <React.Fragment key={key}>
                     {showDateDivider && <DateDivider />}
                     <div id={anchorId} className="mb-4">
-                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className="max-w-[85%]">
-                          <RentalRequestCard
-                            rentalInfo={rentalInfo}
-                            onAccept={() => handleRentalAccept(message)}
-                            onReject={() => handleRentalReject(message)}
-                          />
-                        </div>
+                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <div className="max-w-[85%]">
+                        <RentalRequestCard
+                          rentalInfo={rentalInfo}
+                          onAccept={() => handleRentalAccept(message)}
+                          onReject={() => handleRentalReject(message)}
+                        />
                       </div>
                     </div>
+                  </div>
                   </React.Fragment>
                 );
               }
@@ -1618,31 +1631,31 @@ const ChatRoomPage = () => {
                 <React.Fragment key={key}>
                   {showDateDivider && <DateDivider />}
                   <div id={anchorId} className="mb-4">
-                    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-2xl p-4 ${
-                        isOwn
-                          ? 'bg-blue-500 text-white' 
-                          : 'bg-gray-200 text-gray-900'
-                      }`}>
-                        <div className="font-medium mb-2">
-                          {isOwn 
-                            ? '대여 요청을 보냈습니다' 
-                            : '대여 요청을 받았습니다'}
-                        </div>
-                        <div className="text-sm opacity-90">
-                          {message.content}
-                        </div>
-                        {message.status && (
-                          <div className="mt-2 text-xs opacity-75">
-                            {message.status === 'pending' && '대기 중'}
-                            {message.status === 'approved' && '✓ 승인됨'}
-                            {message.status === 'rejected' && '✗ 거절됨'}
-                            {message.status === 'payment_completed' && '✓ 결제 완료'}
-                          </div>
-                        )}
+                  <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl p-4 ${
+                      isOwn
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-900'
+                    }`}>
+                      <div className="font-medium mb-2">
+                        {isOwn 
+                          ? '대여 요청을 보냈습니다' 
+                          : '대여 요청을 받았습니다'}
                       </div>
+                      <div className="text-sm opacity-90">
+                        {message.content}
+                      </div>
+                      {message.status && (
+                        <div className="mt-2 text-xs opacity-75">
+                          {message.status === 'pending' && '대기 중'}
+                          {message.status === 'approved' && '✓ 승인됨'}
+                          {message.status === 'rejected' && '✗ 거절됨'}
+                          {message.status === 'payment_completed' && '✓ 결제 완료'}
+                        </div>
+                      )}
                     </div>
                   </div>
+                </div>
                 </React.Fragment>
               );
             }
@@ -1654,19 +1667,19 @@ const ChatRoomPage = () => {
             return (
               <React.Fragment key={key}>
                 {showDateDivider && <DateDivider />}
-                <MessageBubble
-                  message={message}
-                  messageId={message.id}
-                  isOwn={isOwn}
-                  onReply={handleReply}
-                  onDelete={handleDeleteMessage}
-                  onEdit={handleEditMessage}
+              <MessageBubble
+                message={message}
+                messageId={message.id}
+                isOwn={isOwn}
+                onReply={handleReply}
+                onDelete={handleDeleteMessage}
+                onEdit={handleEditMessage}
                   onReplyClick={async (replyMessageId) => {
                     if (replyMessageId) {
                       await scrollToMessage(replyMessageId);
                     }
                   }}
-                />
+              />
               </React.Fragment>
             );
           })
@@ -1710,7 +1723,7 @@ const ChatRoomPage = () => {
         onSendMessage={handleSendMessage}
         onSendFile={handleSendFile}
         onTyping={sendTyping}
-        disabled={false}
+        disabled={isChatRoomDisabled || isConfirmingPayment || currentChatRoom?.status === 'AUTO_CLOSED'}
         replyTo={replyTo}
         onCancelReply={handleCancelReply}
       />
