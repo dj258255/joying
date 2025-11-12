@@ -6,9 +6,11 @@
 import React, { useEffect, useState } from 'react';
 import { chatApi } from '../api/chatApi';
 import { useNavigate } from 'react-router-dom';
+import { useChatRooms } from '../hooks/useChatRooms';
 
 const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
   const navigate = useNavigate();
+  const { leaveChatRoom, isLeaving } = useChatRooms();
   const [settings, setSettings] = useState({
     isPinned: chatRoom?.isPinned || false,
     isMuted: chatRoom?.isMuted || false
@@ -68,12 +70,13 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
           alert('채팅방 정보를 확인할 수 없습니다.');
           return;
         }
-        await chatApi.leaveChatRoom(roomId);
+        // useChatRooms의 leaveChatRoom mutation 사용 (낙관적 업데이트 포함)
+        await leaveChatRoom(roomId);
         navigate('/chats');
         onClose();
       } catch (error) {
         console.error('채팅방 나가기 실패:', error);
-        alert('채팅방 나가기에 실패했습니다.');
+        alert(error.message || '채팅방 나가기에 실패했습니다.');
       }
     }
   };
@@ -170,9 +173,10 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
           </button>
           <button
             onClick={handleLeaveChat}
-            className="w-full py-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02]"
+            disabled={isLeaving}
+            className="w-full py-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-2xl font-semibold hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            채팅방 나가기
+            {isLeaving ? '나가는 중...' : '채팅방 나가기'}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -65,7 +66,12 @@ public class SearchController {
 		@RequestParam(required = false) List<Long> hashtag,
 		@RequestParam(required = false) Boolean sameDayRental,
 		@RequestParam(required = false, defaultValue = "1") int page,
-		@RequestParam(required = false, defaultValue = "14") int size) {
+		@RequestParam(required = false, defaultValue = "14") int size,
+		Authentication authentication) {
+		Long authId = null;
+		if (authentication != null) {
+			authId = Long.parseLong(authentication.getName());
+		}
 		var result = searchService.search(
 			uploadType,
 			q,
@@ -79,7 +85,8 @@ public class SearchController {
 			hashtag,
 			sameDayRental,
 			page,
-			size
+			size,
+			authId
 		);
 		return ApiResponse.ok(result);
 	}

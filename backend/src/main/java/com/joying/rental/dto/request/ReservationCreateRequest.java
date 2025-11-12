@@ -33,4 +33,18 @@ public class ReservationCreateRequest {
      * - 없으면 현재 요청한 사용자가 대여자가 됨
      */
     private Long renterId;
+
+    /**
+     * 1일 대여료 (optional)
+     * - 없으면 상품의 기본 rentalFee 사용
+     * - 할인 등으로 금액 조정 시 사용
+     */
+    private Integer fee;
+
+    /**
+     * 보증금 (optional)
+     * - 없으면 상품의 기본 deposit 사용
+     * - 할인 등으로 금액 조정 시 사용
+     */
+    private Long deposit;
 }

@@ -98,13 +98,17 @@ public class RentalHistory {
 
     /**
      * 대여 생성 (예약)
+     * @param customFee 커스텀 대여료 (1일 요금, null이면 상품 기본값 사용)
+     * @param customDeposit 커스텀 보증금 (null이면 상품 기본값 사용)
      */
     public static RentalHistory create(
             Product product,
             Member renter,
             Timestamp startRen,
             Timestamp endRen,
-            RentMethod rentMethod) {
+            RentMethod rentMethod,
+            Integer customFee,
+            Long customDeposit) {
 
         RentalHistory rental = new RentalHistory();
         rental.rentalProduct = product;
@@ -113,9 +117,9 @@ public class RentalHistory {
         rental.endRen = endRen;
         rental.rentMethod = rentMethod;
 
-        // 상품 정보에서 가져오기
-        rental.fee = product.getRentalFee();
-        rental.deposit = Long.valueOf(product.getDeposit());
+        // 커스텀 값이 있으면 사용, 없으면 상품 기본값 사용
+        rental.fee = (customFee != null) ? customFee : product.getRentalFee();
+        rental.deposit = (customDeposit != null) ? customDeposit : Long.valueOf(product.getDeposit());
 
         // 초기 상태
         rental.status = RentalStatus.PENDING;  // 결제 전 상태

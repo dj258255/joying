@@ -157,13 +157,15 @@ public class RentalService {
             throw new IllegalArgumentException("해당 기간에 이미 다른 예약이 있습니다");
         }
 
-        // 7. RentalHistory 생성
+        // 7. RentalHistory 생성 (요청에서 커스텀 fee/deposit 전달)
         RentalHistory rental = RentalHistory.create(
                 product,
                 renter,
                 requestStart,
                 requestEnd,
-                request.getRentMethod()
+                request.getRentMethod(),
+                request.getFee(),       // null이면 상품 기본값 사용
+                request.getDeposit()    // null이면 상품 기본값 사용
         );
 
         // 8. 저장

@@ -5,6 +5,7 @@
 
 import React, { useState, useRef } from 'react';
 import FileUploadModal from './FileUploadModal';
+import EmoticonPicker from './EmoticonPicker';
 
 /**
  * @param {Object} props
@@ -29,6 +30,7 @@ const MessageInput = ({
 }) => {
   const [message, setMessage] = useState('');
   const [showFileModal, setShowFileModal] = useState(false);
+  const [showEmoticonPicker, setShowEmoticonPicker] = useState(false);
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const lastTypingTimeRef = useRef(0);
@@ -69,6 +71,25 @@ const MessageInput = ({
     } catch (error) {
       console.error('파일 전송 실패:', error);
       alert(error.message || '파일 전송에 실패했습니다.');
+    }
+  };
+
+  // 이모티콘 선택 핸들러 (Data URL을 이미지로 전송)
+  const handleEmoticonSelect = async (dataURL) => {
+    try {
+      // Data URL을 Blob으로 변환
+      const response = await fetch(dataURL);
+      const blob = await response.blob();
+      
+      // Blob을 File 객체로 변환
+      const file = new File([blob], `emoticon-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      
+      // 파일로 전송
+      await onSendFile?.(file);
+      setShowEmoticonPicker(false);
+    } catch (error) {
+      console.error('이모티콘 전송 실패:', error);
+      alert(error.message || '이모티콘 전송에 실패했습니다.');
     }
   };
 
@@ -177,12 +198,26 @@ const MessageInput = ({
       {/* 메시지 입력 영역 */}
       <div className="bg-white border-t border-gray-200 p-4">
         <form onSubmit={handleSubmit} className="flex items-end gap-3">
+          {/* 이모티콘 버튼 */}
+          <button
+            type="button"
+            onClick={() => setShowEmoticonPicker(true)}
+            disabled={disabled}
+            className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+            aria-label="이모티콘"
+          >
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+
           {/* 파일 업로드 버튼 */}
           <button
             type="button"
             onClick={() => setShowFileModal(true)}
             disabled={disabled}
             className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+            aria-label="파일 첨부"
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -226,6 +261,13 @@ const MessageInput = ({
         isOpen={showFileModal}
         onClose={() => setShowFileModal(false)}
         onFileSelect={handleFileSelect}
+      />
+
+      {/* 이모티콘 선택 모달 */}
+      <EmoticonPicker
+        isOpen={showEmoticonPicker}
+        onClose={() => setShowEmoticonPicker(false)}
+        onSelect={handleEmoticonSelect}
       />
     </>
   );

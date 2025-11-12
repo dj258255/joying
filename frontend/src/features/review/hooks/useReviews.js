@@ -5,9 +5,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reviewApi } from '../api/reviewApi';
+import { productReviewApi } from '../api/productReviewApi';
+import { userReviewApi } from '../api/userReviewApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
-export const useReviews = (filters = {}) => {
+export const useReviews = (type, targetId, filters = {}) => {
   const queryClient = useQueryClient();
 
   // 리뷰 목록 조회
@@ -16,8 +18,19 @@ export const useReviews = (filters = {}) => {
     isLoading,
     error
   } = useQuery({
-    queryKey: [QUERY_KEYS.REVIEWS, filters],
-    queryFn: () => reviewApi.getReviews(filters),
+    queryKey: [QUERY_KEYS.REVIEWS, type, targetId],
+    queryFn: async () => {
+      if (type === 'product') {
+        const data = await productReviewApi.getProductReviews(targetId, filters);
+        console.log(data.data);
+        return data.data;
+      } else if (type === 'member') {
+        const data = await userReviewApi.getUserReviews(targetId, filters);
+        return data.data;
+      } else {
+        throw new Error('Invalid review type');
+      }
+    },
     staleTime: 1000 * 60 * 5 // 5분
   });
 

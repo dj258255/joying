@@ -40,7 +40,8 @@ const TransactionProcessModal = ({
   requestedDateRange = null,
   onTransactionCreated,
   sendMessage,
-  otherMemberId = null
+  otherMemberId = null,
+  chatRoomId = null
 }) => {
   const { user } = useAuth();
 
@@ -71,6 +72,13 @@ const TransactionProcessModal = ({
 
   // 초기화: rentalData가 있으면 상태 복원
   useEffect(() => {
+    console.log('[TransactionProcessModal] useEffect 실행:', {
+      rentalData,
+      rentalDataStatus: rentalData?.status || rentalData?.rentalStatus,
+      requestedDateRange,
+      userRole
+    });
+
     if (rentalData) {
       setTransactionData(rentalData);
       // 상태에 따라 currentStep 결정
@@ -97,16 +105,22 @@ const TransactionProcessModal = ({
   // 현재 단계 결정
   const determineCurrentStep = (data) => {
     if (!data) {
+      console.log('[TransactionProcessModal] determineCurrentStep: data 없음, create로 설정');
       setCurrentStep('create');
       return;
     }
 
     const status = data.status || data.rentalStatus;
+    console.log('[TransactionProcessModal] determineCurrentStep:', { data, status, userRole });
 
     switch(status) {
       case 'PENDING':
         // PENDING 상태: 구매자는 결제 확인 모달, 판매자는 대기
         setCurrentStep(userRole === 'buyer' ? 'payment_confirm' : 'payment_waiting');
+        break;
+      case 'ESCROW':
+        // ESCROW 상태: 결제 완료, 에스크로 보관 중 - 판매자는 발송 대기, 구매자는 배송 대기
+        setCurrentStep(userRole === 'seller' ? 'shipping' : 'delivery');
         break;
       case 'RESERVED':
         // RESERVED 상태: 구매자는 결제 확인 모달, 판매자는 대기
@@ -168,7 +182,10 @@ const TransactionProcessModal = ({
         endRen: new Date(dateRange.end).toISOString(),
         rentMethod: rentMethod,
         // 판매자가 거래를 생성하는 경우, 상대방(구매자)의 memberId를 renterId로 전달
-        ...(userRole === 'seller' && otherMemberId ? { renterId: otherMemberId } : {})
+        ...(userRole === 'seller' && otherMemberId ? { renterId: otherMemberId } : {}),
+        // 커스텀 대여료와 보증금 전달 (할인 등 금액 조정 시)
+        fee: rentalFee,      // 1일 대여료
+        deposit: deposit      // 보증금
       };
 
       console.log('[TransactionProcessModal] 요청 데이터:', {
@@ -251,14 +268,48 @@ const TransactionProcessModal = ({
   };
 
   // 결제 진행 (구매자)
-  const handleProceedPayment = () => {
-    if (!transactionData || !transactionData.payment) {
-      setError('결제 정보를 찾을 수 없습니다.');
+  const handleProceedPayment = async () => {
+    if (!transactionData) {
+      setError('거래 정보를 찾을 수 없습니다.');
       return;
     }
 
-    setPaymentInfo(transactionData.payment);
-    setShowPaymentModal(true);
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // 결제 금액 계산
+      const days = Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1;
+      const totalAmount = (transactionData.fee * days) + transactionData.deposit;
+
+      console.log('[TransactionProcessModal] 결제 생성 시작:', {
+        rentalHisId: transactionData.rentalHisId,
+        productId: productData.id || productData.productId,
+        totalAmount,
+        days
+      });
+
+      // 결제 생성 API 호출
+      const paymentData = {
+        rentalHisId: transactionData.rentalHisId,
+        productId: productData.id || productData.productId,
+        totalAmount: totalAmount,
+        orderName: `${productData.title || productData.name} 대여(보증금 포함)`
+      };
+
+      const paymentResult = await paymentApi.createPayment(paymentData);
+
+      console.log('[TransactionProcessModal] 결제 생성 완료:', paymentResult);
+
+      // PaymentModal 열기
+      setPaymentInfo(paymentResult.data);
+      setShowPaymentModal(true);
+    } catch (err) {
+      console.error('[TransactionProcessModal] 결제 생성 실패:', err);
+      setError('결제 생성에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 거래 취소 (구매자가 결제 전 취소)
@@ -329,13 +380,19 @@ const TransactionProcessModal = ({
       };
       setTransactionData(updatedRentalData);
 
-      // 채팅방에 결제 완료 메시지 전송
+      // 채팅방에 결제 완료 메시지 전송 (버튼 포함)
       if (sendMessage) {
-        const messageContent = `✅ 결제 완료\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n\n판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${transactionData.rentalHisId}`;
+        const messageContent = `✅ 결제가 완료되었습니다!\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n주문번호: ${orderId}\n\n💡 판매자님, 물건을 발송해주세요!\n💡 구매자님, 판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${transactionData.rentalHisId}`;
 
         await sendMessage({
-          type: 'TEXT',
-          content: messageContent
+          type: 'PAYMENT_COMPLETE',
+          content: messageContent,
+          rentalHisId: transactionData.rentalHisId,
+          paymentInfo: {
+            orderId: orderId,
+            amount: amount,
+            productName: productData.title || productData.name
+          }
         });
       }
 
@@ -757,7 +814,7 @@ const TransactionProcessModal = ({
                       일수: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
                     </div>
                     <div className="pt-2 border-t font-medium text-lg">
-                      결제 금액: {transactionData.payment?.totalAmount?.toLocaleString() || 0}원
+                      결제 금액: {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
                     </div>
                   </div>
                 </div>
@@ -795,9 +852,9 @@ const TransactionProcessModal = ({
                   <h4 className="font-medium text-gray-900 mb-2">거래 정보</h4>
                   <div className="text-sm text-gray-700 space-y-1">
                     <div>상품: {productData.title || productData.name}</div>
-                    <div>대여 기간: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24))}일</div>
+                    <div>대여 기간: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일</div>
                     <div className="pt-2 border-t font-medium text-lg">
-                      결제 금액: {transactionData.payment?.totalAmount?.toLocaleString() || 0}원
+                      결제 금액: {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
                     </div>
                   </div>
                 </div>
@@ -1190,6 +1247,8 @@ const TransactionProcessModal = ({
           orderId={paymentInfo.orderId}
           amount={paymentInfo.totalAmount}
           orderName={paymentInfo.orderName || `${productData.title} 대여`}
+          chatRoomId={chatRoomId}
+          rentalHisId={transactionData?.rentalHisId}
           onSuccess={handlePaymentSuccess}
           onError={(error) => {
             console.error('결제 오류:', error);

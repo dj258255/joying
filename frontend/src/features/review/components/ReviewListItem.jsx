@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 import ReviewStarRating from './ReviewStarRating';
 
 /**
@@ -14,15 +15,22 @@ import ReviewStarRating from './ReviewStarRating';
  * @param {boolean} props.isOwner - 리뷰 작성자 여부
  */
 const ReviewListItem = ({ review, onEdit, onDelete, isOwner = false }) => {
+  const { user, isAuthenticated } = useAuth();
+
+  isOwner = isAuthenticated && user && review.reviewerId === user.memberId;
+
   const {
-    id,
+    reviewId,
     content,
     rating,
     createdAt,
-    reviewer,
+    reviewerName,
     product,
-    isEdited
+    isEdited,
+    profileImageUrl,
   } = review;
+
+  const imageUrls = Array.isArray(review.imageUrls) ? review.imageUrls : [];
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
@@ -45,13 +53,26 @@ const ReviewListItem = ({ review, onEdit, onDelete, isOwner = false }) => {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-            <span className="text-gray-600 font-medium">
-              {reviewer?.nickname?.charAt(0) || '?'}
-            </span>
+            {profileImageUrl ? (
+              <img
+                src={profileImageUrl}
+                alt="프로필 이미지"
+                className="w-10 h-10 rounded-full object-cover"
+                onError={(e) => {
+                  // 이미지 로드 실패 시 fallback
+                  e.target.onerror = null;
+                  e.target.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png'; // 기본 이미지 경로
+                }}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                <span className="text-gray-600 font-medium">{reviewerName?.charAt(0) || '?'}</span>
+              </div>
+            )}
           </div>
           <div>
             <div className="font-medium text-gray-900">
-              {reviewer?.nickname || '알 수 없음'}
+              {reviewerName || '알 수 없음'}
             </div>
             <div className="flex items-center space-x-2">
               <ReviewStarRating rating={rating} size="sm" readOnly />
@@ -74,7 +95,7 @@ const ReviewListItem = ({ review, onEdit, onDelete, isOwner = false }) => {
               </svg>
             </button>
             <button
-              onClick={() => onDelete(id)}
+              onClick={() => onDelete(reviewId)}
               className="text-gray-400 hover:text-red-600"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,13 +125,32 @@ const ReviewListItem = ({ review, onEdit, onDelete, isOwner = false }) => {
         </div>
       )}
 
+      {/* 리뷰 이미지 썸네일 영역 */}
+      {imageUrls.length > 0 && (
+        <div className="flex gap-3 overflow-x-auto py-2 scrollbar-hide">
+          {imageUrls.map((url, idx) => (
+            <div
+              key={idx}
+              className="relative flex-shrink-0 w-28 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all cursor-pointer"
+              onClick={() => setSelectedImage(url)}
+            >
+              <img
+                src={url}
+                alt={`리뷰 이미지 ${idx + 1}`}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 리뷰 내용 */}
       <div className="text-gray-700 whitespace-pre-wrap">
         {content}
       </div>
 
       {/* 리뷰 액션 */}
-      <div className="mt-4 flex items-center justify-between">
+      {/* <div className="mt-4 flex items-center justify-between">
         <div className="flex space-x-4">
           <button className="text-sm text-gray-500 hover:text-gray-700">
             도움됨
@@ -119,7 +159,7 @@ const ReviewListItem = ({ review, onEdit, onDelete, isOwner = false }) => {
             신고
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

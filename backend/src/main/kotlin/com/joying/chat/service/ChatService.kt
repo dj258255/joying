@@ -5,6 +5,7 @@ import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
 import com.joying.chat.dto.ChatRoomSettingsResponse
 import com.joying.chat.dto.ChatRoomUpdateEvent
+import com.joying.chat.dto.ChatRoomStatusEvent
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -79,6 +80,24 @@ class ChatService(
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료된 채팅방입니다")
         }
 
+        // 수신자 ID 계산
+        val receiverId = if (senderId == chatRoom.buyer.memberId) {
+            chatRoom.seller.memberId!!
+        } else {
+            chatRoom.buyer.memberId!!
+        }
+
+        // 상대방이 나간 상태인지 확인
+        val receiverMember = withContext(Dispatchers.IO) {
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, receiverId)
+                .orElse(null)
+        }
+
+        if (receiverMember != null && receiverMember.isLeft) {
+            throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "상대방이 나간 채팅방입니다")
+        }
+
         // 나간 채팅방에 메시지 보내면 자동 재입장
         val senderMember = withContext(Dispatchers.IO) {
             chatRoomMemberRepository
@@ -88,6 +107,48 @@ class ChatService(
         if (senderMember != null && senderMember.isLeft) {
             senderMember.rejoin()
             logger.info("메시지 전송으로 채팅방 재입장: chatRoomId={}, memberId={}", chatRoomId, senderId)
+
+            // 시스템 메시지 저장 및 재입장 알림 전송 (비동기)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val rejoiningMemberNickname = chatRoom.buyer.nickname.takeIf { senderId == chatRoom.buyer.memberId }
+                        ?: chatRoom.seller.nickname
+
+                    // 1. 시스템 메시지 생성 및 저장
+                    val systemMessage = ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = "${rejoiningMemberNickname}님이 다시 들어왔습니다"
+                    )
+                    systemMessage.createdAt = Instant.now()
+
+                    val savedMessage = withContext(Dispatchers.IO) {
+                        chatMessageRepository.save(systemMessage)
+                    }
+
+                    // 2. Redis Pub/Sub로 발행 (실시간 전달)
+                    val messageDto = ChatMessageResponse.from(savedMessage, null)
+                        .copy(receiverId = receiverId)
+                    redisPubSubPublisher.publish(messageDto)
+
+                    // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
+                    val event = ChatRoomStatusEvent(
+                        chatRoomId = chatRoomId,
+                        eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
+                        memberId = senderId,
+                        memberNickname = rejoiningMemberNickname
+                    )
+
+                    messagingTemplate.convertAndSendToUser(
+                        receiverId.toString(),
+                        "/queue/chatroom-status",
+                        event
+                    )
+
+                    logger.debug("채팅방 재입장 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, receiverId)
+                } catch (e: Exception) {
+                    logger.error("채팅방 재입장 메시지 저장 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+                }
+            }
         }
 
         // ChatMessage 생성
@@ -146,15 +207,7 @@ class ChatService(
                 }
             }
 
-        // 5. 수신자 ID 계산 (WebSocket 브로드캐스트 최적화 + 안읽은 개수 관리)
-        val receiverId =
-            if (senderId == chatRoom.buyer.memberId) {
-                chatRoom.seller.memberId!!
-            } else {
-                chatRoom.buyer.memberId!!
-            }
-
-        // 6. DTO 변환 (답장 정보 + 수신자 정보 포함)
+        // 5. DTO 변환 (답장 정보 + 수신자 정보 포함)
         val messageDto = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
 
         // 7. Redis Pub/Sub로 발행 (실시간 전달)

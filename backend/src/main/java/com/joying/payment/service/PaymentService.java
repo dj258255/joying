@@ -34,6 +34,8 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
@@ -100,20 +102,35 @@ public class PaymentService {
                     expectedAmount, request.getTotalAmount(), expectedAmount - request.getTotalAmount(), days);
         }
 
-        // 멱등성 체크: 이미 해당 rentalHisId로 결제가 있으면 반환
+        // 멱등성 체크: 이미 해당 rentalHisId로 결제가 있으면 확인
         Optional<Payment> existingPayment = paymentRepository.findByRentalHistory_RentalHisId(request.getRentalHisId())
                 .stream()
-                .filter(p -> p.getStatus() != PaymentStatus.CANCELED)
+                .filter(p -> p.getStatus() != PaymentStatus.CANCELED) // 취소된 것은 제외
                 .findFirst();
 
         if (existingPayment.isPresent()) {
             Payment payment = existingPayment.get();
-            log.warn("이미 존재하는 결제: rentalHisId={}, orderId={}", request.getRentalHisId(), payment.getOrderId());
-            return PaymentCreateResponse.builder()
-                    .paymentId(payment.getPaymentId())
-                    .orderId(payment.getOrderId())
-                    .totalAmount(payment.getTotalAmount())
-                    .build();
+
+            // 이미 완료된 결제면 그대로 반환
+            if (payment.getStatus() == PaymentStatus.DONE) {
+                log.warn("이미 완료된 결제: rentalHisId={}, orderId={}", request.getRentalHisId(), payment.getOrderId());
+                return PaymentCreateResponse.builder()
+                        .paymentId(payment.getPaymentId())
+                        .orderId(payment.getOrderId())
+                        .totalAmount(payment.getTotalAmount())
+                        .build();
+            }
+
+            // READY 상태인 경우: 새로운 orderId 생성 (이전 결제 시도 실패로 판단)
+            if (payment.getStatus() == PaymentStatus.READY) {
+                log.warn("READY 상태의 결제 존재 - 새 orderId 생성: rentalHisId={}, oldOrderId={}",
+                        request.getRentalHisId(), payment.getOrderId());
+
+                // 기존 Payment 취소 처리
+                payment.cancel();
+
+                // 새로운 orderId로 Payment 생성 (아래 로직 계속)
+            }
         }
 
         // orderId 생성 (UUID 기반, 멱등성 키)
@@ -127,7 +144,8 @@ public class PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
 
         rentalHistory.addPayment(savedPayment);
-        rentalHistory.markAsEscrow();
+        // ESCROW 상태 변경은 결제 승인(confirmPayment) 시점에 처리
+        // rentalHistory.markAsEscrow(); // 제거: createPayment는 orderId만 발급, 아직 결제 안 함
         rentalHistoryRepository.save(rentalHistory);
 
         log.info("결제 생성 완료 및 대여내역 연결: rentalHisId={}, paymentId={}, orderId={}",
@@ -173,12 +191,32 @@ public class PaymentService {
             throw new PaymentAmountMismatchException(payment.getTotalAmount(), request.getAmount());
         }
 
-        // 토스 API 승인 요청
-        TossConfirmResponse tossResponse = tossClient.confirm(
-                request.getPaymentKey(),
-                request.getOrderId(),
-                request.getAmount()
-        );
+        TossConfirmResponse tossResponse;
+
+        try {
+            // 토스 API 승인 요청
+            tossResponse = tossClient.confirm(
+                    request.getPaymentKey(),
+                    request.getOrderId(),
+                    request.getAmount()
+            );
+        } catch (TossPaymentException e) {
+            // "이미 처리된 결제" 에러인 경우 토스 API로 결제 정보 조회
+            if (e.getMessage() != null && e.getMessage().contains("ALREADY_PROCESSED_PAYMENT")) {
+                log.warn("이미 처리된 결제 - 토스 API로 결제 정보 조회: orderId={}", request.getOrderId());
+
+                try {
+                    // 토스 API에서 결제 정보 조회
+                    tossResponse = tossClient.getPaymentByOrderId(request.getOrderId());
+                    log.info("토스 API 결제 조회 성공: orderId={}, status={}", request.getOrderId(), tossResponse.getStatus());
+                } catch (Exception queryEx) {
+                    log.error("토스 API 결제 조회 실패: orderId={}", request.getOrderId(), queryEx);
+                    throw e; // 원래 에러를 다시 던짐
+                }
+            } else {
+                throw e; // 다른 에러는 그대로 던짐
+            }
+        }
 
         // Payment 상태 업데이트 및 Escrow 생성 (공통 로직)
         completePaymentApproval(payment, tossResponse);
@@ -306,11 +344,14 @@ public class PaymentService {
      * - PaymentType에 따라 다른 처리 (INITIAL: Escrow 생성, EXTENSION: 연장 처리)
      */
     private void completePaymentApproval(Payment payment, TossConfirmResponse tossResponse) {
+        // approvedAt 파싱 (ISO 8601 형식 → Timestamp)
+        Timestamp approvedAt = parseApprovedAt(tossResponse.getApprovedAt());
+
         // Payment 상태 업데이트
         payment.approve(
                 tossResponse.getPaymentKey(),
-                PaymentMethod.valueOf(tossResponse.getMethod()),
-                Timestamp.valueOf(tossResponse.getApprovedAt()),
+                PaymentMethod.fromTossMethod(tossResponse.getMethod()),
+                approvedAt,
                 tossResponse.getReceiptUrl()
         );
 
@@ -361,5 +402,24 @@ public class PaymentService {
                 .receiptUrl(payment.getReceiptUrl())
                 .approvedAt(payment.getApprovedAt() != null ? payment.getApprovedAt().toString() : null)
                 .build();
+    }
+
+    /**
+     * 토스 API의 ISO 8601 형식 날짜를 Timestamp로 변환
+     * @param approvedAtString ISO 8601 형식 문자열 (예: "2025-11-13T00:18:53+09:00")
+     * @return Timestamp
+     */
+    private Timestamp parseApprovedAt(String approvedAtString) {
+        try {
+            // ISO 8601 형식 파싱 (타임존 포함)
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(approvedAtString, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            // LocalDateTime으로 변환 (타임존 제거)
+            LocalDateTime localDateTime = zonedDateTime.toLocalDateTime();
+            // Timestamp로 변환
+            return Timestamp.valueOf(localDateTime);
+        } catch (Exception e) {
+            log.error("approvedAt 파싱 실패: {}", approvedAtString, e);
+            throw new IllegalArgumentException("잘못된 날짜 형식입니다: " + approvedAtString, e);
+        }
     }
 }

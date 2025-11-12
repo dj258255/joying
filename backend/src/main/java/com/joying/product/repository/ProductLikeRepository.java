@@ -1,5 +1,7 @@
 package com.joying.product.repository;
 
+import java.util.List;
+
 import com.joying.product.domain.Product;
 import com.joying.product.domain.ProductLike;
 import org.springframework.data.domain.Page;
@@ -23,4 +25,15 @@ public interface ProductLikeRepository extends JpaRepository<ProductLike,String>
         WHERE pl.member.memberId = :memberId
         """)
     Page<Product> findLikedProductsByMemberId(Long memberId, Pageable pageable);
+
+    @Query("""
+        select pl.product.productId
+        from ProductLike pl
+        where pl.member.memberId = :memberId
+          and pl.product.productId in :productIds
+    """)
+    List<Long> findLikedProductIdsByMemberAndProductIds(
+        Long memberId,
+        List<Long> productIds
+    );
 }

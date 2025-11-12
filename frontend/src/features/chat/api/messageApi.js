@@ -6,6 +6,8 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 
+const isDevelopment = import.meta.env.DEV;
+
 const findFirstArray = (value, depth = 0) => {
   if (!value || depth > 6) return null;
   if (Array.isArray(value)) {
@@ -79,17 +81,20 @@ export const messageApi = {
         queryParams.size = size;
       }
       
-      console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId: chatRoomIdNum, queryParams });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId: chatRoomIdNum, queryParams });
+      }
       
       const response = await axiosInstance.get(`/chat-rooms/${chatRoomIdNum}/messages`, {
         params: queryParams
       });
       
-      console.log('[messageApi] 메시지 목록 조회 응답:', {
-        status: response.status,
-        messageCount: Array.isArray(response.data?.data) ? response.data.data.length : Array.isArray(response.data?.data?.content) ? response.data.data.content.length : Array.isArray(response.data?.body?.data) ? response.data.body.data.length : Array.isArray(response.data?.body?.data?.content) ? response.data.body.data.content.length : 0
-      });
-      console.log('[messageApi] 메시지 목록 응답 원본:', response.data);
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 목록 조회 응답:', {
+          status: response.status,
+          messageCount: Array.isArray(response.data?.data) ? response.data.data.length : Array.isArray(response.data?.data?.content) ? response.data.data.content.length : Array.isArray(response.data?.body?.data) ? response.data.body.data.length : Array.isArray(response.data?.body?.data?.content) ? response.data.body.data.content.length : 0
+        });
+      }
 
       let rawMessages = null;
 
@@ -112,7 +117,9 @@ export const messageApi = {
       }
       
       // 응답이 배열 형식이 아닌 경우 빈 배열 반환
-      console.warn('[messageApi] 메시지 목록 응답 형식이 예상과 다릅니다:', response.data);
+      if (isDevelopment) {
+        console.warn('[messageApi] 메시지 목록 응답 형식이 예상과 다릅니다:', response.data);
+      }
       return [];
     } catch (error) {
       console.error('[messageApi] 메시지 목록 조회 실패:', {
@@ -125,7 +132,9 @@ export const messageApi = {
       
       // 404 에러는 빈 배열 반환 (채팅방에 메시지가 없는 경우)
       if (error.response?.status === 404) {
-        console.warn('[messageApi] 메시지를 찾을 수 없습니다. 빈 배열 반환.');
+        if (isDevelopment) {
+          console.warn('[messageApi] 메시지를 찾을 수 없습니다. 빈 배열 반환.');
+        }
         return [];
       }
       
@@ -135,7 +144,9 @@ export const messageApi = {
       }
       
       // 기타 에러는 빈 배열 반환하여 UI가 깨지지 않도록 함
-      console.warn('[messageApi] 메시지 목록 조회 실패. 빈 배열 반환.');
+      if (isDevelopment) {
+        console.warn('[messageApi] 메시지 목록 조회 실패. 빈 배열 반환.');
+      }
       return [];
     }
   },
@@ -207,47 +218,6 @@ export const messageApi = {
   getMessageById: async (chatRoomId, messageId) => {
     const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');
     return messages.find(msg => msg.id === messageId);
-  },
-
-  /**
-   * 메시지 읽음 처리
-   * @param {string} chatRoomId - 채팅방 ID
-   * @param {string} messageId - 메시지 ID
-   * @returns {Promise<void>}
-   */
-  markAsRead: async (chatRoomId, messageId) => {
-    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');
-    const message = messages.find(msg => msg.id === messageId);
-    if (message) {
-      message.isRead = true;
-      localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));
-    }
-  },
-
-  /**
-   * 채팅방의 모든 메시지 읽음 처리
-   * @param {string} chatRoomId - 채팅방 ID
-   * @returns {Promise<void>}
-   */
-  markAllAsRead: async (chatRoomId) => {
-    const messages = JSON.parse(localStorage.getItem(`messages_${chatRoomId}`) || '[]');
-    messages.forEach(msg => {
-      if (msg.sender.id !== DUMMY_USERS.currentUser.id) {
-        msg.isRead = true;
-      }
-    });
-    localStorage.setItem(`messages_${chatRoomId}`, JSON.stringify(messages));
-
-    // 채팅방 목록의 읽지 않은 메시지 수 초기화
-    const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
-    const chatRoom = chatRooms.find(room => room.id === chatRoomId);
-    if (chatRoom) {
-      chatRoom.unreadCount = 0;
-      localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
-      
-      // 커스텀 이벤트 발생
-      window.dispatchEvent(new Event('chatRoomsUpdated'));
-    }
   },
 
   /**
@@ -326,11 +296,15 @@ export const messageApi = {
     }
 
     try {
-      console.log('[messageApi] 메시지 삭제 요청:', { chatRoomId: chatRoomIdNum, messageId });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 삭제 요청:', { chatRoomId: chatRoomIdNum, messageId });
+      }
       
       const response = await axiosInstance.delete(`/chat-rooms/${chatRoomIdNum}/messages/${messageId}`);
       
-      console.log('[messageApi] 메시지 삭제 완료:', { status: response.status });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 삭제 완료:', { status: response.status });
+      }
       
       // 204 No Content 응답
       return;
@@ -380,14 +354,18 @@ export const messageApi = {
     }
 
     try {
-      console.log('[messageApi] 메시지 수정 요청:', { chatRoomId: chatRoomIdNum, messageId, content: content.substring(0, 50) });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 수정 요청:', { chatRoomId: chatRoomIdNum, messageId, content: content.substring(0, 50) });
+      }
       
       const response = await axiosInstance.patch(
         `/chat-rooms/${chatRoomIdNum}/messages/${messageId}`,
         { content: content.trim() }
       );
       
-      console.log('[messageApi] 메시지 수정 완료:', { status: response.status });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 수정 완료:', { status: response.status });
+      }
 
       // 응답 데이터 추출
       let updatedMessage = null;
@@ -447,12 +425,14 @@ export const messageApi = {
     }
 
     try {
-      console.log('[messageApi] 파일 업로드 요청:', { 
-        chatRoomId: chatRoomIdNum, 
-        fileName: file.name, 
-        fileSize: file.size, 
-        fileType: file.type 
-      });
+      if (isDevelopment) {
+        console.log('[messageApi] 파일 업로드 요청:', { 
+          chatRoomId: chatRoomIdNum, 
+          fileName: file.name, 
+          fileSize: file.size, 
+          fileType: file.type 
+        });
+      }
 
       const formData = new FormData();
       formData.append('file', file);
@@ -467,7 +447,9 @@ export const messageApi = {
         }
       );
 
-      console.log('[messageApi] 파일 업로드 완료:', { status: response.status });
+      if (isDevelopment) {
+        console.log('[messageApi] 파일 업로드 완료:', { status: response.status });
+      }
 
       // 응답 데이터 추출
       let fileData = null;
@@ -510,21 +492,6 @@ export const messageApi = {
   },
 
   /**
-   * 메시지 업데이트 (대여 요청 승인/거절 등 - 기존 호환성 유지)
-   * @param {string} chatRoomId - 채팅방 ID
-   * @param {string} messageId - 메시지 ID
-   * @param {Object} updates - 업데이트할 내용
-   * @returns {Promise<Object>}
-   * @deprecated 대여 요청 승인/거절용. 일반 메시지 수정은 updateMessage 사용
-   */
-  updateMessageStatus: async (chatRoomId, messageId, updates) => {
-    // 대여 요청 승인/거절 등은 별도 API가 없으므로 기존 로직 유지
-    // 실제로는 WebSocket으로 처리되거나 별도 API가 필요할 수 있음
-    console.warn('[messageApi] updateMessageStatus는 deprecated입니다. updateMessage를 사용하세요.');
-    return messageApi.updateMessage(chatRoomId, messageId, updates.content || '');
-  },
-
-  /**
    * 특정 메시지 주변 조회 (메시지 점프)
    * GET /api/v1/chat-rooms/{chatRoomId}/messages/{messageId}/around
    * 
@@ -557,21 +524,25 @@ export const messageApi = {
         queryParams.after = after;
       }
       
-      console.log('[messageApi] 메시지 주변 조회 요청:', { 
-        chatRoomId: chatRoomIdNum, 
-        messageId, 
-        queryParams 
-      });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 주변 조회 요청:', { 
+          chatRoomId: chatRoomIdNum, 
+          messageId, 
+          queryParams 
+        });
+      }
       
       const response = await axiosInstance.get(
         `/chat-rooms/${chatRoomIdNum}/messages/${messageId}/around`,
         { params: queryParams }
       );
       
-      console.log('[messageApi] 메시지 주변 조회 응답:', {
-        status: response.status,
-        messageCount: Array.isArray(response.data?.data) ? response.data.data.length : 0
-      });
+      if (isDevelopment) {
+        console.log('[messageApi] 메시지 주변 조회 응답:', {
+          status: response.status,
+          messageCount: Array.isArray(response.data?.data) ? response.data.data.length : 0
+        });
+      }
 
       let rawMessages = null;
 
@@ -590,7 +561,9 @@ export const messageApi = {
       }
       
       // 응답이 배열 형식이 아닌 경우 빈 배열 반환
-      console.warn('[messageApi] 메시지 주변 조회 응답 형식이 예상과 다릅니다:', response.data);
+      if (isDevelopment) {
+        console.warn('[messageApi] 메시지 주변 조회 응답 형식이 예상과 다릅니다:', response.data);
+      }
       return [];
     } catch (error) {
       console.error('[messageApi] 메시지 주변 조회 실패:', {

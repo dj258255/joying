@@ -17,8 +17,8 @@ export const productReviewApi = {
    * @param {number} [params.size=20]
    * @returns {Promise<{items: Array, total: number}>}
    */
-  getProductReviews: async (rentalId, params = {}) => {
-    return await axiosInstance.get(`/review/rental/${rentalId}`, {
+  getProductReviews: async (productId, params = {}) => {
+    return await axiosInstance.get(`/review/product/${productId}`, {
       params: {
         page: params.page || 1,
         size: params.size || 20
@@ -34,18 +34,5 @@ export const productReviewApi = {
    */
   getMyReviewForRental: async (rentalId, memberId) => {
     return await axiosInstance.get(`/review/rental/${rentalId}/member/${memberId}`);
-  },
-
-  /**
-   * 게시글 리뷰 작성
-   * @param {string} rentalId - 대여 ID
-   * @param {Object} data
-   * @param {number} data.rating - 평점 (1-5)
-   * @param {string} data.content - 내용
-   * @param {string} data.type - 리뷰 타입 ('borrower' | 'lender')
-   * @returns {Promise<Object>}
-   */
-  createProductReview: async (rentalId, data) => {
-    return await axiosInstance.post(`/review/rental/${rentalId}`, data);
   }
 };

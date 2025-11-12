@@ -1,11 +1,8 @@
 package com.joying.review.dto.response;
 
-import java.util.Comparator;
+import java.time.Instant;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import com.joying.file.component.FileUrlResolver;
-import com.joying.file.domain.ReviewFile;
 import com.joying.review.domain.Review;
 
 import lombok.Builder;
@@ -17,25 +14,26 @@ public record ReviewResponseDto (
 	String content,
 	float rating,
 	String reviewerName,
-	List<String> imageUrls) {
+	Long reviewerId,
+	Instant createdAt,
+	String profileImageUrl,
+	List<String> imageUrls,
+	List<Long> fileIds) {
 
-	public static ReviewResponseDto fromEntity(Review review, FileUrlResolver urlProvider) {
-		List<String> urls = null;
-		if (review.getReviewFiles() != null && !review.getReviewFiles().isEmpty()) {
-			urls = review.getReviewFiles().stream()
-				.sorted(Comparator.comparingInt(ReviewFile::getSortOrder))
-				.map(ReviewFile::getFile)
-				.map(urlProvider::toPublicUrl)
-				.collect(Collectors.toList());
-		}
-
+	public static ReviewResponseDto fromEntity(Review review, String profileImageUrl, List<String> urls) {
 		return ReviewResponseDto.builder()
 			.reviewId(review.getReviewId())
 			.title(review.getTitle())
 			.content(review.getContent())
 			.rating(review.getRating())
-			.reviewerName(review.getReviewer() != null ? review.getReviewer().getName() : null)
+			.reviewerName(review.getReviewer() != null ? review.getReviewer().getNickname() : null)
+			.reviewerId(review.getReviewer().getMemberId())
+			.createdAt(review.getCreatedAt())
+			.profileImageUrl(profileImageUrl)
 			.imageUrls(urls)
+			.fileIds(review.getReviewFiles().stream()
+				.map(rf -> rf.getFile().getFileId())
+				.toList())
 			.build();
 	}
 }

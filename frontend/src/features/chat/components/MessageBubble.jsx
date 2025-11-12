@@ -250,6 +250,49 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     );
   }
 
+  // 결제 완료 메시지
+  if (type === 'PAYMENT_COMPLETE') {
+    return (
+      <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+        <div className="max-w-sm">
+          <div
+            className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className="text-base font-bold text-green-900">결제 완료</span>
+            </div>
+            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{content}</p>
+
+            {/* 액션 버튼들 */}
+            {actionButtons && actionButtons.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {actionButtons.map((button, index) => (
+                  <button
+                    key={index}
+                    onClick={button.onClick}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${button.className || 'bg-green-600 text-white hover:bg-green-700'}`}
+                  >
+                    {button.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div
+            className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500`}
+          >
+            <span>{formatTime(timestamp)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 이미지 메시지
   if (type === 'image') {
     return (
@@ -341,13 +384,13 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
         {/* 액션 메뉴 */}
         {showActions && !isDeleted && (
           <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)}>
-            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-2 flex gap-2 animate-in zoom-in-95 duration-200">
+            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-1.5 sm:p-2 flex flex-row gap-1.5 sm:gap-2 animate-in zoom-in-95 duration-200">
               {isOwn && (
                 <button
                   onClick={handleDeleteClick}
-                  className="px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                  className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   삭제
@@ -356,9 +399,9 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
               {!isOwn && (
                 <button
                   onClick={handleReply}
-                  className="px-4 py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-sm font-medium hover:from-gray-800 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                  className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-gray-800 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                   </svg>
                   답장
@@ -369,9 +412,9 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                   navigator.clipboard.writeText(content);
                   setShowActions(false);
                 }}
-                className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl text-sm font-medium hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
                 복사
@@ -542,15 +585,15 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
       {/* 액션 메뉴 */}
       {showActions && !isDeleted && (
         <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)}>
-          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-2 flex gap-2 animate-in zoom-in-95 duration-200">
+          <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-1.5 sm:p-2 flex flex-row gap-1.5 sm:gap-2 animate-in zoom-in-95 duration-200">
             {isOwn && (
               <>
                 {type === 'text' && (
                   <button
                     onClick={handleEdit}
-                    className="px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                    className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     수정
@@ -558,9 +601,9 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                 )}
                 <button
                   onClick={handleDeleteClick}
-                  className="px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                  className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                   삭제
@@ -570,9 +613,9 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
               {!isOwn && (
                 <button
                   onClick={handleReply}
-                  className="px-4 py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-sm font-medium hover:from-gray-800 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+                  className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-gray-800 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                 </svg>
                 답장
@@ -583,9 +626,9 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                 navigator.clipboard.writeText(content);
                 setShowActions(false);
               }}
-              className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl text-sm font-medium hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-2"
+              className="px-2.5 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:from-gray-600 hover:to-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               복사

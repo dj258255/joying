@@ -5,6 +5,7 @@ import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.domain.ChatRoomStatus
 import com.joying.chat.dto.ChatRoomResponse
 import com.joying.chat.dto.ChatRoomMemberResponse
+import com.joying.chat.dto.ChatRoomStatusEvent
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
 import com.joying.chat.repository.ChatRoomRepository
@@ -24,6 +25,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -45,7 +47,9 @@ class ChatRoomService(
     private val unreadCountService: UnreadCountService,
     private val productFileRepository: ProductFileRepository,
     private val fileUrlResolver: FileUrlResolver,
-    private val permissionCache: ChatRoomPermissionCache
+    private val permissionCache: ChatRoomPermissionCache,
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val redisPubSubPublisher: RedisPubSubPublisher
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -361,6 +365,21 @@ class ChatRoomService(
         val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
             .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
+        // 채팅방 정보 조회 (상대방 ID 계산용)
+        val chatRoom = chatRoomRepository.findById(chatRoomId)
+            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+        // 상대방 ID 계산
+        val otherMemberId = if (memberId == chatRoom.buyer.memberId) {
+            chatRoom.seller.memberId!!
+        } else {
+            chatRoom.buyer.memberId!!
+        }
+
+        // 나가는 사용자 정보 조회 (닉네임 포함)
+        val leavingMember = memberRepository.findById(memberId)
+            .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
+
         // 채팅방 나가기 처리 (개별)
         chatRoomMember.leave()
 
@@ -368,6 +387,43 @@ class ChatRoomService(
         permissionCache.invalidate(chatRoomId, memberId)
 
         logger.info("채팅방 나가기 (개별): chatRoomId={}, memberId={}", chatRoomId, memberId)
+
+        // 시스템 메시지 저장 (MongoDB) 및 실시간 알림 전송 (비동기)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. 시스템 메시지 생성 및 저장
+                val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
+                    chatRoomId = chatRoomId,
+                    content = "${leavingMember.getNickname()}님이 채팅방을 나갔습니다"
+                )
+                systemMessage.createdAt = Instant.now()
+
+                val savedMessage = chatMessageRepository.save(systemMessage)
+
+                // 2. Redis Pub/Sub로 발행 (실시간 전달)
+                val messageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
+                    .copy(receiverId = otherMemberId)
+                redisPubSubPublisher.publish(messageDto)
+
+                // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
+                val event = ChatRoomStatusEvent(
+                    chatRoomId = chatRoomId,
+                    eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
+                    memberId = memberId,
+                    memberNickname = leavingMember.getNickname()
+                )
+
+                messagingTemplate.convertAndSendToUser(
+                    otherMemberId.toString(),
+                    "/queue/chatroom-status",
+                    event
+                )
+
+                logger.debug("채팅방 나가기 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, otherMemberId)
+            } catch (e: Exception) {
+                logger.error("채팅방 나가기 메시지 저장 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+            }
+        }
     }
 
     /**
@@ -382,6 +438,42 @@ class ChatRoomService(
         inactiveChatRooms.forEach { chatRoom ->
             chatRoom.autoClose()
             logger.info("채팅방 자동 종료: chatRoomId={}, lastMessageAt={}", chatRoom.chatRoomId, chatRoom.lastMessageAt)
+
+            // 양쪽 멤버에게 실시간 알림 전송 (비동기)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val event = ChatRoomStatusEvent(
+                        chatRoomId = chatRoom.chatRoomId!!,
+                        eventType = ChatRoomStatusEvent.EventType.ROOM_CLOSED,
+                        memberId = 0L,  // 시스템에 의한 종료
+                        memberNickname = null,
+                        status = ChatRoomStatus.AUTO_CLOSED
+                    )
+
+                    // 구매자에게 알림
+                    messagingTemplate.convertAndSendToUser(
+                        chatRoom.buyer.memberId.toString(),
+                        "/queue/chatroom-status",
+                        event
+                    )
+
+                    // 판매자에게 알림
+                    messagingTemplate.convertAndSendToUser(
+                        chatRoom.seller.memberId.toString(),
+                        "/queue/chatroom-status",
+                        event
+                    )
+
+                    logger.debug(
+                        "채팅방 자동 종료 이벤트 전송: chatRoomId={}, to=[{}, {}]",
+                        chatRoom.chatRoomId,
+                        chatRoom.buyer.memberId,
+                        chatRoom.seller.memberId
+                    )
+                } catch (e: Exception) {
+                    logger.error("채팅방 자동 종료 이벤트 전송 실패: chatRoomId={}, error={}", chatRoom.chatRoomId, e.message, e)
+                }
+            }
         }
 
         logger.info("30일 미사용 채팅방 자동 종료 완료: count={}", inactiveChatRooms.size)
