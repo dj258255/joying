@@ -141,7 +141,7 @@ const ProductListMain = () => {
     fetchNextPage,
     hasNextPage,
     refetch
-  } = useInfiniteSearch(q, apiFilters);
+  } = useInfiniteSearch(q || '', apiFilters);
 
   console.log('🎯 [ProductListMain] useInfiniteSearch 결과:', {
     productsCount: products?.length || 0,
@@ -214,164 +214,19 @@ const ProductListMain = () => {
     return unsubscribe;
   }, [queryClient, refetch, activeTab]);
 
-  // SEARCH 쿼리 캐시 변경 감지하여 products state 업데이트
-  React.useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      // queryKey의 첫 번째 요소가 SEARCH인 모든 쿼리 감지
-      if (event?.query?.queryKey?.[0] === QUERY_KEYS.SEARCH && event?.type === 'updated') {
-        // 현재 activeTab과 일치하는 쿼리인지 확인
-        const queryFilters = event?.query?.queryKey?.[2];
-        if (queryFilters?.uploadType !== activeTab) {
-          return; // 다른 탭의 쿼리는 무시
-        }
-        
-        const searchQueryData = event.query.state.data;
-        if (!searchQueryData) return;
-        
-        // 응답 구조에 따라 데이터 추출
-        const responseData = searchQueryData?.data?.data || searchQueryData?.data || searchQueryData;
-        const cachedSearchResponses = responseData?.searchResponses || [];
-        
-        if (cachedSearchResponses.length > 0 && products.length > 0) {
-          console.log('[ProductListMain] SEARCH 쿼리 캐시 업데이트 감지, products state 업데이트');
-          // 현재 products와 비교하여 liked 필드가 변경된 상품만 업데이트
-          setProducts(prev => {
-            const updated = prev.map(product => {
-              const cachedProduct = cachedSearchResponses.find(
-                p => String(p.productId || p.id) === String(product.productId || product.id)
-              );
-              // liked, isLiked, isLike 모두 체크
-              const cachedLiked = cachedProduct?.liked ?? cachedProduct?.isLiked ?? cachedProduct?.isLike;
-              const currentLiked = product.liked ?? product.isLiked ?? product.isLike;
-              
-              if (cachedProduct && cachedLiked !== currentLiked) {
-                console.log('[ProductListMain] 상품 liked 상태 업데이트:', {
-                  productId: product.productId || product.id,
-                  oldLiked: currentLiked,
-                  newLiked: cachedLiked
-                });
-                return {
-                  ...product,
-                  liked: cachedLiked,
-                  isLiked: cachedLiked,
-                  isLike: cachedLiked
-                };
-              }
-              return product;
-            });
-            return updated;
-          });
-        }
-      }
-    });
-    
-    return unsubscribe;
-  }, [queryClient, products.length, activeTab]);
-
-  // 🔥 스크롤 위치 보존을 위한 ref
-  const scrollPositionRef = React.useRef(0);
-  const scrollContainerRef = React.useRef(null);
-  const previousProductsCountRef = React.useRef(0);
-
-  // 스크롤 컨테이너 참조 저장
-  React.useEffect(() => {
-    const container = document.querySelector('.flex-1.overflow-y-auto.scrollbar-hide.bg-gray-50');
-    if (container) {
-      scrollContainerRef.current = container;
-      // 스크롤 애니메이션 비활성화 (즉시 이동)
-      container.style.scrollBehavior = 'auto';
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (!searchResponses) return;
-
-    console.log('[ProductListMain] searchResponses 수신:', {
-      count: searchResponses.length,
-      page,
-      total,
-      likedFields: searchResponses.map(p => ({
-        productId: p.productId || p.id,
-        liked: p.liked,
-        isLiked: p.isLiked,
-        isLike: p.isLike,
-        hasLikedField: 'liked' in p || 'isLiked' in p || 'isLike' in p
-      }))
-    });
-
-    if (page === 1) {
-      // 첫 페이지일 땐 새로 세팅
-      setProducts(searchResponses);
-      setTotalProducts(total || 0);
-      previousProductsCountRef.current = searchResponses.length;
-    } else if (page > 1) {
-      // ✅ 스크롤 위치 저장 (데이터 추가 전)
-      const scrollContainer = scrollContainerRef.current;
-      if (scrollContainer) {
-        const currentScrollTop = scrollContainer.scrollTop;
-        const currentScrollHeight = scrollContainer.scrollHeight;
-        scrollPositionRef.current = currentScrollTop;
-
-        console.log('📍 [ProductListMain] 스크롤 위치 저장:', {
-          scrollTop: currentScrollTop,
-          scrollHeight: currentScrollHeight,
-          previousCount: previousProductsCountRef.current
-        });
-      }
-
-      // 다음 페이지일 땐 누적
-      setProducts(prev => {
-        const merged = [...prev, ...searchResponses];
-        const unique = merged.filter(
-          (v, i, a) => a.findIndex(t => t.productId === v.productId) === i
-        );
-
-        // 데이터 추가 후 즉시 스크롤 복원 시도
-        requestAnimationFrame(() => {
-          const scrollContainer = scrollContainerRef.current;
-          if (scrollContainer && scrollPositionRef.current > 0) {
-            const newScrollHeight = scrollContainer.scrollHeight;
-            const heightDiff = newScrollHeight - scrollContainer.scrollHeight;
-
-            // 스크롤 위치 즉시 복원
-            scrollContainer.scrollTop = scrollPositionRef.current;
-
-            console.log('📍 [ProductListMain] 스크롤 위치 즉시 복원:', {
-              restoredScrollTop: scrollPositionRef.current,
-              newScrollHeight: newScrollHeight,
-              heightDiff: heightDiff
-            });
-          }
-        });
-
-        previousProductsCountRef.current = unique.length;
-        return unique;
-      });
-    }
-  }, [searchResponses, page, total]);
-
-  React.useEffect(() => {
-    if (newFetchCount !== undefined) {
-      setFetchCount(newFetchCount);
-    }
-  }, [newFetchCount]);
-
   // 페이지 포커스 시 SEARCH 쿼리 무효화되어 있으면 refetch
   React.useEffect(() => {
     const handleFocus = () => {
-      const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH, q, apiFilters, page]);
+      const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH, q || '', apiFilters]);
       if (searchQuery && (searchQuery.isInvalidated || searchQuery.isStale)) {
         console.log('[ProductListMain] 페이지 포커스, SEARCH 쿼리 refetch');
         refetch();
       }
     };
-    
+
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [queryClient, refetch, q, apiFilters, page]);
-
-  // 상품 목록 추출
-  //const products = searchResponses || [];
+  }, [queryClient, refetch, q, apiFilters]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
