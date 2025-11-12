@@ -266,6 +266,8 @@ const ProductListMain = () => {
 
     console.log('[ProductListMain] searchResponses 수신:', {
       count: searchResponses.length,
+      page,
+      total,
       likedFields: searchResponses.map(p => ({
         productId: p.productId || p.id,
         liked: p.liked,
@@ -278,7 +280,7 @@ const ProductListMain = () => {
     if (page === 1) {
       // 첫 페이지일 땐 새로 세팅
       setProducts(searchResponses);
-      setTotalProducts(total || searchResponses.length);
+      setTotalProducts(total || 0); // ✅ 서버에서 제공하는 total 사용
     } else if (page > 1) {
       // 다음 페이지일 땐 누적
       setProducts(prev => {
@@ -288,16 +290,9 @@ const ProductListMain = () => {
         );
         return unique;
       });
-
-      // totalProducts도 누적 (중복 제외)
-      setTotalProducts(prev => {
-        const newUnique = searchResponses.filter(
-          r => !products.some(p => p.productId === r.productId)
-        );
-        return prev + newUnique.length;
-      });
+      // ✅ totalProducts는 page 1에서 이미 설정됨 - 여기서는 변경하지 않음
     }
-  }, [searchResponses]);
+  }, [searchResponses, page, total]);
 
   React.useEffect(() => {
     if (newFetchCount !== undefined) {
@@ -551,6 +546,14 @@ const ProductListMain = () => {
 
   const observerRef = React.useRef(null);
 
+  // 🔥 현업 해결책: page 변경 시 자동 refetch (무한스크롤 핵심 로직)
+  React.useEffect(() => {
+    if (page > 1) {
+      console.log('📄 [ProductListMain] page 변경 감지 - refetch 호출:', page);
+      refetch();
+    }
+  }, [page, refetch]);
+
   React.useEffect(() => {
     if (!observerRef.current) return;
 
@@ -558,10 +561,12 @@ const ProductListMain = () => {
       (entries) => {
         const entry = entries[0];
         if (entry.isIntersecting && !isLoading && products.length < totalProducts) {
+          console.log('👁️ [ProductListMain] Observer 트리거 - 다음 페이지 로드');
           setPage((prev) => {
             // fetchCount = 0이면 그냥 다음 페이지
             // fetchCount > 0이면 건너뛴 만큼 더함
             const nextPage = prev + (fetchCount || 1);
+            console.log(`📄 [ProductListMain] page 증가: ${prev} → ${nextPage}`);
             return nextPage;
           });
         }

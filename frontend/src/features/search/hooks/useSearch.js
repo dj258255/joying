@@ -3,13 +3,90 @@
  * 검색 관련 로직을 관리하는 훅
  */
 
-import { isError, useQuery } from '@tanstack/react-query';
+import { isError, useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { searchApi } from '../api/searchApi';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
+// 무한스크롤용 검색 훅 (현업 표준)
+export const useInfiniteSearch = (query, filters = {}) => {
+  console.log('🔍 [useInfiniteSearch] 훅 호출됨 - 파라미터:', { query, filters });
+
+  const {
+    data,
+    isLoading,
+    error,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch
+  } = useInfiniteQuery({
+    queryKey: [QUERY_KEYS.SEARCH, query, filters],
+    queryFn: ({ pageParam = 1 }) => {
+      console.log('🚀 [useInfiniteSearch] queryFn 실행 - page:', pageParam);
+      return searchApi.search({ query, ...filters, page: pageParam, size: 20 });
+    },
+    getNextPageParam: (lastPage, allPages) => {
+      const data = lastPage?.data?.data;
+      const currentPage = data?.page || allPages.length;
+      const totalElements = data?.totalElements || 0;
+      const size = data?.size || 20;
+      const totalPages = Math.ceil(totalElements / size);
+
+      console.log('📄 [useInfiniteSearch] getNextPageParam:', {
+        currentPage,
+        totalPages,
+        hasMore: currentPage < totalPages
+      });
+
+      // 다음 페이지가 있으면 페이지 번호 반환, 없으면 undefined
+      return currentPage < totalPages ? currentPage + 1 : undefined;
+    },
+    enabled: false, // 수동 refetch 사용
+    staleTime: 1000 * 60 * 2, // 2분
+    retry: false
+  });
+
+  // 모든 페이지의 데이터를 하나의 배열로 병합
+  const allProducts = data?.pages?.flatMap(page => {
+    const pageData = page?.data?.data;
+    return pageData?.searchResponses || [];
+  }) || [];
+
+  // 첫 페이지의 메타데이터
+  const firstPageData = data?.pages?.[0]?.data?.data;
+
+  console.log('📊 [useInfiniteSearch] 상태:', {
+    query,
+    filters,
+    isLoading,
+    isFetchingNextPage,
+    isError,
+    error: error?.message,
+    totalProducts: allProducts.length,
+    totalElements: firstPageData?.totalElements || 0,
+    hasNextPage
+  });
+
+  return {
+    products: allProducts,
+    hashtags: firstPageData?.hashtags || [],
+    total: firstPageData?.totalElements || 0,
+    fetchCount: firstPageData?.fetchCount || 0,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    refetch
+  };
+};
+
+// 기존 호환성을 위한 레거시 훅 (deprecated)
 export const useSearch = (query, filters = {}, page) => {
   console.log('🔍 [useSearch] 훅 호출됨 - 파라미터:', { query, filters, page });
-  
+
   // 통합 검색
   const {
     data: searchResults,
