@@ -80,6 +80,24 @@ class ChatService(
             throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "종료된 채팅방입니다")
         }
 
+        // 수신자 ID 계산
+        val receiverId = if (senderId == chatRoom.buyer.memberId) {
+            chatRoom.seller.memberId!!
+        } else {
+            chatRoom.buyer.memberId!!
+        }
+
+        // 상대방이 나간 상태인지 확인
+        val receiverMember = withContext(Dispatchers.IO) {
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, receiverId)
+                .orElse(null)
+        }
+
+        if (receiverMember != null && receiverMember.isLeft) {
+            throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "상대방이 나간 채팅방입니다")
+        }
+
         // 나간 채팅방에 메시지 보내면 자동 재입장
         val senderMember = withContext(Dispatchers.IO) {
             chatRoomMemberRepository
@@ -93,12 +111,6 @@ class ChatService(
             // 재입장 알림 전송 (비동기)
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    val receiverId = if (senderId == chatRoom.buyer.memberId) {
-                        chatRoom.seller.memberId!!
-                    } else {
-                        chatRoom.buyer.memberId!!
-                    }
-
                     val event = ChatRoomStatusEvent(
                         chatRoomId = chatRoomId,
                         eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
