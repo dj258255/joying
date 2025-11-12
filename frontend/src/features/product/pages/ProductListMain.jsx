@@ -177,6 +177,8 @@ const ProductListMain = () => {
     // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
     if (lastAppliedFilters.current !== null) {
       console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
+      setPage(1); // ✅ page를 1로 리셋
+      setProducts([]); // ✅ 기존 상품 목록 초기화
       refetch().then((result) => {
         console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
       }).catch((err) => {
