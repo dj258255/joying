@@ -473,6 +473,44 @@ export const ChatProvider = ({ children }) => {
     };
   }, [normalizeMessage]);
 
+  // 메시지 점프 (특정 메시지 주변 조회)
+  const jumpToMessage = useCallback(async (messageId, options = {}) => {
+    const snapshot = stateRef.current;
+    const roomId = snapshot.currentChatRoom?.chatRoomId ?? snapshot.currentChatRoom?.id;
+    if (!roomId) {
+      throw new Error('채팅방 ID를 확인할 수 없습니다.');
+    }
+    if (!messageId) {
+      throw new Error('메시지 ID가 필요합니다.');
+    }
+
+    try {
+      const { before = 20, after = 20 } = options;
+      
+      // 메시지 주변 조회 API 호출
+      const fetched = await messageApi.getMessagesAround(roomId, messageId, { before, after });
+      
+      // 메시지 정규화
+      const normalized = (fetched || [])
+        .map((msg) => normalizeMessage(msg, snapshot.currentChatRoom))
+        .filter(Boolean);
+
+      // 메시지 목록 교체
+      dispatch({ type: 'SET_MESSAGES', payload: normalized });
+
+      // 하이라이트할 메시지 ID 반환 (스크롤 및 하이라이트는 호출하는 컴포넌트에서 처리)
+      return {
+        success: true,
+        messageId,
+        messages: normalized,
+        targetMessageIndex: normalized.findIndex(msg => String(msg.id) === String(messageId))
+      };
+    } catch (error) {
+      console.error('[ChatContext] 메시지 점프 실패:', error);
+      throw error;
+    }
+  }, [normalizeMessage]);
+
   // 채팅 목록 업데이트 (lastMessage, lastMessageAt, unreadCount)
   // initializeConnection보다 먼저 정의되어야 함
   const updateChatRoomList = useCallback((message, shouldMarkAsRead = false) => {
@@ -1246,6 +1284,7 @@ export const ChatProvider = ({ children }) => {
     loadOlderMessages,
     hasMorePast: state.hasMorePast,
     searchMessages,
+    jumpToMessage,
     updateOpponentOnlineStatus,
     addMessage: (message) => 
       dispatch({ type: 'ADD_MESSAGE', payload: message }),

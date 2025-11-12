@@ -11,6 +11,7 @@ export const QUERY_KEYS = {
   // Products
   PRODUCTS: 'products',
   PRODUCT: 'product',
+  PRODUCT_DETAIL: 'product-detail',
   
   // Chat
   CHATS: 'chats',

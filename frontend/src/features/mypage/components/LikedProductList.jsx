@@ -3,30 +3,42 @@
  * 찜한 상품 목록 컴포넌트
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProductCard from './ProductCard';
-import { DUMMY_PRODUCTS, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import ProductCardLikeWrapper from '../../product/components/ProductCardLikeWrapper';
+import { useLikedProducts } from '../../product/hooks/useLikedProducts';
 
 /**
  * @param {Object} props
- * @param {Array} props.likedProducts - 찜한 상품 목록
  * @param {Function} props.onProductClick - 상품 클릭 핸들러
- * @param {Function} props.onUnlikeProduct - 찜하기 취소 핸들러
- * @param {boolean} props.isLoading - 로딩 상태
  */
 const LikedProductList = ({ 
-  likedProducts = [], 
-  onProductClick = () => {}, 
-  onUnlikeProduct = () => {}, 
-  isLoading = false 
+  onProductClick = () => {}
 }) => {
   const navigate = useNavigate();
-  
-  // 현재 사용자가 찜한 상품 (다른 사용자들의 상품)
-  const myLikedProducts = DUMMY_PRODUCTS.filter(product => product.sellerId !== DUMMY_USERS.currentUser.id);
-  
-  const displayProducts = likedProducts.length > 0 ? likedProducts : myLikedProducts;
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 20;
+
+  console.log('[LikedProductList] 컴포넌트 렌더링:', { currentPage, pageSize });
+
+  // 찜한 상품 목록 조회
+  const { data, isLoading, isError, error } = useLikedProducts({
+    page: currentPage,
+    size: pageSize
+  });
+
+  console.log('[LikedProductList] Query 상태:', { 
+    isLoading, 
+    isError, 
+    hasData: !!data,
+    dataLength: data?.content?.length,
+    error: error?.message 
+  });
+
+  const likedProducts = data?.content || [];
+  const totalPages = data?.totalPages || 0;
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -35,7 +47,18 @@ const LikedProductList = ({
     );
   }
 
-  if (displayProducts.length === 0) {
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">오류가 발생했습니다.</div>
+          <div className="text-gray-600 text-sm">{error?.message || '알 수 없는 오류'}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (likedProducts.length === 0) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
         <div className="text-center">
@@ -53,34 +76,57 @@ const LikedProductList = ({
 
   return (
     <div className="space-y-6">
-
       {/* 상품 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {displayProducts.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            onClick={() => navigate(`/products/${product.id}`)}
-            onAction={() => onUnlikeProduct(product.id)}
-            actionType="unlike"
-            status="available"
-            showStats={false}
-            showDate={false}
-          />
-        ))}
+        {likedProducts.map((product) => {
+          const productId = product.productId || product.id;
+          return (
+            <ProductCardLikeWrapper
+              key={productId}
+              product={{
+                ...product,
+                productId: productId,
+                thumbnailUrl: product.thumbnailUrl || product.image || (product.files && product.files.length > 0 ? product.files[0].url : null),
+                rentalFee: product.rentalFee || product.price
+              }}
+              onClick={() => {
+                onProductClick(productId);
+                navigate(`/products/${productId}`);
+              }}
+              actionType="unlike"
+              status="available"
+              showStats={false}
+              showDate={false}
+            />
+          );
+        })}
       </div>
 
       {/* 페이지네이션 */}
-      {displayProducts.length > 0 && (
+      {totalPages > 1 && (
         <div className="glass-pagination">
           <nav className="flex space-x-2">
-            <button className="glass-pagination-button glass-pagination-prev">
+            <button 
+              className="glass-pagination-button glass-pagination-prev"
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+            >
               이전
             </button>
-            <button className="glass-pagination-button glass-pagination-active">
-              1
-            </button>
-            <button className="glass-pagination-button glass-pagination-next">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                className={`glass-pagination-button ${currentPage === i ? 'glass-pagination-active' : ''}`}
+                onClick={() => setCurrentPage(i)}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button 
+              className="glass-pagination-button glass-pagination-next"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage === totalPages - 1}
+            >
               다음
             </button>
           </nav>

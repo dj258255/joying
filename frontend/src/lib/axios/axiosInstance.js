@@ -69,18 +69,26 @@ const getRefreshEndpoint = () => {
 // 요청 인터셉터
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 백엔드는 쿠키 기반 인증을 사용하므로 Authorization 헤더를 설정하지 않음
-    // 쿠키는 withCredentials: true로 자동 전송됨
-    // 토큰 리프레시 후 재요청 시에만 Authorization 헤더를 사용 (쿠키가 아직 설정되지 않았을 수 있음)
+    // 쿠키 전송 확인 (HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 참고용)
+    const cookies = document.cookie;
+    const hasAccessTokenCookie = cookies.includes('access_token=');
+    
+    // 쿠키가 없고 localStorage에 accessToken이 있으면 Authorization 헤더 사용 (폴백)
+    if (!hasAccessTokenCookie && !config.headers.Authorization) {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+        console.log('[API Request] 쿠키가 없어 Authorization 헤더 사용:', config.url);
+      }
+      // HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 경고 제거
+      // 실제 인증은 백엔드에서 쿠키를 확인하므로 요청은 정상적으로 처리됨
+    }
+    
+    // 재요청 시에는 이미 설정된 Authorization 헤더 유지
     if (config._retry && config.headers.Authorization) {
       // 재요청 시에만 Authorization 헤더 유지 (토큰 리프레시 후 재요청)
       // 이 경우 쿠키와 Authorization 헤더 모두 포함되어 백엔드가 둘 중 하나로 인증 가능
     }
-    // 일반 요청 시에는 쿠키만 사용 (Authorization 헤더 설정하지 않음)
-    
-    // 쿠키 전송 확인 (디버깅용)
-    const cookies = document.cookie;
-    const hasAccessTokenCookie = cookies.includes('access_token=');
     
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
       hasCredentials: config.withCredentials,

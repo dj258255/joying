@@ -20,11 +20,15 @@ import { useProductDetail } from '@/features/product/hooks/useProductDetail';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import { ROUTE_PATHS } from '../../../shared/constants';
+import { useProductLike } from '../hooks/useProductLike';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const ProductDetailPage = () => {
   const { id: routeId } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const queryClient = useQueryClient();
   
   // productId를 문자열/숫자로 변환
   const productId = useMemo(() => {
@@ -46,6 +50,9 @@ const ProductDetailPage = () => {
   // 터치 이벤트 상태
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  // 찜하기 상태 (로컬 상태로 즉시 UI 반영)
+  // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined (임의로 false 설정하지 않음)
+  const [isLiked, setIsLiked] = useState(undefined);
 
   // 모바일 캘린더 모달이 열릴 때 body 스크롤 막기
   useEffect(() => {
@@ -67,6 +74,64 @@ const ProductDetailPage = () => {
   // 판매자 정보 조회
   const sellerMemberId = productResponse?.writer?.memberId || productResponse?.writer?.member_id;
   const { user: sellerUser } = useUserProfile(sellerMemberId);
+
+  // 찜하기 기능
+  const { toggleLike, isLoading: isLikeLoading } = useProductLike(productId);
+  
+  // productResponse가 변경되면 isLiked 상태 동기화
+  useEffect(() => {
+    if (productResponse) {
+      // 서버 응답에 liked 필드가 있으면 그 값을 사용, 없으면 undefined
+      const newLiked = productResponse?.liked !== undefined ? productResponse.liked : undefined;
+      console.log('[ProductDetailPage] productResponse 변경 감지:', { 
+        productId, 
+        oldLiked: isLiked, 
+        newLiked,
+        hasLikedField: 'liked' in (productResponse || {})
+      });
+      // undefined일 경우 false로 표시 (UI용)
+      setIsLiked(newLiked ?? false);
+    }
+  }, [productResponse?.liked, productId]);
+  
+  const handleLikeClick = () => {
+    if (isLikeLoading || !productResponse || !productId) {
+      console.warn('[ProductDetailPage] 찜하기 불가:', { isLikeLoading, productResponse: !!productResponse, productId });
+      return;
+    }
+    // 현재 상태 저장
+    const currentLiked = isLiked;
+    const previousLiked = isLiked;
+    const newLikedState = !currentLiked;
+    console.log('[ProductDetailPage] 찜하기 클릭:', { productId, currentLiked, newLikedState });
+    // 즉시 UI 업데이트 (optimistic update)
+    setIsLiked(newLikedState);
+    // 상품 상세 캐시도 즉시 업데이트
+    queryClient.setQueryData([QUERY_KEYS.PRODUCT_DETAIL, productId], (oldData) => {
+      if (oldData) {
+        return {
+          ...oldData,
+          liked: newLikedState
+        };
+      }
+      return oldData;
+    });
+    // API 호출 (이전 상태 전달)
+    toggleLike(currentLiked).catch((error) => {
+      // 에러 발생 시 이전 상태로 롤백
+      console.error('[ProductDetailPage] 찜하기 실패, 상태 롤백:', error);
+      setIsLiked(previousLiked);
+      queryClient.setQueryData([QUERY_KEYS.PRODUCT_DETAIL, productId], (oldData) => {
+        if (oldData) {
+          return {
+            ...oldData,
+            liked: previousLiked
+          };
+        }
+        return oldData;
+      });
+    });
+  };
 
   // API 응답을 페이지 형태로 정규화
   const product = useMemo(() => {
@@ -134,7 +199,7 @@ const ProductDetailPage = () => {
       },
       hashtags: productResponse?.hashtags || [],
       reviews: reviews,
-      isLiked: productResponse?.liked || false,
+      isLiked: productResponse?.liked !== undefined ? productResponse.liked : false,
       disabledDates: disabledDates,
       category: productResponse?.category?.name || productResponse?.category || '',
       rating: Number(productResponse?.rating) || 0,
@@ -261,7 +326,7 @@ const ProductDetailPage = () => {
             {/* 헤더: 뒤로가기 버튼 + 프로필 */}
             <div className="flex items-center justify-between mb-6 flex-shrink-0">
               <button
-                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,8 +354,8 @@ const ProductDetailPage = () => {
                 <ImageGallery 
                   images={product.images}
                   productTitle={product.title}
-                  isLiked={product.isLiked}
-                  onLikeClick={() => console.log('찜하기')}
+                  isLiked={isLiked}
+                  onLikeClick={handleLikeClick}
                 />
               </div>
 
@@ -436,12 +501,16 @@ const ProductDetailPage = () => {
                           대여 요청하기
                         </button>
                         <button
-                          onClick={() => console.log('찜하기')}
-                          className="w-14 h-14 border-2 border-gray-300 rounded-lg hover:border-gray-900 transition-colors flex items-center justify-center flex-shrink-0"
+                          onClick={handleLikeClick}
+                          className={`w-14 h-14 border-2 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 ${
+                            isLiked 
+                              ? 'border-red-500 hover:border-red-600' 
+                              : 'border-gray-300 hover:border-gray-900'
+                          }`}
                         >
                           <svg
-                            className="w-6 h-6 text-gray-600"
-                            fill="none"
+                            className={`w-6 h-6 ${isLiked ? 'text-red-500' : 'text-gray-600'}`}
+                            fill={isLiked ? 'currentColor' : 'none'}
                             stroke="currentColor"
                             viewBox="0 0 24 24"
                           >
@@ -517,7 +586,7 @@ const ProductDetailPage = () => {
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-600"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,8 +623,8 @@ const ProductDetailPage = () => {
               <ImageGallery 
                 images={product.images}
                 productTitle={product.title}
-                isLiked={false}
-                onLikeClick={() => console.log('찜하기')}
+                isLiked={isLiked}
+                onLikeClick={handleLikeClick}
               />
             </div>
 

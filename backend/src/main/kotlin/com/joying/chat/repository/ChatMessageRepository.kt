@@ -85,6 +85,26 @@ interface ChatMessageRepository : MongoRepository<ChatMessage, String> {
     ): List<ChatMessage>
 
     /**
+     * 특정 시간 이전의 메시지 조회 (오래된 순)
+     * 특정 메시지보다 이전 메시지들을 가져올 때 사용 (답장 점프, 검색 결과 점프)
+     */
+    fun findByChatRoomIdAndIsDeletedFalseAndCreatedAtBeforeOrderByCreatedAtAsc(
+        chatRoomId: Long,
+        before: Instant,
+        pageable: Pageable
+    ): List<ChatMessage>
+
+    /**
+     * 특정 시간 이후의 메시지 조회 (최신순)
+     * 특정 메시지보다 이후 메시지들을 가져올 때 사용 (답장 점프, 검색 결과 점프)
+     */
+    fun findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtDesc(
+        chatRoomId: Long,
+        after: Instant,
+        pageable: Pageable
+    ): List<ChatMessage>
+
+    /**
      * 채팅방 ID로 모든 메시지 삭제 (채팅방 삭제 시)
      */
     fun deleteByChatRoomId(chatRoomId: Long): Long

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import ProductCard from '../../mypage/components/ProductCard';
+import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
@@ -12,11 +12,14 @@ import { useSearch } from '../../search/hooks/useSearch';
 import { useCategoryTree } from '@/features/category';
 import { useSearchParams } from 'react-router-dom';
 import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   
   // 사이드 네비게이션 상태
   const [isSideNavOpen, setIsSideNavOpen] = useState(false);
@@ -75,12 +78,6 @@ const ProductListMain = () => {
     }
   }, [q]);
 
-  React.useEffect(() => {
-    // 컴포넌트 처음 마운트 시 한 번 실행
-    refetch();
-    lastAppliedFilters.current = apiFilters;
-  }, []);
-  
   // 카테고리 API 조회
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
   
@@ -127,7 +124,79 @@ const ProductListMain = () => {
   const { searchResponses, total, hashtags, isLoading, isError, error, refetch, fetchCount: newFetchCount } = useSearch(q, apiFilters, page);
 
   React.useEffect(() => {
+    // 컴포넌트 처음 마운트 시 한 번 실행
+    refetch();
+    lastAppliedFilters.current = apiFilters;
+  }, []);
+
+  // SEARCH 쿼리 무효화 시 자동 refetch
+  React.useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey?.[0] === QUERY_KEYS.SEARCH) {
+        if (event?.type === 'removed' || (event?.type === 'updated' && event?.query?.isInvalidated)) {
+          // 쿼리가 무효화되면 refetch
+          console.log('[ProductListMain] SEARCH 쿼리 무효화 감지, refetch 실행');
+          refetch();
+        }
+      }
+    });
+    
+    return unsubscribe;
+  }, [queryClient, refetch]);
+
+  // SEARCH 쿼리 캐시 변경 감지하여 products state 업데이트
+  React.useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.query?.queryKey?.[0] === QUERY_KEYS.SEARCH && event?.type === 'updated') {
+        const searchQueryData = event.query.state.data;
+        if (!searchQueryData) return;
+        
+        // 응답 구조에 따라 데이터 추출
+        const responseData = searchQueryData?.data?.data || searchQueryData?.data || searchQueryData;
+        const cachedSearchResponses = responseData?.searchResponses || [];
+        
+        if (cachedSearchResponses.length > 0 && products.length > 0) {
+          console.log('[ProductListMain] SEARCH 쿼리 캐시 업데이트 감지, products state 업데이트');
+          // 현재 products와 비교하여 liked 필드가 변경된 상품만 업데이트
+          setProducts(prev => {
+            const updated = prev.map(product => {
+              const cachedProduct = cachedSearchResponses.find(
+                p => String(p.productId || p.id) === String(product.productId || product.id)
+              );
+              if (cachedProduct && (cachedProduct.liked !== product.liked || cachedProduct.isLiked !== product.isLiked)) {
+                console.log('[ProductListMain] 상품 liked 상태 업데이트:', {
+                  productId: product.productId || product.id,
+                  oldLiked: product.liked || product.isLiked,
+                  newLiked: cachedProduct.liked || cachedProduct.isLiked
+                });
+                return {
+                  ...product,
+                  liked: cachedProduct.liked !== undefined ? cachedProduct.liked : (cachedProduct.isLiked !== undefined ? cachedProduct.isLiked : product.liked),
+                  isLiked: cachedProduct.isLiked !== undefined ? cachedProduct.isLiked : (cachedProduct.liked !== undefined ? cachedProduct.liked : product.isLiked)
+                };
+              }
+              return product;
+            });
+            return updated;
+          });
+        }
+      }
+    });
+    
+    return unsubscribe;
+  }, [queryClient, products.length]);
+
+  React.useEffect(() => {
     if (!searchResponses) return;
+
+    console.log('[ProductListMain] searchResponses 수신:', {
+      count: searchResponses.length,
+      likedFields: searchResponses.map(p => ({
+        productId: p.productId || p.id,
+        liked: p.liked || p.isLiked,
+        hasLikedField: 'liked' in p || 'isLiked' in p
+      }))
+    });
 
     if (page === 1) {
       // 첫 페이지일 땐 새로 세팅
@@ -158,6 +227,20 @@ const ProductListMain = () => {
       setFetchCount(newFetchCount);
     }
   }, [newFetchCount]);
+
+  // 페이지 포커스 시 SEARCH 쿼리 무효화되어 있으면 refetch
+  React.useEffect(() => {
+    const handleFocus = () => {
+      const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH]);
+      if (searchQuery && (searchQuery.isInvalidated || searchQuery.isStale)) {
+        console.log('[ProductListMain] 페이지 포커스, SEARCH 쿼리 refetch');
+        refetch();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [queryClient, refetch]);
 
   // 상품 목록 추출
   //const products = searchResponses || [];
@@ -1083,7 +1166,7 @@ const ProductListMain = () => {
              </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
               {filteredProducts.map((product) => (
-                <ProductCard
+                <ProductCardLikeWrapper
                   key={product.productId}
                   product={product}
                   onClick={() => navigate(`/products/${product.productId}`)}

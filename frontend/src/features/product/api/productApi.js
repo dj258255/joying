@@ -117,10 +117,53 @@ export const getProducts = async (params = {}) => {
   }
 
   // 실제 API 호출
-  // const { data } = await axiosInstance.get('/products', { params });
-  // return data;
-  
-  throw new Error('API not implemented yet. Set VITE_USE_MOCK=true in .env');
+  try {
+    console.log('[API] 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.BASE, params });
+    const { data } = await axiosInstance.get(API_ENDPOINTS.PRODUCT.BASE, { params });
+    console.log('[API] 상품 목록 조회 성공:', data);
+    
+    // 응답 형식에 따라 데이터 추출
+    let products = [];
+    if (data?.body?.data?.content) {
+      // Swagger 응답 형식
+      products = data.body.data.content;
+    } else if (data?.content) {
+      // 직접 Page 객체
+      products = data.content;
+    } else if (data?.items) {
+      // items 형식
+      products = data.items;
+    } else if (Array.isArray(data)) {
+      // 배열 형식
+      products = data;
+    }
+    
+    // 각 상품에 liked 필드가 있는지 확인 (서버 응답 그대로 표시)
+    console.log('[API] 상품 목록 (liked 필드 포함):', products.map(p => ({ 
+      productId: p.productId || p.id, 
+      liked: p.liked,
+      isLiked: p.isLiked,
+      hasLikedField: 'liked' in p,
+      hasIsLikedField: 'isLiked' in p
+    })));
+    
+    return {
+      items: products,
+      total: data?.body?.data?.totalElements || data?.totalElements || data?.total || products.length,
+      page: data?.body?.data?.number || data?.number || params.page || 1,
+      limit: data?.body?.data?.size || data?.size || params.limit || 20,
+      totalPages: data?.body?.data?.totalPages || data?.totalPages || Math.ceil(products.length / (params.limit || 20))
+    };
+  } catch (error) {
+    console.error('[API] 상품 목록 조회 실패:', error);
+    console.error('[API] 에러 상세:', {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      url: error?.config?.url
+    });
+    throw error;
+  }
 };
 
 /**
@@ -425,6 +468,137 @@ export const getMyProducts = async (params = {}) => {
 };
 
 /**
+ * 상품 찜하기
+ * @param {string} productId - 상품 ID
+ * @returns {Promise<void>}
+ */
+export const likeProduct = async (productId) => {
+  if (USE_MOCK) {
+    // Mock: 찜하기 성공 시뮬레이션
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('[Mock] 찜하기 성공:', productId);
+        resolve({ success: true });
+      }, 300);
+    });
+  }
+
+  // 실제 API 호출
+  try {
+    const { data } = await axiosInstance.post(API_ENDPOINTS.PRODUCT.LIKE(productId));
+    console.log('[API] 찜하기 성공:', productId, data);
+    return data;
+  } catch (error) {
+    console.error('[API] 찜하기 실패:', productId, error);
+    throw error;
+  }
+};
+
+/**
+ * 상품 찜하기 취소
+ * @param {string} productId - 상품 ID
+ * @returns {Promise<void>}
+ */
+export const unlikeProduct = async (productId) => {
+  if (USE_MOCK) {
+    // Mock: 찜하기 취소 시뮬레이션
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('[Mock] 찜하기 취소 성공:', productId);
+        resolve({ success: true });
+      }, 300);
+    });
+  }
+
+  // 실제 API 호출
+  try {
+    const { data } = await axiosInstance.delete(API_ENDPOINTS.PRODUCT.LIKE(productId));
+    console.log('[API] 찜하기 취소 성공:', productId, data);
+    return data;
+  } catch (error) {
+    console.error('[API] 찜하기 취소 실패:', productId, error);
+    throw error;
+  }
+};
+
+/**
+ * 찜한 상품 목록 조회
+ * @param {Object} params - 쿼리 파라미터
+ * @param {number} params.page - 페이지 번호
+ * @param {number} params.size - 페이지 크기
+ * @returns {Promise<{content: Array, totalElements: number, totalPages: number}>}
+ */
+export const getLikedProducts = async (params = {}) => {
+  if (USE_MOCK) {
+    // Mock 데이터 반환
+    console.log('[Mock] 찜한 상품 목록 조회:', params);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const { page = 0, size = 20 } = params;
+        const allLikedProducts = DUMMY_LEND_PRODUCTS.slice(0, 10);
+        const startIndex = page * size;
+        const endIndex = startIndex + size;
+        const paginatedProducts = allLikedProducts.slice(startIndex, endIndex);
+
+        const result = {
+          content: paginatedProducts,
+          pageable: {},
+          totalElements: allLikedProducts.length,
+          totalPages: Math.ceil(allLikedProducts.length / size),
+          size,
+          number: page,
+          first: page === 0,
+          last: endIndex >= allLikedProducts.length,
+          numberOfElements: paginatedProducts.length,
+          empty: paginatedProducts.length === 0
+        };
+        console.log('[Mock] 찜한 상품 목록 결과:', result);
+        resolve(result);
+      }, 300);
+    });
+  }
+
+  // 실제 API 호출
+  try {
+    console.log('[API] 찜한 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.MY_LIKES, params });
+    const { data } = await axiosInstance.get(API_ENDPOINTS.PRODUCT.MY_LIKES, { params });
+    console.log('[API] 찜한 상품 목록 조회 성공:', data);
+    
+    // 응답 형식에 따라 데이터 추출
+    let result = data;
+    if (data?.body?.data) {
+      // Swagger 응답 형식
+      result = data.body.data;
+    } else if (data?.data) {
+      // 중첩된 data 형식
+      result = data.data;
+    }
+    
+    // 각 상품에 liked 필드가 있는지 확인
+    const content = result?.content || [];
+    if (content.length > 0) {
+      console.log('[API] 찜한 상품 목록 (liked 필드 포함):', content.map(p => ({
+        productId: p.productId || p.id,
+        liked: p.liked,
+        isLiked: p.isLiked,
+        hasLikedField: 'liked' in p || 'isLiked' in p
+      })));
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('[API] 찜한 상품 목록 조회 실패:', error);
+    console.error('[API] 에러 상세:', {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      url: error?.config?.url
+    });
+    throw error;
+  }
+};
+
+/**
  * Product API 객체
  * 모든 함수를 객체로 묶어서 export
  */
@@ -436,5 +610,8 @@ export const productApi = {
   deleteProduct,
   getUnavailableDates,
   setUnavailableDates,
-  getMyProducts
+  getMyProducts,
+  likeProduct,
+  unlikeProduct,
+  getLikedProducts
 };
