@@ -495,15 +495,19 @@ export const ChatProvider = ({ children }) => {
         .map((msg) => normalizeMessage(msg, snapshot.currentChatRoom))
         .filter(Boolean);
 
-      // 메시지 목록 교체
-      dispatch({ type: 'SET_MESSAGES', payload: normalized });
+      // 기존 메시지와 병합 (교체하지 않고 추가)
+      const existingMessages = snapshot.messages || [];
+      const mergedMessages = mergeMessages(existingMessages, normalized);
+
+      // 병합된 메시지 목록 설정
+      dispatch({ type: 'SET_MESSAGES', payload: mergedMessages });
 
       // 하이라이트할 메시지 ID 반환 (스크롤 및 하이라이트는 호출하는 컴포넌트에서 처리)
       return {
         success: true,
         messageId,
-        messages: normalized,
-        targetMessageIndex: normalized.findIndex(msg => String(msg.id) === String(messageId))
+        messages: mergedMessages,
+        targetMessageIndex: mergedMessages.findIndex(msg => String(msg.id) === String(messageId))
       };
     } catch (error) {
       console.error('[ChatContext] 메시지 점프 실패:', error);
