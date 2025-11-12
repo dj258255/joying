@@ -315,7 +315,14 @@ class ChatService(
 
     /**
      * 푸시 알림 전송
-     * 조건: 수신자가 오프라인이거나 채팅방에 없고, 알림이 켜져 있을 때만 전송
+     *
+     * 전송 조건:
+     * 1. 수신자가 완전 오프라인 (브라우저 꺼짐) → 푸시 전송 ✅
+     * 2. 수신자가 온라인이지만 다른 채팅방을 보는 중 → 푸시 전송 ✅
+     * 3. 수신자가 현재 이 채팅방을 보고 있음 → 푸시 전송 ❌ (이미 화면에 보이므로 불필요)
+     *
+     * 추가 조건:
+     * - 알림이 꺼져 있으면 전송 안함
      */
     private suspend fun sendPushNotification(
         chatRoomId: Long,
@@ -336,12 +343,16 @@ class ChatService(
                 return@withContext
             }
 
-            // 2. 수신자가 현재 온라인 상태인지 확인
-            val isOnline = chatPresenceService.isOnline(receiverId)
-            if (isOnline) {
-                logger.debug("푸시 알림 건너뜀 (온라인): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+            // 2. 수신자가 현재 이 채팅방을 보고 있는지 확인
+            // 현재 채팅방 화면을 보고 있으면 푸시 알림 불필요 (이미 실시간 메시지로 받음)
+            val isViewingThisChatRoom = chatPresenceService.isViewingChatRoom(receiverId, chatRoomId)
+            if (isViewingThisChatRoom) {
+                logger.debug("푸시 알림 건너뜀 (채팅방 보는 중): chatRoomId={}, receiverId={}", chatRoomId, receiverId)
                 return@withContext
             }
+
+            // 3. 오프라인이거나 다른 채팅방을 보고 있으면 푸시 전송
+            // (isViewingThisChatRoom = false 이므로 여기 도달하면 푸시 전송해야 함)
 
             // 3. 발신자 정보 조회 (프로필 이미지까지 Fetch Join)
             // LazyInitializationException 방지: withContext(Dispatchers.IO)에서 Hibernate Session이 끊기므로
