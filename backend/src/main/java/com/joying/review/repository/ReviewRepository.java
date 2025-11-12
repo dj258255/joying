@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByProduct_ProductIdOrderByReviewIdDesc(Long productId);
@@ -47,6 +48,16 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     """)
     Review findRentalReview(Long rentalId, String uploadType);
 
-    @EntityGraph(attributePaths = {"reviewer", "product", "reviewFiles"})
+    @EntityGraph(attributePaths = {"reviewer", "product", "reviewFiles", "reviewFiles.file"})
     Page<Review> findByReviewed_MemberId(Long memberId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"reviewFiles", "reviewFiles.file"})
+    @Query("""
+    SELECT r FROM Review r
+    JOIN FETCH r.reviewer w
+    JOIN FETCH r.rentalHistory rh
+    JOIN FETCH rh.rentalProduct rp
+    WHERE r.reviewId = :reviewId
+""")
+    Optional<Review> findByIdWithWriterAndProduct(Long reviewId);
 }
