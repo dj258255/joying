@@ -143,8 +143,10 @@ export const getProducts = async (params = {}) => {
       productId: p.productId || p.id, 
       liked: p.liked,
       isLiked: p.isLiked,
+      isLike: p.isLike,
       hasLikedField: 'liked' in p,
-      hasIsLikedField: 'isLiked' in p
+      hasIsLikedField: 'isLiked' in p,
+      hasIsLikeField: 'isLike' in p
     })));
     
     return {
@@ -581,7 +583,8 @@ export const getLikedProducts = async (params = {}) => {
         productId: p.productId || p.id,
         liked: p.liked,
         isLiked: p.isLiked,
-        hasLikedField: 'liked' in p || 'isLiked' in p
+        isLike: p.isLike,
+        hasLikedField: 'liked' in p || 'isLiked' in p || 'isLike' in p
       })));
     }
     
