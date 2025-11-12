@@ -95,24 +95,39 @@ const ProductListMain = () => {
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategoryTree();
 
   // URL에서 category 파라미터를 읽어 자동으로 필터 적용
+  // 컴포넌트 마운트 시 한 번만 실행 (categoryParam이 있을 때만)
+  const categoryAppliedRef = React.useRef(false);
   React.useEffect(() => {
-    if (categoryParam && categories.length > 0) {
-      const categoryId = parseInt(categoryParam, 10);
-      
-      // 하위 카테고리에서 찾기
-      for (const mainCat of categories) {
-        const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
-        if (subCategory) {
-          setSelectedSubcategories([subCategory]);
-          setAppliedFilters(prev => ({
-            ...prev,
-            selectedSubcategories: [subCategory]
-          }));
-          break;
-        }
+    // 이미 적용했거나, categoryParam이 없거나, categories가 로드되지 않았으면 스킵
+    if (categoryAppliedRef.current || !categoryParam || categories.length === 0) {
+      return;
+    }
+    
+    const categoryId = parseInt(categoryParam, 10);
+    
+    // 하위 카테고리에서 찾기
+    for (const mainCat of categories) {
+      const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
+      if (subCategory) {
+        console.log('🏷️ [ProductListMain] URL 카테고리 파라미터 적용:', subCategory.categoryName);
+        setSelectedSubcategories([subCategory]);
+        setAppliedFilters(prev => ({
+          ...prev,
+          selectedSubcategories: [subCategory]
+        }));
+        categoryAppliedRef.current = true; // 적용 완료 표시
+        break;
       }
     }
   }, [categoryParam, categories]);
+  
+  // URL 파라미터가 없어지면 (상세 페이지에서 /products로 돌아올 때) ref 초기화
+  React.useEffect(() => {
+    if (!categoryParam && categoryAppliedRef.current) {
+      console.log('🔄 [ProductListMain] URL 카테고리 파라미터 제거 감지 - ref 초기화');
+      categoryAppliedRef.current = false;
+    }
+  }, [categoryParam]);
   
   // 카테고리 로드 후 첫 번째 카테고리 자동 선택
   React.useEffect(() => {
@@ -194,10 +209,26 @@ const ProductListMain = () => {
   }, [activeTab]);
 
   // appliedFilters 변경 시 검색 재실행 (필터 적용 버튼 클릭 시)
+  // 필터 직렬화 for 정확한 비교
+  const appliedFiltersKey = React.useMemo(() => {
+    return JSON.stringify({
+      searchQuery: appliedFilters.searchQuery,
+      selectedDates: appliedFilters.selectedDates,
+      priceRange: appliedFilters.priceRange,
+      selectedSubcategories: appliedFilters.selectedSubcategories.map(c => c.categoryId),
+      selectedDong: appliedFilters.selectedDong?.id,
+      rating: appliedFilters.rating,
+      sameDayRental: appliedFilters.sameDayRental,
+      selectedHashtags: appliedFilters.selectedHashtags.map(h => h.id || h.name)
+    });
+  }, [appliedFilters]);
+
   React.useEffect(() => {
     // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
     if (lastAppliedFilters.current !== null) {
       console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
+      console.log('📋 [ProductListMain] 현재 apiFilters:', apiFilters);
+      console.log('📋 [ProductListMain] 현재 appliedFiltersKey:', appliedFiltersKey);
       refetch().then((result) => {
         console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
       }).catch((err) => {
@@ -205,7 +236,7 @@ const ProductListMain = () => {
       });
       lastAppliedFilters.current = apiFilters;
     }
-  }, [appliedFilters]);
+  }, [appliedFiltersKey, refetch, apiFilters]);
 
   // SEARCH 쿼리 무효화 시 자동 refetch
   React.useEffect(() => {
@@ -509,7 +540,23 @@ const ProductListMain = () => {
   }, [products, selectedHashtags]);
 
   const handleApply = async () => {
-    // 임시 필터를 적용된 필터로 복사
+    console.log('🔵 [ProductListMain] 필터 적용 시작:', {
+      searchQuery,
+      dateRange: selectedDates,
+      priceRange,
+      subcategories: selectedSubcategories,
+      region: selectedDong,
+      rating,
+      sameDayRental,
+      hashtags: selectedHashtags
+    });
+
+    // 페이지 및 상품 목록 초기화 (필터 적용 전에 먼저 실행)
+    setPage(1);
+    setFetchCount(0);
+    setProducts([]);
+    
+    // 임시 필터를 적용된 필터로 복사 (이것이 useEffect를 트리거)
     setAppliedFilters({
       searchQuery,
       selectedDates,
@@ -521,21 +568,7 @@ const ProductListMain = () => {
       selectedHashtags
     });
 
-    console.log('✅ [ProductListMain] 필터 적용:', {
-      searchQuery,
-      dateRange: selectedDates,
-      priceRange,
-      subcategories: selectedSubcategories,
-      region: selectedDong,
-      rating,
-      sameDayRental,
-      hashtags: selectedHashtags
-    });
-
-    // 페이지 초기화
-    setPage(1);
-    setFetchCount(0);
-    setProducts([]);
+    console.log('✅ [ProductListMain] 필터 적용 완료 - useEffect가 refetch를 트리거할 것입니다');
     
     handleCloseFilter();
   };
