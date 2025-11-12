@@ -352,8 +352,18 @@ class ChatMessageService(
                     chatMessageRepository.findById(replyId).orElse(null)
                 }
 
+                // 수신자 ID 계산 (실시간 동기화용)
+                val chatRoom = chatRoomRepository.findById(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+                val receiverId = if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.seller.memberId!!
+                } else {
+                    chatRoom.buyer.memberId!!
+                }
+
                 // Redis Pub/Sub 발행 (실시간 동기화)
-                val response = ChatMessageResponse.from(savedMessage, replyMessage)
+                val response = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
                 redisPubSubPublisher.publish(response)
 
                 logger.debug("메시지 삭제 이벤트 발행: messageId={}", messageId)
@@ -458,8 +468,18 @@ class ChatMessageService(
                 chatMessageRepository.findById(replyId).orElse(null)
             }
 
+            // 수신자 ID 계산 (실시간 동기화용)
+            val chatRoom = chatRoomRepository.findById(chatRoomId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+
+            val receiverId = if (memberId == chatRoom.buyer.memberId) {
+                chatRoom.seller.memberId!!
+            } else {
+                chatRoom.buyer.memberId!!
+            }
+
             // Redis Pub/Sub 발행 (실시간 동기화)
-            val response = ChatMessageResponse.from(savedMessage, replyMessage)
+            val response = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
             redisPubSubPublisher.publish(response)
 
             logger.debug("메시지 수정 이벤트 발행: messageId={}", messageId)
