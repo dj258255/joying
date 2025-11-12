@@ -32,6 +32,7 @@ export default {
         'slide-up': 'slideUp 0.3s ease-out',
         'slideInRight': 'slideInRight 0.3s ease-out',
         'slideInFromLeft': 'slideInFromLeft 0.2s ease-out',
+        'blink': 'blink 1.5s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -49,6 +50,10 @@ export default {
         slideInFromLeft: {
           '0%': { transform: 'translateX(-10px)', opacity: '0' },
           '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        blink: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.3' },
         },
       },
     },
