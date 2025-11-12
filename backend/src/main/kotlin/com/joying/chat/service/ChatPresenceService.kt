@@ -26,7 +26,9 @@ class ChatPresenceService(
     companion object {
         private const val PRESENCE_KEY_PREFIX = "chat:presence:"
         private const val LAST_SEEN_KEY_PREFIX = "chat:last_seen:"
+        private const val ACTIVE_ROOM_KEY_PREFIX = "chat:active_room:"  // 사용자가 현재 보고 있는 채팅방
         private const val ONLINE_TIMEOUT_SECONDS = 300L // 5분
+        private const val ACTIVE_ROOM_TIMEOUT_SECONDS = 60L // 1분 (더 짧게 설정)
     }
 
     /**
@@ -97,5 +99,51 @@ class ChatPresenceService(
      */
     fun heartbeat(memberId: Long) {
         setOnline(memberId)
+    }
+
+    /**
+     * 사용자가 특정 채팅방에 입장 (화면을 보고 있음)
+     *
+     * @param memberId 회원 ID
+     * @param chatRoomId 채팅방 ID
+     */
+    fun enterChatRoom(memberId: Long, chatRoomId: Long) {
+        val key = "$ACTIVE_ROOM_KEY_PREFIX$memberId"
+        redisTemplate.opsForValue().set(key, chatRoomId.toString(), ACTIVE_ROOM_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    }
+
+    /**
+     * 사용자가 채팅방에서 퇴장 (화면을 나감)
+     *
+     * @param memberId 회원 ID
+     */
+    fun leaveChatRoom(memberId: Long) {
+        val key = "$ACTIVE_ROOM_KEY_PREFIX$memberId"
+        redisTemplate.delete(key)
+    }
+
+    /**
+     * 사용자가 특정 채팅방을 보고 있는지 확인
+     *
+     * @param memberId 회원 ID
+     * @param chatRoomId 채팅방 ID
+     * @return 해당 채팅방을 보고 있으면 true
+     */
+    fun isViewingChatRoom(memberId: Long, chatRoomId: Long): Boolean {
+        val key = "$ACTIVE_ROOM_KEY_PREFIX$memberId"
+        val activeChatRoomId = redisTemplate.opsForValue().get(key) ?: return false
+        return activeChatRoomId == chatRoomId.toString()
+    }
+
+    /**
+     * 채팅방 활성 상태 갱신 (Heartbeat용)
+     *
+     * 사용자가 채팅방 화면에 있으면 주기적으로 호출하여 TTL 갱신
+     *
+     * @param memberId 회원 ID
+     * @param chatRoomId 채팅방 ID
+     */
+    fun refreshChatRoomActivity(memberId: Long, chatRoomId: Long) {
+        enterChatRoom(memberId, chatRoomId)
     }
 }
