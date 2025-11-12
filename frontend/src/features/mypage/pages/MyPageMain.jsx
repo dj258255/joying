@@ -163,18 +163,18 @@ const MyPageMain = () => {
     <>
       <SideNavbar />
       <div className={`bg-gradient-to-br from-gray-50 to-gray-100 ${activeTab === null ? 'lg:min-h-screen h-screen overflow-hidden' : 'min-h-screen'}`}>
-        {/* 뒤로가기 버튼 */}
-        <div className="px-4 sm:px-6 pt-4 sm:pt-6">
+        {/* 뒤로가기 버튼 (데스크톱만) */}
+        <div className="hidden lg:block px-4 sm:px-6 pt-2 sm:pt-3">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 group"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 group"
           >
-            <FiArrowLeft className="w-5 h-5 group-hover:transform group-hover:-translate-x-1 transition-transform duration-200" />
-            <span className="font-medium">뒤로가기</span>
+            <FiArrowLeft className="w-4 h-4 group-hover:transform group-hover:-translate-x-1 transition-transform duration-200" />
+            <span className="text-sm font-medium">뒤로가기</span>
           </button>
         </div>
         
-        <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 px-4 sm:px-6 ${activeTab === null ? 'lg:pb-4 lg:pt-4 lg:sm:pb-6 lg:sm:pt-6 h-full overflow-y-auto' : 'pb-4 sm:pb-6 pt-4 sm:pt-6'}`}>
+        <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 px-4 sm:px-6 ${activeTab === null ? 'pt-4 lg:pt-2 lg:pb-2 h-full overflow-y-auto' : 'pt-4 lg:pt-2 pb-2 sm:pb-3'}`}>
           {/* 왼쪽 사이드바 - 사용자 프로필 */}
           {/* 모바일: activeTab이 null일 때만 표시, 데스크톱: 항상 표시 */}
           <div className={`w-full lg:w-80 flex-shrink-0 ${activeTab !== null ? 'hidden lg:block' : 'flex flex-col h-full'}`}>
@@ -320,9 +320,9 @@ const MyPageMain = () => {
                 </div>
                 
                 {/* 등록 상품 목록 위젯 */}
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 flex-1 flex flex-col min-h-0">
-                  <h4 className="font-semibold text-gray-900 mb-3 text-sm flex-shrink-0">등록 상품</h4>
-                  <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide min-h-0">
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 flex-shrink-0">
+                  <h4 className="font-semibold text-gray-900 mb-3 text-sm">등록 상품</h4>
+                  <div className="space-y-2 max-h-[80px] overflow-y-auto scrollbar-hide">
                     {userProducts.length > 0 ? (
                       userProducts.map((product, index) => {
                         const productId = product.id || product.productId;
@@ -359,25 +359,25 @@ const MyPageMain = () => {
           <div className={`flex-1 ${!activeTab ? 'hidden lg:flex' : 'w-full'}`}>
             {/* 상품 관리 섹션 */}
             {activeTab === 'products' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 min-h-[calc(100vh-200px)] lg:h-[calc(100vh-100px)] flex flex-col w-full">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
                 {/* 모바일: 뒤로가기 버튼 */}
-                <div className="lg:hidden flex items-center mb-4 flex-shrink-0">
+                <div className="lg:hidden flex items-center mb-2 flex-shrink-0">
                   <button
                     onClick={() => setActiveTab(null)}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    <span className="text-sm font-medium">뒤로</span>
+                    <span className="text-xs font-medium">뒤로</span>
                   </button>
                 </div>
-                <div className="flex items-center justify-between mb-4 sm:mb-6 flex-shrink-0">
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 lg:block">{activeTab === 'products' ? '상품 관리' : ''}</h3>
-                  <div className="flex bg-gray-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center justify-between mb-3 sm:mb-6 flex-shrink-0">
+                  <h3 className="text-base sm:text-xl font-bold text-gray-900 lg:block">{activeTab === 'products' ? '상품 관리' : ''}</h3>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5 sm:p-1 overflow-x-auto scrollbar-hide">
                     <button
                       onClick={() => setProductTab('registered')}
-                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      className={`px-2 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'registered'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -387,7 +387,7 @@ const MyPageMain = () => {
                     </button>
                     <button
                       onClick={() => setProductTab('liked')}
-                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      className={`px-2 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'liked'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -397,7 +397,7 @@ const MyPageMain = () => {
                     </button>
                     <button
                       onClick={() => setProductTab('borrowed')}
-                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      className={`px-2 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'borrowed'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -407,7 +407,7 @@ const MyPageMain = () => {
                     </button>
               <button
                       onClick={() => setProductTab('lent')}
-                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      className={`px-2 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
                         productTab === 'lent'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
@@ -431,20 +431,20 @@ const MyPageMain = () => {
 
             {/* 계정 관리 섹션 */}
             {activeTab === 'account' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-4 sm:p-6 min-h-[calc(100vh-200px)] lg:h-[calc(100vh-100px)] flex flex-col w-full">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
                 {/* 모바일: 뒤로가기 버튼 */}
-                <div className="lg:hidden flex items-center mb-4 flex-shrink-0">
+                <div className="lg:hidden flex items-center mb-2 flex-shrink-0">
                   <button
                     onClick={() => setActiveTab(null)}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                    <span className="text-sm font-medium">뒤로</span>
+                    <span className="text-xs font-medium">뒤로</span>
                   </button>
                 </div>
-                <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4 flex-shrink-0">계정 관리</h3>
+                <h3 className="text-base sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 flex-shrink-0">계정 관리</h3>
                 <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-2">
           <button
                     onClick={() => navigate('/mypage/profile')}
