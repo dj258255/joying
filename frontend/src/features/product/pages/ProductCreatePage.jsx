@@ -185,8 +185,8 @@ function ProductCreatePage() {
         uploadType: existingProduct.uploadType || 'RENT',
         title: existingProduct.title || '',
         content: existingProduct.content || '',
-        deposit: existingProduct.deposit ? formatCurrency(existingProduct.deposit) : '',
-        rentalFee: existingProduct.rentalFee ? formatCurrency(existingProduct.rentalFee) : '',
+        deposit: existingProduct.deposit ? String(existingProduct.deposit) : '',
+        rentalFee: existingProduct.rentalFee ? String(existingProduct.rentalFee) : '',
         rentMethod: existingProduct.rentMethod || 'BOTH',
         videoNecessary: existingProduct.videoNecessary || false,
         categoryId: existingProduct.category?.categoryId || null,
@@ -228,13 +228,40 @@ function ProductCreatePage() {
       if (!existingProduct.endRent) {
         setNoEndDate(true);
       }
+      
+      // 금액 필드 포맷팅 (화면 표시용)
+      setTimeout(() => {
+        if (existingProduct.deposit) {
+          setForm(prev => ({
+            ...prev,
+            deposit: formatCurrency(existingProduct.deposit)
+          }));
+        }
+        if (existingProduct.rentalFee) {
+          setForm(prev => ({
+            ...prev,
+            rentalFee: formatCurrency(existingProduct.rentalFee)
+          }));
+        }
+      }, 100);
     }
   }, [isEditMode, existingProduct, isProductLoading]);
 
-  const handlePriceChange = (key, raw) => {
+  // 입력 중에는 숫자만 허용 (포맷팅 없음)
+  const handlePriceInput = (key, raw) => {
     const onlyDigits = raw.replace(/[^0-9]/g, '');
-    const formatted = onlyDigits ? formatCurrency(Number(onlyDigits)) : '';
-    updateField(key, formatted);
+    updateField(key, onlyDigits);
+  };
+
+  // 포커스 잃을 때 포맷팅
+  const handlePriceBlur = (key) => {
+    const numValue = Number(form[key]) || 0;
+    if (numValue > 0) {
+      const formatted = formatCurrency(numValue);
+      updateField(key, formatted);
+    } else {
+      updateField(key, '');
+    }
   };
 
   // 해시태그 관리
@@ -728,7 +755,10 @@ function ProductCreatePage() {
       console.log('🎯 최종 productIdResult:', productIdResult, typeof productIdResult);
       
       if (productIdResult && typeof productIdResult === 'number') {
-        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productIdResult)));
+        // 생성 모드일 때는 fromCreate state를 전달하여 상세페이지에서 뒤로가기 시 마이페이지로 이동
+        navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(productIdResult)), {
+          state: isEditMode ? undefined : { fromCreate: true }
+        });
       } else {
         setErrorMessage(isEditMode 
           ? '상품 수정은 성공했지만 상품 ID를 가져올 수 없습니다.'
@@ -1005,8 +1035,9 @@ function ProductCreatePage() {
                   type="text"
                   inputMode="numeric"
                   value={form.deposit}
-                  onChange={(e) => handlePriceChange('deposit', e.target.value)}
-                  placeholder="300,000원"
+                  onChange={(e) => handlePriceInput('deposit', e.target.value)}
+                  onBlur={() => handlePriceBlur('deposit')}
+                  placeholder="300000"
                   className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
               </div>
@@ -1016,8 +1047,9 @@ function ProductCreatePage() {
                   type="text"
                   inputMode="numeric"
                   value={form.rentalFee}
-                  onChange={(e) => handlePriceChange('rentalFee', e.target.value)}
-                  placeholder="35,000원"
+                  onChange={(e) => handlePriceInput('rentalFee', e.target.value)}
+                  onBlur={() => handlePriceBlur('rentalFee')}
+                  placeholder="35000"
                   className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
               </div>

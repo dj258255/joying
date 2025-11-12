@@ -5,7 +5,12 @@
 
 import React, { useState } from 'react';
 
-const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
+const DateRangeCalendar = ({ 
+  onDateRangeChange, 
+  disabledDates = [], 
+  availableStartDate = null, 
+  availableEndDate = null 
+}) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
@@ -45,6 +50,15 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
       
       if (date < minEndDate) {
         return; // 시작일과 같은 날짜 또는 시작일 이전 날짜는 선택 불가
+      }
+      
+      // 선택한 기간 내에 대여 불가 날짜가 있는지 확인
+      if (hasDisabledDateInRange(startDate, date)) {
+        alert('선택한 기간에 대여 불가능한 날짜가 포함되어 있습니다.\n다른 날짜를 선택해주세요.');
+        // 시작일 초기화
+        setStartDate(null);
+        setSelectedRange([]);
+        return;
       }
       
       // 종료일이 시작일 + 1일 이후인 경우에만 선택
@@ -92,9 +106,52 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
     return date >= startDate && date <= endDate;
   };
 
-  const isDisabled = (date) => {
+  // 대여 불가 날짜 체크 (빨간색)
+  const isDisabledByRentalRefuse = (date) => {
     if (!date) return false;
-    return disabledDates.includes(date.toISOString().split('T')[0]);
+    const dateStr = date.toISOString().split('T')[0];
+    return disabledDates.includes(dateStr);
+  };
+
+  // 대여 가능 기간 외의 날짜 체크 (회색)
+  const isOutOfRange = (date) => {
+    if (!date) return false;
+    
+    if (availableStartDate) {
+      const startDate = new Date(availableStartDate);
+      startDate.setHours(0, 0, 0, 0);
+      if (date < startDate) {
+        return true;
+      }
+    }
+    
+    if (availableEndDate) {
+      const endDate = new Date(availableEndDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (date > endDate) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  // 전체 disabled 여부 (선택 불가)
+  const isDisabled = (date) => {
+    return isDisabledByRentalRefuse(date) || isOutOfRange(date);
+  };
+
+  // 선택한 기간 내에 대여 불가 날짜가 있는지 확인
+  const hasDisabledDateInRange = (start, end) => {
+    if (!start || !end) return false;
+    const current = new Date(start);
+    while (current <= end) {
+      if (isDisabled(current)) {
+        return true;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return false;
   };
 
   const formatDateRange = () => {
@@ -150,22 +207,33 @@ const DateRangeCalendar = ({ onDateRangeChange, disabledDates = [] }) => {
 
             const inRange = isDateInRange(date);
             const disabled = isDisabled(date);
+            const isRefused = isDisabledByRentalRefuse(date); // 대여 불가 날짜
+            const outOfRange = isOutOfRange(date); // 기간 외
             const isStart = startDate && date.getTime() === startDate.getTime();
             const isEnd = endDate && date.getTime() === endDate.getTime();
             const isSelected = inRange || isStart || isEnd;
+
+            let buttonStyle = '';
+            if (isRefused) {
+              // 대여 불가 날짜: 빨간 배경 + 흰 글씨
+              buttonStyle = 'bg-red-500 text-white font-bold cursor-not-allowed';
+            } else if (outOfRange) {
+              // 기간 외: 회색 배경 + 회색 글씨
+              buttonStyle = 'bg-gray-200 text-gray-400 cursor-not-allowed';
+            } else if (isSelected) {
+              // 선택된 날짜: 검정 배경 + 흰 글씨
+              buttonStyle = 'bg-black text-white font-bold';
+            } else {
+              // 일반 날짜
+              buttonStyle = 'text-gray-700 hover:bg-gray-100';
+            }
 
             return (
               <button
                 key={index}
                 onClick={() => handleDateClick(date)}
                 disabled={disabled}
-                className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
-                  disabled
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : isSelected
-                    ? 'bg-black text-white font-bold'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                className={`w-10 h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${buttonStyle}`}
               >
                 {date.getDate()}
               </button>

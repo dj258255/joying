@@ -3,8 +3,8 @@
  * 현대적인 대시보드 스타일 (멤버 페이지 디자인)
  */
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useMyProducts } from '@/features/product/hooks/useMyProducts';
@@ -18,7 +18,8 @@ import {
   FiTrash2,
   FiChevronRight,
   FiShield,
-  FiEdit
+  FiEdit,
+  FiArrowLeft
 } from 'react-icons/fi';
 
 // 컴포넌트
@@ -33,18 +34,36 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 
 const MyPageMain = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser } = useAuth();
   // 데스크톱에서는 'products' 기본 선택, 모바일에서는 null
   const [activeTab, setActiveTab] = useState(() => {
+    // location.state에서 전달된 activeTab이 있으면 사용
+    if (location.state?.activeTab) {
+      return location.state.activeTab;
+    }
     // 초기 렌더링 시 화면 크기에 따라 결정
     if (typeof window !== 'undefined') {
       return window.innerWidth >= 1024 ? 'products' : null;
     }
     return null;
   });
-  const [productTab, setProductTab] = useState('registered');
+  const [productTab, setProductTab] = useState(() => {
+    // location.state에서 전달된 productTab이 있으면 사용
+    return location.state?.productTab || 'registered';
+  });
   const [reviewTab, setReviewTab] = useState('borrowed');
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // location.state가 변경되면 탭 업데이트
+  useEffect(() => {
+    if (location.state?.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+    if (location.state?.productTab) {
+      setProductTab(location.state.productTab);
+    }
+  }, [location.state]);
   
   const currentUserId = currentUser?.memberId || currentUser?.id;
   
@@ -144,6 +163,17 @@ const MyPageMain = () => {
     <>
       <SideNavbar />
       <div className={`bg-gradient-to-br from-gray-50 to-gray-100 ${activeTab === null ? 'lg:min-h-screen h-screen overflow-hidden' : 'min-h-screen'}`}>
+        {/* 뒤로가기 버튼 */}
+        <div className="px-4 sm:px-6 pt-4 sm:pt-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 group"
+          >
+            <FiArrowLeft className="w-5 h-5 group-hover:transform group-hover:-translate-x-1 transition-transform duration-200" />
+            <span className="font-medium">뒤로가기</span>
+          </button>
+        </div>
+        
         <div className={`flex flex-col lg:flex-row gap-4 lg:gap-6 px-4 sm:px-6 ${activeTab === null ? 'lg:pb-4 lg:pt-4 lg:sm:pb-6 lg:sm:pt-6 h-full overflow-y-auto' : 'pb-4 sm:pb-6 pt-4 sm:pt-6'}`}>
           {/* 왼쪽 사이드바 - 사용자 프로필 */}
           {/* 모바일: activeTab이 null일 때만 표시, 데스크톱: 항상 표시 */}
