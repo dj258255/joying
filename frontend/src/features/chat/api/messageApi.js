@@ -522,5 +522,108 @@ export const messageApi = {
     // 실제로는 WebSocket으로 처리되거나 별도 API가 필요할 수 있음
     console.warn('[messageApi] updateMessageStatus는 deprecated입니다. updateMessage를 사용하세요.');
     return messageApi.updateMessage(chatRoomId, messageId, updates.content || '');
+  },
+
+  /**
+   * 특정 메시지 주변 조회 (메시지 점프)
+   * GET /api/v1/chat-rooms/{chatRoomId}/messages/{messageId}/around
+   * 
+   * @param {string|number} chatRoomId - 채팅방 ID
+   * @param {string} messageId - 중심이 될 메시지 ID (MongoDB ObjectId)
+   * @param {Object} [params] - 조회 파라미터
+   * @param {number} [params.before=20] - 해당 메시지 이전 메시지 개수 (과거 방향)
+   * @param {number} [params.after=20] - 해당 메시지 이후 메시지 개수 (미래 방향)
+   * @returns {Promise<Array>} 메시지 목록 (시간순 정렬: 오래된 것 → 최신 것)
+   */
+  getMessagesAround: async (chatRoomId, messageId, params = {}) => {
+    const chatRoomIdNum = Number(chatRoomId);
+    if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
+      console.error('[messageApi] 유효하지 않은 채팅방 ID:', chatRoomId);
+      throw new Error('유효하지 않은 채팅방 ID입니다.');
+    }
+    if (!messageId) {
+      console.error('[messageApi] 메시지 ID가 필요합니다.');
+      throw new Error('메시지 ID가 필요합니다.');
+    }
+
+    try {
+      const { before = 20, after = 20 } = params;
+      
+      const queryParams = {};
+      if (before !== undefined && before !== null) {
+        queryParams.before = before;
+      }
+      if (after !== undefined && after !== null) {
+        queryParams.after = after;
+      }
+      
+      console.log('[messageApi] 메시지 주변 조회 요청:', { 
+        chatRoomId: chatRoomIdNum, 
+        messageId, 
+        queryParams 
+      });
+      
+      const response = await axiosInstance.get(
+        `/chat-rooms/${chatRoomIdNum}/messages/${messageId}/around`,
+        { params: queryParams }
+      );
+      
+      console.log('[messageApi] 메시지 주변 조회 응답:', {
+        status: response.status,
+        messageCount: Array.isArray(response.data?.data) ? response.data.data.length : 0
+      });
+
+      let rawMessages = null;
+
+      if (Array.isArray(response.data?.data)) {
+        rawMessages = response.data.data;
+      } else if (Array.isArray(response.data?.body?.data)) {
+        rawMessages = response.data.body.data;
+      }
+
+      if (!rawMessages) {
+        rawMessages = findFirstArray(response.data);
+      }
+
+      if (rawMessages) {
+        return rawMessages;
+      }
+      
+      // 응답이 배열 형식이 아닌 경우 빈 배열 반환
+      console.warn('[messageApi] 메시지 주변 조회 응답 형식이 예상과 다릅니다:', response.data);
+      return [];
+    } catch (error) {
+      console.error('[messageApi] 메시지 주변 조회 실패:', {
+        chatRoomId: chatRoomIdNum,
+        messageId,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // 400 Bad Request
+      if (error.response?.status === 400) {
+        throw new Error(error.response?.data?.message || '해당 채팅방의 메시지가 아닙니다.');
+      }
+      
+      // 403 Forbidden
+      if (error.response?.status === 403) {
+        throw new Error(error.response?.data?.message || '채팅방 접근 권한이 없습니다.');
+      }
+      
+      // 404 Not Found
+      if (error.response?.status === 404) {
+        throw new Error(error.response?.data?.message || '메시지를 찾을 수 없습니다.');
+      }
+      
+      // 401 에러는 인증 문제
+      if (error.response?.status === 401) {
+        throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
+      }
+      
+      // 기타 에러
+      throw new Error(error.response?.data?.message || error.message || '메시지 주변 조회에 실패했습니다.');
+    }
   }
 };

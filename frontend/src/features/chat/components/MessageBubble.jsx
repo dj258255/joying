@@ -14,8 +14,9 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} props.onDelete - 삭제 핸들러
  * @param {Function} props.onEdit - 수정 핸들러
  * @param {string} [props.messageId] - 메시지 ID (검색 시 스크롤용)
+ * @param {Function} [props.onReplyClick] - 답장 메시지 클릭 핸들러 (원본 메시지로 점프)
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, onReplyClick }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);
@@ -132,12 +133,22 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     isLongPress.current = false;
   };
 
-  // 답장 메시지로 스크롤 이동
-  const handleReplyClick = (e) => {
+  // 답장 메시지로 스크롤 이동 (메시지 점프 API 사용)
+  const handleReplyClick = async (e) => {
     e.stopPropagation();
     if (!replyTo?.id) return;
 
-    // 원본 메시지 요소 찾기
+    // onReplyClick prop이 있으면 사용 (메시지 점프 API 사용)
+    if (onReplyClick) {
+      try {
+        await onReplyClick(replyTo.id);
+      } catch (error) {
+        console.error('[MessageBubble] 답장 메시지 점프 실패:', error);
+      }
+      return;
+    }
+
+    // fallback: 기존 방식 (DOM 요소 직접 찾기)
     const targetElement = document.getElementById(`message-${replyTo.id}`);
     if (targetElement) {
       // 스크롤 컨테이너 찾기 (overflow-y-auto 또는 overflow-y-scroll 클래스를 가진 가장 가까운 부모)

@@ -170,7 +170,7 @@ const ChatRoomPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus } = useChatContext();
+  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, jumpToMessage, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus } = useChatContext();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -804,362 +804,85 @@ const ChatRoomPage = () => {
     executeSearch({ page: searchPage + 1, append: true });
   }, [executeSearch, hasMoreSearch, isSearching, searchPage]);
 
-  const ensureMessageVisible = useCallback(async (targetMessage) => {
-    if (!targetMessage || !currentChatRoom || !targetMessage.id) {
-      setSearchError('메시지 정보가 없습니다.');
+  // 메시지 점프 및 스크롤 (메시지 점프 API 사용)
+  const scrollToMessage = useCallback(async (messageId, options = {}) => {
+    if (!messageId || !currentChatRoom) {
       return false;
     }
 
-    const roomId = currentChatRoom.chatRoomId || currentChatRoom.id;
-    if (!roomId) {
-      setSearchError('채팅방 ID를 확인할 수 없습니다.');
-      return false;
-    }
+    try {
+      setIsJumpingToMessage(true);
+      setSearchError('');
 
-    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-    
-    // 1. 먼저 현재 메시지 목록에서 찾기 (ID 형식 문제 고려)
-    let exists = messagesRef.current.some((message) => {
-      const msgId = String(message.id || '');
-      const targetId = String(targetMessage.id || '');
-      return msgId === targetId;
-    });
-    if (exists) {
-      // 약간의 대기 후 스크롤 (DOM 업데이트 대기)
-      await wait(200);
+      // 메시지 점프 API 호출
+      const result = await jumpToMessage(messageId, { before: 20, after: 20, ...options });
+      
+      if (!result || !result.success) {
+        setSearchError('메시지를 찾을 수 없습니다.');
+        return false;
+      }
+
+      // DOM 업데이트 대기 후 스크롤
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      await wait(100);
+
       const container = messagesContainerRef.current;
       if (!container) {
         setSearchError('메시지 컨테이너를 찾을 수 없습니다.');
         return false;
       }
-      
+
       // DOM 요소를 찾을 때까지 여러 번 시도
-      for (let attempt = 0; attempt < 20; attempt++) {
+      let element = null;
+      for (let attempt = 0; attempt < 30; attempt++) {
         await wait(100);
-        const element = document.getElementById(`message-${targetMessage.id}`);
-        if (element) {
-          setIsNearBottom(false);
-          setIsSearchOpen(false);
-          // 하이라이트 효과를 위해 클래스 추가
-          element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-          
-          // 스크롤 컨테이너 내에서 요소의 위치 계산
-          // offsetTop은 스크롤 컨테이너 기준 상대 위치
-          const elementTop = element.offsetTop;
-          const elementHeight = element.offsetHeight;
-          const containerHeight = container.clientHeight;
-          
-          // 요소를 컨테이너 중앙에 위치시키기 위한 스크롤 위치 계산
-          const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-          
-          // 스크롤 실행 (항상 컨테이너의 scrollTo 사용)
-          container.scrollTo({
-            top: Math.max(0, targetScrollTop),
-            behavior: 'smooth'
-          });
-          
-          // 3초 후 하이라이트 제거
-          setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-          }, 3000);
-          return true;
-        }
-      }
-      
-      console.warn('[ensureMessageVisible] 현재 목록에 있지만 DOM 요소를 찾을 수 없음:', targetMessage.id);
-      return false;
-    }
-
-    // 2. 메시지가 현재 목록에 없으면 해당 메시지 주변을 로드
-    try {
-      setIsJumpingToMessage(true);
-      const targetTimestamp = targetMessage.timestamp || targetMessage.createdAt;
-      
-      if (!targetTimestamp) {
-        setSearchError('메시지 시간 정보가 없습니다.');
-        return false;
+        element = document.getElementById(`message-${messageId}`);
+        if (element) break;
       }
 
-      // 검색 결과에서 받은 타겟 메시지를 정규화하여 메시지 목록에 추가
-      // 시간 기반으로 주변 메시지를 로드하지 않고, 타겟 메시지만 추가
-      if (setMessages) {
-        // 타겟 메시지가 포함된 메시지들을 ChatContext에 추가
-        // normalizeMessage와 유사한 로직으로 정규화
-        const currentUserId = user?.id || user?.memberId;
+      if (element) {
+        setIsNearBottom(false);
+        setIsSearchOpen(false);
         
-        // resolveSenderInfo와 유사한 로직
-        const resolveSender = (senderId) => {
-          if (!senderId) {
-            return { id: null, nickname: '알 수 없음', profileImageUrl: null };
-          }
-          if (currentUserId != null && Number(senderId) === Number(currentUserId)) {
-            return {
-              id: senderId,
-              nickname: user?.nickname || user?.name || '나',
-              profileImageUrl: user?.profileImage || user?.profileImageUrl || null
-            };
-          }
-          const other = currentChatRoom?.otherMember;
-          if (other && Number(other.id) === Number(senderId)) {
-            return {
-              id: senderId,
-              nickname: other.nickname || other.name || other.username || '상대방',
-              profileImageUrl: other.profileImageUrl || other.profileImage || null
-            };
-          }
-          return {
-            id: senderId,
-            nickname: '알 수 없음',
-            profileImageUrl: null
-          };
-        };
+        // 하이라이트 효과 추가
+        element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
         
-        // 각 raw 메시지를 정규화하여 추가
-        const currentMessages = messagesRef.current || [];
-        const messageMap = new Map();
+        // 스크롤 컨테이너 내에서 요소의 위치 계산
+        const elementTop = element.offsetTop;
+        const elementHeight = element.offsetHeight;
+        const containerHeight = container.clientHeight;
         
-        // 현재 메시지들을 맵에 추가
-        currentMessages.forEach((msg) => {
-          if (msg && msg.id) {
-            messageMap.set(String(msg.id), msg);
-          }
+        // 요소를 컨테이너 중앙에 위치시키기
+        const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
+        
+        // 스크롤 실행
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: 'smooth'
         });
         
-        // 타겟 메시지만 정규화하여 맵에 추가
-        const rawMsg = targetMessage;
-        if (rawMsg && rawMsg.id) {
-          const msgId = String(rawMsg.id);
-          if (!messageMap.has(msgId)) { // 이미 있으면 스킵하지 않고 추가
-          
-          const type = (rawMsg.type || 'TEXT').toString().toLowerCase();
-          const senderId = rawMsg.senderId ?? rawMsg.sender?.id ?? null;
-          const sender = resolveSender(senderId);
-          const timestamp = rawMsg.createdAt || rawMsg.timestamp || new Date().toISOString();
-          
-          // 답장 정보 정규화
-          let replyTo = null;
-          let replyToMessageId = rawMsg.replyToMessageId || null;
-          if (rawMsg.replyTo && typeof rawMsg.replyTo === 'object' && rawMsg.replyTo !== null) {
-            const replySenderId = rawMsg.replyTo.senderId;
-            const replySender = resolveSender(replySenderId);
-            replyTo = {
-              id: rawMsg.replyTo.id || null,
-              senderId: replySenderId,
-              sender: replySender,
-              content: rawMsg.replyTo.content || (rawMsg.replyTo.isDeleted ? '삭제된 메시지입니다.' : null),
-              isDeleted: rawMsg.replyTo.isDeleted || false
-            };
-            if (!replyToMessageId && replyTo.id) {
-              replyToMessageId = replyTo.id;
-            }
-          }
-          
-          const normalizedMsg = {
-            id: rawMsg.id,
-            chatRoomId: roomId,
-            type,
-            content: type === 'image' ? (rawMsg.imageUrl || rawMsg.content || '') : rawMsg.content || '',
-            imageUrl: rawMsg.imageUrl || null,
-            fileUrl: rawMsg.fileUrl || null,
-            fileName: rawMsg.fileName || null,
-            fileSize: rawMsg.fileSize || null,
-            replyTo,
-            replyToMessageId,
-            sender,
-            senderId,
-            timestamp,
-            isRead: rawMsg.isRead ?? false,
-            isDeleted: rawMsg.isDeleted ?? false,
-            isEdited: rawMsg.isEdited ?? false,
-            status: rawMsg.status || null
-          };
-          
-          messageMap.set(msgId, normalizedMsg);
-          }
-        }
+        // 2초 후 하이라이트 제거
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg', 'transition-all');
+        }, 2000);
         
-        // 맵의 모든 메시지를 배열로 변환하고 정렬
-        const allNormalizedMessages = Array.from(messageMap.values()).sort((a, b) => {
-          const aTime = new Date(a?.timestamp || 0).getTime();
-          const bTime = new Date(b?.timestamp || 0).getTime();
-          return aTime - bTime;
-        });
-        
-        // 메시지 설정
-        setMessages(allNormalizedMessages);
-        
-        // React 상태 업데이트와 DOM 렌더링을 기다림
-        // messages 상태가 직접 업데이트되므로 messages를 확인
-        // 위쪽 먼 메시지도 렌더링되도록 충분히 기다림
-        for (let i = 0; i < 20; i++) {
-          await wait(300); // 대기 시간 증가
-          // messages 상태를 직접 확인 (messagesRef는 useEffect로 업데이트되므로 지연될 수 있음)
-          const currentMessages = messages || messagesRef.current || [];
-          exists = currentMessages.some((message) => {
-            const msgId = String(message.id || '');
-            const targetId = String(targetMessage.id || '');
-            return msgId === targetId;
-          });
-          if (exists) {
-            // messagesRef도 업데이트
-            messagesRef.current = currentMessages;
-            // DOM 렌더링을 위해 추가 대기
-            await wait(500);
-            break;
-          }
-        }
-        
-        // 여전히 없으면 로그 출력
-        if (!exists) {
-          console.warn('[ensureMessageVisible] 타겟 메시지를 찾을 수 없음:', {
-            targetId: targetMessage.id,
-            loadedMessageIds: messagesRef.current.map(m => m.id).slice(0, 10),
-            allMessageCount: allNormalizedMessages.length,
-            targetInAll: allNormalizedMessages.some(m => String(m.id) === String(targetMessage.id))
-          });
-        }
+        return true;
       } else {
-        // setMessages가 없으면 채팅방을 다시 로드 (최후의 수단)
-        console.warn('[ensureMessageVisible] setMessages가 없어 채팅방을 다시 로드합니다.');
-        await setCurrentChatRoom(roomId);
-        await wait(1000);
-        
-        // 타겟 메시지가 로드될 때까지 대기 (최대 5번 시도)
-        for (let i = 0; i < 5; i++) {
-          exists = messagesRef.current.some((message) => {
-            const msgId = String(message.id || '');
-            const targetId = String(targetMessage.id || '');
-            return msgId === targetId;
-          });
-          if (exists) break;
-          await wait(500);
-        }
-      }
-      
-      if (exists) {
-        // DOM 업데이트를 기다린 후 스크롤 (여러 번 시도)
-        // React가 DOM을 렌더링할 때까지 대기
-        const container = messagesContainerRef.current;
-        if (!container) {
-          setSearchError('메시지 컨테이너를 찾을 수 없습니다.');
-          return false;
-        }
-        
-        // DOM 요소가 렌더링될 때까지 기다림 (위쪽 먼 메시지도 포함)
-        // MutationObserver를 사용하여 DOM 변경 감지
-        let elementFound = false;
-        const checkElement = () => {
-          const element = document.getElementById(`message-${targetMessage.id}`);
-          if (element) {
-            elementFound = true;
-            return element;
-          }
-          return null;
-        };
-        
-        // 먼저 여러 번 시도
-        for (let attempt = 0; attempt < 50; attempt++) {
-          await wait(200);
-          const element = checkElement();
-          if (element) {
-            // 요소를 찾았으면 스크롤 실행
-            setIsNearBottom(false);
-            setIsSearchOpen(false);
-            // 하이라이트 효과를 위해 클래스 추가
-            element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-            
-            // 스크롤 컨테이너 내에서 요소의 위치 계산
-            // offsetTop은 스크롤 컨테이너 기준 상대 위치
-            const elementTop = element.offsetTop;
-            const elementHeight = element.offsetHeight;
-            const containerHeight = container.clientHeight;
-            const containerScrollTop = container.scrollTop;
-            
-            // 요소를 컨테이너 중앙에 위치시키기 위한 스크롤 위치 계산
-            const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-            
-            // 스크롤 실행 (항상 컨테이너의 scrollTo 사용)
-            container.scrollTo({
-              top: Math.max(0, targetScrollTop),
-              behavior: 'smooth'
-            });
-            
-            // 3초 후 하이라이트 제거
-            setTimeout(() => {
-              element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-            }, 3000);
-            return true;
-          }
-        }
-        
-        // MutationObserver를 사용하여 DOM 변경 감지 (최후의 수단)
-        if (!elementFound) {
-          const element = await new Promise((resolve) => {
-            const observer = new MutationObserver((mutations, obs) => {
-              const foundElement = checkElement();
-              if (foundElement) {
-                obs.disconnect();
-                resolve(foundElement);
-              }
-            });
-            
-            observer.observe(container, {
-              childList: true,
-              subtree: true,
-              attributes: false
-            });
-            
-            // 최대 5초 대기
-            setTimeout(() => {
-              observer.disconnect();
-              resolve(null);
-            }, 5000);
-          });
-          
-          if (element) {
-            setIsNearBottom(false);
-            setIsSearchOpen(false);
-            element.classList.add('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-            
-            const elementTop = element.offsetTop;
-            const elementHeight = element.offsetHeight;
-            const containerHeight = container.clientHeight;
-            const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-            
-            container.scrollTo({
-              top: Math.max(0, targetScrollTop),
-              behavior: 'smooth'
-            });
-            
-            setTimeout(() => {
-              element.classList.remove('ring-2', 'ring-gray-900', 'ring-offset-2', 'rounded-lg');
-            }, 3000);
-            return true;
-          }
-        }
-        
-        // 요소를 찾지 못한 경우
-        console.warn('[ensureMessageVisible] DOM 요소를 찾을 수 없음:', targetMessage.id);
-        // 모든 메시지 요소를 확인하여 ID 형식 문제 확인
-        const allMessageElements = document.querySelectorAll('[id^="message-"]');
-        console.log('[ensureMessageVisible] 현재 DOM의 메시지 ID들:', Array.from(allMessageElements).map(el => el.id).slice(0, 20));
-        setSearchError('메시지 요소를 찾을 수 없습니다. ID: ' + targetMessage.id);
+        console.warn('[scrollToMessage] DOM 요소를 찾을 수 없음:', messageId);
+        setSearchError('메시지 요소를 찾을 수 없습니다.');
         return false;
       }
-      
-      setSearchError('대화에서 해당 메시지를 찾을 수 없습니다. (ID: ' + targetMessage.id + ')');
-      return false;
     } catch (error) {
-      console.error('메시지 로드 실패:', error);
-      setSearchError('메시지를 불러오는 중 오류가 발생했습니다.');
+      console.error('[scrollToMessage] 메시지 점프 실패:', error);
+      setSearchError(error.message || '메시지 점프에 실패했습니다.');
       return false;
     } finally {
       setIsJumpingToMessage(false);
     }
-  }, [currentChatRoom, messageApi, setCurrentChatRoom, setIsNearBottom, setIsSearchOpen, setSearchError]);
+  }, [currentChatRoom, jumpToMessage, setIsNearBottom, setIsSearchOpen, setSearchError]);
 
   // 날짜로 검색 (해당 날짜의 첫 메시지로 이동)
-  const handleDateSearch = useCallback((date) => {
+  const handleDateSearch = useCallback(async (date) => {
     if (!date || !currentChatRoom) return;
     
     const targetDate = new Date(date);
@@ -1167,36 +890,73 @@ const ChatRoomPage = () => {
     const nextDay = new Date(targetDate);
     nextDay.setDate(nextDay.getDate() + 1);
     
-    // 해당 날짜의 첫 메시지 찾기
-    const messagesOnDate = messagesRef.current.filter((msg) => {
-      if (!msg.timestamp) return false;
-      const msgDate = new Date(msg.timestamp);
-      return msgDate >= targetDate && msgDate < nextDay;
-    });
-    
-    if (messagesOnDate.length > 0) {
-      // 가장 첫 메시지로 이동
-      const firstMessage = messagesOnDate[0];
-      ensureMessageVisible(firstMessage);
-    } else {
-      setSearchError('해당 날짜에 메시지가 없습니다.');
+    try {
+      // 먼저 현재 메시지 목록에서 해당 날짜의 메시지 찾기
+      const messagesOnDate = messagesRef.current.filter((msg) => {
+        if (!msg.timestamp) return false;
+        const msgDate = new Date(msg.timestamp);
+        return msgDate >= targetDate && msgDate < nextDay;
+      });
+      
+      if (messagesOnDate.length > 0) {
+        // 가장 첫 메시지로 이동 (메시지 점프 API 사용)
+        const firstMessage = messagesOnDate[0];
+        await scrollToMessage(firstMessage.id);
+        return;
+      }
+
+      // 현재 목록에 없으면 해당 날짜의 첫 메시지를 찾기 위해
+      // 날짜 시작 시간 이후의 메시지를 조회 (after 파라미터 사용)
+      const roomId = currentChatRoom.chatRoomId || currentChatRoom.id;
+      if (!roomId) {
+        setSearchError('채팅방 ID를 확인할 수 없습니다.');
+        return;
+      }
+
+      // 날짜 시작 시간 이후의 메시지 조회
+      const dateMessages = await messageApi.getMessages(roomId, {
+        after: targetDate.toISOString(),
+        size: 100
+      });
+
+      // 해당 날짜의 메시지 필터링 (다음 날 이전)
+      const messagesOnTargetDate = dateMessages.filter((msg) => {
+        if (!msg.createdAt && !msg.timestamp) return false;
+        const msgDate = new Date(msg.createdAt || msg.timestamp);
+        return msgDate >= targetDate && msgDate < nextDay;
+      });
+      
+      if (messagesOnTargetDate.length > 0) {
+        // 가장 첫 메시지로 이동 (메시지 점프 API 사용)
+        const firstMessage = messagesOnTargetDate[0];
+        await scrollToMessage(firstMessage.id);
+      } else {
+        setSearchError('해당 날짜에 메시지가 없습니다.');
+      }
+    } catch (error) {
+      console.error('[handleDateSearch] 날짜 검색 실패:', error);
+      setSearchError('날짜 검색에 실패했습니다.');
     }
-  }, [currentChatRoom, ensureMessageVisible]);
+  }, [currentChatRoom, messagesRef, scrollToMessage, setSearchError]);
 
   const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
 
   const handleResultClick = useCallback(async (message) => {
-    setIsJumpingToMessage(true);
-    setSearchError('');
+    if (!message || !message.id) {
+      setSearchError('메시지 정보가 없습니다.');
+      return;
+    }
+
     try {
-      const success = await ensureMessageVisible(message);
+      const success = await scrollToMessage(message.id);
       if (success) {
         setIsSearchOpen(false);
       }
-    } finally {
-      setIsJumpingToMessage(false);
+    } catch (error) {
+      console.error('[handleResultClick] 검색 결과 클릭 실패:', error);
+      setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
     }
-  }, [ensureMessageVisible, setIsJumpingToMessage, setIsSearchOpen, setSearchError]);
+  }, [scrollToMessage, setIsSearchOpen, setSearchError]);
 
   // 하단이 아닐 때 상대방의 마지막 메시지 찾기 (Hook은 early return 이전에 호출되어야 함)
   const lastOpponentMessage = useMemo(() => {
@@ -1539,6 +1299,11 @@ const ChatRoomPage = () => {
                 onReply={handleReply}
                 onDelete={handleDeleteMessage}
                 onEdit={handleEditMessage}
+                onReplyClick={async (replyMessageId) => {
+                  if (replyMessageId) {
+                    await scrollToMessage(replyMessageId);
+                  }
+                }}
               />
             );
           })
