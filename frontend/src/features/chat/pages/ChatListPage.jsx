@@ -182,9 +182,38 @@ const ChatListPage = () => {
                 const oldUnreadCount = existingRoom.unreadCount || 0;
                 const newUnreadCount = update.unreadCount || 0;
 
+                // lastMessage가 JSON 형식인 경우 "대여 요청"으로 변환
+                let lastMessage = update.lastMessage || '';
+                if (lastMessage && typeof lastMessage === 'string') {
+                  try {
+                    // JSON 문자열 추출 시도
+                    const contentStr = lastMessage.trim();
+                    const jsonStartIndex = contentStr.indexOf('{');
+                    const jsonEndIndex = contentStr.lastIndexOf('}');
+                    
+                    if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+                      const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+                      const parsed = JSON.parse(jsonStr);
+                      
+                      // RENTAL_REQUEST 타입이면 "대여 요청"으로 표시
+                      if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                        lastMessage = '대여 요청';
+                      }
+                    } else if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+                      // 전체가 JSON 문자열인 경우
+                      const parsed = JSON.parse(contentStr);
+                      if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                        lastMessage = '대여 요청';
+                      }
+                    }
+                  } catch (e) {
+                    // JSON 파싱 실패 시 원본 유지
+                  }
+                }
+
                 chatRoomsMap.set(roomId, {
                   ...existingRoom,
-                  lastMessage: update.lastMessage,
+                  lastMessage: lastMessage,
                   lastMessageAt: update.lastMessageAt,
                   unreadCount: newUnreadCount
                 });

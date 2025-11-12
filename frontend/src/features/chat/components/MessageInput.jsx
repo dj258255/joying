@@ -66,6 +66,9 @@ const MessageInput = ({
   };
 
   const handleFileSelect = async (file) => {
+    if (disabled) {
+      return;
+    }
     try {
       await onSendFile?.(file);
     } catch (error) {
@@ -76,6 +79,9 @@ const MessageInput = ({
 
   // 이모티콘 선택 핸들러 (Data URL을 이미지로 전송)
   const handleEmoticonSelect = async (dataURL) => {
+    if (disabled) {
+      return;
+    }
     try {
       // Data URL을 Blob으로 변환
       const response = await fetch(dataURL);
@@ -201,10 +207,15 @@ const MessageInput = ({
           {/* 이모티콘 버튼 */}
           <button
             type="button"
-            onClick={() => setShowEmoticonPicker(true)}
+            onClick={() => {
+              if (!disabled) {
+                setShowEmoticonPicker(true);
+              }
+            }}
             disabled={disabled}
-            className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="이모티콘"
+            title={disabled ? '상대방이 나간 채팅방에서는 메시지를 보낼 수 없습니다' : '이모티콘'}
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -214,10 +225,15 @@ const MessageInput = ({
           {/* 파일 업로드 버튼 */}
           <button
             type="button"
-            onClick={() => setShowFileModal(true)}
+            onClick={() => {
+              if (!disabled) {
+                setShowFileModal(true);
+              }
+            }}
             disabled={disabled}
-            className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="flex-shrink-0 p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="파일 첨부"
+            title={disabled ? '상대방이 나간 채팅방에서는 메시지를 보낼 수 없습니다' : '파일 첨부'}
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -235,10 +251,10 @@ const MessageInput = ({
                 handleTyping();
               }}
               onKeyPress={handleKeyPress}
-              placeholder="메시지를 입력하세요..."
+              placeholder={disabled ? '상대방이 나간 채팅방입니다' : '메시지를 입력하세요...'}
               disabled={disabled}
               rows={1}
-              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
+              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
               style={{ minHeight: '40px', caretColor: '#111827' }}
             />
             
@@ -258,14 +274,14 @@ const MessageInput = ({
 
       {/* 파일 업로드 모달 */}
       <FileUploadModal
-        isOpen={showFileModal}
+        isOpen={showFileModal && !disabled}
         onClose={() => setShowFileModal(false)}
         onFileSelect={handleFileSelect}
       />
 
       {/* 이모티콘 선택 모달 */}
       <EmoticonPicker
-        isOpen={showEmoticonPicker}
+        isOpen={showEmoticonPicker && !disabled}
         onClose={() => setShowEmoticonPicker(false)}
         onSelect={handleEmoticonSelect}
       />

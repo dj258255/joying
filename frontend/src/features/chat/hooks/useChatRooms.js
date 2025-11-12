@@ -32,20 +32,53 @@ export const useChatRooms = () => {
   // 프론트엔드에서는 추가 필터링 불필요
   const chatRoomsRaw = (chatRoomsData?.chatRooms || []).filter(room => room != null);
 
-  // 중복 제거 (chatRoomId 기준)
+  // 중복 제거 (chatRoomId 기준) 및 lastMessage JSON 파싱
   const chatRoomsMap = new Map();
   chatRoomsRaw.forEach((room) => {
     const roomId = room.chatRoomId || room.id;
     if (roomId) {
+      // lastMessage가 JSON 형식인 경우 "대여 요청"으로 변환
+      let lastMessage = room.lastMessage || '';
+      if (lastMessage && typeof lastMessage === 'string') {
+        try {
+          const contentStr = lastMessage.trim();
+          const jsonStartIndex = contentStr.indexOf('{');
+          const jsonEndIndex = contentStr.lastIndexOf('}');
+          
+          if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+            const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+            const parsed = JSON.parse(jsonStr);
+            
+            // RENTAL_REQUEST 타입이면 "대여 요청"으로 표시
+            if (parsed && parsed.type === 'RENTAL_REQUEST') {
+              lastMessage = '대여 요청';
+            }
+          } else if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+            // 전체가 JSON 문자열인 경우
+            const parsed = JSON.parse(contentStr);
+            if (parsed && parsed.type === 'RENTAL_REQUEST') {
+              lastMessage = '대여 요청';
+            }
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 원본 유지
+        }
+      }
+      
+      // lastMessage가 변환된 경우 room 객체 업데이트
+      const updatedRoom = lastMessage !== room.lastMessage 
+        ? { ...room, lastMessage }
+        : room;
+      
       const existingRoom = chatRoomsMap.get(roomId);
       if (!existingRoom) {
-        chatRoomsMap.set(roomId, room);
+        chatRoomsMap.set(roomId, updatedRoom);
       } else {
         // 최신 활동 시간 비교하여 최신 것만 유지
         const existingTime = new Date(existingRoom.lastMessageAt || existingRoom.updatedAt || 0).getTime();
-        const currentTime = new Date(room.lastMessageAt || room.updatedAt || 0).getTime();
+        const currentTime = new Date(updatedRoom.lastMessageAt || updatedRoom.updatedAt || 0).getTime();
         if (currentTime > existingTime) {
-          chatRoomsMap.set(roomId, room);
+          chatRoomsMap.set(roomId, updatedRoom);
         }
       }
     }
