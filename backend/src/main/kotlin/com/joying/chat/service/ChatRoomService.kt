@@ -48,7 +48,8 @@ class ChatRoomService(
     private val productFileRepository: ProductFileRepository,
     private val fileUrlResolver: FileUrlResolver,
     private val permissionCache: ChatRoomPermissionCache,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val redisPubSubPublisher: RedisPubSubPublisher
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -387,24 +388,41 @@ class ChatRoomService(
 
         logger.info("채팅방 나가기 (개별): chatRoomId={}, memberId={}", chatRoomId, memberId)
 
-        // 상대방에게 실시간 알림 전송
-        try {
-            val event = ChatRoomStatusEvent(
-                chatRoomId = chatRoomId,
-                eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
-                memberId = memberId,
-                memberNickname = leavingMember.getNickname()
-            )
+        // 시스템 메시지 저장 (MongoDB) 및 실시간 알림 전송 (비동기)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. 시스템 메시지 생성 및 저장
+                val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
+                    chatRoomId = chatRoomId,
+                    content = "${leavingMember.getNickname()}님이 채팅방을 나갔습니다"
+                )
+                systemMessage.createdAt = Instant.now()
 
-            messagingTemplate.convertAndSendToUser(
-                otherMemberId.toString(),
-                "/queue/chatroom-status",
-                event
-            )
+                val savedMessage = chatMessageRepository.save(systemMessage)
 
-            logger.debug("채팅방 나가기 이벤트 전송: chatRoomId={}, to={}", chatRoomId, otherMemberId)
-        } catch (e: Exception) {
-            logger.error("채팅방 나가기 이벤트 전송 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+                // 2. Redis Pub/Sub로 발행 (실시간 전달)
+                val messageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
+                    .copy(receiverId = otherMemberId)
+                redisPubSubPublisher.publish(messageDto)
+
+                // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
+                val event = ChatRoomStatusEvent(
+                    chatRoomId = chatRoomId,
+                    eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
+                    memberId = memberId,
+                    memberNickname = leavingMember.getNickname()
+                )
+
+                messagingTemplate.convertAndSendToUser(
+                    otherMemberId.toString(),
+                    "/queue/chatroom-status",
+                    event
+                )
+
+                logger.debug("채팅방 나가기 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, otherMemberId)
+            } catch (e: Exception) {
+                logger.error("채팅방 나가기 메시지 저장 실패: chatRoomId={}, error={}", chatRoomId, e.message, e)
+            }
         }
     }
 
