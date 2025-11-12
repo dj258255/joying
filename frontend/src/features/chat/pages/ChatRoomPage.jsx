@@ -13,12 +13,12 @@ import ChatSettingsModal from '../components/ChatSettingsModal';
 import RentalRequestCard from '../components/RentalRequestCard';
 import RentalCreateModal from '../components/RentalCreateModal';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
+import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { messageApi } from '../api/messageApi';
 import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
-import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { chatApi } from '../api/chatApi';
@@ -28,10 +28,27 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 const SEARCH_PAGE_SIZE = 20;
 
 // 커스텀 날짜 선택 컴포넌트
-const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
+const DatePicker = ({ selectedDate, onSelectDate, onClose, messagesWithDates = [] }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  
+  // 메시지가 있는 날짜 집합 (날짜 문자열로 변환)
+  const datesWithMessages = useMemo(() => {
+    const dateSet = new Set();
+    messagesWithDates.forEach((msg) => {
+      if (msg.createdAt || msg.timestamp) {
+        const msgDate = new Date(msg.createdAt || msg.timestamp);
+        const dateStr = msgDate.toDateString();
+        dateSet.add(dateStr);
+      }
+    });
+    return dateSet;
+  }, [messagesWithDates]);
+  
+  const hasMessage = (date) => {
+    return datesWithMessages.has(date.toDateString());
+  };
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -143,13 +160,14 @@ const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
           const dateStr = day.date.toDateString();
           const isTodayDate = isToday(day.date);
           const isSelectedDate = isSelected(day.date);
+          const hasMessageOnDate = hasMessage(day.date);
           
           return (
             <button
               key={index}
               onClick={() => handleDateClick(day.date)}
               className={`
-                aspect-square text-sm rounded transition-all
+                aspect-square text-sm rounded transition-all relative
                 ${!day.isCurrentMonth ? 'text-gray-300' : 'text-gray-900'}
                 ${isTodayDate ? 'bg-gray-100 font-bold ring-2 ring-gray-900' : ''}
                 ${isSelectedDate ? 'bg-gray-900 text-white font-bold' : ''}
@@ -157,6 +175,10 @@ const DatePicker = ({ selectedDate, onSelectDate, onClose }) => {
               `}
             >
               {day.date.getDate()}
+              {/* 메시지가 있는 날짜에 빨간 점 표시 */}
+              {hasMessageOnDate && day.isCurrentMonth && (
+                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-red-500 rounded-full" />
+              )}
             </button>
           );
         })}
@@ -191,6 +213,8 @@ const ChatRoomPage = () => {
   const [searchError, setSearchError] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showNoMessageModal, setShowNoMessageModal] = useState(false);
+  const [noMessageDate, setNoMessageDate] = useState(null);
   
   // 메시지 점프 관련 상태 (useEffect보다 먼저 선언되어야 함)
   const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
@@ -982,39 +1006,16 @@ const ChatRoomPage = () => {
           setSearchError('메시지 ID를 찾을 수 없습니다.');
         }
       } else {
-        // 해당 날짜에 메시지가 없으면, 날짜 이전의 메시지도 조회해보기
-        console.log('[handleDateSearch] 해당 날짜에 메시지 없음, 이전 날짜 조회 시도');
+        // 해당 날짜에 메시지가 없으면 모달 표시
+        const formattedDate = new Intl.DateTimeFormat('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long'
+        }).format(targetDate);
         
-        // 날짜 시작 시간 이전의 메시지 조회 (before 파라미터 사용, 최신순)
-        const beforeMessages = await messageApi.getMessages(roomId, {
-          before: targetDate.toISOString(),
-          size: 100
-        });
-        
-        console.log('[handleDateSearch] 이전 날짜 메시지 수:', beforeMessages.length);
-        
-        // 해당 날짜보다 이전의 가장 최근 메시지 찾기
-        if (beforeMessages.length > 0) {
-          // 시간순으로 정렬 (최신순이므로 역순)
-          const sortedBeforeMessages = beforeMessages.sort((a, b) => {
-            const aTime = new Date(a.createdAt || a.timestamp).getTime();
-            const bTime = new Date(b.createdAt || b.timestamp).getTime();
-            return bTime - aTime; // 최신순
-          });
-          
-          // 가장 최근 메시지로 이동
-          const latestMessage = sortedBeforeMessages[0];
-          const messageId = latestMessage.id || latestMessage._id || latestMessage.messageId;
-          if (messageId) {
-            console.log('[handleDateSearch] 이전 날짜의 최근 메시지로 이동:', messageId);
-            await scrollToMessage(messageId);
-            setSearchError('해당 날짜에 메시지가 없어 가장 가까운 메시지로 이동했습니다.');
-          } else {
-            setSearchError('해당 날짜에 메시지가 없습니다.');
-          }
-        } else {
-          setSearchError('해당 날짜에 메시지가 없습니다.');
-        }
+        setNoMessageDate(formattedDate);
+        setShowNoMessageModal(true);
       }
     } catch (error) {
       console.error('[handleDateSearch] 날짜 검색 실패:', error);
@@ -1783,10 +1784,44 @@ const ChatRoomPage = () => {
                 handleDateSearch(date);
               }}
               onClose={() => setShowDatePicker(false)}
+              messagesWithDates={sortedMessages}
             />
           </div>
         </div>
       )}
+
+      {/* 메시지 없음 모달 */}
+      <Modal
+        isOpen={showNoMessageModal}
+        onClose={() => {
+          setShowNoMessageModal(false);
+          setNoMessageDate(null);
+        }}
+        title="메시지 없음"
+      >
+        <div className="text-center py-4">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-gray-900 font-medium mb-2">
+            {noMessageDate}에는 채팅이 없습니다.
+          </p>
+          <p className="text-gray-500 text-sm">
+            다른 날짜를 선택해주세요.
+          </p>
+          <button
+            onClick={() => {
+              setShowNoMessageModal(false);
+              setNoMessageDate(null);
+            }}
+            className="mt-6 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            확인
+          </button>
+        </div>
+      </Modal>
 
       {/* 검색 모달 */}
       {isSearchOpen && (

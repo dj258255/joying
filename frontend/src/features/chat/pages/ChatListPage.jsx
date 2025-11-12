@@ -3,17 +3,26 @@
  * 채팅방 목록 페이지 컴포넌트 (카카오톡 스타일)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChatRooms } from '../hooks/useChatRooms';
 import { chatApi } from '../api/chatApi';
 import ChatRoomListItem from '../components/ChatRoomListItem';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import { getWebSocketUrl } from '../api/websocketApi';
 
 const ChatListPage = () => {
   const navigate = useNavigate();
   const [contextMenu, setContextMenu] = useState(null);
   const { chatRooms, totalUnreadCount, isLoading, error, refetch } = useChatRooms();
+  const queryClient = useQueryClient();
+  const stompClientRef = useRef(null);
+  const subscriptionRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
 
   const resolveRoomId = (room) => {
     if (!room) return null;
@@ -26,8 +35,180 @@ const ChatListPage = () => {
     return Number.isNaN(numeric) ? id : numeric;
   };
 
-  // React Query의 refetchInterval이 이미 설정되어 있으므로
-  // 추가 polling은 필요 없음 (나중에 WebSocket으로 대체 예정)
+  // WebSocket 연결 및 채팅방 목록 실시간 업데이트 구독
+  useEffect(() => {
+    const connectWebSocket = () => {
+      try {
+        const url = getWebSocketUrl();
+        console.log('[ChatListPage] WebSocket 연결 시도:', url);
+
+        const socket = url.startsWith('ws://') || url.startsWith('wss://')
+          ? new WebSocket(url)
+          : new SockJS(url, null, {
+              transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+              withCredentials: true
+            });
+
+        const client = new Client({
+          reconnectDelay: 3000,
+          heartbeatIncoming: 30000,
+          heartbeatOutgoing: 30000,
+          debug: (str) => {
+            if (import.meta.env.DEV) {
+              console.debug('[ChatListPage STOMP]', str);
+            }
+          },
+          webSocketFactory: () => socket,
+          connectHeaders: {
+            cookie: document.cookie || ''
+          }
+        });
+
+        client.onConnect = (frame) => {
+          console.log('[ChatListPage] WebSocket 연결 성공');
+
+          // 채팅방 목록 업데이트 구독
+          const subscription = client.subscribe('/user/queue/chatroom-update', (message) => {
+            try {
+              const update = JSON.parse(message.body);
+              console.log('[ChatListPage] 채팅방 업데이트 수신:', update);
+
+              // React Query 캐시 업데이트
+              queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
+                if (!oldData || !oldData.chatRooms) return oldData;
+
+                const chatRooms = [...oldData.chatRooms];
+                const roomIndex = chatRooms.findIndex(
+                  (room) => (room.chatRoomId || room.id) === update.chatRoomId
+                );
+
+                if (roomIndex === -1) {
+                  // 채팅방 목록에 없는 경우 (새 채팅방)
+                  // API로 채팅방 정보 조회 후 추가
+                  chatApi.getChatRoomDetail(update.chatRoomId)
+                    .then((newRoom) => {
+                      queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (prevData) => {
+                        if (!prevData || !prevData.chatRooms) return prevData;
+                        return {
+                          ...prevData,
+                          chatRooms: [newRoom, ...prevData.chatRooms],
+                          totalUnreadCount: prevData.totalUnreadCount + (update.unreadCount || 0)
+                        };
+                      });
+                    })
+                    .catch((err) => {
+                      console.error('[ChatListPage] 새 채팅방 조회 실패:', err);
+                    });
+                  return oldData;
+                }
+
+                // 기존 채팅방 업데이트
+                const room = chatRooms[roomIndex];
+                const oldUnreadCount = room.unreadCount || 0;
+                const newUnreadCount = update.unreadCount || 0;
+
+                chatRooms[roomIndex] = {
+                  ...room,
+                  lastMessage: update.lastMessage,
+                  lastMessageAt: update.lastMessageAt,
+                  unreadCount: newUnreadCount
+                };
+
+                // 최신 활동 순으로 정렬 (고정 채팅방 우선)
+                chatRooms.sort((a, b) => {
+                  const aPinned = !!a.isPinned;
+                  const bPinned = !!b.isPinned;
+                  if (aPinned !== bPinned) return aPinned ? -1 : 1;
+                  const aTime = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+                  const bTime = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+                  return bTime - aTime;
+                });
+
+                // totalUnreadCount 계산
+                const totalUnreadCount = chatRooms.reduce(
+                  (sum, room) => sum + (room.unreadCount || 0),
+                  0
+                );
+
+                return {
+                  ...oldData,
+                  chatRooms,
+                  totalUnreadCount
+                };
+              });
+            } catch (error) {
+              console.error('[ChatListPage] 채팅방 업데이트 처리 오류:', error);
+            }
+          });
+
+          // Heartbeat 시작 (30초마다)
+          const heartbeatInterval = setInterval(() => {
+            if (client && client.connected) {
+              try {
+                client.publish({
+                  destination: '/app/chat/heartbeat',
+                  body: ''
+                });
+              } catch (error) {
+                console.warn('[ChatListPage] Heartbeat 전송 실패:', error);
+              }
+            }
+          }, 30000);
+
+          // ref에 저장
+          stompClientRef.current = client;
+          subscriptionRef.current = subscription;
+          heartbeatIntervalRef.current = heartbeatInterval;
+        };
+
+        client.onStompError = (frame) => {
+          console.error('[ChatListPage] STOMP 오류:', frame.headers['message'], frame.body);
+        };
+
+        client.onWebSocketError = (error) => {
+          console.error('[ChatListPage] WebSocket 오류:', error);
+        };
+
+        client.onWebSocketClose = (event) => {
+          console.warn('[ChatListPage] WebSocket 종료:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+          });
+        };
+
+        client.activate();
+      } catch (error) {
+        console.error('[ChatListPage] WebSocket 연결 실패:', error);
+      }
+    };
+
+    connectWebSocket();
+
+    // 정리 함수
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+      if (subscriptionRef.current) {
+        try {
+          subscriptionRef.current.unsubscribe();
+        } catch (error) {
+          console.warn('[ChatListPage] 구독 해제 오류:', error);
+        }
+        subscriptionRef.current = null;
+      }
+      if (stompClientRef.current) {
+        try {
+          stompClientRef.current.deactivate();
+        } catch (error) {
+          console.warn('[ChatListPage] WebSocket 비활성화 오류:', error);
+        }
+        stompClientRef.current = null;
+      }
+    };
+  }, [queryClient]);
 
   const handleChatRoomClick = (chatRoomId) => {
     const id = normalizeChatRoomId(chatRoomId);
