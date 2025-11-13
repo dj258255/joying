@@ -29,21 +29,39 @@ class WebPushService(
 
     /**
      * 푸시 구독 등록
+     *
+     * 동일한 사용자가 여러 기기/브라우저에서 구독할 수 있으므로,
+     * endpoint 기준으로 갱신하되, VAPID 키 변경에 대응하기 위해
+     * 오래된 구독은 자동으로 정리됩니다.
      */
     @Transactional
     fun subscribe(memberId: Long, request: PushSubscriptionRequest): PushSubscription {
-        // 이미 존재하는 구독이면 업데이트
-        val existing = pushSubscriptionRepository.findByEndpoint(request.endpoint)
-        if (existing.isPresent) {
-            val subscription = existing.get()
+        // 1. 동일한 endpoint가 있으면 업데이트 (재구독 케이스)
+        val existingByEndpoint = pushSubscriptionRepository.findByEndpoint(request.endpoint)
+        if (existingByEndpoint.isPresent) {
+            val subscription = existingByEndpoint.get()
             subscription.memberId = memberId
             subscription.p256dh = request.p256dh
             subscription.auth = request.auth
             subscription.userAgent = request.userAgent
+            logger.info("푸시 구독 갱신: memberId=$memberId, endpoint=${request.endpoint.take(50)}...")
             return pushSubscriptionRepository.save(subscription)
         }
 
-        // 새로운 구독 생성
+        // 2. 동일 사용자의 구독 개수 확인 (너무 많으면 오래된 것 정리)
+        val existingSubscriptions = pushSubscriptionRepository.findByMemberId(memberId)
+        val maxSubscriptionsPerUser = 10 // 사용자당 최대 10개 기기/브라우저
+
+        if (existingSubscriptions.size >= maxSubscriptionsPerUser) {
+            // 가장 오래된 구독 삭제 (createdAt 기준)
+            val oldestSubscription = existingSubscriptions.minByOrNull { it.createdAt }
+            if (oldestSubscription != null) {
+                logger.warn("구독 개수 제한 초과 - 가장 오래된 구독 삭제: memberId=$memberId, endpoint=${oldestSubscription.endpoint.take(50)}..., createdAt=${oldestSubscription.createdAt}")
+                pushSubscriptionRepository.delete(oldestSubscription)
+            }
+        }
+
+        // 3. 새로운 구독 생성
         val subscription = PushSubscription(
             memberId = memberId,
             endpoint = request.endpoint,
@@ -51,6 +69,7 @@ class WebPushService(
             auth = request.auth,
             userAgent = request.userAgent
         )
+        logger.info("새 푸시 구독 생성: memberId=$memberId, endpoint=${request.endpoint.take(50)}..., 총 구독 개수=${existingSubscriptions.size + 1}")
         return pushSubscriptionRepository.save(subscription)
     }
 
@@ -102,13 +121,10 @@ class WebPushService(
                     val response = pushService!!.send(notification)
 
                     // 410 Gone: 구독이 만료되었거나 삭제됨
-                    if (response.statusLine.statusCode == 410) {
-                        logger.warn("푸시 알림 실패 - 구독 만료 (410): memberId=$memberId, endpoint=${subscription.endpoint.take(50)}..., 구독 정보 삭제")
-                        pushSubscriptionRepository.delete(subscription)
-                    }
                     // 404/400: 잘못된 구독 정보
-                    else if (response.statusLine.statusCode in listOf(404, 400)) {
-                        logger.warn("푸시 알림 실패 - 잘못된 구독 정보 (${response.statusLine.statusCode}): memberId=$memberId, endpoint=${subscription.endpoint.take(50)}..., 구독 정보 삭제")
+                    // 이러한 상태 코드가 반환되면 구독이 더 이상 유효하지 않으므로 삭제
+                    if (response.statusLine.statusCode in listOf(410, 404, 400)) {
+                        logger.warn("푸시 알림 실패 - 유효하지 않은 구독 (${response.statusLine.statusCode}): memberId=$memberId, endpoint=${subscription.endpoint.take(50)}..., 구독 정보 삭제")
                         pushSubscriptionRepository.delete(subscription)
                     }
                     // 성공

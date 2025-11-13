@@ -468,7 +468,7 @@ class ChatService(
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }
@@ -483,7 +483,7 @@ class ChatService(
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }
@@ -506,7 +506,7 @@ class ChatService(
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }
