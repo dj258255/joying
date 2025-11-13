@@ -151,8 +151,10 @@ public class Payment {
     }
 
     public void cancel() {
-        if (this.status != PaymentStatus.DONE) {
-            throw new IllegalStateException("DONE 상태에서만 취소할 수 있습니다.");
+        // READY: 결제 포기 (새 orderId로 재시도 위해 무효화)
+        // DONE: 승인된 결제 취소 (환불)
+        if (this.status != PaymentStatus.READY && this.status != PaymentStatus.DONE) {
+            throw new IllegalStateException("READY 또는 DONE 상태에서만 취소할 수 있습니다. 현재 상태: " + this.status);
         }
         this.status = PaymentStatus.CANCELED;
     }

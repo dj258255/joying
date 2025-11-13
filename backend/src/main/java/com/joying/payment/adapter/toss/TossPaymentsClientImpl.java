@@ -125,6 +125,48 @@ public class TossPaymentsClientImpl implements TossPaymentsClient {
     }
 
     /**
+     * orderId로 결제 조회 (멱등성 처리용)
+     */
+    @Override
+    @CircuitBreaker(name = "tossPayments", fallbackMethod = "getPaymentFallback")
+    public TossConfirmResponse getPaymentByOrderId(String orderId) {
+        log.info("[Toss API] 결제 조회 요청: orderId={}", orderId);
+
+        try {
+            TossConfirmResponse response = tossWebClient.get()
+                    .uri("/v1/payments/orders/{orderId}", orderId)
+                    .header(HttpHeaders.AUTHORIZATION, "Basic " + basic(secretKey + ":"))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 결제 조회 4xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("CLIENT_ERROR", errorBody));
+                                    })
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 결제 조회 5xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("SERVER_ERROR", errorBody));
+                                    })
+                    )
+                    .bodyToMono(TossConfirmResponse.class)
+                    .block();
+
+            log.info("[Toss API] 결제 조회 성공: orderId={}, status={}", orderId, response.getStatus());
+            return response;
+
+        } catch (WebClientResponseException e) {
+            log.error("[Toss API] 결제 조회 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new TossPaymentException("TOSS_API_ERROR", e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("[Toss API] 결제 조회 예외: {}", e.getMessage(), e);
+            throw new TossPaymentException("TOSS_API_ERROR", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Base64 인코딩 (Basic Auth)
      */
     private String basic(String s) {
@@ -145,6 +187,15 @@ public class TossPaymentsClientImpl implements TossPaymentsClient {
      */
     private TossCancelResponse cancelFallback(String paymentKey, String reason, Exception ex) {
         log.error("[Toss API] Circuit Breaker OPEN - 결제 취소 실패: paymentKey={}, error={}", paymentKey, ex.getMessage());
+        throw new TossPaymentException("CIRCUIT_BREAKER_OPEN",
+            "토스 결제 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.", ex);
+    }
+
+    /**
+     * 결제 조회 Fallback (Circuit Breaker Open 시)
+     */
+    private TossConfirmResponse getPaymentFallback(String orderId, Exception ex) {
+        log.error("[Toss API] Circuit Breaker OPEN - 결제 조회 실패: orderId={}, error={}", orderId, ex.getMessage());
         throw new TossPaymentException("CIRCUIT_BREAKER_OPEN",
             "토스 결제 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.", ex);
     }

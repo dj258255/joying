@@ -1,31 +1,26 @@
 /**
- * RentalCreateModal Component
- * 대여 거래 생성 모달
+ * RentalRequestModal Component
+ * 대여 다시 요청하기 모달
  */
 
 import React, { useState } from 'react';
 import Modal from '../../../shared/components/Modal/Modal';
 import DateRangeCalendar from '../../../features/checkout/components/DateRangeCalendar';
 
-const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], onSubmit, isLoading = false }) => {
+const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [], onSubmit, isLoading = false }) => {
   const [dateRange, setDateRange] = useState(null);
   const [rentMethod, setRentMethod] = useState('BOTH');
   const [error, setError] = useState(null);
 
   const handleDateRangeChange = (range) => {
     setDateRange(range);
-    setError(null); // 날짜 선택 시 에러 초기화
+    setError(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // 유효성 검사
     if (!dateRange || !dateRange.start || !dateRange.end) {
       setError('대여 기간을 선택해주세요.');
-      return;
-    }
-
-    if (!productId) {
-      setError('상품 정보를 찾을 수 없습니다.');
       return;
     }
 
@@ -46,14 +41,23 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
       return;
     }
 
-    // ISO 문자열로 변환
-    const rentalData = {
-      startRen: new Date(dateRange.start).toISOString(),
-      endRen: new Date(dateRange.end).toISOString(),
-      rentMethod: rentMethod
+    const rentMethodText = 
+      rentMethod === 'ONLY_ONLINE' ? '택배거래' :
+      rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능';
+
+    const rentalInfo = {
+      startDate: dateRange.start.toISOString(),
+      endDate: dateRange.end.toISOString(),
+      rentMethod: rentMethod,
+      productTitle: productData?.title || productData?.name || '상품'
     };
 
-    onSubmit(productId, rentalData);
+    try {
+      await onSubmit(rentalInfo, rentMethodText);
+      handleClose();
+    } catch (err) {
+      setError(err.message || '대여 요청 전송에 실패했습니다.');
+    }
   };
 
   const handleClose = () => {
@@ -64,8 +68,16 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="대여 거래 생성">
+    <Modal isOpen={isOpen} onClose={handleClose} title="대여 다시 요청하기">
       <div className="space-y-6 p-4">
+        {/* 상품 정보 */}
+        {productData && (
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="text-sm text-gray-600 mb-1">상품</div>
+            <div className="font-medium text-gray-900">{productData.title || productData.name}</div>
+          </div>
+        )}
+
         {/* 날짜 선택 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -80,20 +92,20 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
         {/* 대여 방법 선택 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            빌림 형식 *
+            거래 방법 *
           </label>
           <div className="space-y-2">
             <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
               <input
                 type="radio"
                 name="rentMethod"
-                value="DELIVERY"
-                checked={rentMethod === 'DELIVERY'}
+                value="ONLY_ONLINE"
+                checked={rentMethod === 'ONLY_ONLINE'}
                 onChange={(e) => setRentMethod(e.target.value)}
                 className="mr-3"
               />
               <div>
-                <div className="font-medium text-gray-900">배송</div>
+                <div className="font-medium text-gray-900">택배거래</div>
                 <div className="text-sm text-gray-500">택배로 배송받습니다</div>
               </div>
             </label>
@@ -101,13 +113,13 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
               <input
                 type="radio"
                 name="rentMethod"
-                value="MEET"
-                checked={rentMethod === 'MEET'}
+                value="ONLY_OFFLINE"
+                checked={rentMethod === 'ONLY_OFFLINE'}
                 onChange={(e) => setRentMethod(e.target.value)}
                 className="mr-3"
               />
               <div>
-                <div className="font-medium text-gray-900">직접 만나기</div>
+                <div className="font-medium text-gray-900">직거래</div>
                 <div className="text-sm text-gray-500">직접 만나서 받습니다</div>
               </div>
             </label>
@@ -122,7 +134,7 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
               />
               <div>
                 <div className="font-medium text-gray-900">둘 다 가능</div>
-                <div className="text-sm text-gray-500">배송 또는 직접 만나기 둘 다 가능합니다</div>
+                <div className="text-sm text-gray-500">택배거래 또는 직거래 둘 다 가능합니다</div>
               </div>
             </label>
           </div>
@@ -161,9 +173,9 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
                 {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일
               </div>
               <div>
-                <span className="font-medium">빌림 형식:</span>{' '}
-                {rentMethod === 'DELIVERY' && '배송'}
-                {rentMethod === 'MEET' && '직접 만나기'}
+                <span className="font-medium">거래 방법:</span>{' '}
+                {rentMethod === 'ONLY_ONLINE' && '택배거래'}
+                {rentMethod === 'ONLY_OFFLINE' && '직거래'}
                 {rentMethod === 'BOTH' && '둘 다 가능'}
               </div>
             </div>
@@ -184,7 +196,7 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
             disabled={isLoading || !dateRange || !dateRange.start || !dateRange.end}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? '생성 중...' : '거래 생성하기'}
+            {isLoading ? '전송 중...' : '요청하기'}
           </button>
         </div>
       </div>
@@ -192,5 +204,4 @@ const RentalCreateModal = ({ isOpen, onClose, productId, unavailableDates = [], 
   );
 };
 
-export default RentalCreateModal;
-
+export default RentalRequestModal;

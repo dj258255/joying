@@ -92,32 +92,10 @@ public class RentalService {
         log.info("[대여 생성] productId={}, renterId={}, startRen={}, endRen={}",
                 productId, renterId, request.getStartRen(), request.getEndRen());
 
-        // 1. 멱등성 체크: 이미 활성 예약이 있는지 확인 (더블클릭 방지)
-        Optional<RentalHistory> existingReservation = rentalHistoryRepository.findActiveReservation(
-                productId,
-                renterId,
-                java.util.List.of(com.joying.rental.domain.RentalStatus.PENDING,
-                                  com.joying.rental.domain.RentalStatus.ESCROW)
-        );
+        // 멱등성 체크 제거: 날짜가 다르면 같은 상품/사람이어도 여러 거래 생성 가능
+        // 날짜 겹침 체크는 아래 findActiveRentalsWithLock에서 처리됨
 
-        if (existingReservation.isPresent()) {
-            RentalHistory existing = existingReservation.get();
-            log.warn("[중복 예약 방지] 이미 존재하는 예약: rentalHisId={}, status={}",
-                    existing.getRentalHisId(), existing.getStatus());
-            return ReservationCreateResponse.builder()
-                    .rentalHisId(existing.getRentalHisId())
-                    .productId(productId)
-                    .status(existing.getStatus().name())
-                    .fee(existing.getFee())
-                    .deposit(existing.getDeposit())
-                    .totalAmount(existing.getFee() + existing.getDeposit().intValue())
-                    .startRen(existing.getStartRen().toLocalDateTime())
-                    .endRen(existing.getEndRen().toLocalDateTime())
-                    .message("이미 예약이 존재합니다.")
-                    .build();
-        }
-
-        // 2. 비관적 락으로 Product 조회 (동시 요청 직렬화)
+        // 1. 비관적 락으로 Product 조회 (동시 요청 직렬화)
         Product product = productRepository.findByIdWithLock(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
 
@@ -179,13 +157,15 @@ public class RentalService {
             throw new IllegalArgumentException("해당 기간에 이미 다른 예약이 있습니다");
         }
 
-        // 7. RentalHistory 생성
+        // 7. RentalHistory 생성 (요청에서 커스텀 fee/deposit 전달)
         RentalHistory rental = RentalHistory.create(
                 product,
                 renter,
                 requestStart,
                 requestEnd,
-                request.getRentMethod()
+                request.getRentMethod(),
+                request.getFee(),       // null이면 상품 기본값 사용
+                request.getDeposit()    // null이면 상품 기본값 사용
         );
 
         // 8. 저장

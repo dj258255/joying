@@ -24,9 +24,9 @@ export const ROUTE_PATHS = {
   CHAT_ROOM: (id) => `/chats/${id}`,
 
   // Payment
-  PAYMENT_CHECKOUT: '/payment/checkout',
-  PAYMENT_SUCCESS: '/payment/success',
-  PAYMENT_FAIL: '/payment/fail',
+  PAYMENT_CHECKOUT: '/payments/checkout',
+  PAYMENT_SUCCESS: '/payments/success',
+  PAYMENT_FAIL: '/payments/fail',
 
   // Review
   REVIEWS: '/reviews',
