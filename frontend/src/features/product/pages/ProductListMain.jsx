@@ -155,43 +155,13 @@ const ProductListMain = () => {
   });
 
   React.useEffect(() => {
-    console.log('🔄 [ProductListMain] 컴포넌트 마운트 - refetch 호출');
-    // 컴포넌트 처음 마운트 시 한 번 실행
-    refetch().then((result) => {
-      console.log('✅ [ProductListMain] refetch 완료:', result);
-    }).catch((err) => {
-      console.error('❌ [ProductListMain] refetch 에러:', err);
-    });
+    console.log('🔄 [ProductListMain] 컴포넌트 마운트');
+    // useInfiniteQuery의 enabled: true로 자동 실행됨
     lastAppliedFilters.current = apiFilters;
-  }, []);
+  }, [apiFilters]);
 
-  // activeTab(빌려줘/구해요) 변경 시 즉시 검색 재실행
-  React.useEffect(() => {
-    // 첫 마운트가 아닐 때만 실행 (lastAppliedFilters가 설정된 후)
-    if (lastAppliedFilters.current !== null) {
-      console.log('🔄 [ProductListMain] activeTab 변경 감지 - 즉시 refetch:', activeTab);
-      refetch().then((result) => {
-        console.log('✅ [ProductListMain] activeTab refetch 완료:', result);
-      }).catch((err) => {
-        console.error('❌ [ProductListMain] activeTab refetch 에러:', err);
-      });
-      lastAppliedFilters.current = apiFilters;
-    }
-  }, [activeTab, refetch, apiFilters]);
-
-  // appliedFilters 변경 시 검색 재실행 (필터 적용 버튼 클릭 시)
-  React.useEffect(() => {
-    // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
-    if (lastAppliedFilters.current !== null) {
-      console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
-      refetch().then((result) => {
-        console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
-      }).catch((err) => {
-        console.error('❌ [ProductListMain] appliedFilters refetch 에러:', err);
-      });
-      lastAppliedFilters.current = apiFilters;
-    }
-  }, [appliedFilters, refetch, apiFilters]);
+  // activeTab과 appliedFilters 변경 시 자동으로 queryKey가 변경되어 refetch됨
+  // (useInfiniteQuery가 queryKey 변경을 감지하여 자동 실행)
 
   // SEARCH 쿼리 무효화 시 자동 refetch
   React.useEffect(() => {

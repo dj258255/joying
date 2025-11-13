@@ -42,7 +42,7 @@ export const useInfiniteSearch = (query, filters = {}) => {
       // 다음 페이지가 있으면 페이지 번호 반환, 없으면 undefined
       return currentPage < totalPages ? currentPage + 1 : undefined;
     },
-    enabled: false, // 수동 refetch 사용
+    enabled: true, // 자동 실행
     staleTime: 1000 * 60 * 2, // 2분
     retry: false
   });
