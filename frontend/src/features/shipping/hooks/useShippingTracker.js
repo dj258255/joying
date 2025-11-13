@@ -1,63 +1,56 @@
 /**
  * useShippingTracker Hook
- * 배송 추적 관리 훅
+ * 배송 추적 관리 훅 (수동 조회만 지원)
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { shippingApi } from '../api/shippingApi';
 
+/**
+ * 배송 추적 훅
+ * @param {string} trackingNumber - 운송장 번호
+ * @param {string} courier - 택배사 코드 (cj, post, lotte 등)
+ * @returns {Object} 배송 추적 상태 및 조회 함수
+ */
 export const useShippingTracker = (trackingNumber, courier) => {
-  const [status, setStatus] = useState('PENDING');
-
-  // 실제 배송 추적 API 호출 (현재는 모의 구현)
-  const { data: trackingData, isLoading } = useQuery({
+  // 수동 조회만 지원 (enabled: false)
+  const { 
+    data: trackingData, 
+    isLoading, 
+    error,
+    refetch,
+    isFetching 
+  } = useQuery({
     queryKey: ['shipping', trackingNumber, courier],
     queryFn: () => shippingApi.getTrackingStatus(trackingNumber, courier),
-    enabled: !!trackingNumber && !!courier,
-    refetchInterval: 60000, // 1분마다 폴링
-    staleTime: 30000, // 30초
+    enabled: false, // 자동 조회 안 함 (수동 조회만)
+    retry: 1, // 실패 시 1번만 재시도
+    staleTime: 5 * 60 * 1000, // 5분간 캐시 유지
   });
 
-  // 모의 배송 상태 업데이트 (프로토타입용)
-  useEffect(() => {
-    if (!trackingNumber || !courier) return;
-
-    const simulateShipping = () => {
-      const statuses = ['PENDING', 'COLLECTED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-      let currentIndex = 0;
-
-      const interval = setInterval(() => {
-        if (currentIndex < statuses.length - 1) {
-          currentIndex++;
-          setStatus(statuses[currentIndex]);
-        } else {
-          clearInterval(interval);
-        }
-      }, 2 * 60 * 1000); // 2분마다 다음 단계로
-
-      return () => clearInterval(interval);
-    };
-
-    // 개발 환경에서만 모의 시뮬레이션 실행
-    if (import.meta.env.DEV) {
-      const cleanup = simulateShipping();
-      return cleanup;
-    }
-  }, [trackingNumber, courier]);
-
-  // 실제 API 데이터가 있으면 사용
-  useEffect(() => {
-    if (trackingData?.status) {
-      setStatus(trackingData.status);
-    }
-  }, [trackingData]);
-
   return {
-    status: trackingData?.status || status,
-    isLoading,
+    // 배송 상태
+    status: trackingData?.status || 'PENDING',
     trackingData,
-    isDelivered: (trackingData?.status || status) === 'DELIVERED',
+    
+    // 로딩 상태
+    isLoading: isLoading || isFetching,
+    
+    // 에러 상태
+    error,
+    
+    // 배송 완료 여부
+    isDelivered: trackingData?.status === 'DELIVERED',
+    
+    // 수동 조회 함수
+    refetch: async () => {
+      if (!trackingNumber || !courier) {
+        console.warn('[useShippingTracker] 운송장 번호 또는 택배사 정보가 없습니다.');
+        return;
+      }
+      return refetch();
+    },
   };
 };
 
