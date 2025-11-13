@@ -208,21 +208,11 @@ function handleNotification(notification) {
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     console.log('[WebSocketNotification] Service Worker를 통해 알림 표시 시도...');
 
-    // Push 알림과 충돌 방지: 200ms 지연 후 표시
-    // Push 알림이 먼저 표시되었으면 중복으로 감지하여 무시됨
+    // WebSocket 알림 표시 (1순위 - 즉시 표시)
+    // 각 메시지마다 고유 tag를 사용하므로 알림이 쌓임
     setTimeout(() => {
       navigator.serviceWorker.ready.then(async (registration) => {
         try {
-          // 중복 알림 체크: 같은 tag의 알림이 이미 있는지 확인
-          const existingNotifications = await registration.getNotifications({
-            tag: tag || 'default'
-          });
-
-          if (existingNotifications.length > 0) {
-            console.log('[WebSocketNotification] 중복 알림 무시 (Push가 이미 표시됨, tag:', tag, ')');
-            return;
-          }
-
           const notificationOptions = {
             body,
             icon: icon || '/vite.svg',
@@ -230,7 +220,7 @@ function handleNotification(notification) {
             tag: tag || 'default',
             requireInteraction: false,
             data: data || {},
-            renotify: false
+            renotify: true  // Edge 버그 해결: 같은 tag로 알림이 와도 다시 표시
           };
 
           if (image) {
@@ -238,7 +228,7 @@ function handleNotification(notification) {
           }
 
           await registration.showNotification(title, notificationOptions);
-          console.log('[WebSocketNotification] Service Worker 알림 표시 완료 (Push 없어서 Fallback 작동, tag:', tag, ')');
+          console.log('[WebSocketNotification] WebSocket 알림 표시 완료 (Fallback 작동, tag:', tag, ')');
         } catch (error) {
           console.error('[WebSocketNotification] Service Worker 알림 표시 실패:', error);
         }
@@ -258,7 +248,7 @@ function handleNotification(notification) {
         tag: tag || 'default',
         requireInteraction: false,
         data: data || {},
-        renotify: false
+        renotify: true  // Edge 버그 해결: 같은 tag로 알림이 와도 다시 표시
       };
 
       if (image) {
