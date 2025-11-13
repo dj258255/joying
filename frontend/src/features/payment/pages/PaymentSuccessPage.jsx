@@ -25,6 +25,15 @@ const PaymentSuccessPage = () => {
   const MAX_RETRY = 1; // 최대 1번 재시도
 
   useEffect(() => {
+    // 환경 변수 확인 로그
+    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
+    console.log('[PaymentSuccessPage] VITE_TOSS_CLIENT_KEY 확인:', {
+      exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
+      value: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+      length: clientKey?.length || 0,
+      urlParams: { paymentKey, orderId, amount }
+    });
+
     // 결제 승인 API 호출
     const confirmPayment = async () => {
       // 필수 파라미터 검증
