@@ -204,7 +204,14 @@ const AccountVerifyForm = ({ onComplete }) => {
                 disabled={isLoading}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                {isLoading ? '인증 시작 중...' : '인증 시작'}
+                {isLoading ? '인증 중...' : '계좌 인증'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/mypage')}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                취소
               </button>
             </div>
           </form>

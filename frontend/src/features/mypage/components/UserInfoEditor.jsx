@@ -4,10 +4,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const UserInfoEditor = ({ onSave }) => {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const memberId = currentUser?.memberId || currentUser?.id;
   const { user, updateUser, isLoading, isUpdating } = useUserProfile(memberId);
@@ -128,6 +130,7 @@ const UserInfoEditor = ({ onSave }) => {
             </button>
             <button
               type="button"
+              onClick={() => navigate('/mypage')}
               className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
             >
               취소

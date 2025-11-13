@@ -27,6 +27,11 @@ const PaymentSuccessPage = React.lazy(() => import('@/features/payment/pages/Pay
 const PaymentFailPage = React.lazy(() => import('@/features/payment/pages/PaymentFailPage'))
 const MyPageMain = React.lazy(() => import('@/features/mypage/pages/MyPageMain'))
 const UserProfilePage = React.lazy(() => import('@/features/mypage/pages/UserProfilePage'))
+const MyProfileViewPage = React.lazy(() => import('@/features/mypage/pages/MyProfileViewPage'))
+const MyProfileEditPage = React.lazy(() => import('@/features/mypage/pages/MyProfileEditPage'))
+const ProfileImagePage = React.lazy(() => import('@/features/mypage/pages/ProfileImagePage'))
+const AccountVerifyPage = React.lazy(() => import('@/features/mypage/pages/AccountVerifyPage'))
+const UserDeletePage = React.lazy(() => import('@/features/mypage/pages/UserDeletePage'))
 const BorrowedHistoryPage = React.lazy(() => import('@/features/mypage/pages/BorrowedHistoryPage'))
 const LentHistoryPage = React.lazy(() => import('@/features/mypage/pages/LentHistoryPage'))
 const RentalApiTestPage = React.lazy(() => import('@/features/rental/pages/RentalApiTestPage'))
@@ -98,6 +103,31 @@ function App() {
             <Route path={ROUTE_PATHS.MYPAGE} element={
               <ProtectedRoute>
                 <MyPageMain />
+              </ProtectedRoute>
+            } />
+            <Route path="/mypage/profile" element={
+              <ProtectedRoute>
+                <MyProfileViewPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mypage/edit" element={
+              <ProtectedRoute>
+                <MyProfileEditPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mypage/image" element={
+              <ProtectedRoute>
+                <ProfileImagePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mypage/verify" element={
+              <ProtectedRoute>
+                <AccountVerifyPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mypage/delete" element={
+              <ProtectedRoute>
+                <UserDeletePage />
               </ProtectedRoute>
             } />
             <Route path="/members/:memberId" element={
