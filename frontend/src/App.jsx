@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
 import { ROUTE_PATHS } from '@/shared/constants'
 import { ChatProvider } from '@/features/chat/contexts/ChatContext'
 import { AuthProvider } from '@/features/auth/contexts/AuthContext'
+import { GlobalPresenceProvider } from '@/shared/contexts/GlobalPresenceContext'
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
 import { PushNotificationInitializer } from '@/features/push/components/PushNotificationInitializer'
 
@@ -37,11 +38,12 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <PushNotificationInitializer />
-        <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
-          <div className="text-xl text-gray-600">로딩 중...</div>
-        </div>}>
-          <Routes>
+        <GlobalPresenceProvider>
+          <PushNotificationInitializer />
+          <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+            <div className="text-xl text-gray-600">로딩 중...</div>
+          </div>}>
+            <Routes>
             {/* 공개 라우트 */}
             <Route path={ROUTE_PATHS.HOME} element={<HomePage />} />
             <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
@@ -139,9 +141,10 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
-          </Routes>
-        </React.Suspense>
+              <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
+            </Routes>
+          </React.Suspense>
+        </GlobalPresenceProvider>
       </AuthProvider>
     </ErrorBoundary>
   )
