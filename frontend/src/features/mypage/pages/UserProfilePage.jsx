@@ -27,6 +27,12 @@ const UserProfilePage = () => {
     totalPages: 1,
     currentPage: 0
   });
+  const [reviewPageInfo, setReviewPageInfo] = useState({
+    content: [],
+    totalPages: 1,
+    currentPage: 0,
+    uploadType: 'BORROW'   // 기본값: 빌렸을 때
+  });
   
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
   const { user, isLoading, error } = useUserProfile(memberId ? parseInt(memberId) : null);
@@ -66,6 +72,45 @@ const UserProfilePage = () => {
 
     fetchUserProducts();
   }, [memberId, pageInfo.currentPage]);
+
+  useEffect(() => {
+    if (!memberId || !reviewPageInfo.uploadType) return;
+
+    const fetchReviews = async () => {
+      try {
+        const res = await axiosInstance.get(`/review/member/${memberId}`, {
+          params: {
+            uploadType: reviewPageInfo.uploadType,
+            page: reviewPageInfo.currentPage + 1, // 백엔드 page는 1부터 시작
+            size: 5
+          }
+        });
+
+        const data = res.data.data;
+
+        setReviewPageInfo(prev => ({
+          ...prev,
+          content: data.data,
+          totalPages: Math.ceil(data.totalCount / data.size),
+          currentPage: data.page - 1
+        }));
+      } catch (err) {
+        console.error("리뷰 로드 실패:", err);
+      }
+    };
+
+    fetchReviews();
+  }, [memberId, reviewPageInfo.uploadType, reviewPageInfo.currentPage]);
+
+  const handleReviewTabChange = (tab) => {
+    setReviewTab(tab);
+
+    setReviewPageInfo(prev => ({
+      ...prev,
+      uploadType: tab === 'borrowed' ? 'BORROW' : 'RENT',
+      currentPage: 0
+    }));
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
@@ -364,7 +409,7 @@ const UserProfilePage = () => {
                   <h3 className="text-xl font-bold text-gray-900">리뷰</h3>
                   <div className="flex bg-gray-100 rounded-xl p-1">
                     <button
-                      onClick={() => setReviewTab('borrowed')}
+                      onClick={() => handleReviewTabChange('borrowed')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         reviewTab === 'borrowed'
                           ? 'bg-gray-100 text-gray-900 shadow-sm border border-gray-900'
@@ -374,7 +419,7 @@ const UserProfilePage = () => {
                       빌렸을 때
                     </button>
                     <button
-                      onClick={() => setReviewTab('lent')}
+                      onClick={() => handleReviewTabChange('lent')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         reviewTab === 'lent'
                           ? 'bg-white text-blue-600 shadow-sm'
@@ -386,19 +431,75 @@ const UserProfilePage = () => {
                   </div>
                 </div>
 
-                {getFilteredReviews().length > 0 ? (
-                  <div className="flex-1 overflow-y-auto scrollbar-hide">
-                    <div className="space-y-4 pr-2">
-                      {getFilteredReviews().map((review) => (
-                        <ReviewCard
-                          key={review.id}
-                          review={review}
-                          showProductInfo={true}
-                          showRating={true}
-                        />
-                      ))}
+                {reviewPageInfo.content.length > 0 ? (
+                  <>
+                    <div className="flex-1 overflow-y-auto scrollbar-hide">
+                      <div className="space-y-4 pr-2">
+                        {reviewPageInfo.content.map((review) => (
+                          <ReviewCard
+                            key={review.id}
+                            review={review}
+                            showProductInfo={true}
+                            showRating={true}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="mt-4">
+                      {reviewPageInfo.totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mt-4">
+                          <button
+                            disabled={reviewPageInfo.currentPage === 0}
+                            onClick={() =>
+                              setReviewPageInfo(prev => ({
+                                ...prev,
+                                currentPage: prev.currentPage - 1,
+                              }))
+                            }
+                            className="px-3 py-1 bg-gray-200 rounded-lg"
+                          >
+                            이전
+                          </button>
+
+                          {Array.from({ length: reviewPageInfo.totalPages }).map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={() =>
+                                setReviewPageInfo(prev => ({
+                                  ...prev,
+                                  currentPage: i,
+                                }))
+                              }
+                              className={`px-3 py-1 rounded-lg ${
+                                reviewPageInfo.currentPage === i
+                                  ? "bg-gray-900 text-white"
+                                  : "bg-gray-200"
+                              }`}
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+
+                          <button
+                            disabled={
+                              reviewPageInfo.currentPage >=
+                              reviewPageInfo.totalPages - 1
+                            }
+                            onClick={() =>
+                              setReviewPageInfo(prev => ({
+                                ...prev,
+                                currentPage: prev.currentPage + 1,
+                              }))
+                            }
+                            className="px-3 py-1 bg-gray-200 rounded-lg"
+                          >
+                            다음
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 ) : (
                   <div className="flex-1 flex items-center justify-center">
                     <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
