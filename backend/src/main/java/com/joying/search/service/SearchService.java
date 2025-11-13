@@ -465,6 +465,10 @@ public class SearchService {
 		searchRepository.saveAll(docs);
 	}
 
+	public void delete(Long productId) {
+		searchRepository.deleteById(productId);
+	}
+
 	public List<String> getAutocompleteSuggestions(String keyword) {
 		if (keyword == null || keyword.isBlank()) {
 			return List.of();
