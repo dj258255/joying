@@ -141,16 +141,30 @@ class ChatWebSocketHandler(
      * SEND /app/chat/heartbeat
      * 클라이언트가 주기적으로 호출하여 온라인 상태 유지 (30초마다 권장)
      *
+     * @param payload chatRoomId를 포함할 수 있는 payload (Optional)
      * @param headerAccessor WebSocket 헤더
      */
     @MessageMapping("/chat/heartbeat")
-    fun heartbeat(headerAccessor: SimpMessageHeaderAccessor) {
+    fun heartbeat(@Payload payload: Map<String, Any>?, headerAccessor: SimpMessageHeaderAccessor) {
         val memberId = extractMemberIdFromToken(headerAccessor)
 
-        logger.debug("Heartbeat: memberId={}", memberId)
+        logger.debug("Heartbeat: memberId={}, payload={}", memberId, payload)
 
         // 온라인 상태 갱신
         chatPresenceService.heartbeat(memberId)
+
+        // chatRoomId가 있으면 채팅방 활성 상태도 갱신
+        payload?.get("chatRoomId")?.let { chatRoomId ->
+            val chatRoomIdLong = when (chatRoomId) {
+                is Number -> chatRoomId.toLong()
+                is String -> chatRoomId.toLongOrNull()
+                else -> null
+            }
+            if (chatRoomIdLong != null) {
+                logger.debug("Heartbeat: refreshing chat room activity: memberId={}, chatRoomId={}", memberId, chatRoomIdLong)
+                chatPresenceService.refreshChatRoomActivity(memberId, chatRoomIdLong)
+            }
+        }
     }
 
     /**

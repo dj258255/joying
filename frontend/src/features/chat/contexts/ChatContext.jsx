@@ -1486,17 +1486,8 @@ export const ChatProvider = ({ children }) => {
       sendWebSocketMessage(roomId, payload);
       console.log('[ChatContext] 메시지 전송 요청:', payload);
 
-      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시
-      const snapshot = stateRef.current;
-      const isOpponentInRoom = snapshot.typingMemberId != null;
-
-      if (isOpponentInRoom) {
-        // 읽음 표시 표시 (유지)
-        dispatch({
-          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE',
-          payload: { messageId: optimisticMessage.id }
-        });
-      }
+      // 읽음 표시는 onRead 이벤트로만 처리 (상대방이 sendReadReceipt()를 보내면 자동으로 처리됨)
+      // typingMemberId로 판단하는 것은 부정확함 (상대방이 채팅방에 있어도 타이핑하지 않으면 null)
 
       // WebSocket 연결이 완료된 후 읽음 처리
       connectionPromiseRef.current

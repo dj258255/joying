@@ -176,20 +176,29 @@ export function unsubscribeFromGlobalNotifications() {
 export function handleNotification(notification) {
   const { type, title, body, icon, image, badge, tag, data } = notification;
 
-  console.log('[WebSocketNotification] 알림 처리:', { type, title, body, data });
+  console.log('[WebSocketNotification] 알림 처리:', { type, title, body, data, fullNotification: notification });
 
   // 현재 채팅방에 있는지 확인 (채팅방 안에 있으면 알림 표시 안함)
-  if (data?.chatRoomId) {
+  // chatRoomId, chatroomId, roomId 등 다양한 필드명 체크
+  const notificationChatRoomId = data?.chatRoomId || data?.chatroomId || data?.roomId || notification.chatRoomId;
+
+  if (notificationChatRoomId) {
     const currentPath = window.location.pathname;
     const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
 
-    if (currentChatRoomId && String(currentChatRoomId) === String(data.chatRoomId)) {
-      console.log('[WebSocketNotification] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
-        currentChatRoomId,
-        notificationChatRoomId: data.chatRoomId
-      });
+    console.log('[WebSocketNotification] 채팅방 체크:', {
+      currentPath,
+      currentChatRoomId,
+      notificationChatRoomId,
+      matches: currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)
+    });
+
+    if (currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)) {
+      console.log('[WebSocketNotification] 현재 채팅방 안에 있으므로 알림 표시 안함');
       return;
     }
+  } else {
+    console.log('[WebSocketNotification] chatRoomId 없음, 알림 표시 진행');
   }
 
   // 중복 알림 방지: 최근 5초 이내에 같은 messageId 받았으면 무시
