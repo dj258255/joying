@@ -18,8 +18,9 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ROUTE_PATHS } from '@/shared/constants';
-import { useProducts } from '@/features/product/hooks/useProducts';
-
+import { searchApi } from '@/features/search/api/searchApi';
+import { useCategoryTree } from '@/features/category/hooks/useCategories';
+import { useQuery } from '@tanstack/react-query';
 
 import LoadingScreen from '../components/LoadingScreen';
 import ScrollIndicator from '../components/ScrollIndicator';
@@ -689,29 +690,103 @@ const Scene3DCanvas = ({ animationState, currentModel, onProgressChange, current
 const HomePage = () => {
   const navigate = useNavigate();
 
-  // API로 카테고리별 제품 가져오기
-  const { data: cameraData } = useProducts({ category: 'CAMERA', page: 0, size: 3 });
-  const { data: campingData } = useProducts({ category: 'CAMPING', page: 0, size: 3 });
-  const { data: electronicsData } = useProducts({ category: 'ELECTRONICS', page: 0, size: 3 });
+  // 카테고리 트리 조회
+  const { data: categories = [] } = useCategoryTree();
+
+  // 카테고리 이름으로 정확한 categoryId 찾기
+  const getCategoryIdByName = (targetName) => {
+    for (const mainCat of categories) {
+      if (mainCat.children) {
+        for (const subCat of mainCat.children) {
+          if (subCat.categoryName === targetName) {
+            return subCat.categoryId;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // 특정 카테고리 ID 가져오기
+  const cameraId = getCategoryIdByName('카메라');
+  const tentId = getCategoryIdByName('텐트');
+  const gamepadId = getCategoryIdByName('콘솔 게임기');
+
+  // 검색 API로 카테고리별 제품 가져오기
+  const { data: cameraData, isLoading: isCameraLoading, isFetched: isCameraFetched, dataUpdatedAt } = useQuery({
+    queryKey: ['homeProducts', 'camera', cameraId],
+    queryFn: () => searchApi.search({ 
+      category: cameraId ? [cameraId] : undefined,
+      uploadType: 'rent',
+      page: 1, 
+      size: 3 
+    }),
+    enabled: !!cameraId,
+    staleTime: 0, // 항상 최신 데이터 체크
+    refetchOnMount: 'always', // 마운트 시 항상 재조회
+    refetchOnWindowFocus: true, // 창 포커스 시 재조회
+  });
+
+  const { data: campingData, isLoading: isCampingLoading, isFetched: isCampingFetched, dataUpdatedAt: campingDataUpdatedAt } = useQuery({
+    queryKey: ['homeProducts', 'camping', tentId],
+    queryFn: () => searchApi.search({ 
+      category: tentId ? [tentId] : undefined,
+      uploadType: 'rent',
+      page: 1, 
+      size: 3 
+    }),
+    enabled: !!tentId,
+    staleTime: 0, // 항상 최신 데이터 체크
+    refetchOnMount: 'always', // 마운트 시 항상 재조회
+    refetchOnWindowFocus: true, // 창 포커스 시 재조회
+  });
+
+  const { data: electronicsData, isLoading: isElectronicsLoading, isFetched: isElectronicsFetched } = useQuery({
+    queryKey: ['homeProducts', 'electronics', gamepadId],
+    queryFn: () => searchApi.search({ 
+      category: gamepadId ? [gamepadId] : undefined,
+      uploadType: 'rent',
+      page: 1, 
+      size: 3 
+    }),
+    enabled: !!gamepadId,
+    staleTime: 0, // 항상 최신 데이터 체크
+    refetchOnMount: 'always', // 마운트 시 항상 재조회
+    refetchOnWindowFocus: true, // 창 포커스 시 재조회
+  });
 
   // API 응답을 섹션에 맞게 변환
   const featuredProducts = useMemo(() => {
     const transformProduct = (product) => {
-      const firstImage = product.files?.[0]?.url || 'https://via.placeholder.com/400';
+      // 이미지 URL 추출 (여러 경로 확인)
+      let imageUrl = 'https://via.placeholder.com/400';
+      
+      if (product.files && Array.isArray(product.files) && product.files.length > 0) {
+        imageUrl = product.files[0].url || product.files[0].fileUrl || imageUrl;
+      } else if (product.thumbnailUrl) {
+        imageUrl = product.thumbnailUrl;
+      } else if (product.mainImageUrl) {
+        imageUrl = product.mainImageUrl;
+      }
+      
       return {
         id: product.productId || product.product_id,
         name: product.title,
         price: `${(product.rentalFee || product.rental_fee || 0).toLocaleString()}원/일`,
-        image: firstImage,
+        image: imageUrl,
         rating: Number(product.rating) || 0,
         reviews: Number(product.totalReviewCount || product.total_review_count) || 0,
       };
     };
 
+    const cameraProducts = (cameraData?.data?.data?.searchResponses || []).slice(0, 3);
+    const campingProducts = (campingData?.data?.data?.searchResponses || []).slice(0, 3);
+    const electronicsProducts = (electronicsData?.data?.data?.searchResponses || []).slice(0, 3);
+
     return {
-      camera: cameraData?.content ? cameraData.content.map(transformProduct) : [],
-      camping: campingData?.content ? campingData.content.map(transformProduct) : [],
-      electronics: electronicsData?.content ? electronicsData.content.map(transformProduct) : [],
+      camera: cameraProducts.map(transformProduct),
+      camping: campingProducts.map(transformProduct),
+      electronics: electronicsProducts.map(transformProduct),
     };
   }, [cameraData, campingData, electronicsData]);
 
@@ -763,6 +838,12 @@ const HomePage = () => {
     const isMobile = window.innerWidth <= 768;
 
     // 각 섹션의 애니메이션 상태
+    // 모바일에서 상품 카드 유무에 따른 Y축 오프셋
+    // ✅ 데이터가 로드된 경우에만 상품 개수 확인 (로딩 중에는 기본 위치 사용)
+    const hasCamera = isCameraFetched && featuredProducts.camera.length > 0;
+    const hasCamping = isCampingFetched && featuredProducts.camping.length > 0;
+    const hasElectronics = isElectronicsFetched && featuredProducts.electronics.length > 0;
+    
     const sectionStates = [
       // Section 1: Hero (모바일/PC 반응형 - 중앙 고정)
       isMobile ? {
@@ -776,7 +857,7 @@ const HomePage = () => {
       },
       // Section 2: 카메라 (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.65, y: 0.1, z: 0 },
+        position: { x: 0.65, y: 0.65, z: 0 }, // 기본값: 상품 있을 때 위치
         rotation: { x: 0.3, y: Math.PI * 2.2, z: 0.2 },
         scale: 3,
       } : {
@@ -786,7 +867,7 @@ const HomePage = () => {
       },
       // Section 3: 캠핑 (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.5, y: 0.15, z: 0.00 },
+        position: { x: 0.5, y: 0.65, z: 0.00 }, // 기본값: 상품 있을 때 위치
         rotation: { x: -0.32, y: Math.PI * 0.5, z: 0.6 },
         scale: 0.3,
       } : {
@@ -796,7 +877,7 @@ const HomePage = () => {
       },
       // Section 4: 전자기기 (게임패드) (모바일/PC 반응형)
       isMobile ? {
-        position: { x: 0.9, y: 0.7, z: 0.00 },
+        position: { x: 0.9, y: 1.25, z: 0.00 }, // 기본값: 상품 있을 때 위치
         rotation: { x: 1.7, y: Math.PI * -0.17, z: 0.72 },
         scale: 5.00,
       } : {
@@ -999,8 +1080,13 @@ const HomePage = () => {
 
     // 키보드 이벤트 핸들러
     const handleKeyDown = (e) => {
-      // 스페이스바로 인한 스크롤 방지
-      if (e.key === ' ' || e.code === 'Space') {
+      // 입력 요소(input, textarea)에서는 스페이스바 허용
+      const isInputElement = e.target.tagName === 'INPUT' || 
+                             e.target.tagName === 'TEXTAREA' || 
+                             e.target.isContentEditable;
+      
+      // 스페이스바로 인한 스크롤 방지 (단, 입력 요소에서는 허용)
+      if ((e.key === ' ' || e.code === 'Space') && !isInputElement) {
         e.preventDefault();
         return;
       }
@@ -1085,7 +1171,7 @@ const HomePage = () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(resizeTimeout);
     };
-  }, [currentSectionIndex]);
+  }, [currentSectionIndex, featuredProducts, isCameraFetched, isCampingFetched, isElectronicsFetched]);
 
   return (
 
@@ -1144,13 +1230,13 @@ const HomePage = () => {
           <Section1Hero />
 
           {/* Section 2: 카메라 */}
-          <Section2Camera products={featuredProducts.camera} />
+          <Section2Camera products={featuredProducts.camera} categoryId={cameraId} />
 
           {/* Section 3: 캠핑용품 */}
-          <Section3Tent products={featuredProducts.camping} />
+          <Section3Tent products={featuredProducts.camping} categoryId={tentId} />
 
           {/* Section 4: 전자기기 */}
-          <Section4Gamepad products={featuredProducts.electronics} />
+          <Section4Gamepad products={featuredProducts.electronics} categoryId={gamepadId} />
 
           {/* Section 5: Final CTA */}
           <Section5Triangle />

@@ -22,7 +22,7 @@ const Section6System = () => {
           src={logo} 
           alt="빌려joying" 
           className="h-12 w-auto object-contain cursor-pointer"
-          onClick={() => navigate(ROUTE_PATHS.HOME)}
+          onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
         />
       </div>
 

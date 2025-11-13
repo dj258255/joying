@@ -11,7 +11,7 @@ import logo from '@/assets/icons/logo.png';
  * - 배경색: 검정색 (black)
  * - 카드 스타일: 글래스모피즘 (Glassmorphism)
  */
-const Section2Camera = ({ products = [] }) => {
+const Section2Camera = ({ products = [], categoryId }) => {
   const navigate = useNavigate();
 
   return (
@@ -26,7 +26,7 @@ const Section2Camera = ({ products = [] }) => {
           src={logo} 
           alt="빌려joying" 
           className="h-12 w-auto object-contain cursor-pointer"
-          onClick={() => navigate(ROUTE_PATHS.HOME)}
+          onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
         />
       </div>
 
@@ -45,17 +45,30 @@ const Section2Camera = ({ products = [] }) => {
           </p>
 
           {/* 글래스모피즘 카드 */}
-          {products.length > 0 && (
+          {products.length > 0 ? (
             <div className="grid grid-cols-3 gap-4 mb-8">
               {products.map((product) => (
-                <GlassmorphismCard key={product.id} product={product} />
+                <div
+                  key={product.id}
+                  onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}/${product.id}`)}
+                >
+                  <GlassmorphismCard product={product} />
+                </div>
               ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 shadow-xl">
+                <div className="text-center text-white/70">
+                  <p className="text-sm">상품이 없습니다</p>
+                </div>
+              </div>
             </div>
           )}
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=camera`)}
+              onClick={() => navigate(categoryId ? `${ROUTE_PATHS.PRODUCTS}?category=${categoryId}` : ROUTE_PATHS.PRODUCTS)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               카메라 둘러보기

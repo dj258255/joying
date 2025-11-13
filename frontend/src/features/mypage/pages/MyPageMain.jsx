@@ -163,11 +163,11 @@ const MyPageMain = () => {
     return (
     <>
       <SideNavbar />
-      <div className={`bg-gradient-to-br from-gray-50 to-gray-100 ${activeTab === null ? 'lg:min-h-screen h-screen overflow-hidden' : 'min-h-screen'}`}>
+      <div className={`bg-gradient-to-br from-gray-50 to-gray-100 ${activeTab === null ? 'lg:min-h-screen h-screen overflow-hidden' : 'min-h-screen h-screen overflow-hidden'}`}>
         {/* 뒤로가기 버튼 (데스크톱만) */}
         <div className="hidden lg:block px-4 sm:px-6 pt-2 sm:pt-3">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 group"
           >
             <FiArrowLeft className="w-4 h-4 group-hover:transform group-hover:-translate-x-1 transition-transform duration-200" />
@@ -371,7 +371,7 @@ const MyPageMain = () => {
           <div className={`flex-1 ${!activeTab ? 'hidden lg:flex' : 'w-full'}`}>
             {/* 상품 관리 섹션 */}
             {activeTab === 'products' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 pb-0 sm:px-6 sm:pt-6 sm:pb-0 h-[calc(100vh-80px)] lg:h-[calc(100vh-60px)] flex flex-col w-full">
                 {/* 모바일: 뒤로가기 버튼 */}
                 <div className="lg:hidden flex items-center mb-2 flex-shrink-0">
                   <button
@@ -430,8 +430,8 @@ const MyPageMain = () => {
           </div>
         </div>
 
-                <div className="flex-1 overflow-y-auto scrollbar-hide">
-                  <div className="pr-2">
+                <div className="flex-1 overflow-y-auto scrollbar-hide pb-0">
+                  <div className="pb-0">
                     {productTab === 'registered' && <RegisteredProductList />}
                     {productTab === 'liked' && <LikedProductList />}
                     {productTab === 'borrowed' && <BorrowedHistoryList />}

@@ -77,20 +77,15 @@ const LikedProductList = ({
   return (
     <div className="space-y-3 sm:space-y-6">
       {/* 상품 그리드 */}
-      <div className="grid grid-cols-4 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
         {likedProducts.map((product) => {
           const productId = product.productId || product.id;
-          
-          console.log('[LikedProductList] 원본 product 데이터:', product);
-          console.log('[LikedProductList] region 정보:', product.region);
           
           // 장소 정보 추출
           const dongId = product.region?.dongId || product.dongId;
           const dong = product.region?.dong || product.dong || '';
           const sido = product.region?.sido || product.sido || '';
           const gugun = product.region?.gungu || product.gugun || '';
-          
-          console.log('[LikedProductList] 장소 정보 추출:', { dongId, dong, sido, gugun });
           
           const productData = {
             ...product,
@@ -103,8 +98,6 @@ const LikedProductList = ({
             sido: sido,
             gugun: gugun
           };
-          
-          console.log('[LikedProductList] ProductCard에 전달할 데이터:', productData);
           
           return (
             <ProductCardLikeWrapper
