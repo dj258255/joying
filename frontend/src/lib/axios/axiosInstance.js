@@ -73,15 +73,16 @@ axiosInstance.interceptors.request.use(
     const cookies = document.cookie;
     const hasAccessTokenCookie = cookies.includes('access_token=');
     
-    // 쿠키가 없고 localStorage에 accessToken이 있으면 Authorization 헤더 사용 (폴백)
-    if (!hasAccessTokenCookie && !config.headers.Authorization) {
+    // HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 항상 localStorage 토큰 확인
+    // 쿠키가 확인되지 않거나 Authorization 헤더가 없으면 localStorage 토큰 사용
+    if (!config.headers.Authorization) {
       const accessToken = localStorage.getItem('accessToken');
       if (accessToken) {
         config.headers.Authorization = `Bearer ${accessToken}`;
-        console.log('[API Request] 쿠키가 없어 Authorization 헤더 사용:', config.url);
+        console.log('[API Request] Authorization 헤더 추가:', config.url);
+      } else {
+        console.warn('[API Request] 인증 토큰이 없습니다:', config.url);
       }
-      // HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 경고 제거
-      // 실제 인증은 백엔드에서 쿠키를 확인하므로 요청은 정상적으로 처리됨
     }
     
     // 재요청 시에는 이미 설정된 Authorization 헤더 유지
@@ -94,7 +95,9 @@ axiosInstance.interceptors.request.use(
       hasCredentials: config.withCredentials,
       hasAccessTokenCookie,
       isRetry: config._retry || false,
-      hasAuthHeader: !!config.headers.Authorization
+      hasAuthHeader: !!config.headers.Authorization,
+      data: config.data,
+      headers: config.headers
     });
     
     return config;

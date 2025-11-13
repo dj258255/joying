@@ -21,8 +21,7 @@ const ChatListPage = () => {
   const { chatRooms, totalUnreadCount, isLoading, error, refetch, leaveChatRoom, isLeaving } = useChatRooms();
   const queryClient = useQueryClient();
   const stompClientRef = useRef(null);
-  const subscriptionRef = useRef(null);
-  const heartbeatIntervalRef = useRef(null);
+  const chatRoomSubscriptionRef = useRef(null);
 
   const resolveRoomId = (room) => {
     if (!room) return null;
@@ -68,7 +67,7 @@ const ChatListPage = () => {
           console.log('[ChatListPage] WebSocket 연결 성공');
 
           // 채팅방 목록 업데이트 구독
-          const subscription = client.subscribe('/user/queue/chatroom-update', (message) => {
+          const chatRoomSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
               const update = JSON.parse(message.body);
               console.log('[ChatListPage] 채팅방 업데이트 수신:', update);
@@ -247,24 +246,9 @@ const ChatListPage = () => {
             }
           });
 
-          // Heartbeat 시작 (30초마다)
-          const heartbeatInterval = setInterval(() => {
-            if (client && client.connected) {
-              try {
-                client.publish({
-                  destination: '/app/chat/heartbeat',
-                  body: ''
-                });
-              } catch (error) {
-                console.warn('[ChatListPage] Heartbeat 전송 실패:', error);
-              }
-            }
-          }, 30000);
-
           // ref에 저장
           stompClientRef.current = client;
-          subscriptionRef.current = subscription;
-          heartbeatIntervalRef.current = heartbeatInterval;
+          chatRoomSubscriptionRef.current = chatRoomSubscription;
         };
 
         client.onStompError = (frame) => {
@@ -293,17 +277,13 @@ const ChatListPage = () => {
 
     // 정리 함수
     return () => {
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
-      }
-      if (subscriptionRef.current) {
+      if (chatRoomSubscriptionRef.current) {
         try {
-          subscriptionRef.current.unsubscribe();
+          chatRoomSubscriptionRef.current.unsubscribe();
         } catch (error) {
-          console.warn('[ChatListPage] 구독 해제 오류:', error);
+          console.warn('[ChatListPage] 채팅방 구독 해제 오류:', error);
         }
-        subscriptionRef.current = null;
+        chatRoomSubscriptionRef.current = null;
       }
       if (stompClientRef.current) {
         try {

@@ -203,13 +203,19 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
 
   // 시스템 메시지
   if (type === 'system') {
-    return (
-      <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3">
-        <span className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
-          {content}
-        </span>
-      </div>
-    );
+    // 결제 완료 메시지는 일반 메시지처럼 처리 (isPaymentComplete 체크로 이동)
+    if (content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE')) {
+      // 아래 isPaymentComplete 로직에서 처리
+    } else {
+      // 일반 시스템 메시지는 중앙 정렬
+      return (
+        <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3">
+          <span className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
+            {content}
+          </span>
+        </div>
+      );
+    }
   }
 
   // 대여 요청 메시지
@@ -401,8 +407,17 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     return null;
   }
 
-  // 결제 완료 메시지
-  if (type === 'PAYMENT_COMPLETE') {
+  // 결제 완료 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+  const isPaymentComplete = type === 'payment_complete'
+    || (type === 'text' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'))
+    || (type === 'system' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'));
+  if (isPaymentComplete) {
+    // 메타데이터 제거한 표시용 콘텐츠
+    const displayContent = content
+      ?.replace(/\nrentalHisId:\d+/g, '')
+      .replace(/\nMESSAGE_TYPE:PAYMENT_COMPLETE/g, '')
+      .trim();
+
     return (
       <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
         <div className="max-w-sm">
@@ -417,7 +432,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
               </div>
               <span className="text-base font-bold text-green-900">결제 완료</span>
             </div>
-            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{content}</p>
+            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{displayContent}</p>
 
             {/* 액션 버튼들 */}
             {actionButtons && actionButtons.length > 0 && (
@@ -427,6 +442,57 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                     key={index}
                     onClick={button.onClick}
                     className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${button.className || 'bg-green-600 text-white hover:bg-green-700'}`}
+                  >
+                    {button.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div
+            className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500`}
+          >
+            <span>{formatTime(timestamp)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 취소 요청 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+  const isCancelRequest = type === 'cancel_request' || (type === 'text' && content?.includes('MESSAGE_TYPE:CANCEL_REQUEST'));
+  if (isCancelRequest) {
+    // 메타데이터 제거한 표시용 콘텐츠
+    const displayContent = content
+      ?.replace(/\nrentalHisId:\d+/g, '')
+      .replace(/\ncancelId:\d+/g, '')
+      .replace(/\nMESSAGE_TYPE:CANCEL_REQUEST/g, '')
+      .trim();
+
+    return (
+      <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+        <div className="max-w-sm">
+          <div
+            className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-2xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <span className="text-base font-bold text-orange-900">취소 요청</span>
+            </div>
+            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{displayContent}</p>
+
+            {/* 액션 버튼들 */}
+            {actionButtons && actionButtons.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {actionButtons.map((button, index) => (
+                  <button
+                    key={index}
+                    onClick={button.onClick}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${button.className || 'bg-orange-600 text-white hover:bg-orange-700'}`}
                   >
                     {button.label}
                   </button>

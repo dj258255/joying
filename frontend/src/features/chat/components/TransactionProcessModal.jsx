@@ -15,6 +15,7 @@ import DateRangeCalendar from '../../checkout/components/DateRangeCalendar';
 import VideoRecorder from '../../video/components/VideoRecorder';
 import ShippingStatusCard from '../../shipping/components/ShippingStatusCard';
 import PaymentModal from '../../payment/components/PaymentModal';
+import CancelRequestModal from '../../rental/components/CancelRequestModal';
 import { calculateRentalDays, calculateTotalAmount, getVideoType, getModalTitle } from '../../../shared/utils/transactionUtils';
 
 /**
@@ -69,6 +70,10 @@ const TransactionProcessModal = ({
   // 결제 모달
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState(null);
+
+  // 취소 요청 모달
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // 초기화: rentalData가 있으면 상태 복원
   useEffect(() => {
@@ -269,6 +274,8 @@ const TransactionProcessModal = ({
 
   // 결제 진행 (구매자)
   const handleProceedPayment = async () => {
+    console.log('[TransactionProcessModal] handleProceedPayment 호출됨');
+
     if (!transactionData) {
       setError('거래 정보를 찾을 수 없습니다.');
       return;
@@ -382,16 +389,19 @@ const TransactionProcessModal = ({
 
       // 채팅방에 결제 완료 메시지 전송 (버튼 포함)
       if (sendMessage) {
-        const messageContent = `✅ 결제가 완료되었습니다!\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n주문번호: ${orderId}\n\n💡 판매자님, 물건을 발송해주세요!\n💡 구매자님, 판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${transactionData.rentalHisId}`;
+        const messageContent = `✅ 결제가 완료되었습니다!\n\n상품: ${productData.title || productData.name}\n결제 금액: ${amount.toLocaleString()}원\n주문번호: ${orderId}\n\n💡 판매자님, 물건을 발송해주세요!\n💡 구매자님, 판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${transactionData.rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
 
         await sendMessage({
-          type: 'PAYMENT_COMPLETE',
+          type: 'TEXT',
           content: messageContent,
-          rentalHisId: transactionData.rentalHisId,
-          paymentInfo: {
-            orderId: orderId,
-            amount: amount,
-            productName: productData.title || productData.name
+          metadata: {
+            messageType: 'PAYMENT_COMPLETE',
+            rentalHisId: transactionData.rentalHisId,
+            paymentInfo: {
+              orderId: orderId,
+              amount: amount,
+              productName: productData.title || productData.name
+            }
           }
         });
       }
@@ -416,7 +426,25 @@ const TransactionProcessModal = ({
     alert('판매자와 대화를 통해 거래 조건을 조율해주세요. 조율이 완료되면 판매자가 새로운 거래를 생성할 수 있습니다.');
   };
 
-  // 발송 처리 (판매자)
+  // 물품 보내기 시작 - 영상 촬영 먼저
+  const handleStartShipping = () => {
+    alert(`handleStartShipping 호출됨! requireVideo: ${requireVideo}`);
+    console.log('[TransactionProcessModal] handleStartShipping 호출됨', { requireVideo, showVideoRecorder });
+
+    if (requireVideo) {
+      // 영상 촬영 먼저
+      alert('VideoRecorder 모달을 엽니다!');
+      setShowVideoRecorder(true);
+      console.log('[TransactionProcessModal] setShowVideoRecorder(true) 실행됨');
+    } else {
+      // 영상 불필요하면 운송장 입력으로
+      // (운송장 입력 UI는 shipping 단계에서 보여짐)
+      alert('영상 촬영이 필요없습니다');
+      setError(null);
+    }
+  };
+
+  // 발송 처리 (판매자) - 운송장 번호는 영상 촬영 후 입력
   const handleShipItem = async () => {
     if (!trackingNumber || !courier) {
       setError('택배사와 운송장 번호를 입력해주세요.');
@@ -432,13 +460,8 @@ const TransactionProcessModal = ({
         trackingNo: trackingNumber
       });
 
-      // 영상이 필요한 경우 영상 녹화로 이동
-      if (requireVideo) {
-        setShowVideoRecorder(true);
-      } else {
-        setCurrentStep('delivery');
-        alert('발송 처리가 완료되었습니다.');
-      }
+      setCurrentStep('delivery');
+      alert('발송 처리가 완료되었습니다.');
     } catch (err) {
       console.error('[TransactionProcessModal] 발송 처리 실패:', err);
       const errorMessage = err.response?.data?.message || err.message || '발송 처리에 실패했습니다.';
@@ -457,7 +480,16 @@ const TransactionProcessModal = ({
       // 1. 영상을 서버에 업로드
       console.log('[TransactionProcessModal] 영상 업로드 시작');
       const uploadResult = await fileApi.uploadFile(videoBlob);
-      const fileId = uploadResult.data.fileId;
+      console.log('[TransactionProcessModal] 업로드 응답:', uploadResult);
+
+      // 응답 구조에 따라 fileId 추출 (여러 가능성 체크)
+      const fileId = uploadResult?.body?.data?.fileId
+                  || uploadResult?.data?.fileId
+                  || uploadResult?.fileId;
+
+      if (!fileId) {
+        throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다. 응답: ' + JSON.stringify(uploadResult));
+      }
 
       console.log('[TransactionProcessModal] 영상 업로드 성공. fileId:', fileId);
 
@@ -484,11 +516,21 @@ const TransactionProcessModal = ({
       });
 
       setShowVideoRecorder(false);
-      setRecordedVideos([...recordedVideos, uploadResult.data.url]);
+
+      // URL 추출 (여러 가능성 체크)
+      const uploadedUrl = uploadResult?.body?.data?.url
+                       || uploadResult?.data?.url
+                       || uploadResult?.url
+                       || '';
+
+      if (uploadedUrl) {
+        setRecordedVideos([...recordedVideos, uploadedUrl]);
+      }
 
       if (currentStep === 'shipping') {
-        setCurrentStep('delivery');
-        alert('영상 업로드가 완료되었습니다. 구매자가 상품을 수령할 때까지 기다려주세요.');
+        // 영상 업로드 후 운송장 번호 입력 안내
+        alert('영상 업로드가 완료되었습니다. 이제 운송장 번호를 입력해주세요.');
+        // currentStep은 'shipping' 유지 -> 운송장 입력 UI 계속 표시
       } else if (currentStep === 'receive') {
         setCurrentStep('rental');
         alert('대여가 시작되었습니다.');
@@ -582,40 +624,59 @@ const TransactionProcessModal = ({
     }
   };
 
-  // 거래 취소 요청
-  const [cancelReason, setCancelReason] = useState('');
-  const [depositDistribution, setDepositDistribution] = useState(50);
-
-  const handleRequestCancel = async () => {
-    if (!cancelReason) {
-      setError('취소 사유를 입력해주세요.');
-      return;
-    }
-
+  // 거래 취소 요청 핸들러
+  const handleCancelRequest = async (cancelData) => {
     try {
-      setIsLoading(true);
+      setIsCancelling(true);
       setError(null);
 
-      // 보증금 총액 계산 (transactionData에서 가져오기)
-      const totalDeposit = transactionData.deposit || deposit || 0;
-      const depositOwnerAmt = Math.floor(totalDeposit * depositDistribution / 100);
-      const depositRenterAmt = totalDeposit - depositOwnerAmt;
+      const { reason, buyerRefund, sellerRefund } = cancelData;
 
-      await rentalApi.createCancelRequest(transactionData.rentalHisId, {
-        reason: cancelReason,
-        depositOwnerAmt: depositOwnerAmt,
-        depositRenterAmt: depositRenterAmt
+      console.log('[TransactionProcessModal] 취소 요청:', {
+        rentalHisId: transactionData.rentalHisId,
+        reason,
+        depositRenterAmt: buyerRefund,
+        depositOwnerAmt: sellerRefund
       });
 
+      const cancelResponse = await rentalApi.createCancelRequest(transactionData.rentalHisId, {
+        reason: reason,
+        depositRenterAmt: buyerRefund,
+        depositOwnerAmt: sellerRefund
+      });
+
+      console.log('[TransactionProcessModal] 취소 요청 성공:', cancelResponse);
+
+      // 채팅방에 취소 요청 메시지 전송
+      if (sendMessage) {
+        const messageContent = `🚫 거래 취소 요청이 접수되었습니다\n\n상품: ${productData.title || productData.name}\n취소 사유: ${reason}\n\n구매자 환불: ${buyerRefund.toLocaleString()}원\n판매자 환불: ${sellerRefund.toLocaleString()}원\n\nrentalHisId:${transactionData.rentalHisId}\ncancelId:${cancelResponse.data?.cancelId || ''}\nMESSAGE_TYPE:CANCEL_REQUEST`;
+
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent,
+          metadata: {
+            messageType: 'CANCEL_REQUEST',
+            rentalHisId: transactionData.rentalHisId,
+            cancelId: cancelResponse.data?.cancelId,
+            reason: reason,
+            buyerRefund: buyerRefund,
+            sellerRefund: sellerRefund
+          }
+        });
+
+        console.log('[TransactionProcessModal] 취소 요청 메시지 전송 완료');
+      }
+
       alert('취소 요청이 전송되었습니다. 상대방의 응답을 기다려주세요.');
+      setShowCancelModal(false);
       onClose();
     } catch (err) {
       console.error('[TransactionProcessModal] 취소 요청 실패:', err);
       const errorMessage = err.response?.data?.message || err.message || '취소 요청에 실패했습니다.';
       setError(errorMessage);
-      alert(errorMessage);
+      throw err; // CancelRequestModal에서 에러 처리
     } finally {
-      setIsLoading(false);
+      setIsCancelling(false);
     }
   };
 
@@ -647,11 +708,17 @@ const TransactionProcessModal = ({
   ];
 
   // 렌더링
+  // 모달 닫기 핸들러 (비디오 레코더도 함께 닫기)
+  const handleCloseModal = () => {
+    setShowVideoRecorder(false); // 비디오 레코더 닫기
+    onClose(); // 부모 컴포넌트의 onClose 호출
+  };
+
   if (!isOpen) return null;
 
   return (
     <>
-      <Modal isOpen={isOpen && !showVideoRecorder} onClose={onClose} title={getModalTitle()} className="max-w-2xl">
+      <Modal isOpen={isOpen && !showVideoRecorder} onClose={handleCloseModal} title={getModalTitle()} className="max-w-2xl">
         <div className="space-y-6">
           {/* 에러 메시지 */}
           {error && (
@@ -822,11 +889,11 @@ const TransactionProcessModal = ({
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleCancelTransaction}
+                  onClick={() => setShowCancelModal(true)}
                   disabled={isLoading}
                   className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
-                  {isLoading ? '취소 중...' : '거래 취소하기'}
+                  거래 취소하기
                 </button>
                 <button
                   onClick={handleProceedPayment}
@@ -910,60 +977,104 @@ const TransactionProcessModal = ({
             <div className="space-y-4">
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-green-800 font-medium">✅ 결제가 완료되었습니다</p>
-                <p className="text-green-600 text-sm mt-1">운송장 번호를 입력하고 물건을 발송해주세요</p>
+                <p className="text-green-600 text-sm mt-1">
+                  {recordedVideos.length === 0 && requireVideo
+                    ? '물건 포장 전 상태를 영상으로 촬영해주세요'
+                    : '운송장 번호를 입력하고 물건을 발송해주세요'}
+                </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  택배사 선택 *
-                </label>
-                <select
-                  value={courier}
-                  onChange={(e) => setCourier(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">택배사를 선택하세요</option>
-                  {courierOptions.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
+              {recordedVideos.length === 0 && requireVideo ? (
+                // 영상 촬영 먼저
+                <>
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-blue-800 font-medium">📹 1단계: 발송 전 영상 촬영</p>
+                    <p className="text-blue-600 text-sm mt-1">
+                      물건을 포장하기 전에 상태를 촬영해주세요.<br/>
+                      촬영 후 우체국에서 운송장 번호를 받아 입력하실 수 있습니다.
+                    </p>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  운송장 번호 *
-                </label>
-                <input
-                  type="text"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
-                  placeholder="숫자만 입력하세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={onClose}
+                      disabled={isLoading}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      나중에 하기
+                    </button>
+                    <button
+                      onClick={handleStartShipping}
+                      disabled={isLoading}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      영상 촬영 시작
+                    </button>
+                  </div>
+                </>
+              ) : (
+                // 영상 촬영 완료 후 운송장 번호 입력
+                <>
+                  {requireVideo && recordedVideos.length > 0 && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-sm text-green-800">✅ 영상 촬영이 완료되었습니다</p>
+                    </div>
+                  )}
 
-              {requireVideo && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">📹 발송 전 물건 상태 영상을 촬영해야 합니다</p>
-                </div>
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-blue-800 font-medium">📦 2단계: 운송장 번호 입력</p>
+                    <p className="text-blue-600 text-sm mt-1">
+                      물건을 포장하고 우체국에 맡긴 후 운송장 번호를 입력해주세요.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      택배사 선택 *
+                    </label>
+                    <select
+                      value={courier}
+                      onChange={(e) => setCourier(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">택배사를 선택하세요</option>
+                      {courierOptions.map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      운송장 번호 *
+                    </label>
+                    <input
+                      type="text"
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="숫자만 입력하세요"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={onClose}
+                      disabled={isLoading}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      나중에 하기
+                    </button>
+                    <button
+                      onClick={handleShipItem}
+                      disabled={isLoading || !courier || !trackingNumber}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {isLoading ? '처리 중...' : '발송 완료'}
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={onClose}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  나중에 하기
-                </button>
-                <button
-                  onClick={handleShipItem}
-                  disabled={isLoading || !courier || !trackingNumber}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isLoading ? '처리 중...' : requireVideo ? '다음 (영상 촬영)' : '발송 완료'}
-                </button>
-              </div>
             </div>
           )}
 
@@ -1006,10 +1117,10 @@ const TransactionProcessModal = ({
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setCurrentStep('cancel')}
+                  onClick={() => setShowCancelModal(true)}
                   className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50"
                 >
-                  대여 취소
+                  거래 취소하기
                 </button>
                 <button
                   onClick={handleConfirmReceive}
@@ -1170,72 +1281,19 @@ const TransactionProcessModal = ({
             </div>
           )}
 
-          {/* 취소 처리 단계 */}
-          {currentStep === 'cancel' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-800 font-medium">거래 취소 요청</p>
-                <p className="text-red-600 text-sm mt-1">취소 사유와 보증금 분배 비율을 입력해주세요</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  취소 사유 *
-                </label>
-                <textarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  rows={4}
-                  placeholder="취소 사유를 상세히 입력해주세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  보증금 분배 비율 (내가 받을 비율: {depositDistribution}%)
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={depositDistribution}
-                  onChange={(e) => setDepositDistribution(Number(e.target.value))}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-gray-600 mt-1">
-                  <span>나: {depositDistribution}%</span>
-                  <span>상대방: {100 - depositDistribution}%</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setCurrentStep(userRole === 'buyer' ? 'receive' : 'rental')}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleRequestCancel}
-                  disabled={isLoading || !cancelReason}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                >
-                  {isLoading ? '요청 중...' : '취소 요청하기'}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </Modal>
 
       {/* 영상 녹화 모달 */}
       {showVideoRecorder && (
         <Modal isOpen={showVideoRecorder} onClose={() => setShowVideoRecorder(false)} title="영상 촬영" className="max-w-2xl">
-          <VideoRecorder
-            onRecordComplete={handleVideoUploadComplete}
-            purpose={currentStep === 'shipping' || currentStep === 'return' ? 'delivery' : 'return'}
-          />
+          <div>
+            <p style={{color: 'red', fontSize: '20px', fontWeight: 'bold'}}>VideoRecorder 테스트</p>
+            <VideoRecorder
+              onRecordComplete={handleVideoUploadComplete}
+              purpose={currentStep === 'shipping' || currentStep === 'return' ? 'delivery' : 'return'}
+            />
+          </div>
         </Modal>
       )}
 
@@ -1256,6 +1314,15 @@ const TransactionProcessModal = ({
           }}
         />
       )}
+
+      {/* 취소 요청 모달 */}
+      <CancelRequestModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        rentalData={transactionData}
+        onSubmit={handleCancelRequest}
+        isSubmitting={isCancelling}
+      />
     </>
   );
 };

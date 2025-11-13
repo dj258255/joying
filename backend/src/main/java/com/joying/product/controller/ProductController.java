@@ -290,6 +290,23 @@ public class ProductController {
         }
     }
 
+    @Operation(summary = "특정 사용자가 등록한 상품 조회",
+        description = "memberId를 기준으로 해당 사용자가 등록한 모든 상품을 페이징하여 조회합니다.")
+    @GetMapping("/member/{memberId}")
+    public ResponseEntity<?> getUserItems(
+        @PathVariable Long memberId,
+        Pageable pageable) {
+        log.info("특정 사용자 상품 조회 {}", memberId);
+        try {
+            Page<ProductResponseDto.ProductListItem> page = productService.getMemberItems(memberId, pageable);
+            return ResponseEntity.ok(ApiResponse.ok(page));
+        } catch (Exception e) {
+            log.error("[getUserItems] 서버 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.of(500, "INTERNAL_SERVER_ERROR", "server error"));
+        }
+    }
+
     @Operation(summary = "내가 찜한 상품 조회", description = "로그인 사용자가 찜한 상품 목록을 조회합니다.")
     @GetMapping("/mylikes")
     public ResponseEntity<?> getMyLikes(Authentication authentication, Pageable pageable) {

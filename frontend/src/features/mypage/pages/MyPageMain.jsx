@@ -29,6 +29,7 @@ import BorrowedHistoryList from '../components/BorrowedHistoryList';
 import LentHistoryList from '../components/LentHistoryList';
 import RegisteredProductList from '../components/RegisteredProductList';
 import LikedProductList from '../components/LikedProductList';
+import AccountVerifyForm from '../components/AccountVerifyForm';
 
 // 공통 네비게이션
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -441,6 +442,32 @@ const MyPageMain = () => {
       </div>
             )}
 
+            {/* 계좌 인증 섹션 */}
+            {activeTab === 'account-verify' && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
+                {/* 모바일: 뒤로가기 버튼 */}
+                <div className="lg:hidden flex items-center mb-2 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveTab('account')}
+                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="text-xs font-medium">뒤로</span>
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <AccountVerifyForm 
+                    onComplete={() => {
+                      // 인증 완료 후 계정 관리 탭으로 돌아가기
+                      setActiveTab('account');
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* 계정 관리 섹션 */}
             {activeTab === 'account' && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
@@ -507,7 +534,7 @@ const MyPageMain = () => {
                   </button>
           
               <button
-                    onClick={() => navigate('/mypage/verify')}
+                    onClick={() => setActiveTab('account-verify')}
                     className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
                   >
                     <div className="flex items-center space-x-3">
@@ -518,8 +545,12 @@ const MyPageMain = () => {
                         <h3 className="font-semibold text-base text-gray-900">계좌 인증</h3>
                         <p className="text-xs mt-0.5 text-gray-500">계좌 인증</p>
         </div>
-                      <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-md border border-gray-300">
-                        인증 필요
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-md border ${
+                        currentUser?.verified 
+                          ? 'bg-green-100 text-green-700 border-green-300' 
+                          : 'bg-gray-100 text-gray-700 border-gray-300'
+                      }`}>
+                        {currentUser?.verified ? '인증 완료' : '인증 필요'}
                       </span>
                       <FiChevronRight className="w-4 h-4 text-gray-400" />
       </div>

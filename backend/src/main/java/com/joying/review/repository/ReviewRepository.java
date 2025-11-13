@@ -49,7 +49,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Review findRentalReview(Long rentalId, String uploadType);
 
     @EntityGraph(attributePaths = {"reviewer", "product", "reviewFiles", "reviewFiles.file"})
-    Page<Review> findByReviewed_MemberId(Long memberId, Pageable pageable);
+    Page<Review> findByReviewed_MemberIdAndUploadType(Long memberId, UploadType uploadType, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reviewFiles", "reviewFiles.file"})
     @Query("""

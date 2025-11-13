@@ -412,12 +412,14 @@ public class RentalService {
         // 3. 권한 및 상태 검증
         validateVideoUpload(rental, request.getVideoType(), memberId);
 
-        // 4. 중복 업로드 확인
-        if (rentalVideoRepository.existsByRentalHistory_RentalHisIdAndVideoType(rentalHisId, request.getVideoType())) {
-            throw new IllegalStateException("이미 해당 타입의 영상이 업로드되어 있습니다");
-        }
+        // 4. 중복 업로드 확인 및 처리 (기존 영상이 있으면 삭제 후 새로 생성)
+        rentalVideoRepository.findByRentalHistory_RentalHisIdAndVideoType(rentalHisId, request.getVideoType())
+                .ifPresent(existingVideo -> {
+                    log.info("[영상 교체] 기존 rentalVideoId={} 삭제 후 새로 생성", existingVideo.getRentalVideoId());
+                    rentalVideoRepository.delete(existingVideo);
+                });
 
-        // 5. RentalVideo 생성 및 저장
+        // 5. 새 RentalVideo 생성 및 저장
         RentalVideo rentalVideo = RentalVideo.builder()
                 .file(file)
                 .rentalHistory(rental)
@@ -769,9 +771,21 @@ public class RentalService {
             // 5-1. RentalHistory 취소
             cancel.getRentalHistory().cancel();
 
-            // 5-2. Escrow 조회 및 환불 처리
-            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
-                    .orElseThrow(() -> new IllegalStateException("에스크로를 찾을 수 없습니다: rentalHisId=" + rentalHisId));
+            // 5-2. Escrow 조회 (결제 완료된 경우에만 환불 처리)
+            Escrow escrow = escrowRepository.findByRentalHistory_RentalHisId(rentalHisId).orElse(null);
+
+            // 결제가 완료되지 않은 경우 (에스크로가 없는 경우) 단순 취소만 처리
+            if (escrow == null) {
+                log.info("[결제 전 취소] rentalHisId={}, 에스크로 없음 - 환불 처리 스킵", rentalHisId);
+                return com.joying.rental.dto.response.CancelResponse.builder()
+                        .cancelId(cancel.getCancelId())
+                        .rentalHisId(rentalHisId)
+                        .status(cancel.getStatus().name())
+                        .reason(cancel.getReason())
+                        .depositOwnerAmt(cancel.getDepositOwnerAmt())
+                        .depositRenterAmt(cancel.getDepositRenterAmt())
+                        .build();
+            }
 
             // 5-3. 계좌 정보 조회
             Member lender = rental.getRentalProduct().getWriter();

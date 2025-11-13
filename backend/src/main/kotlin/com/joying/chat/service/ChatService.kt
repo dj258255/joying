@@ -373,9 +373,35 @@ class ChatService(
             // 5. 푸시 알림 페이로드 생성
             val payload = createPushPayload(sender.nickname, senderProfileUrl, message, chatRoomId)
 
-            // 5. 푸시 알림 전송
+            // 6. WebSocket 알림 전송 (1순위 - 온라인일 때 즉시 전달)
+            // LINE, Slack 등 대기업 메신저 표준 구현 방식
+            // 온라인 사용자는 WebSocket으로 즉시 받음 (빠름, 수십ms)
+            try {
+                val notificationData = mapOf(
+                    "type" to "PUSH_NOTIFICATION",
+                    "title" to payload.title,
+                    "body" to payload.body,
+                    "icon" to payload.icon,
+                    "image" to payload.image,
+                    "badge" to payload.badge,
+                    "tag" to payload.tag,
+                    "data" to payload.data
+                )
+                messagingTemplate.convertAndSendToUser(
+                    receiverId.toString(),
+                    "/queue/notifications",
+                    notificationData
+                )
+                logger.debug("WebSocket 알림 전송 완료 (1순위): receiverId={}", receiverId)
+            } catch (e: Exception) {
+                logger.debug("WebSocket 알림 전송 실패 (정상 - 오프라인일 수 있음): receiverId={}", receiverId)
+                // 실패해도 괜찮음 (오프라인이거나 WebSocket 연결 없음)
+            }
+
+            // 7. 푸시 알림 전송 (2순위 - 오프라인/백그라운드 대비 Fallback)
+            // 오프라인 사용자나 백그라운드에서도 알림 받을 수 있도록 함 (느림, 수백ms)
             webPushService.sendNotification(receiverId, payload)
-            logger.info("푸시 알림 전송: chatRoomId={}, receiverId={}, type={}", chatRoomId, receiverId, message.type)
+            logger.info("푸시 알림 전송 (2순위 Fallback): chatRoomId={}, receiverId={}, type={}", chatRoomId, receiverId, message.type)
         }
     }
 
@@ -463,12 +489,12 @@ class ChatService(
                     title = "${senderNickname}님의 메시지",
                     body = message.content,
                     icon = senderProfileUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }
@@ -478,12 +504,12 @@ class ChatService(
                     body = "이미지 1장",
                     icon = senderProfileUrl,
                     image = message.imageUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }
@@ -501,12 +527,12 @@ class ChatService(
                     title = "${senderNickname}님이 파일을 보냈습니다",
                     body = "${message.fileName} ($fileSize)",
                     icon = senderProfileUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
                             "messageId" to (message.id ?: ""),
-                            "url" to "/chat/$chatRoomId",
+                            "url" to "/chats/$chatRoomId",
                         ),
                 )
             }

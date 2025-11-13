@@ -95,15 +95,93 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 /**
+ * 모바일 환경 감지
+ * @returns {Object} 모바일 환경 정보
+ */
+function detectMobileEnvironment() {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+  // iOS 감지
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+  // Android 감지
+  const isAndroid = /android/i.test(userAgent);
+
+  // 삼성 인터넷 브라우저 감지
+  const isSamsungBrowser = /SamsungBrowser/i.test(userAgent);
+
+  // 모바일 브라우저 감지
+  const isMobile = isIOS || isAndroid || /Mobile|mini|Fennec|Android|iP(ad|od|hone)/.test(userAgent);
+
+  // iOS PWA 모드 감지 (홈 화면에 추가된 경우)
+  const isIOSPWA = isIOS && window.navigator.standalone === true;
+
+  return {
+    isIOS,
+    isAndroid,
+    isMobile,
+    isIOSPWA,
+    isSamsungBrowser,
+    userAgent
+  };
+}
+
+/**
  * 브라우저가 푸시 알림을 지원하는지 확인
  * @returns {boolean}
  */
 export function isPushNotificationSupported() {
-  return (
+  const mobileEnv = detectMobileEnvironment();
+
+  // 브라우저의 Web Push API 지원 확인
+  const isSupported = (
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window
   );
+
+  // iOS Safari 특별 처리 (iOS 16.4+ 지원하지만 PWA 모드 필수)
+  if (mobileEnv.isIOS) {
+    const isStandalone = window.navigator.standalone === true ||
+                        window.matchMedia('(display-mode: standalone)').matches;
+
+    console.log('[PushNotificationService] iOS 푸시 알림 지원 확인:', {
+      ...mobileEnv,
+      serviceWorker: 'serviceWorker' in navigator,
+      pushManager: 'PushManager' in window,
+      notification: 'Notification' in window,
+      isStandalone,
+      isPWAMode: isStandalone,
+      isSupported: isSupported && isStandalone,
+      note: isStandalone
+        ? 'iOS Safari PWA 모드 - 푸시 알림 지원됨 (iOS 16.4+)'
+        : 'iOS Safari 일반 브라우저 모드 - 푸시 알림 미지원. 홈 화면에 추가하여 PWA로 사용해야 합니다.'
+    });
+
+    // iOS에서는 PWA 모드일 때만 지원
+    return isSupported && isStandalone;
+  }
+
+  // 브라우저 타입 판별
+  let browserNote = 'Desktop 브라우저 - 정상 지원';
+  if (mobileEnv.isAndroid) {
+    if (mobileEnv.isSamsungBrowser) {
+      browserNote = 'Android 삼성 인터넷 브라우저 - 정상 지원';
+    } else {
+      browserNote = 'Android Chrome/Edge/기타 브라우저 - 정상 지원';
+    }
+  }
+
+  console.log('[PushNotificationService] 푸시 알림 지원 확인:', {
+    ...mobileEnv,
+    serviceWorker: 'serviceWorker' in navigator,
+    pushManager: 'PushManager' in window,
+    notification: 'Notification' in window,
+    isSupported,
+    browserNote
+  });
+
+  return isSupported;
 }
 
 /**
@@ -173,6 +251,9 @@ export async function subscribeToPush(registration, vapidPublicKey) {
     // Uint8Array를 ArrayBuffer로 변환 (일부 브라우저에서 필요할 수 있음)
     const keyBuffer = keyArray.buffer.slice(keyArray.byteOffset, keyArray.byteOffset + keyArray.byteLength);
     
+    // 모바일 환경 정보
+    const mobileEnv = detectMobileEnvironment();
+
     console.log('[PushNotificationService] 푸시 구독 시도:', {
       vapidKeyLength: vapidPublicKey.length,
       keyArrayLength: keyArray.length,
@@ -187,12 +268,11 @@ export async function subscribeToPush(registration, vapidPublicKey) {
       isSecureContext: window.isSecureContext,
       protocol: window.location.protocol,
       hostname: window.location.hostname,
+      ...mobileEnv,
       browser: navigator.userAgent
     });
 
-    // 기존 구독 확인 및 해제 (VAPID 키 불일치 문제 해결)
-    // 브라우저는 동일한 도메인에서 하나의 VAPID 키만 허용하므로,
-    // 이전에 다른 VAPID 키로 구독한 경우 새로운 키로 구독할 수 없음
+    // 기존 구독 확인 및 처리
     let existingSubscription;
     try {
       existingSubscription = await registration.pushManager.getSubscription();
@@ -202,30 +282,34 @@ export async function subscribeToPush(registration, vapidPublicKey) {
           expirationTime: existingSubscription.expirationTime,
           options: existingSubscription.options
         });
-        
-        // 기존 구독이 있으면 먼저 해제
+
+        // 기존 구독의 VAPID 키 확인
+        // options.applicationServerKey가 현재 VAPID 키와 다르면 재구독 필요
+        const currentKey = existingSubscription.options?.applicationServerKey;
+        if (currentKey) {
+          const currentKeyArray = new Uint8Array(currentKey);
+          const isSameKey = currentKeyArray.length === keyArray.length &&
+                           currentKeyArray.every((val, idx) => val === keyArray[idx]);
+
+          if (isSameKey) {
+            console.log('[PushNotificationService] 기존 구독의 VAPID 키가 일치합니다. 재사용합니다.');
+            return existingSubscription;
+          } else {
+            console.warn('[PushNotificationService] 기존 구독의 VAPID 키가 다릅니다. 재구독이 필요합니다.');
+          }
+        }
+
+        // VAPID 키가 다르거나 확인 불가능한 경우 기존 구독 해제
         try {
           console.log('[PushNotificationService] 기존 구독 해제 중...');
-          const unsubscribeResult = await existingSubscription.unsubscribe();
-          console.log('[PushNotificationService] 기존 구독 해제 완료:', unsubscribeResult);
-          
-          // 해제 후 대기 (브라우저가 구독 정보를 정리할 시간 제공)
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // 해제 후 다시 확인 (구독이 완전히 제거되었는지 확인)
-          const remainingSubscription = await registration.pushManager.getSubscription();
-          if (remainingSubscription) {
-            console.warn('[PushNotificationService] 구독 해제 후에도 구독이 남아있음. 강제 재시도...');
-            // 브라우저 캐시 문제일 수 있으므로 추가 대기
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+          await existingSubscription.unsubscribe();
+          console.log('[PushNotificationService] 기존 구독 해제 완료');
         } catch (unsubscribeError) {
-          console.warn('[PushNotificationService] 기존 구독 해제 실패:', {
+          console.warn('[PushNotificationService] 기존 구독 해제 실패 (무시하고 계속):', {
             error: unsubscribeError.message,
-            errorName: unsubscribeError.name,
-            note: '구독이 만료되었거나 이미 제거되었을 수 있습니다.'
+            errorName: unsubscribeError.name
           });
-          // 해제 실패해도 계속 진행 (기존 구독이 만료되었을 수 있음)
+          // 해제 실패해도 새 구독 시도
         }
       } else {
         console.log('[PushNotificationService] 기존 구독이 없습니다. 새로 구독합니다.');
