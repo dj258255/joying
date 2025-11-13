@@ -21,9 +21,7 @@ const ChatListPage = () => {
   const { chatRooms, totalUnreadCount, isLoading, error, refetch, leaveChatRoom, isLeaving } = useChatRooms();
   const queryClient = useQueryClient();
   const stompClientRef = useRef(null);
-  const presenceSubscriptionRef = useRef(null);
   const chatRoomSubscriptionRef = useRef(null);
-  const heartbeatIntervalRef = useRef(null);
 
   const resolveRoomId = (room) => {
     if (!room) return null;
