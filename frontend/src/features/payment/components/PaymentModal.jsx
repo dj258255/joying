@@ -40,6 +40,15 @@ const PaymentModal = ({
   // 토스 페이먼츠 클라이언트 키
   const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
 
+  // 환경 변수 확인 로그
+  console.log('[PaymentModal] VITE_TOSS_CLIENT_KEY 확인:', {
+    exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
+    value: import.meta.env.VITE_TOSS_CLIENT_KEY ? `${import.meta.env.VITE_TOSS_CLIENT_KEY.substring(0, 15)}...` : 'undefined',
+    trimmed: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    length: clientKey?.length || 0,
+    allEnvKeys: Object.keys(import.meta.env).filter(key => key.includes('TOSS') || key.includes('VITE'))
+  });
+
   // 결제 수단 목록
   const paymentMethods = [
     { value: '카드', label: '신용/체크카드' },
@@ -55,12 +64,28 @@ const PaymentModal = ({
     if (!isOpen) return;
 
     // 클라이언트 키 검증
+    console.log('[PaymentModal] 클라이언트 키 검증 시작:', {
+      clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+      isEmpty: !clientKey || clientKey === '' || clientKey === "''" || clientKey === '""',
+      rawValue: import.meta.env.VITE_TOSS_CLIENT_KEY
+    });
+
     if (!clientKey || clientKey === '' || clientKey === "''" || clientKey === '""') {
+      console.error('[PaymentModal] ❌ 클라이언트 키가 없습니다!', {
+        rawEnv: import.meta.env.VITE_TOSS_CLIENT_KEY,
+        trimmed: clientKey,
+        allEnv: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+      });
       const err = new Error('토스 페이먼츠 클라이언트 키가 설정되지 않았습니다. .env 파일에 VITE_TOSS_CLIENT_KEY를 설정해주세요.');
       setError(err.message);
       onError?.(err);
       return;
     }
+
+    console.log('[PaymentModal] ✅ 클라이언트 키 검증 통과:', {
+      prefix: clientKey.substring(0, 10),
+      length: clientKey.length
+    });
 
     if (clientKey.startsWith('test_sk_') || clientKey.startsWith('live_sk_')) {
       const err = new Error('시크릿 키(Secret Key)를 사용하고 있습니다. 클라이언트 키(Client Key: test_ck_... 또는 live_ck_...)를 사용해야 합니다.');
@@ -182,6 +207,15 @@ const PaymentModal = ({
   };
 
   if (!isOpen) return null;
+
+  // 모달이 열릴 때마다 환경 변수 확인
+  console.log('[PaymentModal] 모달 렌더링 - VITE_TOSS_CLIENT_KEY 최종 확인:', {
+    isOpen,
+    clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
+    orderId,
+    amount
+  });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="결제하기">
