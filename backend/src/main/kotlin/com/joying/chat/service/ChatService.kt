@@ -489,7 +489,7 @@ class ChatService(
                     title = "${senderNickname}님의 메시지",
                     body = message.content,
                     icon = senderProfileUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
@@ -504,7 +504,7 @@ class ChatService(
                     body = "이미지 1장",
                     icon = senderProfileUrl,
                     image = message.imageUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
@@ -527,7 +527,7 @@ class ChatService(
                     title = "${senderNickname}님이 파일을 보냈습니다",
                     body = "${message.fileName} ($fileSize)",
                     icon = senderProfileUrl,
-                    tag = "chat-room-$chatRoomId",
+                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
                     data =
                         mapOf(
                             "chatRoomId" to chatRoomId,
