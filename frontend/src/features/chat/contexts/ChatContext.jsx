@@ -1030,8 +1030,9 @@ export const ChatProvider = ({ children }) => {
             // 새 메시지 추가
             dispatch({ type: 'ADD_MESSAGE', payload: normalized });
             // 채팅 목록 업데이트
-            // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
-            updateChatRoomList(normalized, false);
+            // 채팅방 안에 있으면 자동 읽음 처리, 밖에 있으면 안읽음으로 표시
+            const isInThisChatRoom = activeRoomIdRef.current === roomId;
+            updateChatRoomList(normalized, isInThisChatRoom);
         }
       },
       onError: (errorLike) => {
