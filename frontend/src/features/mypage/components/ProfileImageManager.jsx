@@ -124,18 +124,18 @@ const ProfileImageManager = () => {
   };
 
   return (
-    <div className="glass-modal-content p-6">
+    <div className="p-6">
       <div className="mb-6">
-        <h2 className="glass-modal-title">프로필 이미지 관리</h2>
-        <p className="glass-modal-description">프로필 이미지를 등록, 변경, 삭제하세요</p>
+        <h2 className="text-2xl font-bold text-gray-900">프로필 이미지 관리</h2>
+        <p className="text-gray-600 mt-2">프로필 이미지를 등록, 변경, 삭제하세요</p>
       </div>
 
-      <div className="glass-profile-container p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/50 p-6">
         <div className="flex flex-col lg:flex-row items-start space-y-6 lg:space-y-0 lg:space-x-8">
           {/* 이미지 미리보기 */}
           <div className="flex-shrink-0">
             <div className="relative">
-              <div className="glass-profile-image-container w-32 h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden">
+              <div className="border-4 border-gray-200 w-32 h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden bg-gray-100">
                 {previewImage ? (
                   <img
                     src={previewImage}
@@ -149,7 +149,7 @@ const ProfileImageManager = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="glass-profile-placeholder w-full h-full flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
                     <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                     </svg>
@@ -157,7 +157,7 @@ const ProfileImageManager = () => {
                 )}
               </div>
               {previewImage && (
-                <div className="glass-preview-badge absolute -top-2 -right-2 text-white text-xs px-2 py-1 rounded-full">
+                <div className="absolute -top-2 -right-2 bg-gray-900 text-white text-xs px-2 py-1 rounded-full">
                   미리보기
                 </div>
               )}
@@ -169,7 +169,7 @@ const ProfileImageManager = () => {
             <div className="space-y-4">
               {/* 파일 선택 */}
               <div>
-                <label className="glass-form-label block text-sm font-medium mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   이미지 선택
                 </label>
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
@@ -182,26 +182,26 @@ const ProfileImageManager = () => {
                   />
                   <label
                     htmlFor="profile-image-input"
-                    className="glass-button-primary flex-1 py-3 px-6 cursor-pointer text-center font-semibold inline-block w-full"
+                    className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 flex-1 py-3 px-6 cursor-pointer text-center font-semibold inline-block w-full rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     이미지 선택
                   </label>
                   {previewImage && (
                     <button
                       onClick={handleCancel}
-                      className="glass-button-ghost flex-1 py-3 px-6 font-semibold inline-block w-full text-center"
+                      className="bg-white/80 text-gray-700 hover:bg-white flex-1 py-3 px-6 font-semibold inline-block w-full text-center rounded-lg transition-all duration-200 border border-gray-300"
                     >
                       취소
                     </button>
                   )}
                 </div>
-                <p className="glass-form-help text-xs mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   PNG, JPEG, JPG, GIF 파일만 가능 (최대 10MB)
                 </p>
               </div>
 
               {error && (
-                <div className="glass-error-message text-red-500 text-sm p-3 bg-red-50 rounded">
+                <div className="text-red-600 text-sm p-3 bg-red-50 border border-red-200 rounded-lg">
                   {error}
                 </div>
               )}
@@ -213,14 +213,14 @@ const ProfileImageManager = () => {
                     <button
                       onClick={handleUpload}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="glass-button-success flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                      className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
                     >
                       {isUploadingImage ? '업로드 중...' : '이미지 업로드'}
                     </button>
                     <button
                       onClick={handleCancel}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="glass-button-ghost flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                      className="bg-white/80 text-gray-700 hover:bg-white flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 border border-gray-300"
                     >
                       취소
                     </button>
@@ -230,7 +230,7 @@ const ProfileImageManager = () => {
                     <button
                       onClick={handleDelete}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="glass-button-danger flex-1 py-3 px-6 font-semibold disabled:opacity-50"
+                      className="bg-gradient-to-r from-gray-700 to-gray-600 text-white hover:from-gray-800 hover:to-gray-700 flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
                     >
                       {isDeletingImage ? '삭제 중...' : '이미지 삭제'}
                     </button>
@@ -239,9 +239,9 @@ const ProfileImageManager = () => {
               </div>
 
               {/* 가이드라인 */}
-              <div className="glass-guideline-container p-4">
-                <h4 className="glass-guideline-title text-sm font-medium mb-2">이미지 가이드라인</h4>
-                <ul className="glass-guideline-list text-xs space-y-1">
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">이미지 가이드라인</h4>
+                <ul className="text-xs text-gray-700 space-y-1">
                   <li>• 정사각형 이미지를 권장합니다</li>
                   <li>• 최소 200x200px 이상의 해상도를 권장합니다</li>
                   <li>• 개인정보가 포함된 이미지는 피해주세요</li>
