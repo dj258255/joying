@@ -11,7 +11,7 @@ import logo from '@/assets/icons/logo.png';
  * - 나뭇잎 떨어지는 파티클 효과 (HomePage에서 관리)
  * - 카드 스타일: 네온 보더 (Neon Border)
  */
-const Section3Tent = ({ products = [] }) => {
+const Section3Tent = ({ products = [], categoryId }) => {
   const navigate = useNavigate();
 
   return (
@@ -26,7 +26,7 @@ const Section3Tent = ({ products = [] }) => {
           src={logo} 
           alt="빌려joying" 
           className="h-12 w-auto object-contain cursor-pointer"
-          onClick={() => navigate(ROUTE_PATHS.HOME)}
+          onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
         />
       </div>
 
@@ -44,17 +44,30 @@ const Section3Tent = ({ products = [] }) => {
           </p>
 
           {/* 네온 보더 카드 */}
-          {products.length > 0 && (
+          {products.length > 0 ? (
             <div className="grid grid-cols-3 gap-4 mb-8">
               {products.map((product) => (
-                <NeonBorderCard key={product.id} product={product} />
+                <div
+                  key={product.id}
+                  onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}/${product.id}`)}
+                >
+                  <NeonBorderCard product={product} />
+                </div>
               ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 backdrop-blur-md rounded-2xl p-6 border-2 border-green-400/50 shadow-[0_0_15px_rgba(74,222,128,0.3)]">
+                <div className="text-center text-white/70">
+                  <p className="text-sm">상품이 없습니다</p>
+                </div>
+              </div>
             </div>
           )}
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=camping`)}
+              onClick={() => navigate(categoryId ? `${ROUTE_PATHS.PRODUCTS}?category=${categoryId}` : ROUTE_PATHS.PRODUCTS)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               캠핑용품 둘러보기

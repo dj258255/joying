@@ -71,7 +71,7 @@ const Section1Hero = () => {
           src={logo} 
           alt="빌려joying" 
           className="h-12 w-auto object-contain cursor-pointer"
-          onClick={() => navigate(ROUTE_PATHS.HOME)}
+          onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
         />
       </div>
 
@@ -95,7 +95,8 @@ const Section1Hero = () => {
             <img 
               src={logo} 
               alt="빌려joying" 
-              className="h-32 lg:h-56 w-auto object-contain"
+              className="h-32 lg:h-56 w-auto object-contain cursor-pointer"
+              onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
             />
           </h1>
         </div>

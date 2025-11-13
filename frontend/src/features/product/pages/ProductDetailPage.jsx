@@ -152,12 +152,20 @@ const ProductDetailPage = () => {
     // rentalRefuses를 disabledDates 형식으로 변환
     const disabledDates = Array.isArray(productResponse.rentalRefuses)
       ? productResponse.rentalRefuses.flatMap(refuse => {
-          const start = new Date(refuse.startRef);
-          const end = new Date(refuse.endRef);
+          // ISO 문자열을 YYYY-MM-DD 형식으로 직접 추출 (타임존 문제 방지)
+          const startDateStr = refuse.startRef.split('T')[0];
+          const endDateStr = refuse.endRef.split('T')[0];
+          
+          const start = new Date(startDateStr + 'T00:00:00');
+          const end = new Date(endDateStr + 'T00:00:00');
           const dates = [];
           const currentDate = new Date(start);
+          
           while (currentDate <= end) {
-            dates.push(currentDate.toISOString().split('T')[0]);
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
             currentDate.setDate(currentDate.getDate() + 1);
           }
           return dates;
@@ -502,12 +510,20 @@ const ProductDetailPage = () => {
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span>
-                          대여 가능 기간: {' '}
-                          {product.startRent && new Date(product.startRent).toLocaleDateString('ko-KR')}
-                          {' ~ '}
-                          {product.endRent ? new Date(product.endRent).toLocaleDateString('ko-KR') : '제한 없음'}
-                        </span>
+                      <span>
+                        대여 가능 기간: {' '}
+                        {product.startRent && (() => {
+                          const dateStr = product.startRent.split('T')[0];
+                          const [year, month, day] = dateStr.split('-');
+                          return `${year}. ${month}. ${day}.`;
+                        })()}
+                        {' ~ '}
+                        {product.endRent ? (() => {
+                          const dateStr = product.endRent.split('T')[0];
+                          const [year, month, day] = dateStr.split('-');
+                          return `${year}. ${month}. ${day}.`;
+                        })() : '제한 없음'}
+                      </span>
                       </div>
                     )}
                   </div>
@@ -821,9 +837,17 @@ const ProductDetailPage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span>
-                        {product.startRent && new Date(product.startRent).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                        {product.startRent && (() => {
+                          const dateStr = product.startRent.split('T')[0];
+                          const [year, month, day] = dateStr.split('-');
+                          return `${month}월 ${day}일`;
+                        })()}
                         {' ~ '}
-                        {product.endRent ? new Date(product.endRent).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '제한 없음'}
+                        {product.endRent ? (() => {
+                          const dateStr = product.endRent.split('T')[0];
+                          const [year, month, day] = dateStr.split('-');
+                          return `${month}월 ${day}일`;
+                        })() : '제한 없음'}
                       </span>
                     </div>
                   )}
