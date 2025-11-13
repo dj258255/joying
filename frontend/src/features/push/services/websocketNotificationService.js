@@ -208,40 +208,44 @@ function handleNotification(notification) {
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
     console.log('[WebSocketNotification] Service Worker를 통해 알림 표시 시도...');
 
-    navigator.serviceWorker.ready.then(async (registration) => {
-      try {
-        // 중복 알림 체크: 같은 tag의 알림이 이미 있는지 확인
-        const existingNotifications = await registration.getNotifications({
-          tag: tag || 'default'
-        });
+    // Push 알림과 충돌 방지: 200ms 지연 후 표시
+    // Push 알림이 먼저 표시되었으면 중복으로 감지하여 무시됨
+    setTimeout(() => {
+      navigator.serviceWorker.ready.then(async (registration) => {
+        try {
+          // 중복 알림 체크: 같은 tag의 알림이 이미 있는지 확인
+          const existingNotifications = await registration.getNotifications({
+            tag: tag || 'default'
+          });
 
-        if (existingNotifications.length > 0) {
-          console.log('[WebSocketNotification] 중복 알림 무시 (이미 표시됨, tag:', tag, ')');
-          return;
+          if (existingNotifications.length > 0) {
+            console.log('[WebSocketNotification] 중복 알림 무시 (Push가 이미 표시됨, tag:', tag, ')');
+            return;
+          }
+
+          const notificationOptions = {
+            body,
+            icon: icon || '/vite.svg',
+            badge: badge || '/vite.svg',
+            tag: tag || 'default',
+            requireInteraction: false,
+            data: data || {},
+            renotify: false
+          };
+
+          if (image) {
+            notificationOptions.image = image;
+          }
+
+          await registration.showNotification(title, notificationOptions);
+          console.log('[WebSocketNotification] Service Worker 알림 표시 완료 (Push 없어서 Fallback 작동, tag:', tag, ')');
+        } catch (error) {
+          console.error('[WebSocketNotification] Service Worker 알림 표시 실패:', error);
         }
-
-        const notificationOptions = {
-          body,
-          icon: icon || '/vite.svg',
-          badge: badge || '/vite.svg',
-          tag: tag || 'default',
-          requireInteraction: false,
-          data: data || {},
-          renotify: false
-        };
-
-        if (image) {
-          notificationOptions.image = image;
-        }
-
-        await registration.showNotification(title, notificationOptions);
-        console.log('[WebSocketNotification] Service Worker 알림 표시 완료 (tag:', tag, ')');
-      } catch (error) {
-        console.error('[WebSocketNotification] Service Worker 알림 표시 실패:', error);
-      }
-    }).catch((error) => {
-      console.error('[WebSocketNotification] Service Worker 준비 실패:', error);
-    });
+      }).catch((error) => {
+        console.error('[WebSocketNotification] Service Worker 준비 실패:', error);
+      });
+    }, 200); // 200ms 지연
   } else {
     // Service Worker 없으면 일반 Notification API 사용 (폴백)
     console.log('[WebSocketNotification] Service Worker 없음, 페이지 알림 사용');
