@@ -35,7 +35,7 @@ pipeline {
       steps {
         sh '''
           set -e
-          cp /home/ubuntu/joying/frontend/.env.prod frontend/.env
+          cp /home/ubuntu/joying/frontend/.env frontend/.env
           echo "[OK] frontend/.env copied for build"
         '''
       }
