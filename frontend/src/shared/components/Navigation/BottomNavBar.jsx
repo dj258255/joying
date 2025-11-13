@@ -7,11 +7,9 @@ import React, { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiHome, FiSearch, FiPlusCircle, FiMessageSquare, FiUser } from 'react-icons/fi';
 import NavButton from './NavButton';
-import { useUnreadCount } from '@/features/chat/hooks/useUnreadCount';
 
 const BottomNavBar = () => {
   const location = useLocation();
-  const { unreadCount } = useUnreadCount();
 
   // 네비게이션 바를 숨길 경로들
   const hideNavRoutes = ['/login', '/signup', '/checkout'];
@@ -46,8 +44,7 @@ const BottomNavBar = () => {
       icon: FiMessageSquare,
       label: '채팅',
       path: '/chats',
-      isActive: location.pathname.startsWith('/chats'),
-      badge: unreadCount
+      isActive: location.pathname.startsWith('/chats')
     },
     {
       id: 'mypage',
@@ -56,35 +53,29 @@ const BottomNavBar = () => {
       path: '/mypage',
       isActive: location.pathname.startsWith('/mypage')
     }
-  ], [location.pathname, unreadCount]);
+  ], [location.pathname]);
 
   if (!shouldShow) return null;
 
   return (
-    <>
-      {/* 하단 네비게이션 바 */}
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] lg:hidden bg-white border-t border-gray-200 shadow-lg">
         <div className="flex justify-around items-center h-16 max-w-screen-sm mx-auto px-2">
-          {navItems.map((item) => (
-            <NavButton
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              path={item.path}
-              isActive={item.isActive}
-              isCenter={item.isCenter}
-              badge={item.badge}
-            />
-          ))}
-        </div>
+        {navItems.map((item) => (
+          <NavButton
+            key={item.id}
+            icon={item.icon}
+            label={item.label}
+            path={item.path}
+            isActive={item.isActive}
+            isCenter={item.isCenter}
+            badge={item.badge}
+          />
+        ))}
+      </div>
 
-        {/* iOS 안전 영역 대응 */}
-        <div className="h-[env(safe-area-inset-bottom)]" />
-      </nav>
-
-      {/* 하단 여백 확보 (콘텐츠가 네비게이션에 가려지지 않도록) */}
-      <div className="h-16 lg:hidden" />
-    </>
+      {/* iOS 안전 영역 대응 */}
+      <div className="h-[env(safe-area-inset-bottom)]" />
+    </nav>
   );
 };
 
