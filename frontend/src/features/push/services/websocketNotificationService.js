@@ -198,8 +198,54 @@ function handleNotification(notification) {
   }
 
   // 브라우저 알림 권한 확인
-  if (Notification.permission === 'granted') {
-    // 브라우저 네이티브 알림 표시
+  if (Notification.permission !== 'granted') {
+    console.log('[WebSocketNotification] 브라우저 알림 권한 없음 (권한:', Notification.permission, ')');
+    return;
+  }
+
+  // Service Worker를 통해 알림 표시 (Edge 호환성)
+  // Edge는 페이지에서 직접 Notification 생성하는 것을 제한할 수 있음
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    console.log('[WebSocketNotification] Service Worker를 통해 알림 표시 시도...');
+
+    navigator.serviceWorker.ready.then(async (registration) => {
+      try {
+        // 중복 알림 체크: 같은 tag의 알림이 이미 있는지 확인
+        const existingNotifications = await registration.getNotifications({
+          tag: tag || 'default'
+        });
+
+        if (existingNotifications.length > 0) {
+          console.log('[WebSocketNotification] 중복 알림 무시 (이미 표시됨, tag:', tag, ')');
+          return;
+        }
+
+        const notificationOptions = {
+          body,
+          icon: icon || '/vite.svg',
+          badge: badge || '/vite.svg',
+          tag: tag || 'default',
+          requireInteraction: false,
+          data: data || {},
+          renotify: false
+        };
+
+        if (image) {
+          notificationOptions.image = image;
+        }
+
+        await registration.showNotification(title, notificationOptions);
+        console.log('[WebSocketNotification] Service Worker 알림 표시 완료 (tag:', tag, ')');
+      } catch (error) {
+        console.error('[WebSocketNotification] Service Worker 알림 표시 실패:', error);
+      }
+    }).catch((error) => {
+      console.error('[WebSocketNotification] Service Worker 준비 실패:', error);
+    });
+  } else {
+    // Service Worker 없으면 일반 Notification API 사용 (폴백)
+    console.log('[WebSocketNotification] Service Worker 없음, 페이지 알림 사용');
+
     try {
       const notificationOptions = {
         body,
@@ -207,7 +253,8 @@ function handleNotification(notification) {
         badge: badge || '/vite.svg',
         tag: tag || 'default',
         requireInteraction: false,
-        data: data || {}
+        data: data || {},
+        renotify: false
       };
 
       if (image) {
@@ -224,12 +271,10 @@ function handleNotification(notification) {
         browserNotification.close();
       };
 
-      console.log('[WebSocketNotification] 브라우저 알림 표시 완료');
+      console.log('[WebSocketNotification] 페이지 알림 표시 완료 (tag:', tag, ')');
     } catch (error) {
-      console.error('[WebSocketNotification] 브라우저 알림 표시 실패:', error);
+      console.error('[WebSocketNotification] 페이지 알림 표시 실패:', error);
     }
-  } else {
-    console.log('[WebSocketNotification] 브라우저 알림 권한 없음 (권한:', Notification.permission, ')');
   }
 
   // 인앱 토스트 알림 (선택적)
