@@ -11,6 +11,8 @@ import ReviewCard from '../../review/components/ReviewCard';
 import { DUMMY_PRODUCTS, DUMMY_REVIEWS, DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
 import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
+import UserProfileProductList from '../components/UserProfileProductList';
 
 const UserProfilePage = () => {
   const { memberId } = useParams();
@@ -20,6 +22,11 @@ const UserProfilePage = () => {
   const [userProducts, setUserProducts] = useState([]);
   const [userReviews, setUserReviews] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [pageInfo, setPageInfo] = useState({
+    content: [],
+    totalPages: 1,
+    currentPage: 0
+  });
   
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
   const { user, isLoading, error } = useUserProfile(memberId ? parseInt(memberId) : null);
@@ -30,17 +37,35 @@ const UserProfilePage = () => {
       navigate('/404');
       return;
     }
-    
-    if (user && memberId) {
-      // 사용자 상품 로드 (임시로 더미 데이터 사용, 추후 API 연동 필요)
-      const products = DUMMY_PRODUCTS.filter(p => p.sellerId === parseInt(memberId));
-      setUserProducts(products);
 
-      // 사용자 리뷰 로드 (임시로 더미 데이터 사용, 추후 API 연동 필요)
-      const reviews = DUMMY_REVIEWS.filter(r => r.reviewerId === parseInt(memberId) || r.revieweeId === parseInt(memberId));
+    // user 정보만 확인
+    if (user && memberId) {
+      // 리뷰는 여기서 가져도 OK
+      const reviews = DUMMY_REVIEWS.filter(r =>
+        r.reviewerId === parseInt(memberId) ||
+        r.revieweeId === parseInt(memberId)
+      );
       setUserReviews(reviews);
     }
   }, [user, memberId, error, navigate]);
+
+  useEffect(() => {
+    const fetchUserProducts = async () => {
+      const res = await axiosInstance.get(`/products/member/${memberId}`, {
+        params: { page: pageInfo.currentPage, size: 12 },
+      });
+
+      const data = res?.data?.body?.data;
+
+      setPageInfo({
+        content: data.content,
+        totalPages: data.totalPages,
+        currentPage: data.number
+      });
+    };
+
+    fetchUserProducts();
+  }, [memberId, pageInfo.currentPage]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('ko-KR');
@@ -89,7 +114,7 @@ const UserProfilePage = () => {
         <SideNavbar />
         <div className="flex items-center justify-center h-screen bg-gray-50">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
             <div className="text-gray-600 text-lg">프로필을 불러오는 중...</div>
           </div>
         </div>
@@ -223,7 +248,7 @@ const UserProfilePage = () => {
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <div className="text-center">
                         <div className="text-gray-600 mb-1">이메일</div>
-                        <div className="font-medium text-blue-600 text-xs">{user.email}</div>
+                        <div className="font-medium text-gray-900 text-xs">{user.email}</div>
                       </div>
                     </div>
                   )}
@@ -231,13 +256,13 @@ const UserProfilePage = () => {
                 
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-                    <div className="text-xl font-bold text-blue-600">{userProducts.length}</div>
-                    <div className="text-xs text-blue-500">등록 상품</div>
+                  <div className="text-center p-3 bg-gray-50 rounded-xl">
+                    <div className="text-xl font-bold text-gray-900">{userProducts.length}</div>
+                    <div className="text-xs text-gray-500">등록 상품</div>
                   </div>
-                  <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-                    <div className="text-xl font-bold text-blue-600">{userReviews.length}</div>
-                    <div className="text-xs text-blue-500">리뷰</div>
+                  <div className="text-center p-3 bg-gray-50 rounded-xl">
+                    <div className="text-xl font-bold text-gray-900">{userReviews.length}</div>
+                    <div className="text-xs text-gray-500">리뷰</div>
                   </div>
                 </div>
               </div>
@@ -248,8 +273,8 @@ const UserProfilePage = () => {
                   onClick={() => setActiveTab('products')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'products'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                      : 'text-gray-600 hover:bg-gray-100/50'
+                      ? 'bg-gray-100 text-gray-900 border border-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100/60'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,11 +284,11 @@ const UserProfilePage = () => {
                 </button>
                 
                 <button
-                  onClick={() => setActiveTab('reviews')}
+                  onClick={() => setActiveTab('reviews')}reviews
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'reviews'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                      : 'text-gray-600 hover:bg-gray-100/50'
+                      ? 'bg-gray-100 text-gray-900 border border-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100/60'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -279,7 +304,7 @@ const UserProfilePage = () => {
           <div className="flex-1">
 
             {/* 등록 상품 섹션 */}
-            {activeTab === 'products' && (
+            {/* {activeTab === 'products' && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-100px)] flex flex-col">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex-shrink-0">등록 상품</h3>
                 {userProducts.length > 0 ? (
@@ -290,7 +315,7 @@ const UserProfilePage = () => {
                           key={product.id}
                           product={{
                             ...product,
-                            image: product.images[0],
+                            image: product.thumbnailUrl,
                             name: product.title
                           }}
                           onClick={() => navigate(`/products/${product.id}`)}
@@ -314,6 +339,22 @@ const UserProfilePage = () => {
                   </div>
                 )}
               </div>
+            )} */}
+
+            {activeTab === 'products' && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-100px)] flex flex-col overflow-hidden">
+                <h3 className="text-xl font-bold text-gray-900 mb-6 flex-shrink-0">등록 상품</h3>
+
+                {/* RegisteredProductList 그대로 삽입 */}
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <UserProfileProductList
+                    products={pageInfo.content}
+                    currentPage={pageInfo.currentPage}
+                    totalPages={pageInfo.totalPages}
+                    onPageChange={(page) => setPageInfo(prev => ({ ...prev, currentPage: page }))}
+                  />
+                </div>
+              </div>
             )}
 
             {/* 리뷰 섹션 */}
@@ -326,8 +367,8 @@ const UserProfilePage = () => {
                       onClick={() => setReviewTab('borrowed')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         reviewTab === 'borrowed'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800'
+                          ? 'bg-gray-100 text-gray-900 shadow-sm border border-gray-900'
+                          : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       빌렸을 때
@@ -402,8 +443,8 @@ const UserProfilePage = () => {
                 <div className="grid grid-cols-7 gap-1">
                   {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                     <div key={day} className={`p-2 text-center text-sm rounded-lg ${
-                      day === new Date().getDate() ? 'bg-blue-500 text-white' :
-                      selectedProduct && hasReservationOnDate(day) ? 'bg-blue-100 text-blue-600' :
+                      day === new Date().getDate() ? 'border border-gray-900 text-gray-900 font-semibold' :
+                      selectedProduct && hasReservationOnDate(day) ? 'bg-gray-200 text-gray-900' :
                       'text-gray-700 hover:bg-gray-100'
                     }`}>
                       {day}
@@ -417,26 +458,26 @@ const UserProfilePage = () => {
                 <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
                 <div className="flex-1 overflow-y-auto scrollbar-hide">
                   <div className="space-y-3 pr-2">
-                    {userProducts.map((product, index) => (
+                    {pageInfo.content.map((product, index) => (
                       <button
                         key={product.id}
                         onClick={() => setSelectedProduct(selectedProduct?.id === product.id ? null : product)}
                         className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
                           selectedProduct?.id === product.id
-                            ? 'bg-blue-100 text-blue-600'
+                            ? 'bg-gray-100 text-gray-900 border border-gray-900'
                             : 'hover:bg-gray-100 text-gray-600'
                         }`}
                       >
                         <div className={`w-3 h-3 rounded-full ${
-                          index === 0 ? 'bg-blue-400' :
-                          index === 1 ? 'bg-blue-500' :
-                          index === 2 ? 'bg-blue-600' :
-                          'bg-blue-300'
+                          index === 0 ? 'bg-gray-400' :
+                          index === 1 ? 'bg-gray-600' :
+                          index === 2 ? 'bg-gray-800' :
+                          'bg-gray-300'
                         }`}></div>
                         <span className="text-sm font-medium truncate">{product.title}</span>
                       </button>
                     ))}
-                    {userProducts.length === 0 && (
+                    {pageInfo.content.length === 0 && (
                       <div className="flex-1 flex items-center justify-center">
                         <div className="text-center py-4 text-gray-500 text-sm">
                           등록된 상품이 없습니다
