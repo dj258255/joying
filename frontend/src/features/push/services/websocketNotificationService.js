@@ -173,7 +173,7 @@ export function unsubscribeFromGlobalNotifications() {
  * WebSocket으로 받은 알림 처리
  * @param {Object} notification - 알림 데이터
  */
-function handleNotification(notification) {
+export function handleNotification(notification) {
   const { type, title, body, icon, image, badge, tag, data } = notification;
 
   console.log('[WebSocketNotification] 알림 처리:', { type, title, body, data });
