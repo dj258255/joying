@@ -66,42 +66,6 @@ const ChatListPage = () => {
         client.onConnect = (frame) => {
           console.log('[ChatListPage] WebSocket 연결 성공');
 
-          // 온라인 상태 변경 구독
-          const presenceSubscription = client.subscribe('/user/queue/presence-update', (message) => {
-            try {
-              const presenceUpdate = JSON.parse(message.body);
-              console.log('[ChatListPage] 온라인 상태 변경 수신:', presenceUpdate);
-
-              // React Query 캐시 업데이트 (온라인 상태 반영)
-              queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
-                if (!oldData || !oldData.chatRooms) return oldData;
-
-                // 해당 memberId와 채팅방을 공유하는 채팅방의 온라인 상태 업데이트
-                const updatedChatRooms = oldData.chatRooms.map((room) => {
-                  // otherMemberId가 변경된 사용자와 일치하면 온라인 상태 업데이트
-                  if (room.otherMemberId === presenceUpdate.memberId) {
-                    return {
-                      ...room,
-                      member: {
-                        ...(room.member || {}),
-                        isOnline: presenceUpdate.isOnline,
-                        lastSeenAt: presenceUpdate.lastSeenAt
-                      }
-                    };
-                  }
-                  return room;
-                });
-
-                return {
-                  ...oldData,
-                  chatRooms: updatedChatRooms
-                };
-              });
-            } catch (error) {
-              console.error('[ChatListPage] 온라인 상태 업데이트 처리 오류:', error);
-            }
-          });
-
           // 채팅방 목록 업데이트 구독
           const chatRoomSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
@@ -282,25 +246,9 @@ const ChatListPage = () => {
             }
           });
 
-          // Heartbeat 시작 (30초마다)
-          const heartbeatInterval = setInterval(() => {
-            if (client && client.connected) {
-              try {
-                client.publish({
-                  destination: '/app/chat/heartbeat',
-                  body: ''
-                });
-              } catch (error) {
-                console.warn('[ChatListPage] Heartbeat 전송 실패:', error);
-              }
-            }
-          }, 30000);
-
           // ref에 저장
           stompClientRef.current = client;
-          presenceSubscriptionRef.current = presenceSubscription;
           chatRoomSubscriptionRef.current = chatRoomSubscription;
-          heartbeatIntervalRef.current = heartbeatInterval;
         };
 
         client.onStompError = (frame) => {
@@ -329,18 +277,6 @@ const ChatListPage = () => {
 
     // 정리 함수
     return () => {
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
-      }
-      if (presenceSubscriptionRef.current) {
-        try {
-          presenceSubscriptionRef.current.unsubscribe();
-        } catch (error) {
-          console.warn('[ChatListPage] 온라인 상태 구독 해제 오류:', error);
-        }
-        presenceSubscriptionRef.current = null;
-      }
       if (chatRoomSubscriptionRef.current) {
         try {
           chatRoomSubscriptionRef.current.unsubscribe();
