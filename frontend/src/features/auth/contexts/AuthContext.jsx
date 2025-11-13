@@ -26,7 +26,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
       if (response.status === 200) {
-        setUser(response.data);
+        const userData = response.data;
+        console.log('[AuthContext] 사용자 정보 업데이트:', {
+          memberId: userData.memberId,
+          verified: userData.verified,
+          name: userData.name
+        });
+        setUser(userData);
         setIsAuthenticated(true);
       }
     } catch (error) {
