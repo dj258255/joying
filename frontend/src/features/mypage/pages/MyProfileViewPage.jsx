@@ -19,7 +19,7 @@ const MyProfileViewPage = () => {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
           {/* 뒤로가기 버튼 */}
           <button
-            onClick={() => navigate('/mypage')}
+            onClick={() => navigate('/mypage', { state: { activeTab: 'account' } })}
             className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/50 rounded-lg transition-all duration-200 mb-4"
           >
             <FiArrowLeft className="w-5 h-5" />

@@ -258,7 +258,7 @@ function ProductCreatePage() {
     const numValue = Number(form[key]) || 0;
     if (numValue > 0) {
       const formatted = formatCurrency(numValue);
-      updateField(key, formatted);
+    updateField(key, formatted);
     } else {
       updateField(key, '');
     }
