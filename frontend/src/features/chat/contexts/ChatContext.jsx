@@ -1156,31 +1156,12 @@ export const ChatProvider = ({ children }) => {
             : readEvent.readAt;
           
           // 마지막 메시지만 읽음 표시 표시
-          dispatch({ 
-            type: 'MARK_MESSAGES_AS_READ', 
-            payload: { readAt, currentUserId } 
+          dispatch({
+            type: 'MARK_MESSAGES_AS_READ',
+            payload: { readAt, currentUserId }
           });
-          
-          // 3초 후 읽음 표시 숨기기
-          setTimeout(() => {
-            const snapshot = stateRef.current;
-            const ownMessages = snapshot.messages
-              .filter((msg) => {
-                const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
-                const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-                const readTimestamp = new Date(readAt).getTime();
-                return isOwnMessage && msgTimestamp <= readTimestamp;
-              })
-              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            const lastOwnMessage = ownMessages[0];
-            if (lastOwnMessage && lastOwnMessage.showReadIndicator) {
-              dispatch({ 
-                type: 'HIDE_READ_INDICATOR', 
-                payload: { messageId: lastOwnMessage.id } 
-              });
-            }
-          }, 3000);
+
+          // 읽음 표시 유지 (타이머 제거)
         }
       }
     });
@@ -1505,24 +1486,16 @@ export const ChatProvider = ({ children }) => {
       sendWebSocketMessage(roomId, payload);
       console.log('[ChatContext] 메시지 전송 요청:', payload);
 
-      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시를 즉시 표시했다가 사라지게
+      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시
       const snapshot = stateRef.current;
       const isOpponentInRoom = snapshot.typingMemberId != null;
-      
+
       if (isOpponentInRoom) {
-        // 즉시 읽음 표시 표시
-        dispatch({ 
-          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE', 
-          payload: { messageId: optimisticMessage.id } 
+        // 읽음 표시 표시 (유지)
+        dispatch({
+          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE',
+          payload: { messageId: optimisticMessage.id }
         });
-        
-        // 2초 후 읽음 표시 숨기기
-        setTimeout(() => {
-          dispatch({ 
-            type: 'HIDE_READ_INDICATOR', 
-            payload: { messageId: optimisticMessage.id } 
-          });
-        }, 2000);
       }
 
       // WebSocket 연결이 완료된 후 읽음 처리
