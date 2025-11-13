@@ -28,21 +28,26 @@ export const useInfiniteSearch = (query, filters = {}) => {
     },
     getNextPageParam: (lastPage, allPages) => {
       const data = lastPage?.data?.data;
-      const currentPage = data?.page || allPages.length;
-      const totalElements = data?.totalElements || 0;
+      const searchResponses = data?.searchResponses || [];
       const size = data?.size || 20;
-      const totalPages = Math.ceil(totalElements / size);
+      const currentPage = allPages.length; // 현재 로드된 페이지 수
+
+      // 🔥 백엔드 버그 우회: totalElements가 잘못되어 있으므로,
+      // 현재 페이지의 결과 개수가 size와 같으면 다음 페이지가 있다고 가정
+      const hasMore = searchResponses.length === size;
 
       console.log('📄 [useInfiniteSearch] getNextPageParam:', {
         currentPage,
-        totalPages,
-        hasMore: currentPage < totalPages
+        receivedCount: searchResponses.length,
+        size,
+        hasMore,
+        nextPage: hasMore ? currentPage + 1 : undefined
       });
 
       // 다음 페이지가 있으면 페이지 번호 반환, 없으면 undefined
-      return currentPage < totalPages ? currentPage + 1 : undefined;
+      return hasMore ? currentPage + 1 : undefined;
     },
-    enabled: false, // 수동 refetch 사용
+    enabled: true, // 자동 실행
     staleTime: 1000 * 60 * 2, // 2분
     retry: false
   });
