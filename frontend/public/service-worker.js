@@ -70,6 +70,25 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
       try {
+        // 현재 채팅방에 있는지 확인 (채팅방 안에 있으면 알림 표시 안함)
+        if (notificationData.data && notificationData.data.chatRoomId) {
+          const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+
+          for (const client of clients) {
+            const clientUrl = new URL(client.url);
+            const currentChatRoomId = clientUrl.pathname.match(/\/chats\/(\d+)/)?.[1];
+
+            if (currentChatRoomId && String(currentChatRoomId) === String(notificationData.data.chatRoomId)) {
+              console.log('[ServiceWorker] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
+                currentChatRoomId,
+                notificationChatRoomId: notificationData.data.chatRoomId,
+                clientUrl: client.url
+              });
+              return; // 알림 표시하지 않음
+            }
+          }
+        }
+
         // 중복 방지: messageId로 이미 표시된 알림이 있는지 확인
         // (같은 메시지에 대해 WebSocket과 Push 둘 다 오는 경우 중복 방지)
         if (notificationData.data && notificationData.data.messageId) {
