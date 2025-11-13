@@ -31,6 +31,17 @@ pipeline {
       }
     }
 
+    stage('Prepare frontend .env') {
+      steps {
+        sh '''
+          set -e
+          [ -f frontend/.env ] || { echo "[ERR] frontend/.env missing"; exit 1; }
+          echo "[INFO] frontend .env ready for build"
+        '''
+      }
+    }
+
+
     stage('Preflight: nginx.conf 문법&볼륨 검사') {
       steps {
         sh '''
