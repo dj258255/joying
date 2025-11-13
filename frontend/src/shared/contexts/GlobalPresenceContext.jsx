@@ -15,6 +15,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getWebSocketUrl } from '@/features/chat/api/websocketApi';
 import { chatApi } from '@/features/chat/api/chatApi';
+import { handleNotification } from '@/features/push/services/websocketNotificationService';
 
 const GlobalPresenceContext = createContext(null);
 
@@ -106,6 +107,47 @@ export const GlobalPresenceProvider = ({ children }) => {
 
           presenceSubscriptionRef.current = presenceSubscription;
 
+          // 알림 구독 (websocketNotificationService에서 이동)
+          const notificationSubscription = client.subscribe('/user/queue/notifications', (message) => {
+            try {
+              const notification = JSON.parse(message.body);
+              console.log('[GlobalPresence] 알림 수신:', notification);
+              handleNotification(notification);
+            } catch (error) {
+              console.error('[GlobalPresence] 알림 파싱 오류:', error);
+            }
+          });
+
+          // 채팅방 업데이트 구독 (websocketNotificationService에서 이동)
+          const chatRoomUpdateSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
+            try {
+              const update = JSON.parse(message.body);
+              console.log('[GlobalPresence] 채팅방 업데이트:', update);
+              window.dispatchEvent(new CustomEvent('chatroom-update', { detail: update }));
+            } catch (error) {
+              console.error('[GlobalPresence] 채팅방 업데이트 파싱 오류:', error);
+            }
+          });
+
+          // 채팅방 상태 변경 구독 (websocketNotificationService에서 이동)
+          const chatRoomStatusSubscription = client.subscribe('/user/queue/chatroom-status', (message) => {
+            try {
+              const status = JSON.parse(message.body);
+              console.log('[GlobalPresence] 채팅방 상태 변경:', status);
+              window.dispatchEvent(new CustomEvent('chatroom-status', { detail: status }));
+            } catch (error) {
+              console.error('[GlobalPresence] 채팅방 상태 파싱 오류:', error);
+            }
+          });
+
+          // 모든 구독을 ref에 저장
+          presenceSubscriptionRef.current = presenceSubscription;
+          chatRoomSubscriptionRef.current = {
+            notification: notificationSubscription,
+            update: chatRoomUpdateSubscription,
+            status: chatRoomStatusSubscription
+          };
+
           // Heartbeat 시작 (30초마다)
           const heartbeatInterval = setInterval(() => {
             if (client && client.connected) {
@@ -162,6 +204,16 @@ export const GlobalPresenceProvider = ({ children }) => {
           console.warn('[GlobalPresence] 온라인 상태 구독 해제 오류:', error);
         }
         presenceSubscriptionRef.current = null;
+      }
+      if (chatRoomSubscriptionRef.current) {
+        try {
+          chatRoomSubscriptionRef.current.notification?.unsubscribe();
+          chatRoomSubscriptionRef.current.update?.unsubscribe();
+          chatRoomSubscriptionRef.current.status?.unsubscribe();
+        } catch (error) {
+          console.warn('[GlobalPresence] 채팅방 구독 해제 오류:', error);
+        }
+        chatRoomSubscriptionRef.current = null;
       }
       if (stompClientRef.current) {
         try {
