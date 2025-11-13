@@ -53,13 +53,13 @@ const UserInfoEditor = ({ onSave }) => {
   };
 
   return (
-    <div className="p-4 lg:p-6">
-      <div className="mb-4 lg:mb-6">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-900">회원 정보 수정</h2>
-        <p className="text-gray-600 mt-1 text-sm lg:text-base">나의 회원 정보를 수정하세요</p>
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">회원 정보 수정</h2>
+        <p className="text-gray-600 mt-2 text-sm">나의 회원 정보를 수정하세요</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-4 lg:p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/50 p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {isLoading ? (
             <div className="text-center py-8">
@@ -77,7 +77,7 @@ const UserInfoEditor = ({ onSave }) => {
                   name="nickname"
                   value={formData.nickname}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   placeholder="닉네임을 입력하세요"
                   required
                   minLength={2}
@@ -124,14 +124,14 @@ const UserInfoEditor = ({ onSave }) => {
             <button
               type="submit"
               disabled={isLoading || isUpdating || !memberId}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex-1 bg-gradient-to-r from-gray-900 to-gray-800 text-white py-3 px-6 rounded-lg hover:from-black hover:to-gray-900 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
             >
               {isUpdating ? '저장 중...' : '정보 수정'}
             </button>
             <button
               type="button"
-              onClick={() => navigate('/mypage')}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              onClick={() => navigate('/mypage', { state: { activeTab: 'account' } })}
+              className="flex-1 bg-white/80 text-gray-700 py-3 px-6 rounded-lg hover:bg-white transition-all duration-200 border border-gray-300 font-medium"
             >
               취소
             </button>

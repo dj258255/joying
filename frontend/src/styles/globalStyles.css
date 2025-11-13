@@ -834,5 +834,23 @@
     animation: slideInFromLeft 0.2s ease-out forwards;
   }
 
+  /* iOS 안전 영역 대응 */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  @supports (padding: max(0px)) {
+    .safe-area-inset-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    }
+  }
+
+  /* 모바일 하단 네비게이션 바 여백 */
+  @media (max-width: 1023px) {
+    body {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
 }
 
