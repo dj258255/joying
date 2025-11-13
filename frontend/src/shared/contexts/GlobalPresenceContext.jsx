@@ -112,7 +112,7 @@ export const GlobalPresenceProvider = ({ children }) => {
               try {
                 client.publish({
                   destination: '/app/chat/heartbeat',
-                  body: ''
+                  body: JSON.stringify({}) // 빈 객체를 JSON으로 전송 (백엔드 @Payload Map<String, Any>? 파싱 가능)
                 });
                 console.log('[GlobalPresence] Heartbeat 전송');
               } catch (error) {
