@@ -230,10 +230,11 @@ class ChatRoomService(
      * - 내부에서 코루틴 기능(병렬 처리) 사용 가능
      *
      * @param memberId 회원 ID
+     * @param includeMember 참여자 온라인 상태 포함 여부
      * @return 채팅방 목록
      */
-    fun getMyChatRooms(memberId: Long): List<ChatRoomResponse> = kotlinx.coroutines.runBlocking {
-        logger.info("[getMyChatRooms] 시작: memberId={}", memberId)
+    fun getMyChatRooms(memberId: Long, includeMember: Boolean = false): List<ChatRoomResponse> = kotlinx.coroutines.runBlocking {
+        logger.info("[getMyChatRooms] 시작: memberId={}, includeMember={}", memberId, includeMember)
 
         // JPA Repository 조회 (Blocking이지만 충분히 빠름)
         val chatRooms = chatRoomRepository.findByMemberId(memberId)
@@ -271,6 +272,22 @@ class ChatRoomService(
                 chatRoom.buyer
             }
 
+            // 참여자 상세 정보 (선택적)
+            val memberInfo = if (includeMember) {
+                val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
+                val lastSeenAt = if (!isOnline) {
+                    chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+                } else {
+                    null
+                }
+                ChatRoomResponse.MemberInfo(
+                    isOnline = isOnline,
+                    lastSeenAt = lastSeenAt
+                )
+            } else {
+                null
+            }
+
             ChatRoomResponse(
                 chatRoomId = chatRoom.chatRoomId!!,
                 productId = chatRoom.product.getProductId()!!,
@@ -285,7 +302,8 @@ class ChatRoomService(
                 status = chatRoom.status,
                 isPinned = settings.isPinned,
                 isMuted = settings.isMuted,
-                isLeft = settings.isLeft
+                isLeft = settings.isLeft,
+                member = memberInfo  // ← 선택적 포함
             )
         }
     }
