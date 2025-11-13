@@ -288,6 +288,7 @@ export const ChatProvider = ({ children }) => {
   const globalWebSocketClientRef = useRef(null); // 전역 WebSocket 클라이언트 (채팅방 상태 변경 알림용)
   const globalWebSocketSubscriptionRef = useRef(null); // 전역 WebSocket 구독
   const globalHeartbeatIntervalRef = useRef(null); // 전역 WebSocket Heartbeat 인터벌
+  const activeRoomIdRef = useRef(null); // 현재 활성화된 채팅방 ID (자동 읽음 처리용)
   const queryClient = useQueryClient();
   const { connect, disconnect, sendMessage: sendWebSocketMessage, sendTyping: sendTypingEvent, isConnected: socketConnected } = useChatSocket();
   const { user } = useAuth();
@@ -1030,8 +1031,9 @@ export const ChatProvider = ({ children }) => {
             // 새 메시지 추가
             dispatch({ type: 'ADD_MESSAGE', payload: normalized });
             // 채팅 목록 업데이트
-            // 새 메시지는 읽지 않은 상태로 처리 (채팅방에 진입해서 읽음 처리하면 shouldMarkAsRead=true로 호출됨)
-            updateChatRoomList(normalized, false);
+            // 채팅방 안에 있으면 자동 읽음 처리, 밖에 있으면 안읽음으로 표시
+            const isInThisChatRoom = activeRoomIdRef.current === roomId;
+            updateChatRoomList(normalized, isInThisChatRoom);
         }
       },
       onError: (errorLike) => {
@@ -1052,22 +1054,37 @@ export const ChatProvider = ({ children }) => {
         connectionRejectRef.current = () => {};
         resolve?.();
         
-        // Heartbeat 시작 (30초마다 전송)
+        // 채팅방 입장 전송
+        try {
+          websocketApi.enterChatRoom(roomId);
+        } catch (error) {
+          console.warn('[ChatContext] 채팅방 입장 전송 실패:', error);
+        }
+        
+        // Heartbeat 시작 (30초마다 전송, chatRoomId 포함)
         if (heartbeatIntervalRef.current) {
           clearInterval(heartbeatIntervalRef.current);
         }
         
-        // 초기 Heartbeat 즉시 전송
-        websocketApi.sendHeartbeat();
+        // 초기 Heartbeat 즉시 전송 (chatRoomId 포함)
+        websocketApi.sendHeartbeat(roomId);
         
-        // 30초마다 Heartbeat 전송
+        // 30초마다 Heartbeat 전송 (chatRoomId 포함)
         heartbeatIntervalRef.current = setInterval(() => {
-          websocketApi.sendHeartbeat();
+          websocketApi.sendHeartbeat(roomId);
         }, 30000);
       },
       onDisconnect: () => {
         console.log('[ChatContext] WebSocket 연결 종료:', roomId);
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
+        
+        // 채팅방 퇴장 전송
+        try {
+          websocketApi.leaveChatRoom();
+        } catch (error) {
+          console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+        }
+        
         // 타이핑 상태 초기화
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
@@ -1139,31 +1156,12 @@ export const ChatProvider = ({ children }) => {
             : readEvent.readAt;
           
           // 마지막 메시지만 읽음 표시 표시
-          dispatch({ 
-            type: 'MARK_MESSAGES_AS_READ', 
-            payload: { readAt, currentUserId } 
+          dispatch({
+            type: 'MARK_MESSAGES_AS_READ',
+            payload: { readAt, currentUserId }
           });
-          
-          // 3초 후 읽음 표시 숨기기
-          setTimeout(() => {
-            const snapshot = stateRef.current;
-            const ownMessages = snapshot.messages
-              .filter((msg) => {
-                const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
-                const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-                const readTimestamp = new Date(readAt).getTime();
-                return isOwnMessage && msgTimestamp <= readTimestamp;
-              })
-              .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-            
-            const lastOwnMessage = ownMessages[0];
-            if (lastOwnMessage && lastOwnMessage.showReadIndicator) {
-              dispatch({ 
-                type: 'HIDE_READ_INDICATOR', 
-                payload: { messageId: lastOwnMessage.id } 
-              });
-            }
-          }, 3000);
+
+          // 읽음 표시 유지 (타이머 제거)
         }
       }
     });
@@ -1174,11 +1172,19 @@ export const ChatProvider = ({ children }) => {
   // setCurrentChatRoom(chatRoomId, chatRoomData) - 전달된 데이터 사용 (생성 직후 등)
   const setCurrentChatRoom = useCallback(async (chatRoomId, chatRoomData = null) => {
     if (!chatRoomId) {
+      // 채팅방 퇴장 전송
+      try {
+        websocketApi.leaveChatRoom();
+      } catch (error) {
+        console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+      }
+
       disconnect();
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });
       dispatch({ type: 'SET_MESSAGES', payload: [] });
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
       connectionPromiseRef.current = Promise.resolve();
+      activeRoomIdRef.current = null; // 채팅방 퇴장 시 ref 초기화
       return;
     }
 
@@ -1318,6 +1324,8 @@ export const ChatProvider = ({ children }) => {
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: normalizedChatRoom });
       dispatch({ type: 'SET_MESSAGES', payload: normalizedMessages });
       dispatch({ type: 'SET_HAS_MORE_PAST', payload: (messages?.length ?? 0) >= DEFAULT_MESSAGE_PAGE_SIZE });
+
+      activeRoomIdRef.current = roomId; // 채팅방 입장 시 ref 설정
 
       initializeConnection(roomId, normalizedChatRoom);
 
@@ -1478,24 +1486,16 @@ export const ChatProvider = ({ children }) => {
       sendWebSocketMessage(roomId, payload);
       console.log('[ChatContext] 메시지 전송 요청:', payload);
 
-      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시를 즉시 표시했다가 사라지게
+      // 상대방이 채팅방에 있는 경우 (typingMemberId가 있으면) 읽음 표시
       const snapshot = stateRef.current;
       const isOpponentInRoom = snapshot.typingMemberId != null;
-      
+
       if (isOpponentInRoom) {
-        // 즉시 읽음 표시 표시
-        dispatch({ 
-          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE', 
-          payload: { messageId: optimisticMessage.id } 
+        // 읽음 표시 표시 (유지)
+        dispatch({
+          type: 'SHOW_READ_INDICATOR_FOR_MESSAGE',
+          payload: { messageId: optimisticMessage.id }
         });
-        
-        // 2초 후 읽음 표시 숨기기
-        setTimeout(() => {
-          dispatch({ 
-            type: 'HIDE_READ_INDICATOR', 
-            payload: { messageId: optimisticMessage.id } 
-          });
-        }, 2000);
       }
 
       // WebSocket 연결이 완료된 후 읽음 처리
@@ -2164,13 +2164,13 @@ export const ChatProvider = ({ children }) => {
           
           console.log('[ChatContext] 채팅방 상태 변경 알림 구독 완료: /user/queue/chatroom-status');
 
-          // Heartbeat 시작 (30초마다)
+          // Heartbeat 시작 (30초마다, chatRoomId 없이)
           heartbeatInterval = setInterval(() => {
             if (client && client.connected) {
               try {
                 client.publish({
                   destination: '/app/chat/heartbeat',
-                  body: ''
+                  body: JSON.stringify({})
                 });
               } catch (error) {
                 console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);
@@ -2236,16 +2236,17 @@ export const ChatProvider = ({ children }) => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송
+          // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송 (chatRoomId 포함)
         if (websocketApi.isConnected?.()) {
-        websocketApi.sendHeartbeat();
+          const currentRoomId = stateRef.current.currentChatRoom?.chatRoomId || stateRef.current.currentChatRoom?.id;
+          websocketApi.sendHeartbeat(currentRoomId);
         }
-        // 전역 WebSocket Heartbeat도 전송
+        // 전역 WebSocket Heartbeat도 전송 (chatRoomId 없이)
         if (globalWebSocketClientRef.current?.connected) {
           try {
             globalWebSocketClientRef.current.publish({
               destination: '/app/chat/heartbeat',
-              body: ''
+              body: JSON.stringify({})
             });
           } catch (error) {
             console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);

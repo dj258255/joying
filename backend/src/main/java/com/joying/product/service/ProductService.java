@@ -11,5 +11,6 @@ public interface ProductService {
     Long updateProduct(Long productId, Long memberId, ProductRequestDto.CreateProduct req);
     void deleteProduct(Long productId, Long memberId);
     Page<ProductResponseDto.ProductListItem> getMyItems(Long memberId, Pageable pageable);
+    Page<ProductResponseDto.ProductListItem> getMemberItems(Long memberId, Pageable pageable);
     Page<ProductResponseDto.ProductListItem> getMyLikes(Long memberId, Pageable pageable);
 }

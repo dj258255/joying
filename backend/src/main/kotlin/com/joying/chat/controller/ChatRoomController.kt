@@ -61,20 +61,27 @@ class ChatRoomController(
      * 내가 참여 중인 모든 채팅방 목록 반환
      * (안읽은 메시지 개수 포함, 응답 헤더로 총 안읽은 개수 제공)
      *
+     * @param include 포함할 추가 정보 (member: 참여자 온라인 상태 등)
      * @return 채팅방 목록 (+ 헤더: X-Total-Unread-Count)
      */
     @Operation(
         summary = "내 채팅방 목록 조회",
-        description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다.",
+        description = "내가 참여 중인 모든 채팅방 목록을 반환합니다. 응답 헤더 X-Total-Unread-Count에 총 안읽은 메시지 개수가 포함됩니다. include=member 파라미터로 참여자 온라인 상태를 포함할 수 있습니다.",
     )
     @GetMapping
-    fun getMyChatRooms(): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
+    fun getMyChatRooms(
+        @RequestParam(required = false) include: String?
+    ): ResponseEntity<ApiResponse.SuccessBody<List<ChatRoomResponse>>> {
         val memberId = getCurrentMemberId()
 
-        logger.info("채팅방 목록 조회 요청: memberId={}", memberId)
+        logger.info("채팅방 목록 조회 요청: memberId={}, include={}", memberId, include)
+
+        // include 파라미터 파싱 (쉼표로 구분된 값)
+        val includes = include?.split(",")?.map { it.trim() } ?: emptyList()
+        val includeMember = includes.contains("member")
 
         // Service에서 runBlocking 처리 (HTTP Thread에서 완료)
-        val chatRooms = chatRoomService.getMyChatRooms(memberId)
+        val chatRooms = chatRoomService.getMyChatRooms(memberId, includeMember)
 
         logger.info("채팅방 목록 조회 완료: memberId={}, 채팅방 개수={}", memberId, chatRooms.size)
 

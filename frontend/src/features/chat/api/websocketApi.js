@@ -277,20 +277,67 @@ export const websocketApi = {
     });
   },
 
-  sendHeartbeat() {
+  sendHeartbeat(chatRoomId) {
     if (!client || !client.connected) {
       console.warn('[websocketApi] Heartbeat 전송 실패: WebSocket이 연결되지 않았습니다.');
       return false;
     }
 
     try {
+      const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
+      // chatRoomId가 있으면 포함, 없으면 빈 객체
+      const body = chatRoomIdNum ? JSON.stringify({ chatRoomId: chatRoomIdNum }) : JSON.stringify({});
+      
       client.publish({
         destination: '/app/chat/heartbeat',
-        body: ''
+        body: body
       });
       return true;
     } catch (error) {
       console.warn('[websocketApi] Heartbeat 전송 오류:', error);
+      return false;
+    }
+  },
+
+  enterChatRoom(chatRoomId) {
+    const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
+    if (!client || !client.connected) {
+      console.warn('[websocketApi] 채팅방 입장 실패: WebSocket이 연결되지 않았습니다.');
+      return false;
+    }
+    if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
+      console.warn('[websocketApi] 채팅방 입장 실패: 유효하지 않은 채팅방 ID입니다.');
+      return false;
+    }
+
+    try {
+      client.publish({
+        destination: '/app/chat/enter',
+        body: JSON.stringify({ chatRoomId: chatRoomIdNum })
+      });
+      console.log('[websocketApi] 채팅방 입장 전송:', chatRoomIdNum);
+      return true;
+    } catch (error) {
+      console.warn('[websocketApi] 채팅방 입장 전송 오류:', error);
+      return false;
+    }
+  },
+
+  leaveChatRoom() {
+    if (!client || !client.connected) {
+      console.warn('[websocketApi] 채팅방 퇴장 실패: WebSocket이 연결되지 않았습니다.');
+      return false;
+    }
+
+    try {
+      client.publish({
+        destination: '/app/chat/leave',
+        body: JSON.stringify({})
+      });
+      console.log('[websocketApi] 채팅방 퇴장 전송');
+      return true;
+    } catch (error) {
+      console.warn('[websocketApi] 채팅방 퇴장 전송 오류:', error);
       return false;
     }
   },
