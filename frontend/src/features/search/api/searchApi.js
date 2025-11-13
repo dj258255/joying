@@ -27,62 +27,8 @@ export const searchApi = {
    * @returns {Promise<{items: Array, total: number}>}
    */
   search: async (params) => {
-    console.log('🔍 [SearchAPI] 검색 시작:', { endpoint: '/search', params });
-    console.log('📤 [SearchAPI] 전송 파라미터 상세:', {
-      uploadType: params.uploadType,
-      q: params.q || params.query,
-      page: params.page,
-      size: params.size,
-      category: params.category,
-      dong: params.dong,
-      rating: params.rating,
-      'price-min': params['price-min'],
-      'price-max': params['price-max'],
-      'date-from': params['date-from'],
-      'date-to': params['date-to'],
-      sameDayRental: params.sameDayRental
-    });
     try {
       const response = await axiosInstance.get('/search', { params });
-      console.log('[SearchAPI] 검색 성공 - 전체 응답:', response.data);
-      console.log('[SearchAPI] 응답 구조 분석:', {
-        hasData: !!response.data,
-        dataKeys: response.data ? Object.keys(response.data) : [],
-        dataType: typeof response.data,
-        hasNestedData: !!response.data?.data,
-        nestedDataKeys: response.data?.data ? Object.keys(response.data.data) : [],
-        hasSearchResponses: !!response.data?.data?.searchResponses,
-        searchResponsesLength: response.data?.data?.searchResponses?.length || 0
-      });
-      
-      // 각 상품에 liked 필드가 있는지 확인
-      const searchResponses = response.data?.data?.searchResponses || response.data?.searchResponses || [];
-      console.log('[SearchAPI] 추출된 searchResponses:', {
-        length: searchResponses.length,
-        items: searchResponses.slice(0, 3) // 처음 3개만 로그
-      });
-      
-      if (searchResponses.length > 0) {
-        console.log('[SearchAPI] 상품 목록 (liked 필드 포함):', searchResponses.map(p => ({ 
-          productId: p.productId || p.id, 
-          liked: p.liked,
-          isLiked: p.isLiked,
-          isLike: p.isLike,
-          hasLikedField: 'liked' in p || 'isLiked' in p || 'isLike' in p
-        })));
-        
-        // liked 필드가 없는 상품이 있는지 확인
-        const productsWithoutLiked = searchResponses.filter(p => !('liked' in p) && !('isLiked' in p) && !('isLike' in p));
-        if (productsWithoutLiked.length > 0) {
-          console.warn('[SearchAPI] liked 필드가 없는 상품:', productsWithoutLiked.map(p => ({
-            productId: p.productId || p.id,
-            title: p.title
-          })));
-        }
-      } else {
-        console.warn('[SearchAPI] ⚠️ searchResponses가 비어있습니다!');
-      }
-      
       return response;
     } catch (error) {
       console.error('[SearchAPI] 검색 실패:', error);

@@ -11,7 +11,7 @@ import { ChatProvider } from '@/features/chat/contexts/ChatContext'
 import { AuthProvider } from '@/features/auth/contexts/AuthContext'
 import { GlobalPresenceProvider } from '@/shared/contexts/GlobalPresenceContext'
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
-import { PushNotificationInitializer } from '@/features/push/components/PushNotificationInitializer'
+// import { PushNotificationInitializer } from '@/features/push/components/PushNotificationInitializer' // TODO: 백엔드 VAPID API 준비 후 활성화
 
 // Lazy loading을 위한 컴포넌트 import
 const HomePage = React.lazy(() => import('@/features/home/pages/HomePage'))

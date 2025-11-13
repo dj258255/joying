@@ -10,7 +10,7 @@ import logo from '@/assets/icons/logo.png';
  * - 게임패드 3D 모델 표시
  * - 카드 스타일: 홀로그램 (Holographic)
  */
-const Section4Gamepad = ({ products = [] }) => {
+const Section4Gamepad = ({ products = [], categoryId }) => {
   const navigate = useNavigate();
 
   return (
@@ -25,7 +25,7 @@ const Section4Gamepad = ({ products = [] }) => {
           src={logo} 
           alt="빌려joying" 
           className="h-12 w-auto object-contain cursor-pointer"
-          onClick={() => navigate(ROUTE_PATHS.HOME)}
+          onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
         />
       </div>
 
@@ -44,17 +44,30 @@ const Section4Gamepad = ({ products = [] }) => {
           </p>
 
           {/* 홀로그램 카드 */}
-          {products.length > 0 && (
+          {products.length > 0 ? (
             <div className="grid grid-cols-3 gap-4 mb-8">
               {products.map((product) => (
-                <HolographicCard key={product.id} product={product} />
+                <div
+                  key={product.id}
+                  onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}/${product.id}`)}
+                >
+                  <HolographicCard product={product} />
+                </div>
               ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-md rounded-2xl p-6 border-2 border-blue-400/50 shadow-[0_0_15px_rgba(96,165,250,0.3)]">
+                <div className="text-center text-white/70">
+                  <p className="text-sm">상품이 없습니다</p>
+                </div>
+              </div>
             </div>
           )}
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate(`${ROUTE_PATHS.PRODUCTS}?category=electronics`)}
+              onClick={() => navigate(categoryId ? `${ROUTE_PATHS.PRODUCTS}?category=${categoryId}` : ROUTE_PATHS.PRODUCTS)}
               className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-gray-200 transition-all hover:scale-105"
             >
               전자기기 둘러보기

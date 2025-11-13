@@ -38,7 +38,6 @@ export const getCategoryById = async (categoryId) => {
  */
 export const getCategoryTree = async () => {
   const response = await axiosInstance.get(API_ENDPOINTS.CATEGORY.LIST);
-  // 응답 구조: { message: "카테고리 트리 조회 성공", data: [...] }
   return response.data.data || [];
 };
 

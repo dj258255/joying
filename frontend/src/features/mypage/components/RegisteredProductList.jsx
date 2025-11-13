@@ -170,21 +170,13 @@ const RegisteredProductList = ({
   
   // 상품 데이터 변환 (백엔드 응답 형식을 컴포넌트에서 사용하는 형식으로)
   const transformedProducts = filteredProducts.map(product => {
-    console.log('[RegisteredProductList] 원본 product 데이터:', product);
-    console.log('[RegisteredProductList] region 정보:', product.region);
-    console.log('[RegisteredProductList] thumbnailUrl:', product.thumbnailUrl);
-    console.log('[RegisteredProductList] files:', product.files);
-    
     const imageUrl = product.thumbnailUrl || (product.files && product.files.length > 0 ? product.files[0].url : null);
-    console.log('[RegisteredProductList] 최종 imageUrl:', imageUrl);
     
     // 장소 정보 추출
     const dongId = product.region?.dongId || product.dongId;
     const dong = product.region?.dong || product.dong || '';
     const sido = product.region?.sido || product.sido || '';
     const gugun = product.region?.gungu || product.gugun || '';
-    
-    console.log('[RegisteredProductList] 장소 정보 추출:', { dongId, dong, sido, gugun });
     
     return {
       id: product.productId,
@@ -211,7 +203,7 @@ const RegisteredProductList = ({
   });
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-2 sm:space-y-4 pb-0">
       {/* 필터 및 정렬 컨트롤 - 항상 표시 */}
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-start sm:items-center justify-between">
         {/* uploadType 필터 */}
@@ -248,8 +240,8 @@ const RegisteredProductList = ({
           </button>
         </div>
         
-        {/* 정렬 선택 */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* 정렬 선택 - 모바일에서 숨김 */}
+        <div className="hidden lg:flex items-center gap-1.5 sm:gap-2">
           <label className="text-xs sm:text-sm text-gray-600">정렬:</label>
           <select
             value={sortBy}
@@ -285,8 +277,8 @@ const RegisteredProductList = ({
           </div>
         </div>
       ) : (
-        /* 상품 그리드 */
-        <div className="grid grid-cols-4 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
+        /* 상품 그리드 - 모바일에서 8개까지만 보이고 스크롤 */
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6 max-h-[600px] lg:max-h-none overflow-y-auto scrollbar-hide pb-0">
           {transformedProducts.map((product) => (
             <ProductCard
               key={product.id || product.productId}
