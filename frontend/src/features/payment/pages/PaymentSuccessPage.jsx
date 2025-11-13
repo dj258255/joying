@@ -6,7 +6,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { paymentApi } from '../api/paymentApi';
-import { messageApi } from '../../chat/api/messageApi';
 
 const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
@@ -54,28 +53,6 @@ const PaymentSuccessPage = () => {
 
         setPaymentInfo(response);
         setStatus('success');
-
-        // 채팅방이 있으면 결제 완료 메시지 전송
-        if (chatRoomId && rentalHisId) {
-          try {
-            const messageContent = `✅ 결제가 완료되었습니다!\n\n결제 금액: ${parseInt(amount).toLocaleString()}원\n주문번호: ${orderId}\n\n💡 판매자님, 물건을 발송해주세요!\n💡 구매자님, 판매자가 물건을 발송할 때까지 기다려주세요!\n\nrentalHisId:${rentalHisId}`;
-
-            await messageApi.sendMessage(chatRoomId, {
-              type: 'PAYMENT_COMPLETE',
-              content: messageContent,
-              rentalHisId: rentalHisId,
-              paymentInfo: {
-                orderId: orderId,
-                amount: parseInt(amount)
-              }
-            });
-
-            console.log('[PaymentSuccessPage] 결제 완료 메시지 전송 완료');
-          } catch (err) {
-            console.error('[PaymentSuccessPage] 메시지 전송 실패:', err);
-            // 메시지 전송 실패해도 결제는 성공이므로 계속 진행
-          }
-        }
       } catch (error) {
         console.error('[PaymentSuccessPage] 결제 승인 실패:', error);
 
@@ -120,7 +97,29 @@ const PaymentSuccessPage = () => {
   };
 
   const handleGoToChats = () => {
-    navigate('/chats');
+    console.log('[PaymentSuccessPage] handleGoToChats 함수 실행됨!');
+    console.log('[PaymentSuccessPage] URL 파라미터 값:', {
+      chatRoomId,
+      rentalHisId,
+      orderId,
+      amount
+    });
+
+    // 채팅방 ID가 있으면 해당 채팅방으로, 없으면 채팅 목록으로
+    if (chatRoomId) {
+      const url = `/chats/${chatRoomId}?paymentComplete=true&rentalHisId=${rentalHisId}&orderId=${orderId}&amount=${amount}`;
+      console.log('[PaymentSuccessPage] 채팅방으로 이동:', {
+        chatRoomId,
+        rentalHisId,
+        orderId,
+        amount,
+        url
+      });
+      navigate(url);
+    } else {
+      console.log('[PaymentSuccessPage] 채팅방 목록으로 이동 (chatRoomId 없음)');
+      navigate('/chats');
+    }
   };
 
   const handleGoToMyPage = () => {

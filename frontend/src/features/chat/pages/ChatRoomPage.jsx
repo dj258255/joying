@@ -16,6 +16,7 @@ import TransactionProcessModal from '../components/TransactionProcessModal';
 import TransactionActionButton from '../components/TransactionActionButton';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
 import ShippingModal from '../../../features/rental/components/ShippingModal';
+import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
@@ -239,6 +240,9 @@ const ChatRoomPage = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState(null);
   const [showShippingModal, setShowShippingModal] = useState(false);
+  const [showCancelDetailModal, setShowCancelDetailModal] = useState(false);
+  const [cancelDetailInfo, setCancelDetailInfo] = useState(null);
+  const [isProcessingCancel, setIsProcessingCancel] = useState(false);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -258,7 +262,10 @@ const ChatRoomPage = () => {
   const shouldSendRentalRequest = location.state?.shouldSendRentalRequest || false;
   const rentalRequestData = location.state?.rentalRequestData || null;
   const hasSentRentalRequestRef = useRef(false); // 대여 요청 메시지 전송 여부 추적
-  
+  const hassentPaymentCompleteRef = useRef(false); // 결제 완료 메시지 전송 여부 추적
+
+  // 결제 완료 메시지는 백엔드에서 자동 전송
+
   useEffect(() => {
     if (!chatRoomId) return;
 
@@ -856,6 +863,80 @@ const ChatRoomPage = () => {
 
     setPaymentMessage(message);
     setShowPaymentModal(true);
+  };
+
+  // 취소 승인 핸들러
+  const handleCancelApprove = async () => {
+    if (!cancelDetailInfo || !cancelDetailInfo.cancelId) {
+      alert('취소 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!window.confirm('거래 취소를 승인하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      setIsProcessingCancel(true);
+
+      console.log('[ChatRoomPage] 취소 승인:', { cancelId: cancelDetailInfo.cancelId });
+
+      // 취소 승인 API 호출
+      await rentalApi.approveCancel(cancelDetailInfo.cancelId);
+
+      alert('취소가 승인되었습니다. 보증금이 분배됩니다.');
+
+      // 채팅방에 취소 승인 메시지 전송
+      await sendMessage({
+        type: 'TEXT',
+        content: `✅ 거래 취소가 승인되었습니다.\n\n보증금이 합의된 대로 분배됩니다.`
+      });
+
+      setShowCancelDetailModal(false);
+      setCancelDetailInfo(null);
+    } catch (err) {
+      console.error('[ChatRoomPage] 취소 승인 실패:', err);
+      alert(err.response?.data?.message || err.message || '취소 승인에 실패했습니다.');
+    } finally {
+      setIsProcessingCancel(false);
+    }
+  };
+
+  // 취소 거절 핸들러
+  const handleCancelReject = async () => {
+    if (!cancelDetailInfo || !cancelDetailInfo.cancelId) {
+      alert('취소 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!window.confirm('거래 취소를 거절하시겠습니까? 거래가 계속 진행됩니다.')) {
+      return;
+    }
+
+    try {
+      setIsProcessingCancel(true);
+
+      console.log('[ChatRoomPage] 취소 거절:', { cancelId: cancelDetailInfo.cancelId });
+
+      // 취소 거절 API 호출
+      await rentalApi.rejectCancel(cancelDetailInfo.cancelId);
+
+      alert('취소가 거절되었습니다. 거래가 계속 진행됩니다.');
+
+      // 채팅방에 취소 거절 메시지 전송
+      await sendMessage({
+        type: 'TEXT',
+        content: `❌ 거래 취소가 거절되었습니다.\n\n거래가 계속 진행됩니다.`
+      });
+
+      setShowCancelDetailModal(false);
+      setCancelDetailInfo(null);
+    } catch (err) {
+      console.error('[ChatRoomPage] 취소 거절 실패:', err);
+      alert(err.response?.data?.message || err.message || '취소 거절에 실패했습니다.');
+    } finally {
+      setIsProcessingCancel(false);
+    }
   };
 
   // 토스 결제 성공 콜백 (결제 모달에서 호출)
@@ -1920,8 +2001,81 @@ const ChatRoomPage = () => {
                 }];
               }
 
-              // 결제 완료 메시지 - type으로 확인
-              if (message.type === 'PAYMENT_COMPLETE') {
+              // 취소 요청 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+              const isCancelRequest = message.type === 'cancel_request' || (message.type === 'text' && content?.includes('MESSAGE_TYPE:CANCEL_REQUEST'));
+              if (isCancelRequest) {
+                console.log('[ChatRoomPage] 취소 요청 메시지 감지:', {
+                  messageType: message.type,
+                  content: content.substring(0, 100),
+                  currentUserId,
+                  senderId: message.sender?.id
+                });
+
+                const buttons = [];
+
+                // rentalHisId와 cancelId 추출
+                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
+                const cancelIdMatch = content.match(/cancelId:(\d+)/);
+                const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
+                const cancelId = cancelIdMatch ? Number(cancelIdMatch[1]) : null;
+
+                console.log('[ChatRoomPage] 추출된 ID:', { rentalHisId, cancelId });
+
+                // 취소 사유 및 보증금 정보 추출
+                const reasonMatch = content.match(/취소 사유: (.*?)\n/);
+                const buyerRefundMatch = content.match(/구매자 환불: ([\d,]+)원/);
+                const sellerRefundMatch = content.match(/판매자 환불: ([\d,]+)원/);
+
+                const reason = reasonMatch ? reasonMatch[1] : '';
+                const buyerRefund = buyerRefundMatch ? Number(buyerRefundMatch[1].replace(/,/g, '')) : 0;
+                const sellerRefund = sellerRefundMatch ? Number(sellerRefundMatch[1].replace(/,/g, '')) : 0;
+
+                // 메시지 발신자가 아닌 사람에게만 버튼 표시
+                const senderId = message.sender?.id;
+                const isOwn = Number(currentUserId) === Number(senderId);
+
+                console.log('[ChatRoomPage] 버튼 표시 조건 체크:', {
+                  isOwn,
+                  rentalHisId,
+                  cancelId,
+                  shouldShowButton: !isOwn && rentalHisId && cancelId
+                });
+
+                if (!isOwn && rentalHisId && cancelId) {
+                  buttons.push({
+                    label: '📋 취소 사유 보기',
+                    className: 'bg-orange-600 text-white hover:bg-orange-700',
+                    onClick: async () => {
+                      try {
+                        console.log('[ChatRoomPage] 취소 사유 보기 클릭:', { rentalHisId, cancelId });
+
+                        // 취소 상세 모달 열기
+                        setShowCancelDetailModal(true);
+                        setCancelDetailInfo({
+                          cancelId,
+                          rentalHisId,
+                          reason,
+                          buyerRefund,
+                          sellerRefund,
+                          requesterName: message.sender?.username || message.sender?.name || '상대방'
+                        });
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 취소 정보 표시 실패:', err);
+                        alert('취소 정보를 불러올 수 없습니다.');
+                      }
+                    }
+                  });
+                }
+
+                console.log('[ChatRoomPage] 반환할 버튼:', buttons);
+                return buttons.length > 0 ? buttons : null;
+              }
+
+              // 결제 완료 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+              const isPaymentComplete = message.type === 'payment_complete'
+                || (message.type === 'text' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'))
+                || (message.type === 'system' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'));
+              if (isPaymentComplete) {
                 const buttons = [];
 
                 // rentalHisId 추출
@@ -1936,6 +2090,14 @@ const ChatRoomPage = () => {
                   || productData?.seller?.memberId
                   || productData?.seller?.member_id;
                 const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+                console.log('[ChatRoomPage] 결제 완료 메시지 감지:', {
+                  rentalHisId,
+                  sellerId,
+                  currentUserId,
+                  isSeller,
+                  productData
+                });
 
                 // 판매자에게는 "물품 보내기" 버튼
                 if (isSeller && rentalHisId) {
@@ -2490,6 +2652,19 @@ const ChatRoomPage = () => {
           }}
         />
       )}
+
+      {/* 취소 상세 모달 */}
+      <CancelDetailModal
+        isOpen={showCancelDetailModal}
+        onClose={() => {
+          setShowCancelDetailModal(false);
+          setCancelDetailInfo(null);
+        }}
+        cancelInfo={cancelDetailInfo}
+        onApprove={handleCancelApprove}
+        onReject={handleCancelReject}
+        isProcessing={isProcessingCancel}
+      />
     </div>
     </>
   );
