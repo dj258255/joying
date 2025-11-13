@@ -35,6 +35,7 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const data = event.data.json();
+      console.log('[ServiceWorker] 푸시 데이터 파싱 성공:', data);
       notificationData = {
         title: data.title || notificationData.title,
         body: data.body || notificationData.body,
@@ -47,13 +48,23 @@ self.addEventListener('push', (event) => {
         ...(data.actions && { actions: data.actions })
       };
     } catch (e) {
+      console.error('[ServiceWorker] JSON 파싱 실패:', e);
       // JSON 파싱 실패 시 텍스트로 처리
-      const text = event.data.text();
-      if (text) {
-        notificationData.body = text;
+      try {
+        const text = event.data.text();
+        console.log('[ServiceWorker] 텍스트로 파싱:', text);
+        if (text) {
+          notificationData.body = text;
+        }
+      } catch (textError) {
+        console.error('[ServiceWorker] 텍스트 파싱도 실패:', textError);
       }
     }
+  } else {
+    console.warn('[ServiceWorker] 푸시 데이터가 없음');
   }
+
+  console.log('[ServiceWorker] 알림 표시 시도:', notificationData);
 
   // 알림 표시
   event.waitUntil(
@@ -66,6 +77,10 @@ self.addEventListener('push', (event) => {
       data: notificationData.data,
       ...(notificationData.image && { image: notificationData.image }),
       ...(notificationData.actions && { actions: notificationData.actions })
+    }).then(() => {
+      console.log('[ServiceWorker] 알림 표시 완료:', notificationData.title);
+    }).catch((error) => {
+      console.error('[ServiceWorker] 알림 표시 실패:', error);
     })
   );
 });

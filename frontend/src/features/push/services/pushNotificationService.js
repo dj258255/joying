@@ -95,15 +95,93 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 /**
+ * 모바일 환경 감지
+ * @returns {Object} 모바일 환경 정보
+ */
+function detectMobileEnvironment() {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+  // iOS 감지
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+  // Android 감지
+  const isAndroid = /android/i.test(userAgent);
+
+  // 삼성 인터넷 브라우저 감지
+  const isSamsungBrowser = /SamsungBrowser/i.test(userAgent);
+
+  // 모바일 브라우저 감지
+  const isMobile = isIOS || isAndroid || /Mobile|mini|Fennec|Android|iP(ad|od|hone)/.test(userAgent);
+
+  // iOS PWA 모드 감지 (홈 화면에 추가된 경우)
+  const isIOSPWA = isIOS && window.navigator.standalone === true;
+
+  return {
+    isIOS,
+    isAndroid,
+    isMobile,
+    isIOSPWA,
+    isSamsungBrowser,
+    userAgent
+  };
+}
+
+/**
  * 브라우저가 푸시 알림을 지원하는지 확인
  * @returns {boolean}
  */
 export function isPushNotificationSupported() {
-  return (
+  const mobileEnv = detectMobileEnvironment();
+
+  // 브라우저의 Web Push API 지원 확인
+  const isSupported = (
     'serviceWorker' in navigator &&
     'PushManager' in window &&
     'Notification' in window
   );
+
+  // iOS Safari 특별 처리 (iOS 16.4+ 지원하지만 PWA 모드 필수)
+  if (mobileEnv.isIOS) {
+    const isStandalone = window.navigator.standalone === true ||
+                        window.matchMedia('(display-mode: standalone)').matches;
+
+    console.log('[PushNotificationService] iOS 푸시 알림 지원 확인:', {
+      ...mobileEnv,
+      serviceWorker: 'serviceWorker' in navigator,
+      pushManager: 'PushManager' in window,
+      notification: 'Notification' in window,
+      isStandalone,
+      isPWAMode: isStandalone,
+      isSupported: isSupported && isStandalone,
+      note: isStandalone
+        ? 'iOS Safari PWA 모드 - 푸시 알림 지원됨 (iOS 16.4+)'
+        : 'iOS Safari 일반 브라우저 모드 - 푸시 알림 미지원. 홈 화면에 추가하여 PWA로 사용해야 합니다.'
+    });
+
+    // iOS에서는 PWA 모드일 때만 지원
+    return isSupported && isStandalone;
+  }
+
+  // 브라우저 타입 판별
+  let browserNote = 'Desktop 브라우저 - 정상 지원';
+  if (mobileEnv.isAndroid) {
+    if (mobileEnv.isSamsungBrowser) {
+      browserNote = 'Android 삼성 인터넷 브라우저 - 정상 지원';
+    } else {
+      browserNote = 'Android Chrome/Edge/기타 브라우저 - 정상 지원';
+    }
+  }
+
+  console.log('[PushNotificationService] 푸시 알림 지원 확인:', {
+    ...mobileEnv,
+    serviceWorker: 'serviceWorker' in navigator,
+    pushManager: 'PushManager' in window,
+    notification: 'Notification' in window,
+    isSupported,
+    browserNote
+  });
+
+  return isSupported;
 }
 
 /**
@@ -173,6 +251,9 @@ export async function subscribeToPush(registration, vapidPublicKey) {
     // Uint8Array를 ArrayBuffer로 변환 (일부 브라우저에서 필요할 수 있음)
     const keyBuffer = keyArray.buffer.slice(keyArray.byteOffset, keyArray.byteOffset + keyArray.byteLength);
     
+    // 모바일 환경 정보
+    const mobileEnv = detectMobileEnvironment();
+
     console.log('[PushNotificationService] 푸시 구독 시도:', {
       vapidKeyLength: vapidPublicKey.length,
       keyArrayLength: keyArray.length,
@@ -187,6 +268,7 @@ export async function subscribeToPush(registration, vapidPublicKey) {
       isSecureContext: window.isSecureContext,
       protocol: window.location.protocol,
       hostname: window.location.hostname,
+      ...mobileEnv,
       browser: navigator.userAgent
     });
 
