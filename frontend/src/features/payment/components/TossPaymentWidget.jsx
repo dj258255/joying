@@ -27,20 +27,53 @@ const TossPaymentWidget = ({
 }) => {
   const tossPaymentsRef = useRef(null);
 
+  // 환경 변수 확인 로그
+  const envClientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
+  console.log('[TossPaymentWidget] VITE_TOSS_CLIENT_KEY 확인:', {
+    exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
+    envValue: envClientKey ? `${envClientKey.substring(0, 15)}...` : 'undefined',
+    propValue: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    match: envClientKey === clientKey
+  });
+
   useEffect(() => {
     // 토스 페이먼츠 SDK 로드
     const loadWidget = async () => {
+      console.log('[TossPaymentWidget] SDK 로드 시작:', {
+        clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+        orderId,
+        amount
+      });
+
+      if (!clientKey) {
+        console.error('[TossPaymentWidget] ❌ clientKey가 없습니다!', {
+          envKey: import.meta.env.VITE_TOSS_CLIENT_KEY,
+          propKey: clientKey
+        });
+        onError?.(new Error('클라이언트 키가 제공되지 않았습니다.'));
+        return;
+      }
+
       try {
         const tossPayments = await loadTossPayments(clientKey);
         tossPaymentsRef.current = tossPayments;
+        console.log('[TossPaymentWidget] ✅ SDK 로드 성공');
       } catch (error) {
-        console.error('토스 페이먼츠 SDK 로드 실패:', error);
+        console.error('[TossPaymentWidget] ❌ SDK 로드 실패:', error, {
+          clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined'
+        });
         onError?.(error);
       }
     };
 
     if (clientKey && amount > 0) {
       loadWidget();
+    } else {
+      console.warn('[TossPaymentWidget] SDK 로드 조건 불만족:', {
+        hasClientKey: !!clientKey,
+        amount,
+        amountValid: amount > 0
+      });
     }
 
     // 정리 함수
