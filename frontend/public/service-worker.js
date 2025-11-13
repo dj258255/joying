@@ -66,21 +66,10 @@ self.addEventListener('push', (event) => {
 
   console.log('[ServiceWorker] 알림 표시 시도:', notificationData);
 
-  // 알림 표시 (중복 방지 로직 추가)
+  // 알림 표시 (각 메시지마다 고유 tag로 쌓임)
   event.waitUntil(
     (async () => {
       try {
-        // 중복 알림 방지: 같은 tag의 알림이 이미 표시되어 있는지 확인
-        const existingNotifications = await self.registration.getNotifications({
-          tag: notificationData.tag
-        });
-
-        // 같은 tag의 알림이 최근 3초 이내에 표시되었으면 무시
-        if (existingNotifications.length > 0) {
-          console.log('[ServiceWorker] 중복 알림 무시 (이미 표시됨):', notificationData.tag);
-          return;
-        }
-
         // 알림 표시
         await self.registration.showNotification(notificationData.title, {
           body: notificationData.body,
@@ -89,11 +78,12 @@ self.addEventListener('push', (event) => {
           tag: notificationData.tag,
           requireInteraction: notificationData.requireInteraction,
           data: notificationData.data,
+          renotify: true,  // Edge 버그 해결: 같은 tag로 알림이 와도 다시 표시
           ...(notificationData.image && { image: notificationData.image }),
           ...(notificationData.actions && { actions: notificationData.actions })
         });
 
-        console.log('[ServiceWorker] 알림 표시 완료:', notificationData.title);
+        console.log('[ServiceWorker] Push 알림 표시 완료:', notificationData.title, 'tag:', notificationData.tag);
       } catch (error) {
         console.error('[ServiceWorker] 알림 표시 실패:', error);
       }
