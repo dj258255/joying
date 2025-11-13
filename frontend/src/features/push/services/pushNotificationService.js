@@ -272,9 +272,7 @@ export async function subscribeToPush(registration, vapidPublicKey) {
       browser: navigator.userAgent
     });
 
-    // 기존 구독 확인 및 해제 (VAPID 키 불일치 문제 해결)
-    // 브라우저는 동일한 도메인에서 하나의 VAPID 키만 허용하므로,
-    // 이전에 다른 VAPID 키로 구독한 경우 새로운 키로 구독할 수 없음
+    // 기존 구독 확인 및 처리
     let existingSubscription;
     try {
       existingSubscription = await registration.pushManager.getSubscription();
@@ -284,30 +282,34 @@ export async function subscribeToPush(registration, vapidPublicKey) {
           expirationTime: existingSubscription.expirationTime,
           options: existingSubscription.options
         });
-        
-        // 기존 구독이 있으면 먼저 해제
+
+        // 기존 구독의 VAPID 키 확인
+        // options.applicationServerKey가 현재 VAPID 키와 다르면 재구독 필요
+        const currentKey = existingSubscription.options?.applicationServerKey;
+        if (currentKey) {
+          const currentKeyArray = new Uint8Array(currentKey);
+          const isSameKey = currentKeyArray.length === keyArray.length &&
+                           currentKeyArray.every((val, idx) => val === keyArray[idx]);
+
+          if (isSameKey) {
+            console.log('[PushNotificationService] 기존 구독의 VAPID 키가 일치합니다. 재사용합니다.');
+            return existingSubscription;
+          } else {
+            console.warn('[PushNotificationService] 기존 구독의 VAPID 키가 다릅니다. 재구독이 필요합니다.');
+          }
+        }
+
+        // VAPID 키가 다르거나 확인 불가능한 경우 기존 구독 해제
         try {
           console.log('[PushNotificationService] 기존 구독 해제 중...');
-          const unsubscribeResult = await existingSubscription.unsubscribe();
-          console.log('[PushNotificationService] 기존 구독 해제 완료:', unsubscribeResult);
-          
-          // 해제 후 대기 (브라우저가 구독 정보를 정리할 시간 제공)
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // 해제 후 다시 확인 (구독이 완전히 제거되었는지 확인)
-          const remainingSubscription = await registration.pushManager.getSubscription();
-          if (remainingSubscription) {
-            console.warn('[PushNotificationService] 구독 해제 후에도 구독이 남아있음. 강제 재시도...');
-            // 브라우저 캐시 문제일 수 있으므로 추가 대기
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
+          await existingSubscription.unsubscribe();
+          console.log('[PushNotificationService] 기존 구독 해제 완료');
         } catch (unsubscribeError) {
-          console.warn('[PushNotificationService] 기존 구독 해제 실패:', {
+          console.warn('[PushNotificationService] 기존 구독 해제 실패 (무시하고 계속):', {
             error: unsubscribeError.message,
-            errorName: unsubscribeError.name,
-            note: '구독이 만료되었거나 이미 제거되었을 수 있습니다.'
+            errorName: unsubscribeError.name
           });
-          // 해제 실패해도 계속 진행 (기존 구독이 만료되었을 수 있음)
+          // 해제 실패해도 새 구독 시도
         }
       } else {
         console.log('[PushNotificationService] 기존 구독이 없습니다. 새로 구독합니다.');
