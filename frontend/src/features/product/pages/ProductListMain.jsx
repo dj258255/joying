@@ -347,6 +347,7 @@ const ProductListMain = () => {
   };
 
   const filteredProducts = useMemo(() => {
+    if (!products || products.length === 0) return [];
     if (selectedHashtags.length === 0) return products;
 
     return products.filter((product) => {
