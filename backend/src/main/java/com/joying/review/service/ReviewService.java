@@ -100,6 +100,7 @@ public class ReviewService {
 		Member reviewed = null;
 		if (uploadType == UploadType.BORROW) {
 			// 빌린 사람이 리뷰 작성 → 리뷰 대상은 빌려준 사람
+			reviewed = product.getWriter();
 			if (!rentalHistory.getMember().getMemberId().equals(authId)) {
 				throw new UnauthorizedReviewAccessException("해당 대여에 대한 리뷰 작성 권한이 없습니다.");
 			}
@@ -191,9 +192,9 @@ public class ReviewService {
 		reviewRepository.delete(review);
 	}
 
-	public Page<ReviewResponseDto> getMemberReviews(Long memberId, int page, int size) {
+	public Page<ReviewResponseDto> getMemberReviews(Long memberId, UploadType uploadType, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
-		Page<Review> reviews = reviewRepository.findByReviewed_MemberId(memberId, pageRequest);
+		Page<Review> reviews = reviewRepository.findByReviewed_MemberIdAndUploadType(memberId, uploadType, pageRequest);
 		return reviews.map(this::toResponseDto);
 	}
 
