@@ -845,12 +845,5 @@
     }
   }
 
-  /* 모바일 하단 네비게이션 바 여백 */
-  @media (max-width: 1023px) {
-    body {
-      padding-bottom: env(safe-area-inset-bottom);
-    }
-  }
-
 }
 
