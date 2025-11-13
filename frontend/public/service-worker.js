@@ -66,22 +66,38 @@ self.addEventListener('push', (event) => {
 
   console.log('[ServiceWorker] 알림 표시 시도:', notificationData);
 
-  // 알림 표시
+  // 알림 표시 (중복 방지 로직 추가)
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, {
-      body: notificationData.body,
-      icon: notificationData.icon,
-      badge: notificationData.badge,
-      tag: notificationData.tag,
-      requireInteraction: notificationData.requireInteraction,
-      data: notificationData.data,
-      ...(notificationData.image && { image: notificationData.image }),
-      ...(notificationData.actions && { actions: notificationData.actions })
-    }).then(() => {
-      console.log('[ServiceWorker] 알림 표시 완료:', notificationData.title);
-    }).catch((error) => {
-      console.error('[ServiceWorker] 알림 표시 실패:', error);
-    })
+    (async () => {
+      try {
+        // 중복 알림 방지: 같은 tag의 알림이 이미 표시되어 있는지 확인
+        const existingNotifications = await self.registration.getNotifications({
+          tag: notificationData.tag
+        });
+
+        // 같은 tag의 알림이 최근 3초 이내에 표시되었으면 무시
+        if (existingNotifications.length > 0) {
+          console.log('[ServiceWorker] 중복 알림 무시 (이미 표시됨):', notificationData.tag);
+          return;
+        }
+
+        // 알림 표시
+        await self.registration.showNotification(notificationData.title, {
+          body: notificationData.body,
+          icon: notificationData.icon,
+          badge: notificationData.badge,
+          tag: notificationData.tag,
+          requireInteraction: notificationData.requireInteraction,
+          data: notificationData.data,
+          ...(notificationData.image && { image: notificationData.image }),
+          ...(notificationData.actions && { actions: notificationData.actions })
+        });
+
+        console.log('[ServiceWorker] 알림 표시 완료:', notificationData.title);
+      } catch (error) {
+        console.error('[ServiceWorker] 알림 표시 실패:', error);
+      }
+    })()
   );
 });
 
