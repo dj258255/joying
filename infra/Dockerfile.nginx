@@ -3,7 +3,10 @@ WORKDIR /app
 
 COPY frontend/package*.json ./
 RUN npm install
-COPY frontend/.env .env
+
+ARG VITE_TOSS_CLIENT_KEY
+ENV VITE_TOSS_CLIENT_KEY=$VITE_TOSS_CLIENT_KEY
+
 COPY frontend ./
 RUN npm run build
 
