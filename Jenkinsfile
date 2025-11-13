@@ -35,7 +35,8 @@ pipeline {
       steps {
         sh '''
           set -e
-          cp /home/ubuntu/joying/frontend/.env frontend/.env
+          [ -f frontend/.env ] || { echo "[ERR] frontend/.env not found"; exit 1; }
+          cp frontend/.env frontend/.env
           echo "[OK] frontend/.env copied for build"
         '''
       }
