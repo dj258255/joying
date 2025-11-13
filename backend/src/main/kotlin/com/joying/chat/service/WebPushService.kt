@@ -83,9 +83,11 @@ class WebPushService(
         try {
             val subscriptions = pushSubscriptionRepository.findByMemberId(memberId)
             if (subscriptions.isEmpty()) {
-                logger.debug("회원 ID $memberId 에 대한 푸시 구독 정보가 없습니다")
+                logger.info("푸시 알림 건너뜀 (구독 정보 없음): memberId=$memberId, title=${payload.title}")
                 return
             }
+
+            logger.info("푸시 알림 전송 시작: memberId=$memberId, 구독 개수=${subscriptions.size}, title=${payload.title}")
 
             val payloadJson = objectMapper.writeValueAsString(payload)
 
@@ -101,21 +103,21 @@ class WebPushService(
 
                     // 410 Gone: 구독이 만료되었거나 삭제됨
                     if (response.statusLine.statusCode == 410) {
-                        logger.info("구독 만료: endpoint=${subscription.endpoint}")
+                        logger.warn("푸시 알림 실패 - 구독 만료 (410): memberId=$memberId, endpoint=${subscription.endpoint.take(50)}..., 구독 정보 삭제")
                         pushSubscriptionRepository.delete(subscription)
                     }
                     // 404/400: 잘못된 구독 정보
                     else if (response.statusLine.statusCode in listOf(404, 400)) {
-                        logger.warn("잘못된 구독 정보: endpoint=${subscription.endpoint}")
+                        logger.warn("푸시 알림 실패 - 잘못된 구독 정보 (${response.statusLine.statusCode}): memberId=$memberId, endpoint=${subscription.endpoint.take(50)}..., 구독 정보 삭제")
                         pushSubscriptionRepository.delete(subscription)
                     }
                     // 성공
                     else if (response.statusLine.statusCode in 200..299) {
-                        logger.debug("푸시 알림 전송 성공: memberId=$memberId")
+                        logger.info("푸시 알림 전송 성공: memberId=$memberId, statusCode=${response.statusLine.statusCode}, endpoint=${subscription.endpoint.take(50)}...")
                     }
                     // 기타 오류
                     else {
-                        logger.error("푸시 알림 전송 실패: statusCode=${response.statusLine.statusCode}, memberId=$memberId")
+                        logger.error("푸시 알림 전송 실패 - 알 수 없는 오류: statusCode=${response.statusLine.statusCode}, memberId=$memberId, endpoint=${subscription.endpoint}")
                     }
                 } catch (e: Exception) {
                     logger.error("푸시 알림 전송 중 오류: memberId=$memberId, endpoint=${subscription.endpoint}", e)
