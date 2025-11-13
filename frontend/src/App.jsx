@@ -31,6 +31,7 @@ const LentHistoryPage = React.lazy(() => import('@/features/mypage/pages/LentHis
 const RentalApiTestPage = React.lazy(() => import('@/features/rental/pages/RentalApiTestPage'))
 const ReviewListPage = React.lazy(() => import('@/features/review/pages/ReviewListPage'))
 const ReviewWritePage = React.lazy(() => import('@/features/review/pages/ReviewWritePage'))
+const AccountTransactionPage = React.lazy(() => import('@/features/mypage/pages/AccountTransactionPage'))
 
 function App() {
   return (
@@ -128,6 +129,13 @@ function App() {
             <Route path="/test/rental-api" element={
               <ProtectedRoute>
                 <RentalApiTestPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* 계좌 거래 내역 조회 페이지 (1원 인증 코드 확인용) */}
+            <Route path="/accounts/transactions" element={
+              <ProtectedRoute>
+                <AccountTransactionPage />
               </ProtectedRoute>
             } />
             

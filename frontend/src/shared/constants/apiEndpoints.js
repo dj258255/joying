@@ -94,4 +94,11 @@ export const API_ENDPOINTS = {
     SUBSCRIBE: '/push/subscribe',
     UNSUBSCRIBE: '/push/unsubscribe'
   },
+
+  // Account
+  ACCOUNT: {
+    VERIFY_START: '/accounts/verify/start',
+    VERIFY_COMPLETE: '/accounts/verify/complete',
+    TRANSACTIONS: '/accounts/transactions'
+  },
 };

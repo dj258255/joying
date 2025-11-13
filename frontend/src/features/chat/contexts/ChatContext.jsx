@@ -1052,22 +1052,37 @@ export const ChatProvider = ({ children }) => {
         connectionRejectRef.current = () => {};
         resolve?.();
         
-        // Heartbeat 시작 (30초마다 전송)
+        // 채팅방 입장 전송
+        try {
+          websocketApi.enterChatRoom(roomId);
+        } catch (error) {
+          console.warn('[ChatContext] 채팅방 입장 전송 실패:', error);
+        }
+        
+        // Heartbeat 시작 (30초마다 전송, chatRoomId 포함)
         if (heartbeatIntervalRef.current) {
           clearInterval(heartbeatIntervalRef.current);
         }
         
-        // 초기 Heartbeat 즉시 전송
-        websocketApi.sendHeartbeat();
+        // 초기 Heartbeat 즉시 전송 (chatRoomId 포함)
+        websocketApi.sendHeartbeat(roomId);
         
-        // 30초마다 Heartbeat 전송
+        // 30초마다 Heartbeat 전송 (chatRoomId 포함)
         heartbeatIntervalRef.current = setInterval(() => {
-          websocketApi.sendHeartbeat();
+          websocketApi.sendHeartbeat(roomId);
         }, 30000);
       },
       onDisconnect: () => {
         console.log('[ChatContext] WebSocket 연결 종료:', roomId);
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
+        
+        // 채팅방 퇴장 전송
+        try {
+          websocketApi.leaveChatRoom();
+        } catch (error) {
+          console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+        }
+        
         // 타이핑 상태 초기화
         if (typingTimeoutRef.current) {
           clearTimeout(typingTimeoutRef.current);
@@ -1174,6 +1189,13 @@ export const ChatProvider = ({ children }) => {
   // setCurrentChatRoom(chatRoomId, chatRoomData) - 전달된 데이터 사용 (생성 직후 등)
   const setCurrentChatRoom = useCallback(async (chatRoomId, chatRoomData = null) => {
     if (!chatRoomId) {
+      // 채팅방 퇴장 전송
+      try {
+        websocketApi.leaveChatRoom();
+      } catch (error) {
+        console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+      }
+      
       disconnect();
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });
       dispatch({ type: 'SET_MESSAGES', payload: [] });
@@ -2164,13 +2186,13 @@ export const ChatProvider = ({ children }) => {
           
           console.log('[ChatContext] 채팅방 상태 변경 알림 구독 완료: /user/queue/chatroom-status');
 
-          // Heartbeat 시작 (30초마다)
+          // Heartbeat 시작 (30초마다, chatRoomId 없이)
           heartbeatInterval = setInterval(() => {
             if (client && client.connected) {
               try {
                 client.publish({
                   destination: '/app/chat/heartbeat',
-                  body: ''
+                  body: JSON.stringify({})
                 });
               } catch (error) {
                 console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);
@@ -2236,16 +2258,17 @@ export const ChatProvider = ({ children }) => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송
+          // 포그라운드로 복귀했을 때 즉시 Heartbeat 전송 (chatRoomId 포함)
         if (websocketApi.isConnected?.()) {
-        websocketApi.sendHeartbeat();
+          const currentRoomId = stateRef.current.currentChatRoom?.chatRoomId || stateRef.current.currentChatRoom?.id;
+          websocketApi.sendHeartbeat(currentRoomId);
         }
-        // 전역 WebSocket Heartbeat도 전송
+        // 전역 WebSocket Heartbeat도 전송 (chatRoomId 없이)
         if (globalWebSocketClientRef.current?.connected) {
           try {
             globalWebSocketClientRef.current.publish({
               destination: '/app/chat/heartbeat',
-              body: ''
+              body: JSON.stringify({})
             });
           } catch (error) {
             console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);
