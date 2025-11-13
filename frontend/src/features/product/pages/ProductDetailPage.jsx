@@ -42,6 +42,8 @@ const ProductDetailPage = () => {
   
   // 날짜 범위 상태
   const [dateRange, setDateRange] = useState(null);
+  // 대여 방식 상태
+  const [rentMethod, setRentMethod] = useState('BOTH');
   // 모바일 캘린더 표시 상태
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   // 사이드바 상태
@@ -261,8 +263,8 @@ const ProductDetailPage = () => {
         state: { activeTab: 'products', productTab: 'registered' }
       });
     } else {
-      // 일반적인 경우: 이전 페이지로
-      navigate(-1);
+      // 일반적인 경우: 프로덕트 목록 페이지로 (URL 파라미터 없이 깨끗하게)
+      navigate(ROUTE_PATHS.PRODUCTS);
     }
   };
 
@@ -296,7 +298,7 @@ const ProductDetailPage = () => {
 
       // 현재 사용자 정보 확인
       console.log('🔍 사용자 정보 확인:', { isAuthenticated, user });
-      
+
       if (!isAuthenticated || !user) {
         alert('로그인이 필요합니다.');
         navigate(ROUTE_PATHS.LOGIN);
@@ -306,12 +308,12 @@ const ProductDetailPage = () => {
       // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
       console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
       const chatRoomData = await chatApi.createChatRoom(product.id);
-      
+
       console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
-      
+
       // 채팅방 ID 추출 (백엔드 응답: ChatRoomResponse.chatRoomId)
       const chatRoomId = chatRoomData.chatRoomId;
-      
+
       if (!chatRoomId) {
         throw new Error('채팅방 ID를 받을 수 없습니다.');
       }
@@ -338,16 +340,21 @@ const ProductDetailPage = () => {
         rentMethod: 'BOTH'
       });
       
+      // 채팅방으로 이동하면서 대여 요청 정보 전달
       navigate(`/chats/${chatRoomId}`, {
-        state: { 
+        state: {
           productId: product.id,
           chatRoomData: chatRoomData, // 생성 응답 데이터 전달
           // 대여 요청 메시지 자동 전송을 위한 정보
           shouldSendRentalRequest: true,
+          autoSendRentalRequest: true, // 자동 대여 요청 플래그
           rentalRequestData: {
             dateRange: dateRange,
             product: productDataForRental,
-            rentMethod: 'BOTH' // 기본값 (채팅방 내에서 변경 가능)
+            rentMethod: 'BOTH', // 기본값 (채팅방 내에서 변경 가능)
+            startDate: dateRange.start.toISOString(),
+            endDate: dateRange.end.toISOString(),
+            productTitle: product.title
           }
         }
       });
@@ -371,9 +378,9 @@ const ProductDetailPage = () => {
       <div className="min-h-screen bg-gray-50">
         {/* 데스크톱 레이아웃 */}
         <div className="hidden lg:block h-screen overflow-hidden">
-          <div className="max-w-[1400px] mx-auto px-6 py-8 h-full flex flex-col">
+          <div className="max-w-[1400px] mx-auto px-6 py-3 h-full flex flex-col">
             {/* 헤더: 뒤로가기 버튼 + 프로필 */}
-            <div className="flex items-center justify-between mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3 flex-shrink-0">
               <button
                 onClick={handleBackClick}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -519,6 +526,48 @@ const ProductDetailPage = () => {
                         availableStartDate={product.startRent}
                         availableEndDate={product.endRent}
                       />
+                      
+                      {/* 대여 방식 선택 */}
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          대여 방식
+                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="ONLY_ONLINE"
+                              checked={rentMethod === 'ONLY_ONLINE'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">택배거래</span>
+                          </label>
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="ONLY_OFFLINE"
+                              checked={rentMethod === 'ONLY_OFFLINE'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">직거래</span>
+                          </label>
+                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                            <input
+                              type="radio"
+                              name="rentMethod"
+                              value="BOTH"
+                              checked={rentMethod === 'BOTH'}
+                              onChange={(e) => setRentMethod(e.target.value)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm">둘 다 가능</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
                     {/* 오른쪽: 가격 정보 및 버튼 */}
@@ -643,7 +692,7 @@ const ProductDetailPage = () => {
         {/* 모바일 레이아웃 */}
         <div className="lg:hidden">
           {/* 모바일 헤더 */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3">
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2">
             <div className="flex items-center justify-between">
               <button
                 onClick={handleBackClick}
@@ -884,6 +933,57 @@ const ProductDetailPage = () => {
                     availableStartDate={product.startRent}
                     availableEndDate={product.endRent}
                   />
+                </div>
+
+                {/* 대여 방식 선택 (모바일) */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    대여 방식
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="ONLY_ONLINE"
+                        checked={rentMethod === 'ONLY_ONLINE'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">택배거래</div>
+                        <div className="text-xs text-gray-500">택배로 배송받습니다</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="ONLY_OFFLINE"
+                        checked={rentMethod === 'ONLY_OFFLINE'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">직거래</div>
+                        <div className="text-xs text-gray-500">직접 만나서 받습니다</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="rentMethod-mobile"
+                        value="BOTH"
+                        checked={rentMethod === 'BOTH'}
+                        onChange={(e) => setRentMethod(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">둘 다 가능</div>
+                        <div className="text-xs text-gray-500">택배거래 또는 직거래 가능</div>
+                      </div>
+                    </label>
+                  </div>
                 </div>
 
                 {/* 가격 계산 */}

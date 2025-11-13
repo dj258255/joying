@@ -444,7 +444,7 @@ public class SearchService {
 		return SearchResponseDto.builder()
 			.searchResponses(responses)
 			.hashtags(hashtags)
-			.totalElements((long)available.size())
+			.totalElements(totalHits)
 			.page(page)
 			.size(size)
 			.fetchCount(fetchCount)
