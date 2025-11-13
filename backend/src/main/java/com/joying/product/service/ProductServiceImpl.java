@@ -488,6 +488,7 @@ public class ProductServiceImpl implements ProductService {
         // 상품 자체 삭제
         productRepository.delete(product);
 
+        searchService.delete(productId);
     }
 
     @Override
