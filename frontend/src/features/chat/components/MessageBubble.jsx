@@ -17,8 +17,9 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} [props.onReplyClick] - 답장 메시지 클릭 핸들러 (원본 메시지로 점프)
  * @param {Function} [props.onRentalAccept] - 대여 요청 승인 핸들러
  * @param {Function} [props.onRentalReject] - 대여 요청 거절 핸들러
+ * @param {Array} [props.actionButtons] - 메시지 하단에 표시할 액션 버튼들
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, onReplyClick, onRentalAccept, onRentalReject }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick, onRentalAccept, onRentalReject }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);
@@ -400,6 +401,49 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     return null;
   }
 
+  // 결제 완료 메시지
+  if (type === 'PAYMENT_COMPLETE') {
+    return (
+      <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+        <div className="max-w-sm">
+          <div
+            className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className="text-base font-bold text-green-900">결제 완료</span>
+            </div>
+            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{content}</p>
+
+            {/* 액션 버튼들 */}
+            {actionButtons && actionButtons.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {actionButtons.map((button, index) => (
+                  <button
+                    key={index}
+                    onClick={button.onClick}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${button.className || 'bg-green-600 text-white hover:bg-green-700'}`}
+                  >
+                    {button.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div
+            className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500`}
+          >
+            <span>{formatTime(timestamp)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 이미지 메시지
   if (type === 'image') {
     return (
@@ -633,7 +677,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
         )}
         
         {/* 시간 표시 */}
-        <div 
+        <div
           className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'} relative`}
         >
           <span className="text-xs text-gray-500">
@@ -652,6 +696,41 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
             </button>
           )}
         </div>
+
+        {/* 메시지 액션 버튼들 */}
+        {actionButtons && actionButtons.length > 0 && !isDeleted && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {actionButtons.map((button, index) => {
+              const getButtonStyle = () => {
+                switch(button.style) {
+                  case 'primary':
+                    return 'bg-blue-600 hover:bg-blue-700 text-white';
+                  case 'success':
+                    return 'bg-green-600 hover:bg-green-700 text-white';
+                  case 'danger':
+                    return 'bg-red-600 hover:bg-red-700 text-white';
+                  case 'warning':
+                    return 'bg-yellow-600 hover:bg-yellow-700 text-white';
+                  case 'secondary':
+                  default:
+                    return 'bg-gray-200 hover:bg-gray-300 text-gray-800';
+                }
+              };
+
+              return (
+                <button
+                  key={index}
+                  onClick={button.onClick}
+                  disabled={button.disabled}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm hover:shadow-md ${getButtonStyle()} ${button.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {button.icon && <span className="mr-1">{button.icon}</span>}
+                  {button.text}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 액션 메뉴 */}

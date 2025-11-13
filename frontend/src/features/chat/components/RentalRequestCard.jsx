@@ -3,8 +3,9 @@
  * 대여 요청 카드 컴포넌트
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import ProfileImage from '../../../shared/components/ProfileImage';
+import TransactionCreateModal from './TransactionCreateModal';
 
 const RentalRequestCard = ({ rentalInfo, onAccept, onReject }) => {
   const {
@@ -19,6 +20,10 @@ const RentalRequestCard = ({ rentalInfo, onAccept, onReject }) => {
     requesterName,
     requesterProfile
   } = rentalInfo;
+
+  // 모달 상태
+  const [showModal, setShowModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formatDate = (date) => {
     // 날짜가 문자열이면 Date 객체로 변환
@@ -108,10 +113,10 @@ const RentalRequestCard = ({ rentalInfo, onAccept, onReject }) => {
       {/* 액션 버튼 */}
       <div className="flex gap-2">
         <button
-          onClick={onAccept}
+          onClick={() => setShowModal(true)}
           className="flex-1 py-2 px-3 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors"
         >
-          승인
+          거래 생성
         </button>
         <button
           onClick={onReject}
@@ -120,6 +125,25 @@ const RentalRequestCard = ({ rentalInfo, onAccept, onReject }) => {
           거절
         </button>
       </div>
+
+      {/* 거래 생성 모달 */}
+      <TransactionCreateModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        rentalInfo={rentalInfo}
+        isLoading={isSubmitting}
+        onSubmit={async (modifiedPricing) => {
+          setIsSubmitting(true);
+          try {
+            await onAccept(modifiedPricing);
+            setShowModal(false);
+          } catch (err) {
+            throw err;
+          } finally {
+            setIsSubmitting(false);
+          }
+        }}
+      />
     </div>
   );
 };
