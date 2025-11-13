@@ -40,6 +40,51 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onShippingComplete }) => 
   const [courier, setCourier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
 
+  // 모달이 열릴 때 기존 영상 확인
+  React.useEffect(() => {
+    const checkExistingVideo = async () => {
+      if (!isOpen || !rentalHisId) return;
+
+      try {
+        console.log('[ShippingModal] 기존 영상 확인 중...');
+        const response = await rentalApi.getRentalDetail(rentalHisId);
+        console.log('[ShippingModal] API 응답 전체:', response);
+
+        const rentalData = response.data || response.body || response;
+        console.log('[ShippingModal] 렌탈 데이터:', rentalData);
+
+        // OWNER_SEND 영상이 이미 있는지 확인 (여러 경로 시도)
+        const videos = rentalData.rentalVideos
+          || rentalData.videos
+          || rentalData.rentalVideoList
+          || [];
+
+        console.log('[ShippingModal] 영상 목록:', videos);
+
+        const ownerSendVideo = videos.find(
+          video => video.videoType === 'OWNER_SEND' || video.type === 'OWNER_SEND'
+        );
+
+        console.log('[ShippingModal] OWNER_SEND 영상:', ownerSendVideo);
+
+        if (ownerSendVideo) {
+          console.log('[ShippingModal] 기존 영상 발견. 운송장 입력 단계로 이동');
+          setUploadedVideoUrl(ownerSendVideo.videoUrl || ownerSendVideo.url || ownerSendVideo.filePath);
+          setCurrentStep('tracking');
+        } else {
+          console.log('[ShippingModal] 기존 영상 없음. 촬영 단계로 시작');
+          setCurrentStep('video');
+        }
+      } catch (err) {
+        console.error('[ShippingModal] 기존 영상 확인 실패:', err);
+        // 에러가 나도 촬영 단계로 시작
+        setCurrentStep('video');
+      }
+    };
+
+    checkExistingVideo();
+  }, [isOpen, rentalHisId]);
+
   // 영상 녹화 시작
   const startRecording = async () => {
     try {
@@ -83,15 +128,27 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onShippingComplete }) => 
       };
 
       mediaRecorder.onstop = () => {
+        console.log('[ShippingModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        console.log('[ShippingModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+
         const url = URL.createObjectURL(blob);
+        console.log('[ShippingModal] Blob URL 생성:', url);
+
         setRecordedVideoBlob(blob);
         setRecordedVideoUrl(url);
+
+        // 비디오 요소의 srcObject 제거 (녹화된 영상 재생을 위해)
+        if (videoRef.current) {
+          console.log('[ShippingModal] videoRef srcObject 제거');
+          videoRef.current.srcObject = null;
+        }
 
         // 스트림 정리
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
+          console.log('[ShippingModal] 스트림 정리 완료');
         }
       };
 
@@ -135,7 +192,23 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onShippingComplete }) => 
 
       // 1. 파일 업로드 (fileApi)
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      const fileId = uploadResult.data.fileId;
+      console.log('[ShippingModal] 파일 업로드 응답:', uploadResult);
+      console.log('[ShippingModal] body 내용:', uploadResult.body);
+
+      // fileId 추출 (여러 경로 시도)
+      const fileId = uploadResult.body?.fileId
+        || uploadResult.body?.data?.fileId
+        || uploadResult.body?.id
+        || uploadResult.data?.fileId
+        || uploadResult.data?.data?.fileId
+        || uploadResult.fileId
+        || uploadResult.data?.id;
+
+      if (!fileId) {
+        console.error('[ShippingModal] fileId를 찾을 수 없음. 전체 응답:', uploadResult);
+        console.error('[ShippingModal] body:', uploadResult.body);
+        throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
+      }
 
       console.log('[ShippingModal] 파일 업로드 성공. fileId:', fileId);
 
@@ -147,7 +220,17 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onShippingComplete }) => 
 
       console.log('[ShippingModal] 영상 등록 성공:', videoResult);
 
-      setUploadedVideoUrl(videoResult.data?.videoUrl || uploadResult.data.url);
+      // videoUrl 추출 (여러 경로 시도)
+      const videoUrl = videoResult.data?.videoUrl
+        || videoResult.data?.url
+        || videoResult.body?.videoUrl
+        || videoResult.body?.url
+        || uploadResult.body?.url
+        || uploadResult.data?.url
+        || null;
+
+      console.log('[ShippingModal] 추출된 videoUrl:', videoUrl);
+      setUploadedVideoUrl(videoUrl);
       setCurrentStep('tracking');
     } catch (err) {
       console.error('[ShippingModal] 영상 업로드 실패:', err);

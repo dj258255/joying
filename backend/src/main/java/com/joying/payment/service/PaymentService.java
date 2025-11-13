@@ -26,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,7 @@ public class PaymentService {
     private final RentalHistoryRepository rentalHistoryRepository;
     private final EscrowRepository escrowRepository;
     private final TossPaymentsClient tossClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 1. 결제 생성 (orderId 발급)
@@ -222,6 +224,9 @@ public class PaymentService {
         completePaymentApproval(payment, tossResponse);
 
         log.info("결제 승인 완료: paymentId={}, orderId={}", payment.getPaymentId(), request.getOrderId());
+
+        // 결제 완료 채팅 메시지 전송 (비동기)
+        sendPaymentCompleteMessage(payment);
 
         return convertToResponse(payment);
     }
@@ -421,5 +426,66 @@ public class PaymentService {
             log.error("approvedAt 파싱 실패: {}", approvedAtString, e);
             throw new IllegalArgumentException("잘못된 날짜 형식입니다: " + approvedAtString, e);
         }
+    }
+
+    /**
+     * 결제 완료 이벤트 발행
+     */
+    private void sendPaymentCompleteMessage(Payment payment) {
+        try {
+            RentalHistory rentalHistory = payment.getRentalHistory();
+            Product product = payment.getProduct();
+
+            // 결제 완료 이벤트 발행 (이벤트 리스너에서 채팅 메시지 전송)
+            PaymentCompletedEvent event = new PaymentCompletedEvent(
+                payment.getPaymentId(),
+                payment.getOrderId(),
+                payment.getTotalAmount(),
+                rentalHistory.getRentalHisId(),
+                product.getProductId(),
+                rentalHistory.getMember().getMemberId(), // buyerId
+                product.getWriter().getMemberId() // sellerId
+            );
+
+            eventPublisher.publishEvent(event);
+            log.info("[결제 완료 이벤트 발행] paymentId={}, rentalHisId={}",
+                payment.getPaymentId(), rentalHistory.getRentalHisId());
+
+        } catch (Exception e) {
+            // 이벤트 발행 실패해도 결제는 성공이므로 로그만 남김
+            log.error("[결제 완료 이벤트 발행 실패] paymentId={}", payment.getPaymentId(), e);
+        }
+    }
+
+    /**
+     * 결제 완료 이벤트
+     */
+    public static class PaymentCompletedEvent {
+        private final Long paymentId;
+        private final String orderId;
+        private final Integer amount;
+        private final Long rentalHisId;
+        private final Long productId;
+        private final Long buyerId;
+        private final Long sellerId;
+
+        public PaymentCompletedEvent(Long paymentId, String orderId, Integer amount,
+                                     Long rentalHisId, Long productId, Long buyerId, Long sellerId) {
+            this.paymentId = paymentId;
+            this.orderId = orderId;
+            this.amount = amount;
+            this.rentalHisId = rentalHisId;
+            this.productId = productId;
+            this.buyerId = buyerId;
+            this.sellerId = sellerId;
+        }
+
+        public Long getPaymentId() { return paymentId; }
+        public String getOrderId() { return orderId; }
+        public Integer getAmount() { return amount; }
+        public Long getRentalHisId() { return rentalHisId; }
+        public Long getProductId() { return productId; }
+        public Long getBuyerId() { return buyerId; }
+        public Long getSellerId() { return sellerId; }
     }
 }
