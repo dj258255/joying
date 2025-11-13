@@ -25,6 +25,7 @@ pipeline {
           set -e
           [ -f "$ENV_FILE" ] || { echo "[ERR] $ENV_FILE not found (host .env.prod not mounted)"; exit 1; }
           cp "$ENV_FILE" .env.prod
+          cp frontend/.env .env
           echo "[OK] copied $ENV_FILE -> $(pwd)/.env.prod"
           echo "[INFO] preview .env.prod (safe keys oculted)"; grep -E '^(MYSQL|REDIS|MONGO|JWT|OAUTH2|CLOUDFLARE|SSAFY|CORS|FORCE_HTTPS|LOGGING|MONGODB|REDIS|MYSQL)_' .env.prod | sed 's/=.*/=***hidden***/'
         '''
