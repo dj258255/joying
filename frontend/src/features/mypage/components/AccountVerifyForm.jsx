@@ -4,8 +4,10 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AccountVerifyForm = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     bankName: '',
     accountNumber: '',
@@ -125,6 +127,7 @@ const AccountVerifyForm = () => {
               </button>
               <button
                 type="button"
+                onClick={() => navigate('/mypage')}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
               >
                 취소
