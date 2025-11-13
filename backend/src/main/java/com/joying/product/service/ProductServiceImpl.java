@@ -497,6 +497,12 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public Page<ProductResponseDto.ProductListItem> getMemberItems(Long memberId, Pageable pageable) {
+        Page<Product> page = productRepository.findByWriter_MemberId(memberId, pageable);
+        return page.map(p -> toListItem(p, false, memberId));
+    }
+
+    @Override
     public Page<ProductResponseDto.ProductListItem> getMyLikes(Long memberId, Pageable pageable) {
         Page<Product> page = productLikeRepository.findLikedProductsByMemberId(memberId, pageable);
         return page.map(p -> toListItem(p, /*likedPrefetched*/ true, memberId));

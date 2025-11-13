@@ -108,10 +108,16 @@ public class ReviewController {
 	@GetMapping("/member/{memberId}")
 	public ResponseEntity<?> getMemberReviews(
 		@PathVariable Long memberId,
+		@RequestParam UploadType uploadType,
 		@RequestParam(required = false, defaultValue = "1") int page,
 		@RequestParam(required = false, defaultValue = "3") int size
 	) {
-		Page<ReviewResponseDto> reviews = reviewService.getMemberReviews(memberId, page, size);
+
+		if (!uploadType.equals(UploadType.RENT) && !uploadType.equals(UploadType.BORROW)) {
+			throw new IllegalArgumentException("type은 RENT 또는 BORROW 중 하나여야 합니다.");
+		}
+
+		Page<ReviewResponseDto> reviews = reviewService.getMemberReviews(memberId, uploadType, page, size);
 
 		PagedResponse<ReviewResponseDto> response = PagedResponse.<ReviewResponseDto>builder()
 			.data(reviews.getContent())
