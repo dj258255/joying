@@ -1,6 +1,9 @@
 package com.joying.chat.service
 
+import com.joying.chat.dto.PresenceUpdateEvent
+import com.joying.chat.repository.ChatRoomMemberRepository
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -20,7 +23,9 @@ import java.util.concurrent.TimeUnit
  */
 @Service
 class ChatPresenceService(
-    private val redisTemplate: RedisTemplate<String, String>
+    private val redisTemplate: RedisTemplate<String, String>,
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val chatRoomMemberRepository: ChatRoomMemberRepository
 ) {
 
     companion object {
@@ -38,7 +43,14 @@ class ChatPresenceService(
      */
     fun setOnline(memberId: Long) {
         val key = "$PRESENCE_KEY_PREFIX$memberId"
+        val wasOnline = redisTemplate.hasKey(key) == true
+
         redisTemplate.opsForValue().set(key, "online", ONLINE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        // 오프라인에서 온라인으로 변경된 경우에만 이벤트 전송
+        if (!wasOnline) {
+            broadcastPresenceUpdate(memberId, isOnline = true)
+        }
     }
 
     /**
@@ -54,12 +66,16 @@ class ChatPresenceService(
         redisTemplate.delete(presenceKey)
 
         // 마지막 접속 시간 저장 (7일간 보관)
+        val now = Instant.now()
         redisTemplate.opsForValue().set(
             lastSeenKey,
-            Instant.now().toString(),
+            now.toString(),
             7,
             TimeUnit.DAYS
         )
+
+        // 오프라인 상태 변경 이벤트 전송
+        broadcastPresenceUpdate(memberId, isOnline = false, lastSeenAt = now)
     }
 
     /**
@@ -145,5 +161,49 @@ class ChatPresenceService(
      */
     fun refreshChatRoomActivity(memberId: Long, chatRoomId: Long) {
         enterChatRoom(memberId, chatRoomId)
+    }
+
+    /**
+     * 온라인 상태 변경 이벤트를 해당 사용자와 채팅방을 공유하는 모든 사용자에게 전송
+     *
+     * @param memberId 상태가 변경된 회원 ID
+     * @param isOnline 온라인 여부
+     * @param lastSeenAt 마지막 접속 시간 (오프라인일 때만)
+     */
+    private fun broadcastPresenceUpdate(memberId: Long, isOnline: Boolean, lastSeenAt: Instant? = null) {
+        try {
+            // 해당 사용자가 참여 중인 모든 채팅방 조회
+            val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+
+            // 각 채팅방의 상대방에게 온라인 상태 변경 이벤트 전송
+            chatRoomMembers.forEach { chatRoomMember ->
+                val chatRoom = chatRoomMember.chatRoom
+
+                // 상대방 찾기 (buyer 또는 seller)
+                val otherMemberId = if (chatRoom.buyer.memberId == memberId) {
+                    chatRoom.seller.memberId
+                } else {
+                    chatRoom.buyer.memberId
+                }
+
+                if (otherMemberId != null) {
+                    val event = PresenceUpdateEvent(
+                        memberId = memberId,
+                        isOnline = isOnline,
+                        lastSeenAt = lastSeenAt
+                    )
+
+                    // 상대방에게 WebSocket으로 전송
+                    messagingTemplate.convertAndSendToUser(
+                        otherMemberId.toString(),
+                        "/queue/presence-update",
+                        event
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // 오류 발생 시 로깅만 하고 계속 진행 (온라인 상태 변경은 중요하지만 치명적이지 않음)
+            println("[ChatPresenceService] 온라인 상태 브로드캐스트 실패: ${e.message}")
+        }
     }
 }

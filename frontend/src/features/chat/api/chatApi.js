@@ -131,14 +131,23 @@ export const chatApi = {
   /**
    * 내 채팅방 목록 조회
    * GET /chat-rooms/ (또는 /chat-rooms)
+   * @param {Object} options - 조회 옵션
+   * @param {boolean} options.includeMember - 참여자 온라인 상태 포함 여부
    * @returns {Promise<Object>} { chatRooms: Array, totalUnreadCount: number }
    */
-  getChatRooms: async () => {
+  getChatRooms: async (options = {}) => {
     try {
-      console.log('[chatApi] 채팅방 목록 조회 요청');
-      
-      const response = await axiosInstance.get('/chat-rooms');
-      
+      const { includeMember = true } = options; // 기본값: 온라인 상태 포함
+
+      console.log('[chatApi] 채팅방 목록 조회 요청', { includeMember });
+
+      const params = {};
+      if (includeMember) {
+        params.include = 'member';
+      }
+
+      const response = await axiosInstance.get('/chat-rooms', { params });
+
       console.log('[chatApi] 채팅방 목록 조회 응답:', response.data);
       
       // 응답 헤더에서 총 안읽은 메시지 개수 추출

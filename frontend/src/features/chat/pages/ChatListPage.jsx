@@ -21,7 +21,8 @@ const ChatListPage = () => {
   const { chatRooms, totalUnreadCount, isLoading, error, refetch, leaveChatRoom, isLeaving } = useChatRooms();
   const queryClient = useQueryClient();
   const stompClientRef = useRef(null);
-  const subscriptionRef = useRef(null);
+  const presenceSubscriptionRef = useRef(null);
+  const chatRoomSubscriptionRef = useRef(null);
   const heartbeatIntervalRef = useRef(null);
 
   const resolveRoomId = (room) => {
@@ -67,8 +68,44 @@ const ChatListPage = () => {
         client.onConnect = (frame) => {
           console.log('[ChatListPage] WebSocket 연결 성공');
 
+          // 온라인 상태 변경 구독
+          const presenceSubscription = client.subscribe('/user/queue/presence-update', (message) => {
+            try {
+              const presenceUpdate = JSON.parse(message.body);
+              console.log('[ChatListPage] 온라인 상태 변경 수신:', presenceUpdate);
+
+              // React Query 캐시 업데이트 (온라인 상태 반영)
+              queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
+                if (!oldData || !oldData.chatRooms) return oldData;
+
+                // 해당 memberId와 채팅방을 공유하는 채팅방의 온라인 상태 업데이트
+                const updatedChatRooms = oldData.chatRooms.map((room) => {
+                  // otherMemberId가 변경된 사용자와 일치하면 온라인 상태 업데이트
+                  if (room.otherMemberId === presenceUpdate.memberId) {
+                    return {
+                      ...room,
+                      member: {
+                        ...(room.member || {}),
+                        isOnline: presenceUpdate.isOnline,
+                        lastSeenAt: presenceUpdate.lastSeenAt
+                      }
+                    };
+                  }
+                  return room;
+                });
+
+                return {
+                  ...oldData,
+                  chatRooms: updatedChatRooms
+                };
+              });
+            } catch (error) {
+              console.error('[ChatListPage] 온라인 상태 업데이트 처리 오류:', error);
+            }
+          });
+
           // 채팅방 목록 업데이트 구독
-          const subscription = client.subscribe('/user/queue/chatroom-update', (message) => {
+          const chatRoomSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
               const update = JSON.parse(message.body);
               console.log('[ChatListPage] 채팅방 업데이트 수신:', update);
@@ -263,7 +300,8 @@ const ChatListPage = () => {
 
           // ref에 저장
           stompClientRef.current = client;
-          subscriptionRef.current = subscription;
+          presenceSubscriptionRef.current = presenceSubscription;
+          chatRoomSubscriptionRef.current = chatRoomSubscription;
           heartbeatIntervalRef.current = heartbeatInterval;
         };
 
@@ -297,13 +335,21 @@ const ChatListPage = () => {
         clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;
       }
-      if (subscriptionRef.current) {
+      if (presenceSubscriptionRef.current) {
         try {
-          subscriptionRef.current.unsubscribe();
+          presenceSubscriptionRef.current.unsubscribe();
         } catch (error) {
-          console.warn('[ChatListPage] 구독 해제 오류:', error);
+          console.warn('[ChatListPage] 온라인 상태 구독 해제 오류:', error);
         }
-        subscriptionRef.current = null;
+        presenceSubscriptionRef.current = null;
+      }
+      if (chatRoomSubscriptionRef.current) {
+        try {
+          chatRoomSubscriptionRef.current.unsubscribe();
+        } catch (error) {
+          console.warn('[ChatListPage] 채팅방 구독 해제 오류:', error);
+        }
+        chatRoomSubscriptionRef.current = null;
       }
       if (stompClientRef.current) {
         try {

@@ -178,6 +178,20 @@ function handleNotification(notification) {
 
   console.log('[WebSocketNotification] 알림 처리:', { type, title, body, data });
 
+  // 현재 채팅방에 있는지 확인 (채팅방 안에 있으면 알림 표시 안함)
+  if (data?.chatRoomId) {
+    const currentPath = window.location.pathname;
+    const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
+
+    if (currentChatRoomId && String(currentChatRoomId) === String(data.chatRoomId)) {
+      console.log('[WebSocketNotification] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
+        currentChatRoomId,
+        notificationChatRoomId: data.chatRoomId
+      });
+      return;
+    }
+  }
+
   // 중복 알림 방지: 최근 5초 이내에 같은 messageId 받았으면 무시
   if (data?.messageId) {
     const storageKey = `notification_${data.messageId}`;
