@@ -138,6 +138,7 @@ const TransactionProcessModal = ({
         setCurrentStep(userRole === 'seller' ? 'shipping' : 'delivery');
         break;
       case 'SHIPPED':
+        // SHIPPED 상태: 양쪽 모두 배송 추적 단계로
         setCurrentStep('delivery');
         break;
       case 'DELIVERED':
@@ -460,6 +461,12 @@ const TransactionProcessModal = ({
         trackingNo: trackingNumber
       });
 
+      // 거래 상세 재조회하여 최신 데이터 가져오기
+      const updatedRentalData = await rentalApi.getRentalDetail(transactionData.rentalHisId);
+      if (updatedRentalData?.data) {
+        setTransactionData(updatedRentalData.data);
+      }
+
       setCurrentStep('delivery');
       alert('발송 처리가 완료되었습니다.');
     } catch (err) {
@@ -476,6 +483,21 @@ const TransactionProcessModal = ({
   const handleVideoUploadComplete = async (videoBlob) => {
     try {
       setIsLoading(true);
+
+      // 권한 검증: shipping 단계 영상은 판매자만 가능
+      const currentUserId = user?.id || user?.memberId;
+      const sellerId = productData?.sellerId
+        || productData?.writer?.memberId
+        || productData?.seller?.id;
+      const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+      if (currentStep === 'shipping' && !isSeller) {
+        throw new Error('발송 전 영상은 판매자만 등록할 수 있습니다.');
+      }
+
+      if (currentStep === 'receive' && isSeller) {
+        throw new Error('수령 영상은 구매자만 등록할 수 있습니다.');
+      }
 
       // 1. 영상을 서버에 업로드
       console.log('[TransactionProcessModal] 영상 업로드 시작');
@@ -495,12 +517,6 @@ const TransactionProcessModal = ({
 
       // 2. 대여 이력에 영상 등록
       // VideoType: OWNER_SEND, RENTER_RECEIVE, RENTER_RETURN, OWNER_RECEIVE
-      const currentUserId = user?.id || user?.memberId;
-      const sellerId = productData?.sellerId
-        || productData?.writer?.memberId
-        || productData?.seller?.id;
-      const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
       let videoType;
       if (currentStep === 'shipping') {
         videoType = 'OWNER_SEND'; // 판매자가 발송
@@ -532,6 +548,15 @@ const TransactionProcessModal = ({
         alert('영상 업로드가 완료되었습니다. 이제 운송장 번호를 입력해주세요.');
         // currentStep은 'shipping' 유지 -> 운송장 입력 UI 계속 표시
       } else if (currentStep === 'receive') {
+        // 수령 영상 업로드 후 거래 데이터 갱신
+        try {
+          const updatedRentalData = await rentalApi.getRentalDetail(transactionData.rentalHisId);
+          if (updatedRentalData?.data) {
+            setTransactionData(updatedRentalData.data);
+          }
+        } catch (err) {
+          console.error('[TransactionProcessModal] 거래 데이터 갱신 실패:', err);
+        }
         setCurrentStep('rental');
         alert('대여가 시작되었습니다.');
       } else if (currentStep === 'return') {
@@ -722,24 +747,24 @@ const TransactionProcessModal = ({
         <div className="space-y-6">
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-300/30 rounded-xl p-4">
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
           {/* 거래 없음 안내 (구매자) */}
           {currentStep === 'no_transaction' && userRole === 'buyer' && (
             <div className="space-y-4">
-              <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg text-center">
+              <div className="p-6 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl text-center">
                 <div className="text-4xl mb-3">📦</div>
-                <p className="text-blue-800 font-bold text-lg mb-2">아직 거래가 생성되지 않았습니다</p>
+                <p className="text-blue-700 font-bold text-lg mb-2">아직 거래가 생성되지 않았습니다</p>
                 <p className="text-blue-600 text-sm">판매자가 거래를 생성할 때까지 기다려주세요.</p>
                 <p className="text-blue-600 text-sm mt-2">채팅 하단의 "대여 요청하기" 버튼으로 대여를 요청할 수 있습니다.</p>
               </div>
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="glass-button-ghost w-full px-4 py-2.5 rounded-xl text-gray-700 hover:scale-105 transition-all duration-300"
               >
                 닫기
               </button>
@@ -975,8 +1000,8 @@ const TransactionProcessModal = ({
           {/* 발송 처리 단계 (판매자) */}
           {currentStep === 'shipping' && userRole === 'seller' && (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 font-medium">✅ 결제가 완료되었습니다</p>
+              <div className="p-4 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl">
+                <p className="text-green-700 font-medium">✅ 결제가 완료되었습니다</p>
                 <p className="text-green-600 text-sm mt-1">
                   {recordedVideos.length === 0 && requireVideo
                     ? '물건 포장 전 상태를 영상으로 촬영해주세요'
@@ -987,8 +1012,8 @@ const TransactionProcessModal = ({
               {recordedVideos.length === 0 && requireVideo ? (
                 // 영상 촬영 먼저
                 <>
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-800 font-medium">📹 1단계: 발송 전 영상 촬영</p>
+                  <div className="p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl">
+                    <p className="text-blue-700 font-medium">📹 1단계: 발송 전 영상 촬영</p>
                     <p className="text-blue-600 text-sm mt-1">
                       물건을 포장하기 전에 상태를 촬영해주세요.<br/>
                       촬영 후 우체국에서 운송장 번호를 받아 입력하실 수 있습니다.
@@ -999,14 +1024,14 @@ const TransactionProcessModal = ({
                     <button
                       onClick={onClose}
                       disabled={isLoading}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      className="glass-button-ghost flex-1 px-4 py-2.5 rounded-xl text-gray-700 hover:scale-105 transition-all duration-300 disabled:opacity-50"
                     >
                       나중에 하기
                     </button>
                     <button
                       onClick={handleStartShipping}
                       disabled={isLoading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="glass-button flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300 disabled:opacity-50"
                     >
                       영상 촬영 시작
                     </button>
@@ -1016,13 +1041,13 @@ const TransactionProcessModal = ({
                 // 영상 촬영 완료 후 운송장 번호 입력
                 <>
                   {requireVideo && recordedVideos.length > 0 && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-800">✅ 영상 촬영이 완료되었습니다</p>
+                    <div className="p-3 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl">
+                      <p className="text-sm text-green-700">✅ 영상 촬영이 완료되었습니다</p>
                     </div>
                   )}
 
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-800 font-medium">📦 2단계: 운송장 번호 입력</p>
+                  <div className="p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl">
+                    <p className="text-blue-700 font-medium">📦 2단계: 운송장 번호 입력</p>
                     <p className="text-blue-600 text-sm mt-1">
                       물건을 포장하고 우체국에 맡긴 후 운송장 번호를 입력해주세요.
                     </p>
@@ -1035,7 +1060,7 @@ const TransactionProcessModal = ({
                     <select
                       value={courier}
                       onChange={(e) => setCourier(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="glass-input w-full px-3 py-2.5 rounded-xl"
                     >
                       <option value="">택배사를 선택하세요</option>
                       {courierOptions.map((c) => (
@@ -1053,7 +1078,7 @@ const TransactionProcessModal = ({
                       value={trackingNumber}
                       onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
                       placeholder="숫자만 입력하세요"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="glass-input w-full px-3 py-2.5 rounded-xl"
                     />
                   </div>
 
@@ -1061,14 +1086,14 @@ const TransactionProcessModal = ({
                     <button
                       onClick={onClose}
                       disabled={isLoading}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      className="glass-button-ghost flex-1 px-4 py-2.5 rounded-xl text-gray-700 hover:scale-105 transition-all duration-300 disabled:opacity-50"
                     >
                       나중에 하기
                     </button>
                     <button
                       onClick={handleShipItem}
                       disabled={isLoading || !courier || !trackingNumber}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                      className="glass-button flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? '처리 중...' : '발송 완료'}
                     </button>
@@ -1078,23 +1103,42 @@ const TransactionProcessModal = ({
             </div>
           )}
 
-          {/* 배송 추적 단계 (구매자) */}
-          {currentStep === 'delivery' && userRole === 'buyer' && (
+          {/* 배송 추적 단계 (양쪽 모두) */}
+          {currentStep === 'delivery' && (
             <div className="space-y-4">
-              <ShippingStatusCard
-                trackingNumber={transactionData?.trackingNumber || trackingNumber}
-                courier={transactionData?.courier || courier}
-                status={transactionData?.shippingStatus || 'IN_TRANSIT'}
-                type="outbound"
-              />
+              {transactionData?.outbound?.trackingNo && transactionData?.outbound?.carrierCode ? (
+                <ShippingStatusCard
+                  trackingNumber={transactionData.outbound.trackingNo}
+                  courier={transactionData.outbound.carrierCode}
+                  type="outbound"
+                />
+              ) : transactionData?.outboundTrackingNo && transactionData?.outboundCarrierCode ? (
+                <ShippingStatusCard
+                  trackingNumber={transactionData.outboundTrackingNo}
+                  courier={transactionData.outboundCarrierCode}
+                  type="outbound"
+                />
+              ) : (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800 text-sm">아직 운송장 번호가 등록되지 않았습니다.</p>
+                </div>
+              )}
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 text-sm">물건이 도착하면 수령 확인을 진행해주세요</p>
-              </div>
+              {userRole === 'buyer' && (
+                <div className="p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl">
+                  <p className="text-blue-700 text-sm">물건이 도착하면 수령 확인을 진행해주세요</p>
+                </div>
+              )}
+
+              {userRole === 'seller' && (
+                <div className="p-4 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl">
+                  <p className="text-green-700 text-sm">발송이 완료되었습니다. 구매자가 물건을 받을 때까지 기다려주세요.</p>
+                </div>
+              )}
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="glass-button-ghost w-full px-4 py-2.5 rounded-xl text-gray-700 hover:scale-105 transition-all duration-300"
               >
                 닫기
               </button>
@@ -1104,28 +1148,28 @@ const TransactionProcessModal = ({
           {/* 수령 확인 단계 (구매자) */}
           {currentStep === 'receive' && userRole === 'buyer' && (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 font-medium">📦 물건이 도착했나요?</p>
+              <div className="p-4 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl">
+                <p className="text-green-700 font-medium">📦 물건이 도착했나요?</p>
                 <p className="text-green-600 text-sm mt-1">물건을 확인하고 대여를 시작하거나 문제가 있으면 취소할 수 있습니다</p>
               </div>
 
               {requireVideo && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">📹 개봉 영상을 촬영해야 합니다</p>
+                <div className="p-3 bg-yellow-500/10 backdrop-blur-sm border border-yellow-300/30 rounded-xl">
+                  <p className="text-sm text-yellow-700">📹 개봉 영상을 촬영해야 합니다</p>
                 </div>
               )}
 
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCancelModal(true)}
-                  className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50"
+                  className="glass-button-danger flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300"
                 >
                   거래 취소하기
                 </button>
                 <button
                   onClick={handleConfirmReceive}
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="glass-button flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {requireVideo ? '영상 촬영하기' : '대여 시작'}
                 </button>
@@ -1136,15 +1180,15 @@ const TransactionProcessModal = ({
           {/* 대여 중 단계 */}
           {currentStep === 'rental' && (
             <div className="space-y-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                <p className="text-green-800 font-medium">✅ 대여 중</p>
+              <div className="p-4 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl text-center">
+                <p className="text-green-700 font-medium">✅ 대여 중</p>
                 <p className="text-green-600 text-sm mt-1">
                   {userRole === 'buyer' ? '대여 기간이 끝나면 반납해주세요' : '구매자가 반납할 때까지 기다려주세요'}
                 </p>
               </div>
 
               {transactionData && (
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="p-4 bg-white/20 backdrop-blur-sm border border-white/20 rounded-xl">
                   <h4 className="font-medium text-gray-900 mb-2">대여 정보</h4>
                   <div className="text-sm text-gray-700 space-y-1">
                     <div>대여 시작: {new Date(transactionData.startRen).toLocaleDateString()}</div>
@@ -1162,14 +1206,14 @@ const TransactionProcessModal = ({
                       setTrackingNumber('');
                       setCourier('');
                     }}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="glass-button flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300"
                   >
                     반납하기
                   </button>
                 )}
                 <button
                   onClick={() => setCurrentStep('cancel')}
-                  className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50"
+                  className="glass-button-danger flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300"
                 >
                   거래 중단하기
                 </button>
@@ -1180,8 +1224,8 @@ const TransactionProcessModal = ({
           {/* 반납 처리 단계 (구매자) */}
           {currentStep === 'return' && userRole === 'buyer' && (
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 font-medium">반납 처리</p>
+              <div className="p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl">
+                <p className="text-blue-700 font-medium">반납 처리</p>
                 <p className="text-blue-600 text-sm mt-1">물건을 포장하고 운송장 번호를 입력해주세요</p>
               </div>
 
@@ -1192,7 +1236,7 @@ const TransactionProcessModal = ({
                 <select
                   value={courier}
                   onChange={(e) => setCourier(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full px-3 py-2.5 rounded-xl"
                 >
                   <option value="">택배사를 선택하세요</option>
                   {courierOptions.map((c) => (
@@ -1210,13 +1254,13 @@ const TransactionProcessModal = ({
                   value={trackingNumber}
                   onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
                   placeholder="숫자만 입력하세요"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="glass-input w-full px-3 py-2.5 rounded-xl"
                 />
               </div>
 
               {requireVideo && (
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">📹 반납 전 물건 상태 영상을 촬영해야 합니다</p>
+                <div className="p-3 bg-yellow-500/10 backdrop-blur-sm border border-yellow-300/30 rounded-xl">
+                  <p className="text-sm text-yellow-700">📹 반납 전 물건 상태 영상을 촬영해야 합니다</p>
                 </div>
               )}
 
@@ -1224,14 +1268,14 @@ const TransactionProcessModal = ({
                 <button
                   onClick={onClose}
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="glass-button-ghost flex-1 px-4 py-2.5 rounded-xl text-gray-700 hover:scale-105 transition-all duration-300 disabled:opacity-50"
                 >
                   나중에 하기
                 </button>
                 <button
                   onClick={handleReturnItem}
                   disabled={isLoading || !courier || !trackingNumber}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="glass-button flex-1 px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? '처리 중...' : requireVideo ? '영상 촬영하기' : '반납 완료'}
                 </button>
@@ -1242,21 +1286,26 @@ const TransactionProcessModal = ({
           {/* 반납 확인 대기 단계 (판매자) */}
           {currentStep === 'return' && userRole === 'seller' && (
             <div className="space-y-4">
-              <ShippingStatusCard
-                trackingNumber={transactionData?.returnTrackingNumber || trackingNumber}
-                courier={transactionData?.returnCourier || courier}
-                status={transactionData?.returnShippingStatus || 'IN_TRANSIT'}
-                type="return"
-              />
+              {transactionData?.returnTrackingNo && transactionData?.returnCarrierCode ? (
+                <ShippingStatusCard
+                  trackingNumber={transactionData.returnTrackingNo}
+                  courier={transactionData.returnCarrierCode}
+                  type="return"
+                />
+              ) : (
+                <div className="p-4 bg-yellow-500/10 backdrop-blur-sm border border-yellow-300/30 rounded-xl">
+                  <p className="text-yellow-700 text-sm">아직 반납 운송장 번호가 등록되지 않았습니다.</p>
+                </div>
+              )}
 
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 text-sm">물건이 도착하면 확인 후 거래를 완료해주세요</p>
+              <div className="p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-300/30 rounded-xl">
+                <p className="text-blue-700 text-sm">물건이 도착하면 확인 후 거래를 완료해주세요</p>
               </div>
 
               <button
                 onClick={handleConfirmReturn}
                 disabled={isLoading}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="glass-button w-full px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? '처리 중...' : '회수 확인 및 거래 완료'}
               </button>
@@ -1266,15 +1315,15 @@ const TransactionProcessModal = ({
           {/* 거래 완료 단계 */}
           {currentStep === 'complete' && (
             <div className="space-y-4">
-              <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+              <div className="p-6 bg-green-500/10 backdrop-blur-sm border border-green-300/30 rounded-xl text-center">
                 <div className="text-4xl mb-3">🎉</div>
-                <p className="text-green-800 font-bold text-lg">거래가 완료되었습니다!</p>
+                <p className="text-green-700 font-bold text-lg">거래가 완료되었습니다!</p>
                 <p className="text-green-600 text-sm mt-2">안전한 거래를 이용해주셔서 감사합니다</p>
               </div>
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="glass-button w-full px-4 py-2.5 rounded-xl text-white hover:scale-105 transition-all duration-300"
               >
                 확인
               </button>
