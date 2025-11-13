@@ -1,56 +1,54 @@
 import React, { useEffect, useState } from 'react';
 
 const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selectedHashtags = [] }) => {
-  // 더미 해시태그 데이터 (실제로는 API에서 가져와야 함)
-  const [hashtags, setHashtags] = useState([]);
+  // 더미 해시태그 데이터를 초기값으로 설정
+  const [hashtags, setHashtags] = useState([
+    { id: 1, name: '게임', count: 45 },
+    { id: 2, name: '캠핑', count: 38 },
+    { id: 3, name: '스포츠', count: 32 },
+    { id: 4, name: '음악', count: 28 },
+    { id: 5, name: '요리', count: 25 },
+    { id: 6, name: '독서', count: 22 },
+    { id: 7, name: '영화', count: 20 },
+    { id: 8, name: '여행', count: 18 },
+    { id: 9, name: '공예', count: 15 },
+    { id: 10, name: '운동', count: 12 },
+    { id: 11, name: '드라마', count: 10 },
+    { id: 12, name: '뷰티', count: 8 },
+    { id: 13, name: '패션', count: 7 },
+    { id: 14, name: '기술', count: 6 },
+    { id: 15, name: '교육', count: 5 },
+    { id: 16, name: '반려동물', count: 4 },
+    { id: 17, name: '사진', count: 3 },
+    { id: 18, name: '미술', count: 2 },
+    { id: 19, name: '건강', count: 1 },
+    { id: 20, name: '취미', count: 1 },
+    { id: 21, name: '자전거', count: 35 },
+    { id: 22, name: '등산', count: 30 },
+    { id: 23, name: '수영', count: 25 },
+    { id: 24, name: '요가', count: 20 },
+    { id: 25, name: '필라테스', count: 18 },
+    { id: 26, name: '볼링', count: 15 },
+    { id: 27, name: '탁구', count: 12 },
+    { id: 28, name: '배드민턴', count: 10 },
+    { id: 29, name: '테니스', count: 8 },
+    { id: 30, name: '골프', count: 6 },
+    { id: 31, name: '축구', count: 5 },
+    { id: 32, name: '농구', count: 4 },
+    { id: 33, name: '배구', count: 3 },
+    { id: 34, name: '야구', count: 2 },
+    { id: 35, name: '헬스', count: 1 },
+    { id: 36, name: '크로스핏', count: 1 },
+    { id: 37, name: '마라톤', count: 1 },
+    { id: 38, name: '트라이애슬론', count: 1 },
+    { id: 39, name: '클라이밍', count: 1 },
+    { id: 40, name: '서핑', count: 1 }
+  ]);
 
+  // searchHashtags가 실제로 있을 때만 업데이트 (빈 배열은 무시)
   useEffect(() => {
     if (searchHashtags && searchHashtags.length > 0) {
       setHashtags(searchHashtags);
-    } else {
-      // 백업용 더미 데이터
-      setHashtags([
-        { id: 1, name: '게임', count: 45 },
-        { id: 2, name: '캠핑', count: 38 },
-        { id: 3, name: '스포츠', count: 32 },
-        { id: 4, name: '음악', count: 28 },
-        { id: 5, name: '요리', count: 25 },
-        { id: 6, name: '독서', count: 22 },
-        { id: 7, name: '영화', count: 20 },
-        { id: 8, name: '여행', count: 18 },
-        { id: 9, name: '공예', count: 15 },
-        { id: 10, name: '운동', count: 12 },
-        { id: 11, name: '드라마', count: 10 },
-        { id: 12, name: '뷰티', count: 8 },
-        { id: 13, name: '패션', count: 7 },
-        { id: 14, name: '기술', count: 6 },
-        { id: 15, name: '교육', count: 5 },
-        { id: 16, name: '반려동물', count: 4 },
-        { id: 17, name: '사진', count: 3 },
-        { id: 18, name: '미술', count: 2 },
-        { id: 19, name: '건강', count: 1 },
-        { id: 20, name: '취미', count: 1 },
-        { id: 21, name: '자전거', count: 35 },
-        { id: 22, name: '등산', count: 30 },
-        { id: 23, name: '수영', count: 25 },
-        { id: 24, name: '요가', count: 20 },
-        { id: 25, name: '필라테스', count: 18 },
-        { id: 26, name: '볼링', count: 15 },
-        { id: 27, name: '탁구', count: 12 },
-        { id: 28, name: '배드민턴', count: 10 },
-        { id: 29, name: '테니스', count: 8 },
-        { id: 30, name: '골프', count: 6 },
-        { id: 31, name: '축구', count: 5 },
-        { id: 32, name: '농구', count: 4 },
-        { id: 33, name: '배구', count: 3 },
-        { id: 34, name: '야구', count: 2 },
-        { id: 35, name: '헬스', count: 1 },
-        { id: 36, name: '크로스핏', count: 1 },
-        { id: 37, name: '마라톤', count: 1 },
-        { id: 38, name: '트라이애슬론', count: 1 },
-        { id: 39, name: '클라이밍', count: 1 },
-        { id: 40, name: '서핑', count: 1 }
-      ]);
     }
   }, [searchHashtags]);
 
