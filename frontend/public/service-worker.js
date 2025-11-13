@@ -70,14 +70,38 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
       try {
-        // 알림 표시
+        // 중복 방지: messageId로 이미 표시된 알림이 있는지 확인
+        // (같은 메시지에 대해 WebSocket과 Push 둘 다 오는 경우 중복 방지)
+        if (notificationData.data && notificationData.data.messageId) {
+          const messageId = notificationData.data.messageId;
+
+          // 최근 5초 이내에 같은 messageId로 표시된 알림이 있는지 확인
+          const existingNotifications = await self.registration.getNotifications();
+          const now = Date.now();
+
+          for (const notification of existingNotifications) {
+            if (notification.data && notification.data.messageId === messageId) {
+              // timestamp가 있으면 확인, 없으면 5초 이내로 간주
+              const notifTimestamp = notification.data.timestamp || now;
+              if ((now - notifTimestamp) < 5000) {
+                console.log('[ServiceWorker] 중복 알림 무시 (최근에 표시됨):', messageId);
+                return; // 중복이므로 표시하지 않음
+              }
+            }
+          }
+        }
+
+        // 알림 표시 (중복이 아닌 경우만)
         await self.registration.showNotification(notificationData.title, {
           body: notificationData.body,
           icon: notificationData.icon,
           badge: notificationData.badge,
           tag: notificationData.tag,
           requireInteraction: notificationData.requireInteraction,
-          data: notificationData.data,
+          data: {
+            ...notificationData.data,
+            timestamp: Date.now() // 표시 시각 기록
+          },
           renotify: true,  // Edge 버그 해결: 같은 tag로 알림이 와도 다시 표시
           ...(notificationData.image && { image: notificationData.image }),
           ...(notificationData.actions && { actions: notificationData.actions })

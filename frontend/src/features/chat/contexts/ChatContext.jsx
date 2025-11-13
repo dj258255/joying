@@ -288,6 +288,7 @@ export const ChatProvider = ({ children }) => {
   const globalWebSocketClientRef = useRef(null); // 전역 WebSocket 클라이언트 (채팅방 상태 변경 알림용)
   const globalWebSocketSubscriptionRef = useRef(null); // 전역 WebSocket 구독
   const globalHeartbeatIntervalRef = useRef(null); // 전역 WebSocket Heartbeat 인터벌
+  const activeRoomIdRef = useRef(null); // 현재 활성화된 채팅방 ID (자동 읽음 처리용)
   const queryClient = useQueryClient();
   const { connect, disconnect, sendMessage: sendWebSocketMessage, sendTyping: sendTypingEvent, isConnected: socketConnected } = useChatSocket();
   const { user } = useAuth();
@@ -1196,12 +1197,13 @@ export const ChatProvider = ({ children }) => {
       } catch (error) {
         console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
       }
-      
+
       disconnect();
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });
       dispatch({ type: 'SET_MESSAGES', payload: [] });
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
       connectionPromiseRef.current = Promise.resolve();
+      activeRoomIdRef.current = null; // 채팅방 퇴장 시 ref 초기화
       return;
     }
 
@@ -1341,6 +1343,8 @@ export const ChatProvider = ({ children }) => {
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: normalizedChatRoom });
       dispatch({ type: 'SET_MESSAGES', payload: normalizedMessages });
       dispatch({ type: 'SET_HAS_MORE_PAST', payload: (messages?.length ?? 0) >= DEFAULT_MESSAGE_PAGE_SIZE });
+
+      activeRoomIdRef.current = roomId; // 채팅방 입장 시 ref 설정
 
       initializeConnection(roomId, normalizedChatRoom);
 
