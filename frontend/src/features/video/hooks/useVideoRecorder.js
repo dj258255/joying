@@ -28,16 +28,24 @@ export const useVideoRecorder = () => {
       setError(null);
 
       mediaRecorder.ondataavailable = (event) => {
+        console.log('[useVideoRecorder] ondataavailable - 데이터 크기:', event.data.size);
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
+          console.log('[useVideoRecorder] 청크 추가됨 - 총 청크 수:', chunksRef.current.length);
         }
       };
 
       mediaRecorder.onstop = () => {
+        console.log('[useVideoRecorder] onstop 호출됨 - 청크 수:', chunksRef.current.length);
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        console.log('[useVideoRecorder] Blob 생성 완료:', {
+          size: blob.size,
+          type: blob.type,
+          chunks: chunksRef.current.length
+        });
         setRecordedBlob(blob);
         setIsRecording(false);
-        
+
         if (timerRef.current) {
           clearInterval(timerRef.current);
         }

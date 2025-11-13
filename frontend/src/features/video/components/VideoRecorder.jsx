@@ -7,10 +7,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useVideoRecorder } from '../hooks/useVideoRecorder';
 
 const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
+  console.log('[VideoRecorder] 컴포넌트 렌더링됨');
+
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState(null);
-  
+  const [previewUrl, setPreviewUrl] = useState(null);
+
   const {
     isRecording,
     recordedBlob,
@@ -20,11 +23,15 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
     resetRecording
   } = useVideoRecorder();
 
+  console.log('[VideoRecorder] 현재 상태:', { isRecording, hasBlob: !!recordedBlob, recordingTime });
+
   // 웹캠 접근
   useEffect(() => {
+    let mediaStream = null;
+
     const initCamera = async () => {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
+        mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 1280 },
             height: { ideal: 720 },
@@ -32,9 +39,9 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
           },
           audio: true
         });
-        
+
         setStream(mediaStream);
-        if (videoRef.current) {
+        if (videoRef.current && !recordedBlob) {
           videoRef.current.srcObject = mediaStream;
         }
       } catch (err) {
@@ -45,28 +52,101 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
 
     initCamera();
 
+    // Cleanup: 컴포넌트 언마운트 시 카메라 스트림 종료
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      console.log('[VideoRecorder] 컴포넌트 언마운트 - 카메라 종료');
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('[VideoRecorder] 트랙 종료:', track.kind);
+        });
       }
     };
-  }, []);
+  }, [recordedBlob]);
+
+  // 녹화 완료 후 미리보기 URL 생성
+  useEffect(() => {
+    if (recordedBlob) {
+      console.log('[VideoRecorder] 녹화 완료 - recordedBlob 정보:', {
+        size: recordedBlob.size,
+        type: recordedBlob.type
+      });
+
+      const url = URL.createObjectURL(recordedBlob);
+      setPreviewUrl(url);
+      console.log('[VideoRecorder] 미리보기 URL 생성 완료:', url);
+
+      // 비디오 소스를 녹화된 영상으로 변경
+      if (videoRef.current) {
+        console.log('[VideoRecorder] 현재 비디오 상태:', {
+          srcObject: videoRef.current.srcObject,
+          src: videoRef.current.src,
+          readyState: videoRef.current.readyState
+        });
+
+        videoRef.current.srcObject = null; // 라이브 스트림 제거
+        videoRef.current.src = url;
+
+        // 비디오 로드 이벤트 리스너 추가
+        videoRef.current.onloadeddata = () => {
+          console.log('[VideoRecorder] 비디오 로드 완료');
+          videoRef.current.play().catch(err => {
+            console.error('[VideoRecorder] 비디오 재생 실패:', err);
+          });
+        };
+
+        videoRef.current.onerror = (e) => {
+          console.error('[VideoRecorder] 비디오 로드 에러:', e);
+        };
+
+        videoRef.current.load();
+        console.log('[VideoRecorder] 비디오 소스 변경 완료 - URL:', url);
+      } else {
+        console.error('[VideoRecorder] videoRef.current가 null입니다!');
+      }
+
+      // Cleanup: URL 해제
+      return () => {
+        console.log('[VideoRecorder] 미리보기 URL 해제:', url);
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      console.log('[VideoRecorder] recordedBlob가 없습니다');
+    }
+  }, [recordedBlob]);
 
   // 녹화 시작
   const handleStartRecording = () => {
+    console.log('[VideoRecorder] 녹화 시작 버튼 클릭 - stream:', stream);
+    alert('녹화 시작!');
     if (stream) {
       startRecording(stream);
+    } else {
+      console.error('[VideoRecorder] stream이 없습니다!');
     }
   };
 
   // 녹화 완료
   const handleStopRecording = () => {
+    console.log('[VideoRecorder] 녹화 중지 버튼 클릭');
+    console.log('recordedBlob 상태:', recordedBlob);
+    console.log('isRecording 상태:', isRecording);
+    alert(`녹화 중지! recordedBlob: ${!!recordedBlob}, isRecording: ${isRecording}`);
     stopRecording();
   };
 
   // 재촬영
   const handleRetake = () => {
+    console.log('[VideoRecorder] 재촬영 - 미리보기 초기화');
     resetRecording();
+    setPreviewUrl(null);
+
+    // 비디오 소스를 다시 라이브 스트림으로 변경
+    if (videoRef.current && stream) {
+      videoRef.current.src = '';
+      videoRef.current.srcObject = stream;
+      console.log('[VideoRecorder] 비디오 소스를 라이브 스트림으로 복원');
+    }
   };
 
   // 업로드
@@ -118,8 +198,9 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
       <div className="relative bg-black">
         <video
           ref={videoRef}
-          autoPlay
-          muted
+          autoPlay={!recordedBlob}
+          muted={!recordedBlob}
+          controls={!!recordedBlob}
           playsInline
           className="w-full h-64 object-cover"
         />
