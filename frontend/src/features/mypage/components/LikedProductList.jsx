@@ -80,15 +80,36 @@ const LikedProductList = ({
       <div className="grid grid-cols-4 md:grid-cols-3 lg:grid-cols-3 gap-2 md:gap-4 lg:gap-6">
         {likedProducts.map((product) => {
           const productId = product.productId || product.id;
+          
+          console.log('[LikedProductList] 원본 product 데이터:', product);
+          console.log('[LikedProductList] region 정보:', product.region);
+          
+          // 장소 정보 추출
+          const dongId = product.region?.dongId || product.dongId;
+          const dong = product.region?.dong || product.dong || '';
+          const sido = product.region?.sido || product.sido || '';
+          const gugun = product.region?.gungu || product.gugun || '';
+          
+          console.log('[LikedProductList] 장소 정보 추출:', { dongId, dong, sido, gugun });
+          
+          const productData = {
+            ...product,
+            productId: productId,
+            thumbnailUrl: product.thumbnailUrl || product.image || (product.files && product.files.length > 0 ? product.files[0].url : null),
+            rentalFee: product.rentalFee || product.price,
+            // 장소 정보 개별 필드 추가 (ProductCard의 장소 표시용)
+            dongId: dongId,
+            dong: dong,
+            sido: sido,
+            gugun: gugun
+          };
+          
+          console.log('[LikedProductList] ProductCard에 전달할 데이터:', productData);
+          
           return (
             <ProductCardLikeWrapper
               key={productId}
-              product={{
-                ...product,
-                productId: productId,
-                thumbnailUrl: product.thumbnailUrl || product.image || (product.files && product.files.length > 0 ? product.files[0].url : null),
-                rentalFee: product.rentalFee || product.price
-              }}
+              product={productData}
               onClick={() => {
                 onProductClick(productId);
                 navigate(`/products/${productId}`);

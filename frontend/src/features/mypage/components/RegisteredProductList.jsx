@@ -171,11 +171,20 @@ const RegisteredProductList = ({
   // 상품 데이터 변환 (백엔드 응답 형식을 컴포넌트에서 사용하는 형식으로)
   const transformedProducts = filteredProducts.map(product => {
     console.log('[RegisteredProductList] 원본 product 데이터:', product);
+    console.log('[RegisteredProductList] region 정보:', product.region);
     console.log('[RegisteredProductList] thumbnailUrl:', product.thumbnailUrl);
     console.log('[RegisteredProductList] files:', product.files);
     
     const imageUrl = product.thumbnailUrl || (product.files && product.files.length > 0 ? product.files[0].url : null);
     console.log('[RegisteredProductList] 최종 imageUrl:', imageUrl);
+    
+    // 장소 정보 추출
+    const dongId = product.region?.dongId || product.dongId;
+    const dong = product.region?.dong || product.dong || '';
+    const sido = product.region?.sido || product.sido || '';
+    const gugun = product.region?.gungu || product.gugun || '';
+    
+    console.log('[RegisteredProductList] 장소 정보 추출:', { dongId, dong, sido, gugun });
     
     return {
       id: product.productId,
@@ -190,6 +199,11 @@ const RegisteredProductList = ({
       location: product.region 
         ? `${product.region.sido} ${product.region.gungu} ${product.region.dong}`
         : '',
+      // 장소 정보 개별 필드 추가 (ProductCard의 장소 표시용)
+      dongId: dongId,
+      dong: dong,
+      sido: sido,
+      gugun: gugun,
       uploadType: product.uploadType,
       liked: product.liked || false,
       isAvailable: true // 백엔드에서 상태 정보가 없으면 기본값

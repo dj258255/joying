@@ -40,6 +40,16 @@ const ProductCard = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
+  
+  // 디버깅: 장소 정보 확인
+  console.log('[ProductCard] 받은 product props:', {
+    dongId: product?.dongId,
+    dong: product?.dong,
+    sido: product?.sido,
+    gugun: product?.gugun,
+    productId: product?.productId || product?.id
+  });
+  
   const getStatusConfig = (status) => {
     const configs = {
       available: { text: '대여 가능', className: 'glass-status-available' },
@@ -147,7 +157,7 @@ const ProductCard = ({
         <div className="glass-product-gradient-overlay"></div>
         
         {/* 위치 정보 - 왼쪽 상단 */}
-        {product?.dongId && (
+        {(product?.dongId || product?.dong) && (
           <div className="absolute top-1.5 sm:top-3 left-1.5 sm:left-3 z-[5]">
             <span className="inline-flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 sm:py-1 bg-black/60 backdrop-blur-sm rounded text-[8px] sm:text-xs text-white/90">
               📍 {product.dong}
