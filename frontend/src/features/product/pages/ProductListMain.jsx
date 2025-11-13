@@ -201,8 +201,7 @@ const ProductListMain = () => {
     // 첫 마운트가 아닐 때만 실행 (lastAppliedFilters가 설정된 후)
     if (lastAppliedFilters.current !== null) {
       console.log('🔄 [ProductListMain] activeTab 변경 감지 - 즉시 refetch:', activeTab);
-      setPage(1);
-      setProducts([]);
+      // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
       refetch().then((result) => {
         console.log('✅ [ProductListMain] activeTab refetch 완료:', result);
       }).catch((err) => {
@@ -231,8 +230,7 @@ const ProductListMain = () => {
     // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
     if (lastAppliedFilters.current !== null) {
       console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
-      setPage(1); // ✅ page를 1로 리셋
-      setProducts([]); // ✅ 기존 상품 목록 초기화
+      // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
       refetch().then((result) => {
         console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
       }).catch((err) => {
@@ -455,10 +453,7 @@ const ProductListMain = () => {
       hashtags: selectedHashtags
     });
 
-    // 페이지 및 상품 목록 초기화 (필터 적용 전에 먼저 실행)
-    setPage(1);
-    setFetchCount(0);
-    setProducts([]);
+    // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
     
     // 임시 필터를 적용된 필터로 복사 (이것이 useEffect를 트리거)
     setAppliedFilters({
