@@ -382,15 +382,17 @@ function ProductCreatePage() {
         updateField('content', result.description.slice(0, 2000));
       }
 
-      // 추천 대여료 자동 입력
+      // 추천 대여료 자동 입력 (포맷팅하여 입력)
       if (result.recommended_price) {
-        updateField('rentalFee', result.recommended_price);
+        const formattedPrice = result.recommended_price.toLocaleString();
+        updateField('rentalFee', formattedPrice);
         console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
       }
 
-      // 추천 보증금 자동 입력
+      // 추천 보증금 자동 입력 (포맷팅하여 입력)
       if (result.recommended_deposit) {
-        updateField('deposit', result.recommended_deposit);
+        const formattedDeposit = result.recommended_deposit.toLocaleString();
+        updateField('deposit', formattedDeposit);
         console.log('[ProductCreatePage] AI 추천 보증금:', result.recommended_deposit, '원');
       }
 
@@ -402,12 +404,15 @@ function ProductCreatePage() {
 
       // 카테고리 자동 선택 (하위 카테고리 우선)
       if (result.sub_category || result.parent_category) {
-        // categoryTree에서 매칭되는 카테고리 찾기
+        // categories에서 매칭되는 카테고리 찾기
         const categoryName = result.sub_category || result.parent_category;
-        const matchedCategory = findCategoryByName(categoryTree, categoryName);
+        const matchedCategory = findCategoryByName(categories, categoryName);
         if (matchedCategory) {
           updateField('categoryId', matchedCategory.categoryId);
+          setSelectedCategoryName(categoryName);
           console.log('[ProductCreatePage] AI 추천 카테고리:', categoryName, '(ID:', matchedCategory.categoryId, ')');
+        } else {
+          console.warn('[ProductCreatePage] 카테고리를 찾을 수 없음:', categoryName);
         }
       }
 
