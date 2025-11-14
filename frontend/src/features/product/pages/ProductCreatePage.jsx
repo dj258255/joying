@@ -180,6 +180,16 @@ function ProductCreatePage() {
     }
   }, [sidos, activeSidoId]);
 
+  // 폼 상태 변경 디버깅
+  useEffect(() => {
+    console.log('[ProductCreatePage] 💰 폼 상태 변경:', {
+      deposit: form.deposit,
+      rentalFee: form.rentalFee,
+      depositType: typeof form.deposit,
+      rentalFeeType: typeof form.rentalFee
+    });
+  }, [form.deposit, form.rentalFee]);
+
   // 수정 모드일 때 기존 상품 정보를 폼에 채우기
   useEffect(() => {
     if (isEditMode && existingProduct && !isProductLoading) {
@@ -270,11 +280,21 @@ function ProductCreatePage() {
     }
   };
 
-  // 해시태그 관리
+  // 해시태그 관리 (쉼표로 여러 개 추가 가능)
   const addHashtag = () => {
-    const t = hashtagInput.trim();
-    if (!t || hashtags.includes(t)) return;
-    setHashtags((prev) => [...prev, t]);
+    const input = hashtagInput.trim();
+    if (!input) return;
+
+    // 쉼표로 구분된 여러 해시태그 처리
+    const newTags = input
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0 && !hashtags.includes(tag));
+
+    if (newTags.length > 0) {
+      setHashtags((prev) => [...prev, ...newTags]);
+    }
+
     setHashtagInput('');
     // 입력창에 자동 포커스
     setTimeout(() => {
@@ -372,21 +392,30 @@ function ProductCreatePage() {
       const result = await aiApi.generateProductDescription(imageFile);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
+      console.log('[ProductCreatePage] 🔍 보증금 확인:', {
+        recommended_deposit: result.recommended_deposit,
+        type: typeof result.recommended_deposit,
+        string_value: String(result.recommended_deposit)
+      });
 
       // 한 번에 모든 필드 업데이트 (setForm 한 번만 호출)
-      setForm(prev => ({
-        ...prev,
-        title: result.title ? result.title.slice(0, 50) : prev.title,
-        content: result.description ? result.description.slice(0, 2000) : prev.content,
-        rentalFee: result.recommended_price ? String(result.recommended_price) : prev.rentalFee,
-        deposit: result.recommended_deposit ? String(result.recommended_deposit) : prev.deposit,
-      }));
+      const newFormData = {
+        ...form,
+        title: result.title ? result.title.slice(0, 50) : form.title,
+        content: result.description ? result.description.slice(0, 2000) : form.content,
+        rentalFee: result.recommended_price ? formatCurrency(result.recommended_price) : form.rentalFee,
+        deposit: result.recommended_deposit ? formatCurrency(result.recommended_deposit) : form.deposit,
+      };
 
-      console.log('[ProductCreatePage] ✅ AI 자동 입력 완료:', {
-        title: result.title,
-        rentalFee: result.recommended_price,
-        deposit: result.recommended_deposit,
+      console.log('[ProductCreatePage] 📝 업데이트할 폼 데이터:', {
+        title: newFormData.title,
+        rentalFee: newFormData.rentalFee,
+        deposit: newFormData.deposit,
       });
+
+      setForm(newFormData);
+
+      console.log('[ProductCreatePage] ✅ AI 자동 입력 완료!');
 
       // 해시태그 자동 입력 (5개)
       if (result.hashtags && result.hashtags.length > 0) {
@@ -395,26 +424,34 @@ function ProductCreatePage() {
       }
 
       // 카테고리 자동 선택 (카테고리 데이터가 로드된 후에만)
+      console.log('[ProductCreatePage] 🔍 카테고리 로드 상태:', {
+        categories_exists: !!categories,
+        categories_length: categories?.length,
+        isCategoriesLoading,
+        sub_category: result.sub_category,
+        parent_category: result.parent_category,
+        categories_sample: categories?.[0]
+      });
+
       if (categories && categories.length > 0 && (result.sub_category || result.parent_category)) {
         const categoryName = result.sub_category || result.parent_category;
-        console.log('[ProductCreatePage] 카테고리 검색 시작:', categoryName);
+        console.log('[ProductCreatePage] 📂 카테고리 검색 시작:', categoryName);
 
         const matchedCategory = findCategoryByName(categories, categoryName);
 
         if (matchedCategory) {
           updateField('categoryId', matchedCategory.categoryId);
           setSelectedCategoryName(matchedCategory.categoryName);
-          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 입력:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
+          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 선택:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
         } else {
-          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName, '/ 전체 카테고리:', categories.length, '개');
+          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName);
+          console.warn('[ProductCreatePage] 전체 카테고리 목록:', categories.map(c => ({
+            name: c.categoryName,
+            children: c.children?.map(ch => ch.categoryName)
+          })));
         }
       } else {
-        console.warn('[ProductCreatePage] ❌ 카테고리 선택 불가:', {
-          categories_loaded: categories?.length > 0,
-          categories_count: categories?.length,
-          sub_category: result.sub_category,
-          parent_category: result.parent_category,
-        });
+        console.warn('[ProductCreatePage] ❌ 카테고리 선택 불가 - categories가 아직 로드되지 않았거나 AI 응답에 카테고리 정보가 없음');
       }
 
       // 성공 메시지 표시
@@ -1052,7 +1089,7 @@ function ProductCreatePage() {
 
           {/* 해시태그 */}
           <div>
-            <label className="block text-sm font-medium text-black mb-1.5">해시태그</label>
+            <label className="block text-sm font-medium text-black mb-1.5">해시태그 (쉼표로 여러 개 추가 가능)</label>
             <div className="flex gap-2">
               <div className="flex-1 flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
                 {/* 입력창 */}
@@ -1061,7 +1098,7 @@ function ProductCreatePage() {
                   value={hashtagInput}
                   onChange={(e) => setHashtagInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-                  placeholder="예: 카메라"
+                  placeholder="예: 카메라, 렌즈, 삼각대"
                   className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
                 />
                 
