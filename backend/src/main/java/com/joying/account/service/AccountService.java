@@ -47,6 +47,7 @@ public class AccountService {
 	 * @param currentMemberId 현재 로그인한 회원 ID
 	 * @return 계좌 목록
 	 */
+	@Transactional
 	public List<AccountResponse> getMemberAccounts(Long memberId, Long currentMemberId) {
 		// 본인의 계좌만 조회 가능
 		if (!memberId.equals(currentMemberId)) {
@@ -54,11 +55,33 @@ public class AccountService {
 		}
 
 		// 회원 존재 확인
-		if (!memberRepository.existsById(memberId)) {
-			throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
-		}
+		Member member = findMemberById(memberId);
 
 		List<Account> accounts = accountRepository.findByMember_MemberId(memberId);
+
+		// SSAFY API로 실제 예금주명 조회 및 업데이트
+		if (member.getSsafyUserKey() != null) {
+			for (Account account : accounts) {
+				try {
+					// SSAFY API로 실제 예금주명 조회
+					String realAccountHolderName = financeApiService.inquireDemandDepositAccountHolderName(
+						account.getAccountNo(),
+						member.getSsafyUserKey()
+					);
+
+					// DB에 저장된 예금주명과 다르면 업데이트
+					if (!realAccountHolderName.equals(account.getAccountHolderName())) {
+						account.updateAccountInfo(account.getBankName(), account.getBankCode(), realAccountHolderName);
+						log.info("계좌 예금주명 갱신: accountNo={}, 기존={}, 신규={}",
+							account.getAccountNo(), account.getAccountHolderName(), realAccountHolderName);
+					}
+				} catch (Exception e) {
+					// API 조회 실패 시 기존 값 유지
+					log.warn("예금주명 조회 실패 (기존 값 유지): accountNo={}, error={}",
+						account.getAccountNo(), e.getMessage());
+				}
+			}
+		}
 
 		return accounts.stream()
 			.map(AccountResponse::from)
@@ -110,7 +133,7 @@ public class AccountService {
 	 * @param memberId          회원 ID
 	 * @param accountNo         계좌번호
 	 * @param authCode          인증 코드
-	 * @param accountHolderName 예금주명 (사용자 입력)
+	 * @param accountHolderName 예금주명 (사용자 입력) - 참고용
 	 * @return 인증 결과 (실명 포함)
 	 */
 	@Transactional
@@ -141,12 +164,8 @@ public class AccountService {
 			member.getSsafyUserKey()
 		);
 
-		// 사용자 입력과 실제 예금주명 비교
-		if (!realAccountHolderName.equals(accountHolderName)) {
-			log.error("예금주명 불일치: 입력={}, 실제={}, memberId={}, accountNo={}",
-				accountHolderName, realAccountHolderName, memberId, accountNo);
-			throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
-		}
+		log.info("SSAFY API 예금주명 조회 성공: accountNo={}, realName={}, 사용자입력={}",
+			accountNo, realAccountHolderName, accountHolderName);
 
 		// 계좌번호에서 은행코드 추출 (앞 3자리)
 		String bankCode = accountNo.substring(0, 3);
@@ -161,18 +180,18 @@ public class AccountService {
 			.orElse(null);
 
 		if (account != null) {
-			// 기존 계좌 정보 업데이트
-			account.updateAccountInfo(bankName, bankCode, accountHolderName);
+			// 기존 계좌 정보 업데이트 (SSAFY API 값으로)
+			account.updateAccountInfo(bankName, bankCode, realAccountHolderName);
 			log.info("기존 계좌 정보 갱신: memberId={}, accountNo={}, realName={}, bankName={}",
-				memberId, accountNo, accountHolderName, bankName);
+				memberId, accountNo, realAccountHolderName, bankName);
 		} else {
-			// 새 계좌 생성
+			// 새 계좌 생성 (SSAFY API 값으로)
 			account = Account.builder()
 				.member(member)
 				.bankName(bankName)
 				.bankCode(bankCode)
 				.accountNo(authResult.getAccountNo())
-				.accountHolderName(accountHolderName)
+				.accountHolderName(realAccountHolderName)
 				.accountState(AccountState.ACTIVE)
 				.build();
 
@@ -183,12 +202,12 @@ public class AccountService {
 			accountRepository.save(account);
 
 			log.info("1원 인증 완료 및 계좌 신규 등록: memberId={}, accountNo={}, realName={}, bankName={}",
-				memberId, authResult.getAccountNo(), accountHolderName, bankName);
+				memberId, authResult.getAccountNo(), realAccountHolderName, bankName);
 		}
 
 		return AccountVerificationResponse.builder()
 			.accountNo(authResult.getAccountNo())
-			.realName(accountHolderName)
+			.realName(realAccountHolderName)
 			.verified(true)
 			.message("계좌 인증이 완료되었습니다.")
 			.build();
