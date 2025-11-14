@@ -202,9 +202,9 @@ class ChatRoomService(
                 chatRoom.buyer.getNickname()
             },
             otherMemberProfileUrl = if (chatRoom.buyer.getMemberId() == buyerId) {
-                chatRoom.seller.getKakaoProfileImageUrl()
+                getProfileImageUrl(chatRoom.seller)
             } else {
-                chatRoom.buyer.getKakaoProfileImageUrl()
+                getProfileImageUrl(chatRoom.buyer)
             },
             lastMessage = chatRoom.lastMessage,
             lastMessageAt = chatRoom.lastMessageAt,
@@ -295,7 +295,7 @@ class ChatRoomService(
                 productImageUrl = thumbnailMap[chatRoom.product.getProductId()],
                 otherMemberId = otherMember.getMemberId()!!,
                 otherMemberNickname = otherMember.getNickname(),
-                otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
+                otherMemberProfileUrl = getProfileImageUrl(otherMember),
                 lastMessage = chatRoom.lastMessage,
                 lastMessageAt = chatRoom.lastMessageAt,
                 unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
@@ -373,7 +373,7 @@ class ChatRoomService(
             productImageUrl = getProductThumbnailUrl(chatRoom.product),
             otherMemberId = otherMember.getMemberId()!!,
             otherMemberNickname = otherMember.getNickname(),
-            otherMemberProfileUrl = otherMember.getKakaoProfileImageUrl(),
+            otherMemberProfileUrl = getProfileImageUrl(otherMember),
             lastMessage = chatRoom.lastMessage,
             lastMessageAt = chatRoom.lastMessageAt,
             unreadCount = unreadCount,
@@ -622,7 +622,7 @@ class ChatRoomService(
         return ChatRoomMemberResponse(
             memberId = otherMember.getMemberId()!!,
             nickname = otherMember.getNickname(),
-            profileUrl = otherMember.getKakaoProfileImageUrl(),
+            profileUrl = getProfileImageUrl(otherMember),
             isOnline = isOnline,
             lastSeenAt = lastSeenAt,
             isPinned = mySettings.isPinned,
@@ -649,6 +649,34 @@ class ChatRoomService(
         val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
 
         return thumbnailFile?.let { fileUrlResolver.toPublicUrl(it.file) }
+    }
+
+    /**
+     * 프로필 이미지 URL 조회 (우선순위 적용)
+     *
+     * 1순위: 사용자가 직접 업로드한 이미지 (profileImage File FK) → R2 Public URL
+     * 2순위: 카카오 프로필 이미지 URL (kakaoProfileImageUrl) → 카카오 URL
+     * 3순위: 기본 프로필 이미지 → /images/default_profile_image.png
+     *
+     * @param member 회원 엔티티
+     * @return 프로필 이미지 URL
+     */
+    private fun getProfileImageUrl(member: Member): String {
+        // 1순위: 사용자가 직접 업로드한 이미지
+        if (member.profileImage != null) {
+            val publicUrl = fileUrlResolver.toPublicUrl(member.profileImage)
+            if (publicUrl != null) {
+                return publicUrl
+            }
+        }
+
+        // 2순위: 카카오 프로필 이미지 URL
+        if (!member.kakaoProfileImageUrl.isNullOrEmpty()) {
+            return member.kakaoProfileImageUrl
+        }
+
+        // 3순위: 기본 프로필 이미지
+        return "/images/default_profile_image.png"
     }
 
     /**
