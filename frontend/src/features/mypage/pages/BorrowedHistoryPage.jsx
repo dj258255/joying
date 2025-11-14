@@ -311,13 +311,13 @@ const BorrowedHistoryPage = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">판매자 정보</h2>
             
             <div className="text-center mb-4">
-              <ProfileImage 
+              <ProfileImage
                 src={rental.owner.profileImageUrl}
-                alt={rental.owner.username}
+                alt={rental.owner.nickname}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.owner.username} 님 (Owner)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.owner.nickname} 님 (Owner)</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
                   {renderPreciseStars(rental.owner.rating)}
