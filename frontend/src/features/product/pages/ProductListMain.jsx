@@ -1284,7 +1284,7 @@ const ProductListMain = () => {
 
    {/* 모바일 필터 모달 */}
    {isFilterOpen && (
-     <div className={`fixed inset-0 z-50 lg:hidden ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}>
+     <div className={`fixed inset-0 z-[10000] lg:hidden ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}>
        <div 
          className={`absolute inset-0 bg-black/50 backdrop-blur-sm ${isFilterClosing ? 'animate-fadeOut' : 'animate-fadeIn'}`}
          onClick={handleCloseFilter} 
@@ -1855,10 +1855,10 @@ const ProductListMain = () => {
        </div>
      )}
 
-    {/* 플로팅 상품 등록 버튼 */}
+    {/* 플로팅 상품 등록 버튼 - 데스크톱만 */}
     <button
       onClick={() => setShowCreateModal(true)}
-      className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gray-900 hover:bg-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 flex items-center justify-center"
+      className="hidden lg:flex fixed bottom-6 right-6 z-50 w-14 h-14 bg-gray-900 hover:bg-black rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 items-center justify-center"
     >
       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
