@@ -443,6 +443,15 @@ function ProductCreatePage() {
         if (matchedCategory) {
           updateField('categoryId', matchedCategory.categoryId);
           setSelectedCategoryName(matchedCategory.categoryName);
+
+          // AI가 선택한 카테고리의 부모 카테고리를 activeCategoryId로 설정
+          const parentCategory = categories.find(parent =>
+            parent.children?.some(child => child.categoryId === matchedCategory.categoryId)
+          );
+          if (parentCategory) {
+            setActiveCategoryId(parentCategory.categoryId);
+          }
+
           console.log('[ProductCreatePage] ✅ AI 추천 카테고리 선택:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
         } else {
           console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName);
@@ -1069,7 +1078,18 @@ function ProductCreatePage() {
             <label className="block text-sm font-medium text-black mb-1.5">카테고리</label>
             <button
               type="button"
-              onClick={() => setShowCategoryPopover(!showCategoryPopover)}
+              onClick={() => {
+                // 모달 열 때 현재 선택된 카테고리의 부모 카테고리를 activeCategoryId로 설정
+                if (form.categoryId) {
+                  const parentCategory = categories.find(parent =>
+                    parent.children?.some(child => child.categoryId === form.categoryId)
+                  );
+                  if (parentCategory) {
+                    setActiveCategoryId(parentCategory.categoryId);
+                  }
+                }
+                setShowCategoryPopover(!showCategoryPopover);
+              }}
               className="w-full px-4 py-3 text-left text-sm bg-white border-2 border-gray-300 rounded-xl text-black hover:border-black transition-colors overflow-hidden whitespace-nowrap text-ellipsis"
             >
               {selectedCategoryName || '카테고리를 선택하세요'}
@@ -1263,7 +1283,10 @@ function ProductCreatePage() {
               <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 border border-gray-300 rounded-lg">
                 <button
                   type="button"
-                  onClick={() => setAiUploadType('RENT')}
+                  onClick={() => {
+                    setAiUploadType('RENT');
+                    updateField('uploadType', 'RENT'); // 실제 업로드 타입도 동기화
+                  }}
                   className={`px-3 py-1 rounded text-xs font-medium transition-all ${
                     aiUploadType === 'RENT'
                       ? 'bg-black text-white'
@@ -1274,7 +1297,10 @@ function ProductCreatePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAiUploadType('BORROW')}
+                  onClick={() => {
+                    setAiUploadType('BORROW');
+                    updateField('uploadType', 'BORROW'); // 실제 업로드 타입도 동기화
+                  }}
                   className={`px-3 py-1 rounded text-xs font-medium transition-all ${
                     aiUploadType === 'BORROW'
                       ? 'bg-black text-white'
