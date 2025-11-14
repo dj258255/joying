@@ -91,25 +91,33 @@ pipeline {
         }
 
     stage('Build frontend') {
-          steps {
-            sh '''
-              set -e
-              echo "[INFO] Starting frontend build..."
-              # 프론트엔드 폴더로 이동
-              cd frontend
-
-              # 의존성 설치 (필요한 경우)
-              npm install
-
-              # 빌드 실행
-              npm run build
-
-              echo "[OK] Frontend build completed."
-              # 빌드 결과물이 dist인지 build인지 확인
-              ls -al dist || ls -al build || true
-            '''
-          }
+      // node 이미지를 사용하여 빌드 환경을 격리합니다.
+      agent {
+        docker {
+          image 'node:20-alpine' // 혹은 프로젝트에 맞는 안정적인 Node.js 버전 (예: 18-alpine)
+          // 워크스페이스를 node 컨테이너 내에서 사용할 수 있도록 합니다.
+          args '-u root:root' // 권한 문제 발생 시 추가
         }
+      }
+      steps {
+        sh '''
+          set -e
+          echo "[INFO] Starting frontend build inside node container..."
+
+          # 1. 프론트엔드 폴더로 이동
+          cd frontend
+
+          # 2. 의존성 설치
+          # Jenkins 볼륨 마운트 시 권한 문제가 발생하면 --unsafe-perm을 사용합니다.
+          npm install
+
+          # 3. 빌드 실행
+          npm run build
+
+          echo "[OK] Frontend build completed. Output files are in: $(pwd)/dist (or build)"
+        '''
+      }
+    }
 
     stage('Deploy (compose up)') {
       steps {
