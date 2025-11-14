@@ -43,7 +43,8 @@ public class ProductResponseDto {
     @Getter @Builder @AllArgsConstructor
     public static class WriterDto {
         private Long memberId;
-        private String name;
+        private String name;        // 실명 (1원 인증 후)
+        private String nickname;    // 닉네임 (표시용)
         private String profileImageUrl; // File 엔터티 대신 URL만
         private Double rating;
     }
@@ -88,7 +89,8 @@ public class ProductResponseDto {
     @Getter @Builder @AllArgsConstructor
     public static class ReviewerDto {
         private Long memberId;
-        private String name;
+        private String name;        // 실명 (1원 인증 후)
+        private String nickname;    // 닉네임 (표시용)
         private String profileImageUrl;
     }
 

@@ -56,15 +56,11 @@ public class SsafyAccountService {
 			// SSAFY 회원 등록 (userKey 자동 발급)
 			MemberRegisterResponse registerResponse = financeApiService.registerMember(member.getEmail());
 
-			// Member에 userKey와 실명 저장
+			// Member에 userKey 저장 (실명은 1원 인증 완료 시에만 저장)
 			member.updateSsafyUserKey(registerResponse.getUserKey());
-			member.updateRealName(registerResponse.getUserName());
 
-			// 예금주명을 SSAFY에서 받은 userName으로 설정
-			accountHolderName = registerResponse.getUserName();
-
-			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}, userName={}",
-				memberId, registerResponse.getUserKey(), registerResponse.getUserName());
+			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}",
+				memberId, registerResponse.getUserKey());
 		}
 
 		// SSAFY 계좌 생성 API 호출

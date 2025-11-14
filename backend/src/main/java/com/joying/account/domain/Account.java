@@ -69,6 +69,19 @@ public class Account extends BaseEntity {
     }
 
     /**
+     * 계좌 정보 업데이트 (1원 인증 재인증 시)
+     *
+     * @param bankName 은행 이름
+     * @param bankCode 은행 코드
+     * @param accountHolderName 예금주명 (실명)
+     */
+    public void updateAccountInfo(String bankName, String bankCode, String accountHolderName) {
+        this.bankName = bankName;
+        this.bankCode = bankCode;
+        this.accountHolderName = accountHolderName;
+    }
+
+    /**
      * 계좌 사용 가능 여부 확인
      *
      * @return 정상 상태 여부 (Account 테이블에 있으면 이미 1원 인증 완료)
