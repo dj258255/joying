@@ -52,7 +52,10 @@ class AdvancedProductChain:
 }}"""),
             ("user", [
                 {"type": "text", "text": "이 상품의 정보를 분석해주세요."},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                {"type": "image_url", "image_url": {
+                    "url": f"data:image/jpeg;base64,{image_base64}",
+                    "detail": "low"  # 512px로 자동 리사이즈, 토큰 사용량 감소
+                }}
             ])
         ])
 

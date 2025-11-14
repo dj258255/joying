@@ -93,13 +93,38 @@ async def generate_product_description(
             img = Image.open(io.BytesIO(image_bytes))
             logger.info(f"이미지 정보: size={img.size}, format={img.format}")
 
-            # 리사이즈
-            max_size = 2048
+            # 리사이즈 및 압축 (GMS API 용량 제한 대응)
+            # detail="low"를 사용하면 OpenAI가 512px로 자동 리사이즈하지만,
+            # Base64 전송 용량을 줄이기 위해 사전에 리사이즈
+            max_size = 1024
             if img.width > max_size or img.height > max_size:
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+            # JPEG로 변환 및 품질 조정
+            buffer = io.BytesIO()
+            if img.mode in ('RGBA', 'LA', 'P'):
+                # 투명도 있는 이미지는 RGB로 변환
+                img = img.convert('RGB')
+
+            # 품질을 조정하면서 목표 크기(100KB) 이하로 압축
+            quality = 85
+            max_file_size = 100 * 1024  # 100KB
+
+            for _ in range(3):  # 최대 3번 시도
                 buffer = io.BytesIO()
-                img.save(buffer, format=img.format or 'JPEG')
+                img.save(buffer, format='JPEG', quality=quality, optimize=True)
                 image_bytes = buffer.getvalue()
+
+                if len(image_bytes) <= max_file_size:
+                    break
+
+                # 너무 크면 품질 낮춤
+                quality -= 15
+                if quality < 40:
+                    quality = 40
+                    break
+
+            logger.info(f"이미지 압축 완료: {len(image_bytes)} bytes (quality={quality})")
 
         except Exception as e:
             raise HTTPException(
