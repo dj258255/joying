@@ -408,7 +408,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getRentalRefuses() != null) {
             rentalRefuseRepository.deleteByProduct_ProductId(productId);
-
+            rentalRefuseRepository.flush();
             for (ProductResponseDto.RentalRefuseDto r : req.getRentalRefuses()) {
                 RentalRefuse entity = RentalRefuse.builder()
                         .product(product)
@@ -438,7 +438,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getHashtags() != null) {
             hashtagHistoryRepository.deleteByProduct_ProductId(productId);
-
+            hashtagHistoryRepository.flush();
             for (String tagName : req.getHashtags()) {
                 if (tagName == null || tagName.isBlank()) continue;
 
