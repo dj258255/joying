@@ -35,9 +35,33 @@ pipeline {
       steps {
         sh '''
           set -e
-          [ -f frontend/.env ] || { echo "[ERR] frontend/.env not found"; exit 1; }
-          cp frontend/.env frontend/.env
-          echo "[OK] frontend/.env copied for build"
+          echo "[INFO] WORKSPACE=$(pwd)"
+          echo "[INFO] listing workspace top level:"; ls -al || true
+
+          # 1) 이미 workspace 안에 frontend/.env가 있으면 바로 통과
+          if [ -f frontend/.env ]; then
+            echo "[OK] frontend/.env exists in workspace"
+            exit 0
+          fi
+
+          # 2) workspace에 없다면, 호스트에 실파일이 마운트되어 있는지 시도 복사
+          HOST_FRONTEND_PATH=/home/ubuntu/joying/frontend
+          if [ -d "$HOST_FRONTEND_PATH" ]; then
+            echo "[INFO] copying host frontend -> workspace"
+            rm -rf frontend || true
+            mkdir -p frontend
+            cp -a "$HOST_FRONTEND_PATH/." ./frontend/
+            echo "[OK] copied $HOST_FRONTEND_PATH -> $(pwd)/frontend"
+            # 확인
+            [ -f frontend/.env ] || { echo "[WARN] copied but frontend/.env still missing"; ls -al frontend || true; exit 1; }
+            exit 0
+          fi
+
+          # 3) 둘 다 없으면 실패, 상세 디버그 정보 출력
+          echo "[ERR] frontend/.env not found in workspace or host path ($HOST_FRONTEND_PATH)"
+          echo "[DBG] workspace listing:"; ls -al
+          echo "[DBG] /home/ubuntu (host) listing (may not be mounted):"; ls -al /home || true
+          exit 1
         '''
       }
     }
