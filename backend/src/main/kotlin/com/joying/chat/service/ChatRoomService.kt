@@ -272,6 +272,10 @@ class ChatRoomService(
                 chatRoom.buyer
             }
 
+            val profileUrl = getProfileImageUrl(otherMember)
+            logger.debug("[getMyChatRooms] 프로필 URL 조회: chatRoomId={}, otherMemberId={}, profileUrl={}",
+                chatRoom.chatRoomId, otherMember.getMemberId(), profileUrl)
+
             // 참여자 상세 정보 (선택적)
             val memberInfo = if (includeMember) {
                 val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
@@ -295,7 +299,7 @@ class ChatRoomService(
                 productImageUrl = thumbnailMap[chatRoom.product.getProductId()],
                 otherMemberId = otherMember.getMemberId()!!,
                 otherMemberNickname = otherMember.getNickname(),
-                otherMemberProfileUrl = getProfileImageUrl(otherMember),
+                otherMemberProfileUrl = profileUrl,
                 lastMessage = chatRoom.lastMessage,
                 lastMessageAt = chatRoom.lastMessageAt,
                 unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
@@ -666,16 +670,19 @@ class ChatRoomService(
         if (member.profileImage != null) {
             val publicUrl = fileUrlResolver.toPublicUrl(member.profileImage)
             if (publicUrl != null) {
+                logger.debug("[getProfileImageUrl] 사용자 업로드 이미지 사용: memberId={}, url={}", member.getMemberId(), publicUrl)
                 return publicUrl
             }
         }
 
         // 2순위: 카카오 프로필 이미지 URL
         if (!member.kakaoProfileImageUrl.isNullOrEmpty()) {
+            logger.debug("[getProfileImageUrl] 카카오 프로필 이미지 사용: memberId={}, url={}", member.getMemberId(), member.kakaoProfileImageUrl)
             return member.kakaoProfileImageUrl
         }
 
         // 3순위: 기본 프로필 이미지
+        logger.debug("[getProfileImageUrl] 기본 이미지 사용: memberId={}", member.getMemberId())
         return "/images/default_profile_image.png"
     }
 
