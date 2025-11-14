@@ -63,6 +63,17 @@ class AdvancedProductChain:
         result = await chain.ainvoke({})
 
         logger.info(f"이미지 분석 결과: {result}")
+
+        # 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
+        result = result.strip()
+        if result.startswith("```"):
+            # 첫 번째 줄 제거 (```json 또는 ```)
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+            # 마지막 ``` 제거
+            if result.endswith("```"):
+                result = result.rsplit("```", 1)[0]
+        result = result.strip()
+
         return json.loads(result)
 
     async def search_market_prices(self, product_name: str, category: str) -> Dict[str, Any]:
@@ -118,6 +129,15 @@ class AdvancedProductChain:
             result = await chain.ainvoke({})
 
             logger.info(f"시장 가격 분석 결과: {result}")
+
+            # 마크다운 코드블록 제거
+            result = result.strip()
+            if result.startswith("```"):
+                result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+                if result.endswith("```"):
+                    result = result.rsplit("```", 1)[0]
+            result = result.strip()
+
             price_info = json.loads(result)
 
             return price_info
@@ -197,6 +217,15 @@ class AdvancedProductChain:
         result = await chain.ainvoke({})
 
         logger.info(f"최종 설명 생성 완료")
+
+        # 마크다운 코드블록 제거
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+            if result.endswith("```"):
+                result = result.rsplit("```", 1)[0]
+        result = result.strip()
+
         parsed_result = json.loads(result)
 
         # 가격 정보 추가
