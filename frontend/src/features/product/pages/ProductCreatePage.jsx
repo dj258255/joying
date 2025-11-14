@@ -570,8 +570,8 @@ function ProductCreatePage() {
       if (successfulUploads.length > 0) {
         setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
 
-        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (제목과 내용이 비어있을 때만)
-        if (previewStartIndex === 0 && fileArr.length > 0 && !form.title && !form.content) {
+        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (이미지가 없었을 때)
+        if (previewStartIndex === 0 && fileArr.length > 0) {
           console.log('[ProductCreatePage] 첫 이미지 업로드 완료, AI 자동 생성 시작');
           await generateWithAI(fileArr[0]);
         }
