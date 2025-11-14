@@ -13,6 +13,7 @@ import ReturnMessageCard, { parseReturnMessage } from '../components/ReturnMessa
 import RentalRequestMessageCard, { parseRentalRequestMessage } from '../components/RentalRequestMessageCard';
 import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '../components/TransactionCreatedMessageCard';
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
+import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -2829,6 +2830,35 @@ const ChatRoomPage = () => {
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     } : undefined}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 거래 완료 메시지 감지 (카드로 렌더링)
+            const completeInfo = parseTransactionCompleteMessage(message.content);
+            if (completeInfo) {
+              // 현재 사용자 ID 확인
+              const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
+              
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+              const isBuyer = !isSeller; // 판매자가 아니면 구매자
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <TransactionCompleteMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    isBuyer={isBuyer}
                   />
                 </React.Fragment>
               );
