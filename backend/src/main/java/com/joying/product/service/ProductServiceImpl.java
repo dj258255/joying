@@ -421,7 +421,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getFileIds() != null) {
             productFileRepository.deleteByProduct_ProductId(productId);
-
+            productFileRepository.flush();
             var files = fileRepository.findAllById(req.getFileIds());
             int order = 0;
             for (File f : files) {

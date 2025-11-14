@@ -91,12 +91,10 @@ pipeline {
         }
 
     stage('Build frontend') {
-      // node 이미지를 사용하여 빌드 환경을 격리합니다.
       agent {
         docker {
-          image 'node:20-alpine' // 혹은 프로젝트에 맞는 안정적인 Node.js 버전 (예: 18-alpine)
-          // 워크스페이스를 node 컨테이너 내에서 사용할 수 있도록 합니다.
-          args '-u root:root' // 권한 문제 발생 시 추가
+          image 'node:20-alpine'
+          args '-u root:root'
         }
       }
       steps {
