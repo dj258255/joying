@@ -181,13 +181,15 @@ export const rentalApi = {
   },
 
   /**
-   * 반납 수령 확인 및 정산 처리
+   * 반납 수령 확인 및 정산 처리 (confirm-return이 정산까지 처리함)
    * @param {number} rentalHisId - 대여 이력 ID
    * @returns {Promise<Object>}
    */
   confirmReturnReceive: async (rentalHisId) => {
+    // 백엔드에는 confirm-return-receive 엔드포인트가 없고 confirm-return만 있음
+    // confirm-return이 이미 정산 처리까지 포함하고 있음
     const response = await axiosInstance.patch(
-      `/rentals/rental-histories/${rentalHisId}/confirm-return-receive`
+      `/rentals/rental-histories/${rentalHisId}/confirm-return`
     );
     return response.data;
   },
