@@ -54,6 +54,23 @@ pipeline {
           }
         }
 
+            stage('Build frontend') {
+              agent {
+                docker {
+                  image 'node:20-alpine'
+                  args '-u root:root'
+                }
+              }
+              steps {
+                sh '''
+                  set -e
+                  cd frontend
+                  npm install
+                  npm run build
+                '''
+              }
+            }
+
 
     stage('Preflight: nginx.conf 문법&볼륨 검사') {
       steps {
@@ -90,13 +107,7 @@ pipeline {
           }
         }
 
-    stage('Build frontend') {
-      agent {
-        docker {
-          image 'node:20-alpine'
-          args '-u root:root'
-        }
-      }
+
       steps {
         sh '''
           set -e
