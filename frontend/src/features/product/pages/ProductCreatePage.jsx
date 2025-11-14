@@ -390,10 +390,18 @@ function ProductCreatePage() {
       }
 
       // 추천 보증금 자동 입력 (포맷팅하여 입력)
+      console.log('[ProductCreatePage] 보증금 체크:', {
+        recommended_deposit: result.recommended_deposit,
+        type: typeof result.recommended_deposit,
+        truthy: !!result.recommended_deposit
+      });
+
       if (result.recommended_deposit) {
         const formattedDeposit = result.recommended_deposit.toLocaleString();
         updateField('deposit', formattedDeposit);
-        console.log('[ProductCreatePage] AI 추천 보증금:', result.recommended_deposit, '원');
+        console.log('[ProductCreatePage] ✅ AI 추천 보증금 입력:', result.recommended_deposit, '원 → 포맷:', formattedDeposit);
+      } else {
+        console.warn('[ProductCreatePage] ❌ 보증금 없음 또는 0');
       }
 
       // 해시태그 자동 입력 (5개)
@@ -403,17 +411,29 @@ function ProductCreatePage() {
       }
 
       // 카테고리 자동 선택 (하위 카테고리 우선)
+      console.log('[ProductCreatePage] 카테고리 체크:', {
+        sub_category: result.sub_category,
+        parent_category: result.parent_category,
+        categories_length: categories?.length,
+        categories_available: !!categories
+      });
+
       if (result.sub_category || result.parent_category) {
         // categories에서 매칭되는 카테고리 찾기
         const categoryName = result.sub_category || result.parent_category;
+        console.log('[ProductCreatePage] 카테고리 검색 시작:', categoryName);
+
         const matchedCategory = findCategoryByName(categories, categoryName);
+
         if (matchedCategory) {
           updateField('categoryId', matchedCategory.categoryId);
           setSelectedCategoryName(categoryName);
-          console.log('[ProductCreatePage] AI 추천 카테고리:', categoryName, '(ID:', matchedCategory.categoryId, ')');
+          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 입력:', categoryName, '(ID:', matchedCategory.categoryId, ')');
         } else {
-          console.warn('[ProductCreatePage] 카테고리를 찾을 수 없음:', categoryName);
+          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName, 'categories:', categories);
         }
+      } else {
+        console.warn('[ProductCreatePage] ❌ 카테고리 정보 없음');
       }
 
       // 성공 메시지 표시
