@@ -81,12 +81,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 				// SSAFY 회원 등록 (userKey 자동 발급)
 				MemberRegisterResponse registerResponse = financeApiService.registerMember(member.getEmail());
 
-				// Member에 userKey와 실명 저장
+				// Member에 userKey 저장 (실명은 1원 인증 완료 시에만 저장)
 				member.updateSsafyUserKey(registerResponse.getUserKey());
-				member.updateRealName(registerResponse.getUserName());
 
-				log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}, userName={}",
-					member.getMemberId(), registerResponse.getUserKey(), registerResponse.getUserName());
+				log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}",
+					member.getMemberId(), registerResponse.getUserKey());
 
 			} catch (Exception e) {
 				// SSAFY API 호출 실패 시에도 로그인은 성공시킴 (userKey는 나중에 발급 가능)

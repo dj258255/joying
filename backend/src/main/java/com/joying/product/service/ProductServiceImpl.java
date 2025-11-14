@@ -97,6 +97,7 @@ public class ProductServiceImpl implements ProductService {
                         .reviewer(ProductResponseDto.ReviewerDto.builder()
                                 .memberId(r.getReviewer().getMemberId())
                                 .name(r.getReviewer().getName())
+                                .nickname(r.getReviewer().getNickname())
                                 .profileImageUrl(
                                         r.getReviewer().getProfileImage() != null
                                                 ? fileUrlResolver.toPublicUrl(r.getReviewer().getProfileImage())
@@ -142,6 +143,7 @@ public class ProductServiceImpl implements ProductService {
         var writerDto = ProductResponseDto.WriterDto.builder()
                 .memberId(writer.getMemberId())
                 .name(writer.getName())
+                .nickname(writer.getNickname())
                 .profileImageUrl(
                         writer.getProfileImage() != null
                                 ? fileUrlResolver.toPublicUrl(writer.getProfileImage())
