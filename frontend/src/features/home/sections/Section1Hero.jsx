@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import ProfileImage from '@/shared/components/ProfileImage';
 import logo from '@/assets/icons/logo.png';
 import { searchApi } from '@/features/search/api/searchApi';
 import { useCategoryTree } from '@/features/category/hooks/useCategories';
@@ -80,10 +81,15 @@ const Section1Hero = () => {
         <div className="absolute top-8 right-8 flex items-center gap-4">
           <button
             onClick={() => navigate(ROUTE_PATHS.MYPAGE)}
-            className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+            className="group relative w-9 h-9 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50 overflow-hidden"
             title={user?.nickname || '마이페이지'}
           >
-            {user?.nickname?.charAt(0) || '👤'}
+            <ProfileImage
+              src={user?.profileImageUrl}
+              alt={user?.nickname || '프로필'}
+              size={36}
+              className="w-full h-full"
+            />
           </button>
         </div>
       )}

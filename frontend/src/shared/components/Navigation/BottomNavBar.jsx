@@ -13,7 +13,12 @@ const BottomNavBar = () => {
 
   // 네비게이션 바를 숨길 경로들
   const hideNavRoutes = ['/login', '/signup', '/checkout', '/chats'];
-  const shouldShow = !hideNavRoutes.some(route => location.pathname.startsWith(route));
+  
+  // 프로덕트 디테일 페이지 체크 (/products/:id 형태)
+  const isProductDetail = /^\/products\/[^/]+$/.test(location.pathname) && 
+                          location.pathname !== '/products/create';
+  
+  const shouldShow = !hideNavRoutes.some(route => location.pathname.startsWith(route)) && !isProductDetail;
 
   // 네비게이션 아이템 정의
   const navItems = useMemo(() => [
@@ -58,7 +63,7 @@ const BottomNavBar = () => {
   if (!shouldShow) return null;
 
   return (
-      <nav className="fixed bottom-0 left-0 right-0 z-[9999] lg:hidden bg-white border-t border-gray-200 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 z-[9997] lg:hidden bg-white border-t border-gray-200 shadow-lg">
         <div className="flex justify-around items-center h-16 max-w-screen-sm mx-auto px-2">
         {navItems.map((item) => (
           <NavButton
