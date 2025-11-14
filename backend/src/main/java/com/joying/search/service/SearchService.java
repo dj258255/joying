@@ -29,7 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
+import com.joying.file.domain.ProductFile;
 import com.joying.file.repository.FileRepository;
+import com.joying.file.repository.ProductFileRepository;
+import com.joying.hashtag.domain.HashtagHistory;
 import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
@@ -80,6 +83,7 @@ public class SearchService {
 	private final ElasticsearchClient elasticsearchClient;
 	private final FileUrlResolver fileUrlResolver;
 	private final FileRepository fileRepository;
+	private final ProductFileRepository productFileRepository;
 
 	@Transactional
 	public SearchResponseDto searchRDB(
@@ -463,6 +467,46 @@ public class SearchService {
 			.map(SearchDocument::from)
 			.collect(Collectors.toList());
 		searchRepository.saveAll(docs);
+	}
+
+	@Transactional
+	public void updateDocumentByProductId(Long productId) {
+		Product product = productRepository.findById(productId)
+			.orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+
+		List<HashtagHistory> hashtagHistories = hashtagHistoryRepository.findAllByProductIds(List.of(productId));
+		List<String> hashtags = hashtagHistories.stream().map(h -> h.getHashtag().getHashtagName()).toList();
+
+		List<ProductFile> productThumbnail = productFileRepository.findThumbnailsByProductIds(List.of(productId));
+
+		Long thumbnailFileId = productThumbnail.isEmpty() ? null : productThumbnail.get(0).getFile().getFileId();
+
+		SearchDocument doc = SearchDocument.builder()
+			.productId(product.getProductId())
+			.title(product.getTitle())
+			.content(product.getContent())
+			.categoryId(product.getCategory().getCategoryId())
+			.sido(product.getSido().getName())
+			.gugun(product.getGungu().getName())
+			.dong(product.getDong().getName())
+			.deposit(product.getDeposit())
+			.rentalFee(product.getRentalFee())
+			.uploadType(product.getUploadType().name())
+			.rentMethod(product.getRentMethod().name())
+			.rating(product.getRating())
+			.categoryId(product.getCategory().getCategoryId())
+			.dongId(product.getDong().getDongId())
+			.startRent(LocalDateTime.from(product.getStartRent()))
+			.endRent(LocalDateTime.from(product.getEndRent()))
+			.hashtags(hashtags)
+			.thumbnailFileId(thumbnailFileId)
+			.videoNecessary(product.getVideoNecessary())
+			.reviewCount(product.getRatingCount())
+			.build();
+
+		searchRepository.save(doc);
+
+		elasticsearchOperations.indexOps(SearchDocument.class).refresh();
 	}
 
 	public void delete(Long productId) {
