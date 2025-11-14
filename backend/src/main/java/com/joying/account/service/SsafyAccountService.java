@@ -45,9 +45,6 @@ public class SsafyAccountService {
 	public SsafyAccountResponse createSsafyAccount(Long memberId, String accountTypeUniqueNo) {
 		Member member = findMemberById(memberId);
 
-		// 예금주명 (실명 > 닉네임 순서로 사용)
-		String accountHolderName = member.getName() != null ? member.getName() : member.getNickname();
-
 		// SSAFY userKey가 없으면 먼저 등록
 		if (member.getSsafyUserKey() == null) {
 			log.info("SSAFY userKey가 없음. 회원 등록 시작: memberId={}, email={}",
@@ -73,21 +70,30 @@ public class SsafyAccountService {
 			throw new BusinessException(ErrorCode.ACCOUNT_ALREADY_REGISTERED);
 		}
 
-		// SsafyAccount 엔티티 생성
+		// ✅ SSAFY API로 실제 예금주명 조회
+		String accountHolderName = financeApiService.inquireDemandDepositAccountHolderName(
+			accountRec.getAccountNo(),
+			member.getSsafyUserKey()
+		);
+
+		log.info("SSAFY 계좌 실제 예금주명 조회: accountNo={}, userName={}",
+			accountRec.getAccountNo(), accountHolderName);
+
+		// SsafyAccount 엔티티 생성 (실제 예금주명 사용)
 		SsafyAccount ssafyAccount = SsafyAccount.builder()
 			.member(member)
 			.accountTypeUniqueNo(accountTypeUniqueNo)
 			.accountNo(accountRec.getAccountNo())
 			.bankCode(accountRec.getBankCode())
-			.accountHolderName(accountHolderName != null ? accountHolderName : "미인증")
+			.accountHolderName(accountHolderName)
 			.accountState(AccountState.ACTIVE)
 			.build();
 
 		// 저장
 		SsafyAccount savedAccount = ssafyAccountRepository.save(ssafyAccount);
 
-		log.info("SSAFY 테스트 계좌 생성 완료: memberId={}, ssafyAccountId={}, accountNo={}",
-			memberId, savedAccount.getSsafyAccountId(), accountRec.getAccountNo());
+		log.info("SSAFY 테스트 계좌 생성 완료: memberId={}, ssafyAccountId={}, accountNo={}, accountHolderName={}",
+			memberId, savedAccount.getSsafyAccountId(), accountRec.getAccountNo(), accountHolderName);
 
 		return SsafyAccountResponse.from(savedAccount);
 	}
