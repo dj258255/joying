@@ -287,5 +287,71 @@ export const rentalApi = {
       data
     );
     return response.data;
+  },
+
+  /**
+   * 내가 빌린 대여 내역 조회
+   * @param {Object} params - 쿼리 파라미터
+   * @param {number} params.page - 페이지 번호 (0부터 시작)
+   * @param {number} params.size - 페이지 크기
+   * @returns {Promise<Object>} 페이징된 대여 내역
+   */
+  getBorrowedHistory: async (params = {}) => {
+    const { page = 0, size = 20 } = params;
+    
+    try {
+      const response = await axiosInstance.get('/rentals/borrowed/history', {
+        params: { page, size }
+      });
+      
+      console.log('[rentalApi] 빌린 내역 조회 성공:', response.data);
+      
+      // 응답 구조: { status, message, data: { content, pageable, ... }, timestamp }
+      if (response.data?.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('[rentalApi] 빌린 내역 조회 실패:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
+  },
+
+  /**
+   * 내가 빌려준 대여 내역 조회
+   * @param {Object} params - 쿼리 파라미터
+   * @param {number} params.page - 페이지 번호 (0부터 시작)
+   * @param {number} params.size - 페이지 크기
+   * @returns {Promise<Object>} 페이징된 대여 내역
+   */
+  getLentHistory: async (params = {}) => {
+    const { page = 0, size = 20 } = params;
+    
+    try {
+      const response = await axiosInstance.get('/rentals/lend/history', {
+        params: { page, size }
+      });
+      
+      console.log('[rentalApi] 빌려준 내역 조회 성공:', response.data);
+      
+      // 응답 구조: { status, message, data: { content, pageable, ... }, timestamp }
+      if (response.data?.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('[rentalApi] 빌려준 내역 조회 실패:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   }
 };

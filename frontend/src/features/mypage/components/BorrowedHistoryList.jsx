@@ -3,29 +3,30 @@
  * 빌린 내역 목록 컴포넌트
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
-import { DUMMY_RENTAL_HISTORY, DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { useBorrowedHistory } from '@/features/rental/hooks/useRentalHistory';
 
 /**
  * @param {Object} props
- * @param {Array} props.borrowedHistory - 빌린 내역 목록
  * @param {Function} props.onProductClick - 상품 클릭 핸들러
  * @param {Function} props.onReviewClick - 리뷰 작성 핸들러
- * @param {boolean} props.isLoading - 로딩 상태
  */
 const BorrowedHistoryList = ({ 
-  borrowedHistory = [], 
   onProductClick = () => {}, 
-  onReviewClick = () => {}, 
-  isLoading = false 
+  onReviewClick = () => {}
 }) => {
   const navigate = useNavigate();
+  const [page] = useState(0);
+  const [size] = useState(20);
   
-  // 현재 사용자가 빌린 내역
-  const displayHistory = borrowedHistory.length > 0 ? borrowedHistory : DUMMY_RENTAL_HISTORY.borrowed;
+  // API로 빌린 내역 조회
+  const { data, isLoading, error } = useBorrowedHistory({ page, size });
+  
+  // 응답 데이터 구조: { content: [], pageable: {}, totalElements, ... }
+  const displayHistory = data?.content || [];
   
   // 대여 기간 계산 함수 (시작일 + 종료일 + 사이 날짜)
   const calculateRentalDays = (startDate, endDate) => {
@@ -36,10 +37,30 @@ const BorrowedHistoryList = ({
     return diffDays + 1; // 시작일과 종료일 포함
   };
 
+  // 상태 텍스트 변환
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'RENTING': return '대여 중';
+      case 'COMPLETED': return '거래 완료';
+      case 'CANCELLED': return '거래 취소';
+      default: return '거래 대기';
+    }
+  };
+
+  // 상태 색상
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'RENTING': return 'bg-blue-100 text-blue-800';
+      case 'COMPLETED': return 'bg-green-100 text-green-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      default: return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
   // 캘린더 렌더링 함수
   const renderCalendar = (rental) => {
-    const startDate = new Date(rental.startDate);
-    const endDate = new Date(rental.endDate);
+    const startDate = new Date(rental.startRen);
+    const endDate = new Date(rental.endRen);
     const currentMonth = startDate.getMonth();
     const currentYear = startDate.getFullYear();
     
@@ -137,6 +158,17 @@ const BorrowedHistoryList = ({
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">대여 내역을 불러오는데 실패했습니다.</div>
+          <div className="text-sm text-gray-500">{error.message}</div>
+        </div>
+      </div>
+    );
+  }
+
   if (displayHistory.length === 0) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -159,42 +191,37 @@ const BorrowedHistoryList = ({
       {/* 대여 내역 목록 */}
       <div className="space-y-4">
         {displayHistory.map((rental) => {
-          const rentalDays = calculateRentalDays(rental.startDate, rental.endDate);
-          const dailyPrice = rental.totalPrice / rentalDays;
+          const rentalDays = calculateRentalDays(rental.startRen, rental.endRen);
+          const dailyPrice = rental.fee / rentalDays;
           
           return (
              <div 
-               key={rental.id}
+               key={rental.rentalHisId}
                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200 cursor-pointer"
-               onClick={() => navigate(`/mypage/borrowed/${rental.id}`)}
+               onClick={() => navigate(`/chats`)}
              >
                <div className="flex flex-col lg:flex-row gap-6">
                  {/* 상품 정보 */}
                 <div className="lg:w-1/3 mt-3">
                    {/* 거래 상태 표시 - 상품 카드 위쪽 */}
                   <div className="mb-3">
-                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                       rental.status === 'completed' ? 'bg-green-100 text-green-800' :
-                       rental.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                       rental.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                       'bg-yellow-100 text-yellow-800'
-                     }`}>
-                       {rental.status === 'completed' ? '거래 완료' :
-                        rental.status === 'in_progress' ? '거래 중' :
-                        rental.status === 'cancelled' ? '거래 취소' : '거래 대기'}
+                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(rental.status)}`}>
+                       {getStatusText(rental.status)}
                      </span>
                    </div>
                    <ProductCard
                      product={{
-                       ...rental.product,
-                       thumbnailUrl: rental.product?.thumbnailUrl || rental.product?.image || (rental.product?.files && rental.product.files.length > 0 ? rental.product.files[0].url : null),
-                       rentalFee: rental.product?.rentalFee || rental.product?.price
+                       id: rental.product.productId,
+                       title: rental.product.title,
+                       thumbnailUrl: rental.product.thumbnail,
+                       category: rental.product.category,
+                       rentalFee: rental.fee
                      }}
-                     onClick={() => navigate(`/mypage/borrowed/${rental.id}`)}
+                     onClick={() => navigate(`/products/${rental.product.productId}`)}
                      actionType="view"
-                     status={rental.status === 'completed' ? 'completed' : 
-                            rental.status === 'in_progress' ? 'rented' : 
-                            rental.status === 'cancelled' ? 'unavailable' : 'pending'}
+                     status={rental.status === 'COMPLETED' ? 'completed' : 
+                            rental.status === 'RENTING' ? 'rented' : 
+                            rental.status === 'CANCELLED' ? 'unavailable' : 'pending'}
                      showStats={false}
                      showDate={false}
                    />
@@ -205,18 +232,14 @@ const BorrowedHistoryList = ({
                   {/* 빌려준 사람 정보 */}
                   <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <ProfileImage 
-                      src={rental.owner.profileImageUrl}
-                      alt={rental.owner.username}
+                      src={rental.counterparty.profileImage}
+                      alt={rental.counterparty.name}
                       size={50}
                       className="w-12 h-12"
                     />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{rental.owner.username} 님에게 빌림</h4>
-                      <p className="text-sm text-gray-600">{rental.owner.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">평점</div>
-                      <div className="font-semibold text-blue-600">{rental.owner.rating}</div>
+                      <h4 className="font-semibold text-gray-900">{rental.counterparty.name} 님에게 빌림</h4>
+                      <p className="text-sm text-gray-600">거래 방식: {rental.rentMethod === 'ONLINE' ? '택배 거래' : '직거래'}</p>
                     </div>
                   </div>
 
@@ -240,18 +263,24 @@ const BorrowedHistoryList = ({
                           <span className="font-medium text-gray-900">{rentalDays}일</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-900">상품 가격:</span>
-                          <span className="font-medium text-gray-900">{rental.totalPrice.toLocaleString()}원</span>
+                          <span className="text-gray-900">대여료 합계:</span>
+                          <span className="font-medium text-gray-900">{rental.fee.toLocaleString()}원</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-900">보증금:</span>
-                          <span className="font-medium text-gray-900">5,000원</span>
+                          <span className="font-medium text-gray-900">{rental.deposit.toLocaleString()}원</span>
                         </div>
                         <hr className="my-2" />
                         <div className="flex justify-between font-bold text-lg text-gray-900">
                           <span>총 결제금액</span>
-                          <span>{(rental.totalPrice + 5000).toLocaleString()}원</span>
+                          <span>{(rental.fee + rental.deposit).toLocaleString()}원</span>
                         </div>
+                        {rental.extensionCount > 0 && (
+                          <div className="flex justify-between text-xs text-blue-600 mt-2">
+                            <span>연장 횟수:</span>
+                            <span>{rental.extensionCount}회</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                    </div>
