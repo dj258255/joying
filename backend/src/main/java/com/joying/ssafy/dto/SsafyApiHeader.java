@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Random;
 
@@ -56,12 +57,19 @@ public class SsafyApiHeader {
 	private String responseMessage;
 
 	/**
+	 * 한국 시간(KST) 가져오기
+	 */
+	private static LocalDateTime getKoreanTime() {
+		return LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+	}
+
+	/**
 	 * 고유 거래 번호 생성 (YYYYMMDD + HHMMSS + 6자리 난수)
 	 *
 	 * @return 20자리 고유 번호
 	 */
 	public static String generateInstitutionTransactionUniqueNo() {
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = getKoreanTime();
 		String yyyymmdd = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 		String hhmmss = now.format(DateTimeFormatter.ofPattern("HHmmss"));
 		String random = String.format("%06d", new Random().nextInt(1000000));
@@ -78,7 +86,7 @@ public class SsafyApiHeader {
 		String institutionCode,
 		String fintechAppNo
 	) {
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = getKoreanTime();
 		return SsafyApiHeader.builder()
 			.apiName(apiName)
 			.transmissionDate(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")))
@@ -102,7 +110,7 @@ public class SsafyApiHeader {
 		String institutionCode,
 		String fintechAppNo
 	) {
-		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime now = getKoreanTime();
 		return SsafyApiHeader.builder()
 			.apiName(apiName)
 			.transmissionDate(now.format(DateTimeFormatter.ofPattern("yyyyMMdd")))
