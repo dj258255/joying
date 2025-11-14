@@ -12,7 +12,7 @@ const BottomNavBar = () => {
   const location = useLocation();
 
   // 네비게이션 바를 숨길 경로들
-  const hideNavRoutes = ['/login', '/signup', '/checkout'];
+  const hideNavRoutes = ['/login', '/signup', '/checkout', '/chats'];
   const shouldShow = !hideNavRoutes.some(route => location.pathname.startsWith(route));
 
   // 네비게이션 아이템 정의
