@@ -32,5 +32,9 @@ export const QUERY_KEYS = {
   MYPAGE: 'mypage',
   RENT_HISTORY: 'rent-history',
   LIKED_PRODUCTS: 'liked-products',
-  REGISTERED_PRODUCTS: 'registered-products'
+  REGISTERED_PRODUCTS: 'registered-products',
+  
+  // Rental
+  RENTAL_BORROWED_HISTORY: 'rental-borrowed-history',
+  RENTAL_LENT_HISTORY: 'rental-lent-history'
 };

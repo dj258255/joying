@@ -69,35 +69,18 @@ const getRefreshEndpoint = () => {
 // 요청 인터셉터
 axiosInstance.interceptors.request.use(
   (config) => {
-    // 쿠키 전송 확인 (HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 참고용)
-    const cookies = document.cookie;
-    const hasAccessTokenCookie = cookies.includes('access_token=');
-    
-    // HttpOnly 쿠키는 document.cookie에서 확인 불가능하므로 항상 localStorage 토큰 확인
-    // 쿠키가 확인되지 않거나 Authorization 헤더가 없으면 localStorage 토큰 사용
-    if (!config.headers.Authorization) {
-      const accessToken = localStorage.getItem('accessToken');
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-        console.log('[API Request] Authorization 헤더 추가:', config.url);
-      } else {
-        console.warn('[API Request] 인증 토큰이 없습니다:', config.url);
-      }
+    // 쿠키 기반 인증 사용 (withCredentials: true로 자동 전송)
+    // localStorage 토큰은 폴백으로만 사용 (선택적)
+    const accessToken = localStorage.getItem('accessToken');
+    if (accessToken && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     
-    // 재요청 시에는 이미 설정된 Authorization 헤더 유지
-    if (config._retry && config.headers.Authorization) {
-      // 재요청 시에만 Authorization 헤더 유지 (토큰 리프레시 후 재요청)
-      // 이 경우 쿠키와 Authorization 헤더 모두 포함되어 백엔드가 둘 중 하나로 인증 가능
-    }
-    
+    // 디버깅용 로그 (간소화)
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
       hasCredentials: config.withCredentials,
-      hasAccessTokenCookie,
-      isRetry: config._retry || false,
       hasAuthHeader: !!config.headers.Authorization,
-      data: config.data,
-      headers: config.headers
+      isRetry: config._retry || false
     });
     
     return config;
