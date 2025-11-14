@@ -408,7 +408,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getRentalRefuses() != null) {
             rentalRefuseRepository.deleteByProduct_ProductId(productId);
-
+            rentalRefuseRepository.flush();
             for (ProductResponseDto.RentalRefuseDto r : req.getRentalRefuses()) {
                 RentalRefuse entity = RentalRefuse.builder()
                         .product(product)
@@ -421,7 +421,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getFileIds() != null) {
             productFileRepository.deleteByProduct_ProductId(productId);
-
+            productFileRepository.flush();
             var files = fileRepository.findAllById(req.getFileIds());
             int order = 0;
             for (File f : files) {
@@ -438,7 +438,7 @@ public class ProductServiceImpl implements ProductService {
 
         if (req.getHashtags() != null) {
             hashtagHistoryRepository.deleteByProduct_ProductId(productId);
-
+            hashtagHistoryRepository.flush();
             for (String tagName : req.getHashtags()) {
                 if (tagName == null || tagName.isBlank()) continue;
 
@@ -458,6 +458,8 @@ public class ProductServiceImpl implements ProductService {
                 hashtagHistoryRepository.save(history);
             }
         }
+
+        searchService.updateDocumentByProductId(productId);
 
         return product.getProductId();
     }
