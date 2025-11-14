@@ -39,6 +39,8 @@ import { chatApi } from '../api/chatApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
+
+// ddd
 const SEARCH_PAGE_SIZE = 20;
 
 // 거래 내역 조회 폼 컴포넌트
