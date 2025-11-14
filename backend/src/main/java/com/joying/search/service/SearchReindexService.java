@@ -152,14 +152,14 @@ public class SearchReindexService {
 		Map<String, Object> settings = Map.of(
 			"analysis", Map.of(
 				"tokenizer", Map.of(
-					"edge_ngram_tokenizer", Map.of(
-						"type", "edge_ngram",
-						"min_gram", 2,
-						"max_gram", 5,
-						"token_chars", List.of("letter", "digit", "whitespace")
-					),
 					"nori_tokenizer", Map.of(
 						"type", "nori_tokenizer"
+					),
+					"ngram_tokenizer", Map.of(
+						"type", "ngram",
+						"min_gram", 2,
+						"max_gram", 5,
+						"token_chars", List.of("letter", "digit")
 					)
 				),
 				"analyzer", Map.of(
@@ -170,7 +170,7 @@ public class SearchReindexService {
 					),
 					"korean_autocomplete", Map.of(
 						"type", "custom",
-						"tokenizer", "edge_ngram_tokenizer",
+						"tokenizer", "ngram_tokenizer",
 						"filter", List.of("lowercase")
 					)
 				)

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
-    List<Review> findByProduct_ProductIdOrderByReviewIdDesc(Long productId);
+    List<Review> findByProduct_ProductIdAndUploadTypeOrderByReviewIdDesc(Long productId, UploadType uploadType);
 
     int countByProduct_ProductId(Long productId);
 
