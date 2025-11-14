@@ -127,7 +127,7 @@ const SideNavbar = ({ isOpen = false, onClose }) => {
           </div>
 
           {/* 프로필 섹션 */}
-          <div className="p-6 border-b border-white/20">
+          <div className="flex-shrink-0 p-6 border-b border-white/20">
             <div className="flex items-center space-x-4">
               <ProfileImage 
                 src={user?.profileImageUrl}
@@ -146,8 +146,8 @@ const SideNavbar = ({ isOpen = false, onClose }) => {
             </div>
           </div>
 
-          {/* 네비게이션 메뉴 */}
-          <div className="flex-1 py-6">
+          {/* 네비게이션 메뉴 - 스크롤 가능 */}
+          <div className="flex-1 min-h-0 overflow-y-auto py-6">
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
@@ -184,18 +184,18 @@ const SideNavbar = ({ isOpen = false, onClose }) => {
             </nav>
           </div>
 
-          {/* 하단 액션 버튼들 */}
-          <div className="p-6 border-t border-white/20 space-y-3">
+          {/* 하단 액션 버튼들 - 항상 하단에 고정 */}
+          <div className="flex-shrink-0 p-6 border-t border-white/20 space-y-3 bg-white/30">
             {/* 로그아웃 버튼 */}
             {isAuthenticated && (
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
+                className="w-full flex items-center justify-center space-x-3 px-4 py-3 text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all duration-200 font-medium shadow-sm"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span className="font-medium">로그아웃</span>
+                <span>로그아웃</span>
               </button>
             )}
           </div>
