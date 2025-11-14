@@ -207,6 +207,8 @@ public class PaymentService {
                     request.getOrderId(),
                     request.getAmount()
             );
+
+
         } catch (TossPaymentException e) {
             // "이미 처리된 결제" 에러인 경우 토스 API로 결제 정보 조회
             if (e.getMessage() != null && e.getMessage().contains("ALREADY_PROCESSED_PAYMENT")) {
@@ -232,6 +234,12 @@ public class PaymentService {
 
         // 결제 완료 채팅 메시지 전송 (비동기)
         sendPaymentCompleteMessage(payment);
+
+        escrowRepository.findByPayment_PaymentId(payment.getPaymentId())
+                .ifPresent(escrow -> {
+                    escrow.startRental();
+                    log.info("Escrow 상태 변경: escrowId={}, status={}", escrow.getHoldId(), escrow.getStatus());
+                });
 
         return convertToResponse(payment);
     }

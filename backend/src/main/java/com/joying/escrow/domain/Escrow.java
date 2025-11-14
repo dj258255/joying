@@ -17,6 +17,7 @@ import java.sql.Timestamp;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "holdId", callSuper = false)
 public class Escrow {
+    public static Status Status;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "hold_id")

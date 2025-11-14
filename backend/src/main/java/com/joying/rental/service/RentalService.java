@@ -1,5 +1,6 @@
 package com.joying.rental.service;
 
+import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
 import com.joying.file.repository.FileRepository;
@@ -296,6 +297,7 @@ public class RentalService {
 
         log.info("[수령 확인 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
+
         return ConfirmReceiveResponse.builder()
                 .rentalHisId(rental.getRentalHisId())
                 .status(rental.getStatus().name())
@@ -329,6 +331,19 @@ public class RentalService {
 
         // 반납 처리
         rental.returnItem(request.getCarrierCode(), request.getTrackingNo());
+
+        escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                .ifPresent(escrow -> {
+                    if (escrow.getStatus() != Status.RETURN_STARTED) {
+                        try {
+                            java.lang.reflect.Field statusField = Escrow.class.getDeclaredField("status");
+                            statusField.setAccessible(true);
+                            statusField.set(escrow, Status.RETURN_STARTED);
+                        } catch (Exception e) {
+                            throw new IllegalStateException("Escrow 상태 변경 실패", e);
+                        }
+                    }
+                });
 
         log.info("[반납 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
