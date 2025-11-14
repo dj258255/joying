@@ -56,7 +56,7 @@ async def root():
     }
 )
 async def generate_product_description(
-    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG)"),
+    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG, WebP, GIF)"),
     upload_type: str = Form("RENT", description="업로드 타입 (RENT: 빌려줘, BORROW: 구해요)")
 ):
     """
@@ -88,7 +88,7 @@ async def generate_product_description(
         if not image.content_type.startswith("image/"):
             raise HTTPException(
                 status_code=400,
-                detail="이미지 파일만 업로드 가능합니다. (JPEG, PNG)"
+                detail="이미지 파일만 업로드 가능합니다. (JPEG, PNG, WebP, GIF)"
             )
 
         # 이미지 읽기 및 전처리
