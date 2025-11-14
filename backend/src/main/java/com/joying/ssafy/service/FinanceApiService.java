@@ -14,6 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * SSAFY 금융망 API 서비스
  */
@@ -505,6 +509,88 @@ public class FinanceApiService {
 	}
 
 	/**
+	 * 계좌 입금 (토스 결제 후 에스크로 입금용)
+	 * 출금 없이 특정 계좌에 입금만 수행
+	 *
+	 * @param accountNo           입금할 계좌번호 (에스크로 계좌)
+	 * @param transactionBalance  입금 금액
+	 * @param transactionSummary  거래 요약 (예: "Toss 결제 에스크로 입금")
+	 * @param userKey             계좌 사용자 KEY (에스크로 계좌 userKey)
+	 * @return 거래 고유번호
+	 */
+	public String depositMoney(
+			String accountNo,
+			Long transactionBalance,
+			String transactionSummary,
+			String userKey
+	) {
+		String apiName = "updateDemandDepositAccountDeposit";
+
+		SsafyApiHeader header = SsafyApiHeader.createRequestHeaderWithUserKey(
+				apiName,
+				apiName,
+				financeApiProperties.getApiKey(),
+				userKey,
+				financeApiProperties.getInstitutionCode(),
+				financeApiProperties.getFintechAppNo()
+		);
+
+		Map<String, Object> request = new HashMap<>();
+		request.put("Header", header);
+		request.put("accountNo", accountNo);
+		request.put("transactionBalance", transactionBalance);
+		request.put("transactionSummary", transactionSummary);
+
+		log.info("계좌 입금 요청: accountNo={}, 금액={}, 내역={}",
+				accountNo, transactionBalance, transactionSummary);
+
+		try {
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+
+			// Object로 받기
+			Object responseObj = restTemplate.postForObject(
+					financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
+					entity,
+					Object.class
+			);
+
+			if (responseObj == null) {
+				log.error("계좌 입금 응답이 null입니다");
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+			if (responseObj instanceof Map) {
+				Map responseBody = (Map) responseObj;
+
+				Map headerMap = (Map) responseBody.get("Header");
+				if (headerMap == null || !"H0000".equals(headerMap.get("responseCode"))) {
+					log.error("계좌 입금 실패: {}", headerMap);
+					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+				}
+
+				Map recMap = (Map) responseBody.get("REC");
+				String transactionUniqueNo = (String) recMap.get("transactionUniqueNo");
+
+				log.info("계좌 입금 성공: transactionUniqueNo={}", transactionUniqueNo);
+				return transactionUniqueNo;
+			}
+
+			// 리스트 응답 또는 기타 처리
+			log.error("계좌 입금 실패(알 수 없는 응답): {}", responseObj);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+
+		} catch (BusinessException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("계좌 입금 API 호출 중 오류 발생", e);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+
+	/**
 	 * 계좌 출금 (송금)
 	 * Joying 중개계좌 → 사용자 계좌로 송금
 	 *
@@ -516,69 +602,94 @@ public class FinanceApiService {
 	 * @return 거래 고유번호
 	 */
 	public String transferMoney(
-		String withdrawalAccountNo,
-		String depositAccountNo,
-		Long transactionBalance,
-		String transactionSummary,
-		String withdrawalUserKey
+			String withdrawalAccountNo,
+			String depositAccountNo,
+			Long transactionBalance,
+			String transactionSummary,
+			String withdrawalUserKey
 	) {
-		String apiName = "updateDemandDepositAccountWithdrawal";
 
-		// Header 생성
+		String apiName = "updateDemandDepositAccountTransfer";
+
 		SsafyApiHeader header = SsafyApiHeader.createRequestHeaderWithUserKey(
-			apiName,
-			apiName,
-			financeApiProperties.getApiKey(),
-			withdrawalUserKey,
-			financeApiProperties.getInstitutionCode(),
-			financeApiProperties.getFintechAppNo()
+				apiName,
+				apiName,
+				financeApiProperties.getApiKey(),
+				withdrawalUserKey,
+				financeApiProperties.getInstitutionCode(),
+				financeApiProperties.getFintechAppNo()
 		);
 
-		// Request 생성 (DTO 없으면 Map 사용)
-		java.util.Map<String, Object> request = new java.util.HashMap<>();
-		request.put("header", header);
+		Map<String, Object> request = new HashMap<>();
+		request.put("Header", header);
 		request.put("withdrawalAccountNo", withdrawalAccountNo);
 		request.put("transactionBalance", transactionBalance);
 		request.put("depositAccountNo", depositAccountNo);
-		request.put("transactionSummary", transactionSummary);
+		request.put("withdrawalTransactionSummary", transactionSummary);
+		request.put("depositTransactionSummary", transactionSummary);
 
 		log.info("계좌 송금 요청: {} → {}, 금액={}, 내역={}",
-			withdrawalAccountNo, depositAccountNo, transactionBalance, transactionSummary);
+				withdrawalAccountNo, depositAccountNo, transactionBalance, transactionSummary);
 
 		try {
-			// API 호출
 			HttpHeaders headers = new HttpHeaders();
 			headers.setContentType(MediaType.APPLICATION_JSON);
-			HttpEntity<java.util.Map<String, Object>> entity = new HttpEntity<>(request, headers);
+			HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<java.util.Map> response = restTemplate.postForEntity(
-				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
-				entity,
-				java.util.Map.class
+			Object responseObj = restTemplate.postForObject(
+					financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
+					entity,
+					Object.class
 			);
 
-			java.util.Map responseBody = response.getBody();
-
-			if (responseBody == null) {
+			if (responseObj == null) {
 				log.error("계좌 송금 응답이 null입니다");
 				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
-			// 응답 코드 확인
-			java.util.Map headerMap = (java.util.Map) responseBody.get("header");
-			if (headerMap == null || !"H0000".equals(headerMap.get("responseCode"))) {
-				log.error("계좌 송금 실패: responseCode={}, responseMessage={}",
-					headerMap != null ? headerMap.get("responseCode") : "null",
-					headerMap != null ? headerMap.get("responseMessage") : "null");
+			// 성공/실패 공통: Response는 Map으로 온다
+			if (!(responseObj instanceof Map)) {
+				log.error("계좌 송금 실패(전체 응답 타입이 Map이 아님): {}", responseObj);
 				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
-			java.util.Map recMap = (java.util.Map) responseBody.get("rec");
-			String transactionUniqueNo = (String) recMap.get("transactionUniqueNo");
+			Map responseBody = (Map) responseObj;
 
-			log.info("계좌 송금 성공: transactionUniqueNo={}", transactionUniqueNo);
+			Map headerMap = (Map) responseBody.get("Header");
+			if (headerMap == null || !"H0000".equals(headerMap.get("responseCode"))) {
+				log.error("계좌 송금 실패(Header 오류): {}", headerMap);
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
 
-			return transactionUniqueNo;
+			Object recObj = responseBody.get("REC");
+
+			/**
+			 * 실패: REC = Map (errorCode, errorMessage)
+			 */
+			if (recObj instanceof Map) {
+				log.error("계좌 송금 실패(REC=Map 오류): {}", recObj);
+				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			}
+
+			/**
+			 * 성공: REC = List (출금/입금 2건)
+			 */
+			if (recObj instanceof List<?> list) {
+				if (list.isEmpty()) {
+					log.error("REC 리스트가 비어 있습니다: {}", list);
+					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+				}
+
+				Map firstRecord = (Map) list.get(0);
+				String transactionUniqueNo = (String) firstRecord.get("transactionUniqueNo");
+
+				log.info("계좌 송금 성공: transactionUniqueNo={}", transactionUniqueNo);
+				return transactionUniqueNo;
+			}
+
+			// 알 수 없는 구조
+			log.error("계좌 송금 실패(REC 타입 알 수 없음): {}", recObj);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 
 		} catch (BusinessException e) {
 			throw e;
@@ -587,4 +698,6 @@ public class FinanceApiService {
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 	}
+
+
 }

@@ -1,8 +1,9 @@
 /**
- * ReceiveModal Component
- * 구매자가 물품 수령 시 사용하는 모달
- * - 영상 녹화 (개봉 영상)
- * - 수령 확인 처리
+ * ReturnReceiveModal Component
+ * 판매자가 반납품 수령 확인 시 사용하는 모달
+ * - 영상 녹화 (반납품 수령 영상)
+ * - 보증금 확인 및 정산 처리
+ * - 거래 중단 옵션
  */
 
 import React, { useState, useRef } from 'react';
@@ -16,9 +17,10 @@ import { rentalApi } from '../api/rentalApi';
  * @param {boolean} props.isOpen - 모달 열림 상태
  * @param {Function} props.onClose - 모달 닫기 핸들러
  * @param {number} props.rentalHisId - 대여 이력 ID
- * @param {Function} props.onReceiveComplete - 수령 완료 콜백 (videoUrl)
+ * @param {Function} props.onConfirmComplete - 수령 확인 완료 콜백
+ * @param {Function} props.onCancelRequest - 거래 중단 요청 콜백
  */
-const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
+const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, onCancelRequest }) => {
   // 상태 관리
   const [currentStep, setCurrentStep] = useState('video'); // video, confirm, complete
   const [isLoading, setIsLoading] = useState(false);
@@ -40,24 +42,24 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       if (!isOpen || !rentalHisId) return;
 
       try {
-        console.log('[ReceiveModal] 기존 영상 확인 중...');
+        console.log('[ReturnReceiveModal] 기존 영상 확인 중...');
         const videosResponse = await rentalApi.getVideos(rentalHisId);
         const videos = videosResponse.data || videosResponse.body || videosResponse || [];
 
-        const renterReceiveVideo = Array.isArray(videos)
-          ? videos.find(video => video.videoType === 'RENTER_RECEIVE' || video.type === 'RENTER_RECEIVE')
+        const lenderReceiveVideo = Array.isArray(videos)
+          ? videos.find(video => video.videoType === 'LENDER_RECEIVE' || video.type === 'LENDER_RECEIVE')
           : null;
 
-        if (renterReceiveVideo) {
-          console.log('[ReceiveModal] 기존 수령 영상 발견. 확인 단계로 이동');
-          setUploadedVideoUrl(renterReceiveVideo.videoUrl || renterReceiveVideo.url || renterReceiveVideo.filePath);
+        if (lenderReceiveVideo) {
+          console.log('[ReturnReceiveModal] 기존 수령 영상 발견. 확인 단계로 이동');
+          setUploadedVideoUrl(lenderReceiveVideo.videoUrl || lenderReceiveVideo.url || lenderReceiveVideo.filePath);
           setCurrentStep('confirm');
         } else {
-          console.log('[ReceiveModal] 기존 영상 없음. 촬영 단계로 시작');
+          console.log('[ReturnReceiveModal] 기존 영상 없음. 촬영 단계로 시작');
           setCurrentStep('video');
         }
       } catch (err) {
-        console.error('[ReceiveModal] 기존 영상 확인 실패:', err);
+        console.error('[ReturnReceiveModal] 기존 영상 확인 실패:', err);
         setCurrentStep('video');
       }
     };
@@ -103,9 +105,9 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[ReceiveModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
+        console.log('[ReturnReceiveModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[ReceiveModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+        console.log('[ReturnReceiveModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
 
         const url = URL.createObjectURL(blob);
         setRecordedVideoBlob(blob);
@@ -126,7 +128,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('[ReceiveModal] 영상 녹화 시작 실패:', err);
+      console.error('[ReturnReceiveModal] 영상 녹화 시작 실패:', err);
       setError('카메라 접근에 실패했습니다. 브라우저 설정을 확인해주세요.');
     }
   };
@@ -159,11 +161,11 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReceiveModal] 영상 업로드 시작');
+      console.log('[ReturnReceiveModal] 영상 업로드 시작');
 
-      // 1. 파일 업로드 (상태가 아직 SHIPPED일 때)
+      // 1. 파일 업로드
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      console.log('[ReceiveModal] 파일 업로드 응답:', uploadResult);
+      console.log('[ReturnReceiveModal] 파일 업로드 응답:', uploadResult);
 
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
@@ -174,19 +176,19 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ReceiveModal] fileId를 찾을 수 없음:', uploadResult);
+        console.error('[ReturnReceiveModal] fileId를 찾을 수 없음:', uploadResult);
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
-      console.log('[ReceiveModal] 파일 업로드 성공. fileId:', fileId);
+      console.log('[ReturnReceiveModal] 파일 업로드 성공. fileId:', fileId);
 
-      // 2. 대여 이력에 영상 등록 (상태: SHIPPED)
+      // 2. 대여 이력에 영상 등록
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
         fileId: fileId,
-        videoType: 'RENTER_RECEIVE' // 구매자 수령 영상
+        videoType: 'LENDER_RECEIVE' // 판매자 수령 영상
       });
 
-      console.log('[ReceiveModal] 영상 등록 성공:', videoResult);
+      console.log('[ReturnReceiveModal] 영상 등록 성공:', videoResult);
 
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
@@ -197,55 +199,50 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
         || null;
 
       setUploadedVideoUrl(videoUrl);
-
-      // 3. 수령 확인 API 호출 (상태: SHIPPED → RENTING)
-      console.log('[ReceiveModal] 수령 확인 API 호출:', rentalHisId);
-      await rentalApi.confirmReceive(rentalHisId);
-      console.log('[ReceiveModal] 수령 확인 완료 - 상태가 RENTING으로 변경됨');
-
-      // 부모 컴포넌트에 완료 알림
-      if (onReceiveComplete) {
-        onReceiveComplete({
-          videoUrl: videoUrl
-        });
-      }
-
-      setCurrentStep('complete');
+      setCurrentStep('confirm');
     } catch (err) {
-      console.error('[ReceiveModal] 영상 업로드 또는 수령 확인 실패:', err);
-      setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
+      console.error('[ReturnReceiveModal] 영상 업로드 실패:', err);
+      setError(err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 수령 확인 처리
-  const handleReceiveConfirm = async () => {
+  // 보증금 확인 및 정산 처리
+  const handleConfirmReturn = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReceiveModal] 수령 확인 처리 시작:', rentalHisId);
+      console.log('[ReturnReceiveModal] 반납 수령 확인 및 정산 처리 시작:', rentalHisId);
 
-      // 수령 확인 API 호출
-      await rentalApi.confirmReceive(rentalHisId);
+      // 반납 수령 확인 API 호출 (정산 처리 포함)
+      await rentalApi.confirmReturnReceive(rentalHisId);
 
-      console.log('[ReceiveModal] 수령 확인 완료');
+      console.log('[ReturnReceiveModal] 반납 수령 확인 및 정산 완료');
 
       // 부모 컴포넌트에 완료 알림
-      if (onReceiveComplete) {
-        onReceiveComplete({
+      if (onConfirmComplete) {
+        onConfirmComplete({
           videoUrl: uploadedVideoUrl
         });
       }
 
       setCurrentStep('complete');
     } catch (err) {
-      console.error('[ReceiveModal] 수령 확인 실패:', err);
-      setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
+      console.error('[ReturnReceiveModal] 반납 수령 확인 실패:', err);
+      setError(err.response?.data?.message || err.message || '반납 수령 확인에 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 거래 중단 요청
+  const handleCancelRequest = () => {
+    if (onCancelRequest) {
+      onCancelRequest();
+    }
+    handleClose();
   };
 
   // 완료 후 닫기
@@ -267,19 +264,19 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="물품 수령 확인" className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="반납 수령 확인" className="max-w-2xl">
       <div className="space-y-6">
         {error && <ErrorAlert message={error} />}
 
         {/* Step 1: 영상 녹화 */}
         {currentStep === 'video' && (
           <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                📹 물품 개봉 영상을 촬영해주세요
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                📹 반납품 수령 영상을 촬영해주세요
               </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                택배 개봉 과정을 촬영하면 분쟁 시 증거로 사용됩니다
+              <p className="text-xs text-blue-600 mt-1">
+                물품의 상태를 확인하고 촬영하면 분쟁 시 증거로 사용됩니다
               </p>
             </div>
 
@@ -355,7 +352,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
           </div>
         )}
 
-        {/* Step 2: 수령 확인 */}
+        {/* Step 2: 보증금 확인 */}
         {currentStep === 'confirm' && (
           <div className="space-y-4">
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -363,32 +360,40 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
                 ✅ 영상 업로드 완료!
               </p>
               <p className="text-xs text-green-600 mt-1">
-                물품 확인 후 수령을 확정해주세요
+                반납품을 확인하고 정산을 진행해주세요
               </p>
             </div>
 
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-2">💡 수령 확인 전 체크사항</p>
+              <p className="text-sm text-blue-800 font-medium mb-2">💡 확인 사항</p>
               <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                <li>물품이 설명과 일치하는지 확인</li>
-                <li>손상되거나 파손된 부분이 없는지 확인</li>
-                <li>모든 구성품이 포함되어 있는지 확인</li>
+                <li>물품이 대여 시와 동일한 상태인지 확인</li>
+                <li>손상되거나 파손된 부분이 있는지 확인</li>
+                <li>모든 구성품이 반납되었는지 확인</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800 font-medium mb-2">⚠️ 선택 사항</p>
+              <ul className="text-xs text-yellow-700 space-y-1">
+                <li>• <strong>확인하기</strong>: 보증금을 그대로 반환하고 거래 완료</li>
+                <li>• <strong>거래 중단하기</strong>: 물품 손상 등으로 보증금 조정이 필요한 경우</li>
               </ul>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => setCurrentStep('video')}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                onClick={handleCancelRequest}
+                className="flex-1 px-4 py-3 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50"
               >
-                이전
+                거래 중단하기
               </button>
               <button
-                onClick={handleReceiveConfirm}
+                onClick={handleConfirmReturn}
                 disabled={isLoading}
                 className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
               >
-                {isLoading ? '처리 중...' : '수령 확인'}
+                {isLoading ? '처리 중...' : '확인하기'}
               </button>
             </div>
           </div>
@@ -399,9 +404,9 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
           <div className="space-y-4">
             <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
               <div className="text-4xl mb-3">✅</div>
-              <p className="text-green-800 font-bold text-lg">수령이 확인되었습니다!</p>
+              <p className="text-green-800 font-bold text-lg">거래가 완료되었습니다!</p>
               <p className="text-green-600 text-sm mt-2">
-                이제 대여가 시작되었습니다
+                정산이 완료되었습니다
               </p>
             </div>
 
@@ -418,4 +423,4 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
   );
 };
 
-export default ReceiveModal;
+export default ReturnReceiveModal;
