@@ -373,51 +373,29 @@ function ProductCreatePage() {
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
 
-      // 제목과 내용 자동 입력
-      if (result.title) {
-        updateField('title', result.title.slice(0, 50));
-      }
+      // 한 번에 모든 필드 업데이트 (setForm 한 번만 호출)
+      setForm(prev => ({
+        ...prev,
+        title: result.title ? result.title.slice(0, 50) : prev.title,
+        content: result.description ? result.description.slice(0, 2000) : prev.content,
+        rentalFee: result.recommended_price ? String(result.recommended_price) : prev.rentalFee,
+        deposit: result.recommended_deposit ? String(result.recommended_deposit) : prev.deposit,
+      }));
 
-      if (result.description) {
-        updateField('content', result.description.slice(0, 2000));
-      }
-
-      // 추천 대여료 자동 입력 (숫자만 입력)
-      if (result.recommended_price) {
-        updateField('rentalFee', String(result.recommended_price));
-        console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
-      }
-
-      // 추천 보증금 자동 입력 (숫자만 입력)
-      console.log('[ProductCreatePage] 보증금 체크:', {
-        recommended_deposit: result.recommended_deposit,
-        type: typeof result.recommended_deposit,
-        truthy: !!result.recommended_deposit
+      console.log('[ProductCreatePage] ✅ AI 자동 입력 완료:', {
+        title: result.title,
+        rentalFee: result.recommended_price,
+        deposit: result.recommended_deposit,
       });
-
-      if (result.recommended_deposit) {
-        updateField('deposit', String(result.recommended_deposit));
-        console.log('[ProductCreatePage] ✅ AI 추천 보증금 입력:', result.recommended_deposit, '원');
-      } else {
-        console.warn('[ProductCreatePage] ❌ 보증금 없음 또는 0');
-      }
 
       // 해시태그 자동 입력 (5개)
       if (result.hashtags && result.hashtags.length > 0) {
         setHashtags(result.hashtags);
-        console.log('[ProductCreatePage] AI 생성 해시태그:', result.hashtags);
+        console.log('[ProductCreatePage] ✅ AI 생성 해시태그:', result.hashtags);
       }
 
-      // 카테고리 자동 선택 (하위 카테고리 우선)
-      console.log('[ProductCreatePage] 카테고리 체크:', {
-        sub_category: result.sub_category,
-        parent_category: result.parent_category,
-        categories_length: categories?.length,
-        categories_available: !!categories
-      });
-
-      if (result.sub_category || result.parent_category) {
-        // categories에서 매칭되는 카테고리 찾기
+      // 카테고리 자동 선택 (카테고리 데이터가 로드된 후에만)
+      if (categories && categories.length > 0 && (result.sub_category || result.parent_category)) {
         const categoryName = result.sub_category || result.parent_category;
         console.log('[ProductCreatePage] 카테고리 검색 시작:', categoryName);
 
@@ -425,13 +403,18 @@ function ProductCreatePage() {
 
         if (matchedCategory) {
           updateField('categoryId', matchedCategory.categoryId);
-          setSelectedCategoryName(categoryName);
-          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 입력:', categoryName, '(ID:', matchedCategory.categoryId, ')');
+          setSelectedCategoryName(matchedCategory.categoryName);
+          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 입력:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
         } else {
-          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName, 'categories:', categories);
+          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName, '/ 전체 카테고리:', categories.length, '개');
         }
       } else {
-        console.warn('[ProductCreatePage] ❌ 카테고리 정보 없음');
+        console.warn('[ProductCreatePage] ❌ 카테고리 선택 불가:', {
+          categories_loaded: categories?.length > 0,
+          categories_count: categories?.length,
+          sub_category: result.sub_category,
+          parent_category: result.parent_category,
+        });
       }
 
       // 성공 메시지 표시
@@ -439,7 +422,8 @@ function ProductCreatePage() {
       const priceInfo = result.recommended_price ? ` / 대여료: ${result.recommended_price.toLocaleString()}원` : '';
       const depositInfo = result.recommended_deposit ? ` / 보증금: ${result.recommended_deposit.toLocaleString()}원` : '';
       const hashtagInfo = result.hashtags?.length ? ` / 해시태그: ${result.hashtags.length}개` : '';
-      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo}${depositInfo}${hashtagInfo})`;
+      const categoryInfo = result.sub_category ? ` / 카테고리: ${result.sub_category}` : '';
+      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo}${depositInfo}${hashtagInfo}${categoryInfo})`;
       setErrorMessage(successMessage);
       setTimeout(() => {
         if (errorMessage === successMessage) {
