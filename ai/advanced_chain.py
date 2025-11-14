@@ -44,12 +44,12 @@ class AdvancedProductChain:
             ("system", """당신은 상품 이미지 분석 전문가입니다.
 이미지를 보고 다음 정보를 JSON 형식으로 추출하세요:
 
-{
+{{
   "product_name": "상품명 (간결하게)",
   "category": "카테고리 (전자기기, 생활용품, 스포츠/레저, 의류/잡화, 도서/교육, 기타)",
   "key_features": ["특징1", "특징2", "특징3"],
   "condition": "상품 상태 (새것, 거의 새것, 사용감 있음, 많이 사용함)"
-}"""),
+}}"""),
             ("user", [
                 {"type": "text", "text": "이 상품의 정보를 분석해주세요."},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
