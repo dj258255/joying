@@ -134,12 +134,13 @@ const AccountVerifyForm = ({ onComplete }) => {
   };
 
   return (
-    <div className="p-4 lg:p-6">
-      <div className="mb-4 lg:mb-6">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-900">계좌 인증</h2>
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">계좌 인증</h2>
+        <p className="text-gray-600 mt-2 text-sm">대여 수익을 받기 위한 계좌 인증을 진행하세요</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-4 lg:p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/50 p-6">
         {step === 'start' && (
           <form onSubmit={handleStartVerification} className="space-y-6">
             {/* 계좌번호 */}
@@ -152,7 +153,7 @@ const AccountVerifyForm = ({ onComplete }) => {
                 name="accountNo"
                 value={formData.accountNo}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 placeholder="계좌번호를 입력하세요 (하이픈 제외)"
                 maxLength={16}
                 required
@@ -172,7 +173,7 @@ const AccountVerifyForm = ({ onComplete }) => {
                 name="accountHolderName"
                 value={formData.accountHolderName}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 placeholder="예금주명을 입력하세요"
                 required
               />
@@ -187,9 +188,9 @@ const AccountVerifyForm = ({ onComplete }) => {
             )}
 
             {/* 인증 안내 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-blue-900 mb-2">1원 인증 안내</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
+            <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-2">1원 인증 안내</h4>
+              <ul className="text-sm text-gray-700 space-y-1">
                 <li>• 입력하신 계좌로 1원이 송금됩니다</li>
                 <li>• 입금자명에 표시된 4자리 인증 코드를 확인해주세요</li>
                 <li>• 인증 코드는 5분 이내에 입력해주세요</li>
@@ -202,17 +203,17 @@ const AccountVerifyForm = ({ onComplete }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex-1 bg-gradient-to-r from-gray-900 to-gray-800 text-white py-3 px-6 rounded-lg hover:from-black hover:to-gray-900 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
               >
                 {isLoading ? '인증 중...' : '계좌 인증'}
               </button>
-              <button
-                type="button"
-                onClick={() => navigate('/mypage')}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                취소
-              </button>
+               <button
+                 type="button"
+                 onClick={() => navigate('/mypage', { state: { activeTab: 'account' } })}
+                 className="flex-1 bg-white/80 text-gray-700 py-3 px-6 rounded-lg hover:bg-white transition-all duration-200 border border-gray-300 font-medium"
+               >
+                 취소
+               </button>
             </div>
           </form>
         )}
@@ -220,14 +221,14 @@ const AccountVerifyForm = ({ onComplete }) => {
         {step === 'complete' && (
           <form onSubmit={handleCompleteVerification} className="space-y-6">
             {/* 안내 메시지 */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-gray-700 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <h4 className="text-sm font-medium text-green-900 mb-1">1원이 송금되었습니다</h4>
-                  <p className="text-sm text-green-800">{verificationData?.message || '입금자명에 표시된 4자리 인증 코드를 입력해주세요.'}</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">1원이 송금되었습니다</h4>
+                  <p className="text-sm text-gray-700">{verificationData?.message || '입금자명에 표시된 4자리 인증 코드를 입력해주세요.'}</p>
                 </div>
               </div>
             </div>
@@ -240,7 +241,7 @@ const AccountVerifyForm = ({ onComplete }) => {
               <input
                 type="text"
                 value={formData.accountNo}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500"
                 readOnly
               />
             </div>
@@ -253,7 +254,7 @@ const AccountVerifyForm = ({ onComplete }) => {
               <input
                 type="text"
                 value={formData.accountHolderName}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500"
                 readOnly
               />
             </div>
@@ -267,7 +268,7 @@ const AccountVerifyForm = ({ onComplete }) => {
                 type="text"
                 value={authCode}
                 onChange={handleAuthCodeChange}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-widest"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-center text-2xl tracking-widest"
                 placeholder="0000"
                 maxLength={4}
                 required
@@ -287,14 +288,14 @@ const AccountVerifyForm = ({ onComplete }) => {
               <button
                 type="submit"
                 disabled={isLoading || authCode.length !== 4}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex-1 bg-gradient-to-r from-gray-900 to-gray-800 text-white py-3 px-6 rounded-lg hover:from-black hover:to-gray-900 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg font-medium"
               >
                 {isLoading ? '인증 중...' : '인증 완료'}
               </button>
               <button
                 type="button"
                 onClick={() => setStep('start')}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 bg-white/80 text-gray-700 py-3 px-6 rounded-lg hover:bg-white transition-all duration-200 border border-gray-300 font-medium"
               >
                 다시 시작
               </button>

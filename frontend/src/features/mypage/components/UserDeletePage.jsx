@@ -53,13 +53,13 @@ const UserDeletePage = () => {
   };
 
   return (
-    <div className="p-4 lg:p-6">
-      <div className="mb-4 lg:mb-6">
-        <h2 className="text-xl lg:text-2xl font-bold text-gray-900">회원 탈퇴</h2>
-        <p className="text-gray-600 mt-1 text-sm lg:text-base">회원 탈퇴를 진행하시겠습니까?</p>
+    <div className="p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">회원 탈퇴</h2>
+        <p className="text-gray-600 mt-2 text-sm">회원 탈퇴를 진행하시겠습니까?</p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-4 lg:p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/50 p-6">
 
         {/* 경고 메시지 */}
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -91,7 +91,7 @@ const UserDeletePage = () => {
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
             placeholder="탈퇴하겠습니다"
           />
         </div>
@@ -116,13 +116,13 @@ const UserDeletePage = () => {
           <button
             onClick={handleConfirm}
             disabled={isDeleting || confirmText !== '탈퇴하겠습니다' || !agreed || !memberId}
-            className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 bg-gradient-to-r from-gray-700 to-gray-600 text-white py-3 px-6 rounded-lg hover:from-gray-800 hover:to-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg font-medium"
           >
             {isDeleting ? '탈퇴 처리 중...' : '회원 탈퇴'}
           </button>
           <button
             onClick={() => window.history.back()}
-            className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+            className="flex-1 bg-white/80 text-gray-700 py-3 px-6 rounded-lg hover:bg-white transition-all duration-200 border border-gray-300 font-medium"
           >
             취소
           </button>

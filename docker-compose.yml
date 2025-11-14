@@ -143,6 +143,7 @@ services:
       - jenkins-data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/ubuntu/joying/.env.prod:/run/secrets/env.prod:ro
+      - /home/ubuntu/joying:/home/ubuntu/joying:ro
     networks:
       - joying-network
     restart: unless-stopped

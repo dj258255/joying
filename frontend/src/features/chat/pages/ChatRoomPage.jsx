@@ -20,6 +20,7 @@ import CancelDetailModal from '../../../features/rental/components/CancelDetailM
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
+import { accountApi } from '../../../features/user/api/accountApi';
 import { messageApi } from '../api/messageApi';
 import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
@@ -30,6 +31,146 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const SEARCH_PAGE_SIZE = 20;
+
+// 거래 내역 조회 폼 컴포넌트
+const TransactionCheckForm = ({ rentalData, onCheck, transactionData, isLoading, onReset }) => {
+  const [accountNo, setAccountNo] = useState('');
+  const [transactionUniqueNo, setTransactionUniqueNo] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!accountNo || !transactionUniqueNo) {
+      alert('계좌번호와 거래 고유번호를 모두 입력해주세요.');
+      return;
+    }
+    onCheck(accountNo, transactionUniqueNo);
+  };
+
+  return (
+    <div className="space-y-4">
+      {!transactionData ? (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              💡 SSAFY 금융망 API를 통해 실시간으로 거래 내역을 조회합니다.
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              계좌번호와 거래 고유번호를 입력하고 조회 버튼을 눌러주세요.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              계좌번호 (16자리) *
+            </label>
+            <input
+              type="text"
+              value={accountNo}
+              onChange={(e) => setAccountNo(e.target.value.replace(/\D/g, '').slice(0, 16))}
+              placeholder="예: 0041234567890123"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+              maxLength={16}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              거래 고유번호 *
+            </label>
+            <input
+              type="text"
+              value={transactionUniqueNo}
+              onChange={(e) => setTransactionUniqueNo(e.target.value.replace(/\D/g, ''))}
+              placeholder="예: 7"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading || !accountNo || !transactionUniqueNo}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? '조회 중...' : '거래 내역 조회'}
+          </button>
+        </form>
+      ) : (
+        <div className="space-y-4">
+          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm font-medium text-green-800 mb-2">✅ 거래 내역 조회 완료</p>
+            <button
+              type="button"
+              onClick={() => {
+                setAccountNo('');
+                setTransactionUniqueNo('');
+                if (onReset) {
+                  onReset();
+                }
+              }}
+              className="text-xs text-green-600 hover:text-green-800 underline"
+            >
+              다시 조회하기
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">거래 고유번호</div>
+              <div className="text-sm font-medium text-gray-900">{transactionData.transactionUniqueNo}</div>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">거래 일시</div>
+              <div className="text-sm font-medium text-gray-900">
+                {transactionData.transactionDate} {transactionData.transactionTime}
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">거래 구분</div>
+              <div className="text-sm font-medium text-gray-900">{transactionData.transactionTypeName}</div>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">거래 금액</div>
+              <div className="text-sm font-medium text-gray-900">
+                {transactionData.transactionBalance?.toLocaleString()}원
+              </div>
+            </div>
+
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">거래 후 잔액</div>
+              <div className="text-sm font-medium text-gray-900">
+                {transactionData.transactionAfterBalance?.toLocaleString()}원
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-xs text-blue-500 mb-1">거래 요약 (입금자명)</div>
+              <div className="text-sm font-medium text-blue-900">{transactionData.transactionSummary}</div>
+            </div>
+
+            {transactionData.authCode && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-xs text-yellow-500 mb-1">인증 코드</div>
+                <div className="text-lg font-bold text-yellow-900">{transactionData.authCode}</div>
+              </div>
+            )}
+
+            {transactionData.transactionMemo && (
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="text-xs text-gray-500 mb-1">거래 메모</div>
+                <div className="text-sm text-gray-700">{transactionData.transactionMemo}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // 커스텀 날짜 선택 컴포넌트
 const DatePicker = ({ selectedDate, onSelectDate, onClose, messagesWithDates = [] }) => {
@@ -243,6 +384,9 @@ const ChatRoomPage = () => {
   const [showCancelDetailModal, setShowCancelDetailModal] = useState(false);
   const [cancelDetailInfo, setCancelDetailInfo] = useState(null);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
+  const [showTransactionCheckModal, setShowTransactionCheckModal] = useState(false);
+  const [transactionCheckData, setTransactionCheckData] = useState(null);
+  const [isCheckingTransaction, setIsCheckingTransaction] = useState(false);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -860,6 +1004,16 @@ const ChatRoomPage = () => {
       alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
       return;
     }
+
+    // 결제 모달 열기 전 환경 변수 확인
+    const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
+    console.log('[ChatRoomPage] 결제 모달 열기 전 VITE_TOSS_CLIENT_KEY 확인:', {
+      exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
+      value: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+      length: clientKey?.length || 0,
+      messageId: message.id,
+      orderId: message.paymentInfo?.orderId
+    });
 
     setPaymentMessage(message);
     setShowPaymentModal(true);
@@ -1679,7 +1833,7 @@ const ChatRoomPage = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/chats')}
               className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2145,10 +2299,8 @@ const ChatRoomPage = () => {
 
                         setCurrentRentalData(rentalData);
 
-                        // 거래 모달 열기
-                        setTimeout(() => {
-                          setShowTransactionModal(true);
-                        }, 50);
+                        // 거래 내역 조회 모달 열기 (외부 API 호출용)
+                        setShowTransactionCheckModal(true);
                       } catch (err) {
                         console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
@@ -2652,6 +2804,50 @@ const ChatRoomPage = () => {
           }}
         />
       )}
+
+      {/* 거래 내역 조회 모달 */}
+      <Modal
+        isOpen={showTransactionCheckModal}
+        onClose={() => {
+          setShowTransactionCheckModal(false);
+          setTransactionCheckData(null);
+        }}
+        title="거래 내역 조회"
+        className="max-w-md"
+      >
+        <TransactionCheckForm
+          rentalData={currentRentalData}
+          onCheck={async (accountNo, transactionUniqueNo) => {
+            if (!accountNo || !transactionUniqueNo) {
+              // 리셋 요청
+              setTransactionCheckData(null);
+              return;
+            }
+            
+            try {
+              setIsCheckingTransaction(true);
+              console.log('[ChatRoomPage] 거래 내역 조회 시작:', { accountNo, transactionUniqueNo });
+              
+              // 외부 API 호출 (SSAFY 금융망)
+              const response = await accountApi.getTransactionHistory({
+                accountNo,
+                transactionUniqueNo
+              });
+              
+              console.log('[ChatRoomPage] 거래 내역 조회 성공:', response);
+              setTransactionCheckData(response.data || response);
+            } catch (err) {
+              console.error('[ChatRoomPage] 거래 내역 조회 실패:', err);
+              alert(err.response?.data?.message || '거래 내역을 조회할 수 없습니다. 계좌번호와 거래 고유번호를 확인해주세요.');
+            } finally {
+              setIsCheckingTransaction(false);
+            }
+          }}
+          transactionData={transactionCheckData}
+          isLoading={isCheckingTransaction}
+          onReset={() => setTransactionCheckData(null)}
+        />
+      </Modal>
 
       {/* 취소 상세 모달 */}
       <CancelDetailModal

@@ -12,6 +12,7 @@ import { AuthProvider } from '@/features/auth/contexts/AuthContext'
 import { GlobalPresenceProvider } from '@/shared/contexts/GlobalPresenceContext'
 import ProtectedRoute from '@/features/auth/components/ProtectedRoute'
 import { PushNotificationInitializer } from '@/features/push/components/PushNotificationInitializer'
+import { BottomNavBar } from '@/shared/components/Navigation'
 
 // Lazy loading을 위한 컴포넌트 import
 const HomePage = React.lazy(() => import('@/features/home/pages/HomePage'))
@@ -44,11 +45,11 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <GlobalPresenceProvider>
-          <PushNotificationInitializer />
-          <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
-            <div className="text-xl text-gray-600">로딩 중...</div>
-          </div>}>
-            <Routes>
+        <PushNotificationInitializer />
+        <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+          <div className="text-xl text-gray-600">로딩 중...</div>
+        </div>}>
+          <Routes>
             {/* 공개 라우트 */}
             <Route path={ROUTE_PATHS.HOME} element={<HomePage />} />
             <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
@@ -171,9 +172,12 @@ function App() {
               </ProtectedRoute>
             } />
             
-              <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
-            </Routes>
-          </React.Suspense>
+            <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
+          </Routes>
+        </React.Suspense>
+          
+          {/* 모바일 하단 네비게이션 바 */}
+          <BottomNavBar />
         </GlobalPresenceProvider>
       </AuthProvider>
     </ErrorBoundary>

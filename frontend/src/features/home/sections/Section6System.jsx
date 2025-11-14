@@ -16,8 +16,8 @@ const Section6System = () => {
       className="relative min-h-screen flex items-center overflow-hidden"
       style={{ zIndex: 60, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}
     >
-      {/* 로고 - 모바일/PC 모두 우측 하단 */}
-      <div className="absolute bottom-8 right-8">
+      {/* 왼쪽 상단 로고 */}
+      <div className="absolute top-8 left-8">
         <img 
           src={logo} 
           alt="빌려joying" 

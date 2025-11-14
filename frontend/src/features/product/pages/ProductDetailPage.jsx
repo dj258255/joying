@@ -558,7 +558,7 @@ const ProductDetailPage = () => {
                               onChange={(e) => setRentMethod(e.target.value)}
                               className="mr-2"
                             />
-                            <span className="text-sm">택배거래</span>
+                            <span className="text-sm text-gray-900">택배거래</span>
                           </label>
                           <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                             <input
@@ -569,7 +569,7 @@ const ProductDetailPage = () => {
                               onChange={(e) => setRentMethod(e.target.value)}
                               className="mr-2"
                             />
-                            <span className="text-sm">직거래</span>
+                            <span className="text-sm text-gray-900">직거래</span>
                           </label>
                           <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                             <input
@@ -580,7 +580,7 @@ const ProductDetailPage = () => {
                               onChange={(e) => setRentMethod(e.target.value)}
                               className="mr-2"
                             />
-                            <span className="text-sm">둘 다 가능</span>
+                            <span className="text-sm text-gray-900">둘 다 가능</span>
                           </label>
                         </div>
                       </div>
