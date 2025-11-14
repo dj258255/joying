@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # CORS
-    ALLOWED_ORIGINS: str = "http://localhost:3000,https://k13c202.p.ssafy.io"
+    ALLOWED_ORIGINS: str = "http://localhost:5173,https://k13c202.p.ssafy.io"
 
     # AI 모델 설정
     AI_MODEL: str = "gpt-4o-mini"  # 또는 gemini-2.0-flash
