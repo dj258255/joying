@@ -20,6 +20,8 @@ import TransactionProcessModal from '../components/TransactionProcessModal';
 import TransactionActionButton from '../components/TransactionActionButton';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
 import ShippingModal from '../../../features/rental/components/ShippingModal';
+import ReceiveModal from '../../../features/rental/components/ReceiveModal';
+import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { TrackingStatusCard } from '../../../features/shipping';
@@ -386,6 +388,8 @@ const ChatRoomPage = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState(null);
   const [showShippingModal, setShowShippingModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showReturnReceiveModal, setShowReturnReceiveModal] = useState(false);
   const [showCancelDetailModal, setShowCancelDetailModal] = useState(false);
   const [cancelDetailInfo, setCancelDetailInfo] = useState(null);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
@@ -2306,6 +2310,139 @@ const ChatRoomPage = () => {
                 return buttons.length > 0 ? buttons : null;
               }
 
+              // 물품 발송 완료 메시지
+              if (content.includes('📦 물품을 발송했습니다')) {
+                const buttons = [];
+
+                // rentalHisId 추출
+                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
+                const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
+
+                // 판매자 확인
+                const sellerId = productData?.sellerId
+                  || productData?.writer?.memberId
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+                // 구매자에게만 "물품 수령 확인하기" 버튼 표시
+                if (!isSeller && rentalHisId) {
+                  buttons.push({
+                    text: '✅ 물품 수령 확인하기',
+                    style: 'primary',
+                    onClick: async () => {
+                      try {
+                        console.log('[ChatRoomPage] 물품 수령 확인하기 클릭:', rentalHisId);
+
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data;
+
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+
+                        setCurrentRentalData(rentalData);
+
+                        // 수령 모달 열기
+                        setTimeout(() => {
+                          setShowReceiveModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }
+                  });
+                }
+
+                return buttons.length > 0 ? buttons : null;
+              }
+
+              // 물품 수령 완료 메시지
+              if (content.includes('✅ 물품을 수령했습니다')) {
+                const buttons = [];
+
+                // 판매자 확인
+                const sellerId = productData?.sellerId
+                  || productData?.writer?.memberId
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+                // 구매자에게만 "반납하기", "거래 중단하기" 버튼 표시
+                if (!isSeller && currentRentalData?.rentalHisId) {
+                  buttons.push(
+                    {
+                      text: '📦 반납하기',
+                      style: 'primary',
+                      onClick: () => {
+                        setShowTransactionModal(true);
+                      }
+                    },
+                    {
+                      text: '🚫 거래 중단하기',
+                      style: 'danger',
+                      onClick: () => {
+                        // 취소 모달 열기 (TransactionProcessModal 내부에 있음)
+                        setShowTransactionModal(true);
+                      }
+                    }
+                  );
+                }
+
+                return buttons.length > 0 ? buttons : null;
+              }
+
+              // 반납 완료 메시지 - 판매자에게 "반납 수령 확인하기" 버튼 표시
+              if (content.includes('📦 반납을 완료했습니다')) {
+                const buttons = [];
+                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
+                const rentalHisId = rentalHisIdMatch ? parseInt(rentalHisIdMatch[1]) : null;
+
+                // 판매자 확인
+                const sellerId = productData?.sellerId
+                  || productData?.writer?.memberId
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+                // 판매자에게만 "반납 수령 확인하기" 버튼 표시
+                if (isSeller && rentalHisId) {
+                  buttons.push({
+                    text: '✅ 반납 수령 확인하기',
+                    style: 'primary',
+                    onClick: async () => {
+                      try {
+                        console.log('[ChatRoomPage] 반납 수령 확인하기 클릭:', rentalHisId);
+
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data;
+
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+
+                        setCurrentRentalData(rentalData);
+
+                        // 반납 수령 모달 열기
+                        setTimeout(() => {
+                          setShowReturnReceiveModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }
+                  });
+                }
+
+                return buttons.length > 0 ? buttons : null;
+              }
+
               return null;
             };
 
@@ -3002,6 +3139,79 @@ const ChatRoomPage = () => {
             }
 
             alert('물품 발송이 완료되었습니다!');
+          }}
+        />
+      )}
+
+      {/* 수령 확인 모달 */}
+      {showReceiveModal && currentRentalData && (
+        <ReceiveModal
+          isOpen={showReceiveModal}
+          onClose={() => setShowReceiveModal(false)}
+          rentalHisId={currentRentalData.rentalHisId}
+          onReceiveComplete={async ({ videoUrl }) => {
+            console.log('[ChatRoomPage] 수령 완료:', { videoUrl });
+
+            // 채팅방에 수령 완료 메시지 전송
+            const messageContent = `✅ 물품을 수령했습니다!\n\n${videoUrl ? `[개봉 영상 보기](${videoUrl})` : ''}\n\nrentalHisId:${currentRentalData.rentalHisId}`;
+
+            await sendMessage({
+              type: 'TEXT',
+              content: messageContent
+            });
+
+            // 모달 닫기
+            setShowReceiveModal(false);
+
+            // 거래 상태 업데이트
+            if (currentRentalData) {
+              const updatedData = {
+                ...currentRentalData,
+                status: 'RENTING'
+              };
+              setCurrentRentalData(updatedData);
+            }
+
+            alert('물품 수령이 완료되었습니다!');
+          }}
+        />
+      )}
+
+      {/* 반납 수령 확인 모달 */}
+      {showReturnReceiveModal && currentRentalData && (
+        <ReturnReceiveModal
+          isOpen={showReturnReceiveModal}
+          onClose={() => setShowReturnReceiveModal(false)}
+          rentalHisId={currentRentalData.rentalHisId}
+          onConfirmComplete={async ({ videoUrl }) => {
+            console.log('[ChatRoomPage] 반납 수령 확인 완료:', { videoUrl });
+
+            // 채팅방에 반납 수령 확인 완료 메시지 전송
+            const messageContent = `✅ 반납 수령을 확인했습니다!\n\n${videoUrl ? `[회수 영상 보기](${videoUrl})` : ''}\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nrentalHisId:${currentRentalData.rentalHisId}`;
+
+            await sendMessage({
+              type: 'TEXT',
+              content: messageContent
+            });
+
+            // 모달 닫기
+            setShowReturnReceiveModal(false);
+
+            // 거래 상태 업데이트
+            if (currentRentalData) {
+              const updatedData = {
+                ...currentRentalData,
+                status: 'COMPLETED'
+              };
+              setCurrentRentalData(updatedData);
+            }
+
+            alert('반납 수령 확인이 완료되었습니다! 정산이 진행됩니다.');
+          }}
+          onCancelRequest={() => {
+            // 취소 모달 열기
+            setShowReturnReceiveModal(false);
+            setShowTransactionModal(true);
           }}
         />
       )}

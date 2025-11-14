@@ -181,6 +181,18 @@ export const rentalApi = {
   },
 
   /**
+   * 반납 수령 확인 및 정산 처리
+   * @param {number} rentalHisId - 대여 이력 ID
+   * @returns {Promise<Object>}
+   */
+  confirmReturnReceive: async (rentalHisId) => {
+    const response = await axiosInstance.patch(
+      `/rentals/rental-histories/${rentalHisId}/confirm-return-receive`
+    );
+    return response.data;
+  },
+
+  /**
    * 영상 업로드
    * @param {number} rentalHisId - 대여 이력 ID
    * @param {Object} data - 영상 데이터
