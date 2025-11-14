@@ -11,20 +11,6 @@ import { trackPackage, mapCourierToCarrierId, transformTrackingData } from './de
  */
 export const shippingApi = {
   /**
-   * 송장번호 등록
-   * @param {Object} data - 송장 정보
-   * @param {string} data.transactionId - 거래 ID
-   * @param {string} data.courier - 택배사
-   * @param {string} data.trackingNumber - 송장번호
-   * @param {string} data.type - 'outbound' | 'return'
-   * @returns {Promise<Object>}
-   */
-  submitTrackingNumber: async (data) => {
-    const { data: response } = await axiosInstance.post('/shipping/tracking', data);
-    return response;
-  },
-
-  /**
    * 배송 상태 조회 (Delivery Tracker API 사용)
    * @param {string} trackingNumber - 송장번호
    * @param {string} courier - 택배사 코드 (cj, post, lotte 등)
@@ -56,28 +42,5 @@ export const shippingApi = {
       throw error;
     }
   },
-
-  /**
-   * 거래별 배송 정보 조회
-   * @param {string} transactionId - 거래 ID
-   * @returns {Promise<Object>}
-   */
-  getTransactionShipping: async (transactionId) => {
-    const { data } = await axiosInstance.get(`/shipping/transaction/${transactionId}`);
-    return data;
-  },
-
-  /**
-   * 배송 완료 확인
-   * @param {string} transactionId - 거래 ID
-   * @param {string} type - 'outbound' | 'return'
-   * @returns {Promise<Object>}
-   */
-  confirmDelivery: async (transactionId, type) => {
-    const { data } = await axiosInstance.post(`/shipping/confirm`, {
-      transactionId,
-      type
-    });
-    return data;
-  }
 };
+
