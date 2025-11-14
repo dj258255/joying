@@ -49,25 +49,27 @@ pipeline {
       }
     }
 
-    stage('Prepare frontend .env & Copy Host Files') {
+    stage('Prepare frontend .env') {
       steps {
         sh '''
           set -e
           echo "[INFO] WORKSPACE=$(pwd)"
 
-          HOST_FRONTEND_PATH=/home/ubuntu/joying/frontend
+          HOST_FRONTEND_ENV=/home/ubuntu/joying/frontend/.env
 
-          # 1) 호스트에서 전체 frontend 폴더 복사
-          if [ -d "$HOST_FRONTEND_PATH" ]; then
-            echo "[INFO] copying host frontend -> workspace"
-            rm -rf frontend || true
-            mkdir -p frontend
-            cp -a "$HOST_FRONTEND_PATH/." ./frontend/
-            echo "[OK] copied $HOST_FRONTEND_PATH -> $(pwd)/frontend"
+          # 호스트에서 frontend .env 파일만 복사 (코드는 Git에서 checkout한 것 사용)
+          if [ -f "$HOST_FRONTEND_ENV" ]; then
+            echo "[INFO] copying frontend .env from host"
+            cp "$HOST_FRONTEND_ENV" ./frontend/.env
+            echo "[OK] copied $HOST_FRONTEND_ENV -> $(pwd)/frontend/.env"
+          else
+            echo "[ERR] $HOST_FRONTEND_ENV not found"
+            exit 1
           fi
 
-          # 복사 후 .env 확인 (프론트엔드 빌드에 사용됨)
-          [ -f frontend/.env ] || { echo "[WARN] frontend/.env missing. Build may fail."; ls -al frontend || true; }
+          # .env 확인
+          echo "[INFO] preview frontend/.env (sensitive values hidden)"
+          grep -E '^VITE_' frontend/.env | sed 's/=.*/=***hidden***/' || true
         '''
       }
     }
