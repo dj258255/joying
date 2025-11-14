@@ -45,11 +45,11 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <GlobalPresenceProvider>
-          <PushNotificationInitializer />
-          <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
-            <div className="text-xl text-gray-600">로딩 중...</div>
-          </div>}>
-            <Routes>
+        <PushNotificationInitializer />
+        <React.Suspense fallback={<div className="flex items-center justify-center min-h-screen">
+          <div className="text-xl text-gray-600">로딩 중...</div>
+        </div>}>
+          <Routes>
             {/* 공개 라우트 */}
             <Route path={ROUTE_PATHS.HOME} element={<HomePage />} />
             <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
@@ -172,9 +172,9 @@ function App() {
               </ProtectedRoute>
             } />
             
-              <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
-            </Routes>
-          </React.Suspense>
+            <Route path="*" element={<div>404 - 페이지를 찾을 수 없습니다</div>} />
+          </Routes>
+        </React.Suspense>
           
           {/* 모바일 하단 네비게이션 바 */}
           <BottomNavBar />
