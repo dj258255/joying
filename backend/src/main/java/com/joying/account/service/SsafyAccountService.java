@@ -45,9 +45,6 @@ public class SsafyAccountService {
 	public SsafyAccountResponse createSsafyAccount(Long memberId, String accountTypeUniqueNo) {
 		Member member = findMemberById(memberId);
 
-		// 예금주명 (실명 > 닉네임 순서로 사용)
-		String accountHolderName = member.getName() != null ? member.getName() : member.getNickname();
-
 		// SSAFY userKey가 없으면 먼저 등록
 		if (member.getSsafyUserKey() == null) {
 			log.info("SSAFY userKey가 없음. 회원 등록 시작: memberId={}, email={}",
@@ -56,15 +53,11 @@ public class SsafyAccountService {
 			// SSAFY 회원 등록 (userKey 자동 발급)
 			MemberRegisterResponse registerResponse = financeApiService.registerMember(member.getEmail());
 
-			// Member에 userKey와 실명 저장
+			// Member에 userKey 저장 (실명은 1원 인증 완료 시에만 저장)
 			member.updateSsafyUserKey(registerResponse.getUserKey());
-			member.updateRealName(registerResponse.getUserName());
 
-			// 예금주명을 SSAFY에서 받은 userName으로 설정
-			accountHolderName = registerResponse.getUserName();
-
-			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}, userName={}",
-				memberId, registerResponse.getUserKey(), registerResponse.getUserName());
+			log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}",
+				memberId, registerResponse.getUserKey());
 		}
 
 		// SSAFY 계좌 생성 API 호출
@@ -77,21 +70,30 @@ public class SsafyAccountService {
 			throw new BusinessException(ErrorCode.ACCOUNT_ALREADY_REGISTERED);
 		}
 
-		// SsafyAccount 엔티티 생성
+		// ✅ SSAFY API로 실제 예금주명 조회
+		String accountHolderName = financeApiService.inquireDemandDepositAccountHolderName(
+			accountRec.getAccountNo(),
+			member.getSsafyUserKey()
+		);
+
+		log.info("SSAFY 계좌 실제 예금주명 조회: accountNo={}, userName={}",
+			accountRec.getAccountNo(), accountHolderName);
+
+		// SsafyAccount 엔티티 생성 (실제 예금주명 사용)
 		SsafyAccount ssafyAccount = SsafyAccount.builder()
 			.member(member)
 			.accountTypeUniqueNo(accountTypeUniqueNo)
 			.accountNo(accountRec.getAccountNo())
 			.bankCode(accountRec.getBankCode())
-			.accountHolderName(accountHolderName != null ? accountHolderName : "미인증")
+			.accountHolderName(accountHolderName)
 			.accountState(AccountState.ACTIVE)
 			.build();
 
 		// 저장
 		SsafyAccount savedAccount = ssafyAccountRepository.save(ssafyAccount);
 
-		log.info("SSAFY 테스트 계좌 생성 완료: memberId={}, ssafyAccountId={}, accountNo={}",
-			memberId, savedAccount.getSsafyAccountId(), accountRec.getAccountNo());
+		log.info("SSAFY 테스트 계좌 생성 완료: memberId={}, ssafyAccountId={}, accountNo={}, accountHolderName={}",
+			memberId, savedAccount.getSsafyAccountId(), accountRec.getAccountNo(), accountHolderName);
 
 		return SsafyAccountResponse.from(savedAccount);
 	}

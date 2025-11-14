@@ -474,27 +474,47 @@ public class SearchService {
 			return List.of();
 		}
 
-		Query autocompleteQuery = MatchQuery.of(m -> m
-			.field("title.autocomplete")
-			.query(keyword)
-		)._toQuery();
+		List<String> tokens = analyzeText(keyword);
 
-		SearchResponse<SearchDocument> response = null;
+		List<Query> tokenQueries = new ArrayList<>();
+		for (String token : tokens) {
+			tokenQueries.add(
+				MultiMatchQuery.of(m -> m
+					.fields("title")
+					.query(token)
+					.fuzziness("AUTO")
+				)._toQuery()
+			);
+		}
+
+		tokenQueries.add(
+			MatchQuery.of(m -> m
+				.field("title.autocomplete")
+				.query(keyword)
+				.fuzziness("AUTO")
+			)._toQuery()
+		);
+
+		BoolQuery bool = BoolQuery.of(b -> b
+			.should(tokenQueries)
+			.minimumShouldMatch("1")
+		);
+
+		SearchResponse<SearchDocument> response;
 		try {
 			response = elasticsearchClient.search(s -> s
 					.index("search_product")
 					.size(5)
-					.query(autocompleteQuery)
+					.query(bool._toQuery())
 					.source(src -> src
-						.filter(f -> f.includes("title"))
+							.filter(f -> f.includes("title"))
 					),
-				SearchDocument.class
-			);
+				SearchDocument.class);
 		} catch (IOException e) {
 			throw new ElasticsearchSearchException("자동완성 검색 중 오류가 발생했습니다.", e);
 		}
 
-		return Objects.requireNonNull(response).hits().hits().stream()
+		return response.hits().hits().stream()
 			.map(Hit::source).filter(Objects::nonNull)
 			.map(SearchDocument::getTitle)
 			.distinct()

@@ -52,7 +52,8 @@ public class RentalDetailResponse {
     @AllArgsConstructor
     public static class MemberInfo {
         private Long memberId;
-        private String name;
+        private String name;       // 실명 (1원 인증 후)
+        private String nickname;   // 닉네임 (표시용)
         private Double rating;
     }
 

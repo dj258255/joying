@@ -18,13 +18,14 @@ import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.UploadType;
-import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalHistory;
+import com.joying.rental.domain.RentalStatus;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.review.domain.Review;
 import com.joying.review.dto.request.ReviewRequestDto;
 import com.joying.review.dto.response.ReviewCreateResponse;
 import com.joying.review.dto.response.ReviewResponseDto;
+import com.joying.review.exception.CannotWriteReviewException;
 import com.joying.review.exception.UnauthorizedReviewAccessException;
 import com.joying.review.repository.ReviewRepository;
 
@@ -85,6 +86,10 @@ public class ReviewService {
 		RentalHistory rentalHistory = rentalHistoryRepository.findWithProductAndMemberById(dto.rentalHistoryId())
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 대여 이력입니다."));
 
+		if (!rentalHistory.getStatus().equals(RentalStatus.DEPOSIT_RETURNED)) {
+			throw new CannotWriteReviewException("아직 리뷰를 작성할 수 없습니다. 대여가 완전히 종료되지 않았습니다.");
+		}
+
 		UploadType uploadType;
 		if (!rentalHistory.getMember().equals(reviewer) && !rentalHistory.getRentalProduct().getWriter().equals(reviewer)) {
 			throw new UnauthorizedReviewAccessException("해당 대여에 리뷰를 작성할 수 없습니다.");
@@ -97,7 +102,7 @@ public class ReviewService {
 		// 상품
 		Product product = rentalHistory.getRentalProduct();
 
-		Member reviewed = null;
+		Member reviewed;
 		if (uploadType == UploadType.BORROW) {
 			// 빌린 사람이 리뷰 작성 → 리뷰 대상은 빌려준 사람
 			reviewed = product.getWriter();
@@ -139,7 +144,7 @@ public class ReviewService {
 			review.getReviewId(),
 			review.getUploadType(),
 			review.getProduct() != null ? product.getProductId() : null,
-			reviewed != null ? reviewed.getMemberId() : null
+			reviewed.getMemberId()
 		);
 	}
 

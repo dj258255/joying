@@ -31,40 +31,28 @@ pipeline {
       }
     }
 
-    stage('Prepare frontend .env') {
-      steps {
-        sh '''
-          set -e
-          echo "[INFO] WORKSPACE=$(pwd)"
-          echo "[INFO] listing workspace top level:"; ls -al || true
+    stage('Prepare frontend .env & Copy Host Files') {
+          steps {
+            sh '''
+              set -e
+              echo "[INFO] WORKSPACE=$(pwd)"
 
-          # 1) 이미 workspace 안에 frontend/.env가 있으면 바로 통과
-          if [ -f frontend/.env ]; then
-            echo "[OK] frontend/.env exists in workspace"
-            exit 0
-          fi
+              HOST_FRONTEND_PATH=/home/ubuntu/joying/frontend
 
-          # 2) workspace에 없다면, 호스트에 실파일이 마운트되어 있는지 시도 복사
-          HOST_FRONTEND_PATH=/home/ubuntu/joying/frontend
-          if [ -d "$HOST_FRONTEND_PATH" ]; then
-            echo "[INFO] copying host frontend -> workspace"
-            rm -rf frontend || true
-            mkdir -p frontend
-            cp -a "$HOST_FRONTEND_PATH/." ./frontend/
-            echo "[OK] copied $HOST_FRONTEND_PATH -> $(pwd)/frontend"
-            # 확인
-            [ -f frontend/.env ] || { echo "[WARN] copied but frontend/.env still missing"; ls -al frontend || true; exit 1; }
-            exit 0
-          fi
+              # 1) 호스트에서 전체 frontend 폴더 복사
+              if [ -d "$HOST_FRONTEND_PATH" ]; then
+                echo "[INFO] copying host frontend -> workspace"
+                rm -rf frontend || true
+                mkdir -p frontend
+                cp -a "$HOST_FRONTEND_PATH/." ./frontend/
+                echo "[OK] copied $HOST_FRONTEND_PATH -> $(pwd)/frontend"
+              fi
 
-          # 3) 둘 다 없으면 실패, 상세 디버그 정보 출력
-          echo "[ERR] frontend/.env not found in workspace or host path ($HOST_FRONTEND_PATH)"
-          echo "[DBG] workspace listing:"; ls -al
-          echo "[DBG] /home/ubuntu (host) listing (may not be mounted):"; ls -al /home || true
-          exit 1
-        '''
-      }
-    }
+              # 복사 후 .env 확인 (프론트엔드 빌드에 사용됨)
+              [ -f frontend/.env ] || { echo "[WARN] frontend/.env missing. Build may fail."; ls -al frontend || true; }
+            '''
+          }
+        }
 
 
     stage('Preflight: nginx.conf 문법&볼륨 검사') {
@@ -92,11 +80,41 @@ pipeline {
 
 
     stage('Build images') {
+          steps {
+            sh '''
+              set -e
+              # frontend 빌드 결과물이 local workspace에 있으므로,
+              # NGINX Dockerfile에서 이를 COPY할 수 있도록 다시 빌드합니다.
+              docker compose --env-file .env.prod build backend nginx
+            '''
+          }
+        }
+
+    stage('Build frontend') {
+      // node 이미지를 사용하여 빌드 환경을 격리합니다.
+      agent {
+        docker {
+          image 'node:20-alpine' // 혹은 프로젝트에 맞는 안정적인 Node.js 버전 (예: 18-alpine)
+          // 워크스페이스를 node 컨테이너 내에서 사용할 수 있도록 합니다.
+          args '-u root:root' // 권한 문제 발생 시 추가
+        }
+      }
       steps {
         sh '''
           set -e
-          # compose 파일 변수 치환을 위해 --env-file 명시
-          docker compose --env-file .env.prod build backend nginx
+          echo "[INFO] Starting frontend build inside node container..."
+
+          # 1. 프론트엔드 폴더로 이동
+          cd frontend
+
+          # 2. 의존성 설치
+          # Jenkins 볼륨 마운트 시 권한 문제가 발생하면 --unsafe-perm을 사용합니다.
+          npm install
+
+          # 3. 빌드 실행
+          npm run build
+
+          echo "[OK] Frontend build completed. Output files are in: $(pwd)/dist (or build)"
         '''
       }
     }

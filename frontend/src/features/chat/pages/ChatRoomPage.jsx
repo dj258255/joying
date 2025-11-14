@@ -7,6 +7,10 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useParams, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useChatContext } from '../contexts/ChatContext';
 import MessageBubble from '../components/MessageBubble';
+import ShippingMessageCard, { parseShippingMessage } from '../components/ShippingMessageCard';
+import RentalRequestMessageCard, { parseRentalRequestMessage } from '../components/RentalRequestMessageCard';
+import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '../components/TransactionCreatedMessageCard';
+import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -20,6 +24,7 @@ import ReceiveModal from '../../../features/rental/components/ReceiveModal';
 import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
 import Modal from '../../../shared/components/Modal/Modal';
+import { TrackingStatusCard } from '../../../features/shipping';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { accountApi } from '../../../features/user/api/accountApi';
@@ -391,6 +396,10 @@ const ChatRoomPage = () => {
   const [showTransactionCheckModal, setShowTransactionCheckModal] = useState(false);
   const [transactionCheckData, setTransactionCheckData] = useState(null);
   const [isCheckingTransaction, setIsCheckingTransaction] = useState(false);
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [trackingInfo, setTrackingInfo] = useState({ trackingNumber: null, courier: null });
+  // 운송장 번호가 등록된 거래 ID 목록 (버튼 레이블 변경용)
+  const [trackedRentalIds, setTrackedRentalIds] = useState(new Set());
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -1279,8 +1288,7 @@ const ChatRoomPage = () => {
         rentMethod: rentalData.rentMethod
       });
       
-      // 모달 닫기
-      setShowRentalCreateModal(false);
+      // 모달은 TransactionProcessModal이 관리하므로 여기서는 닫지 않음
       
       alert('대여 요청을 전송했습니다. 상대방의 승인을 기다려주세요.');
     } catch (error) {
@@ -1870,16 +1878,6 @@ const ChatRoomPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* 거래 시작하기 버튼 */}
-            {productId && (
-              <button
-                onClick={() => setShowRentalCreateModal(true)}
-                className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
-                
-              >
-                거래 시작하기
-              </button>
-            )}
             {/* 거래/결제 버튼 (모듈화) */}
             <TransactionActionButton
               productId={productId}
@@ -1887,7 +1885,7 @@ const ChatRoomPage = () => {
               productData={productData}
               user={user}
               onCreateTransaction={() => setShowTransactionModal(true)}
-              onRentalRequest={() => setShowRentalCreateModal(true)}
+              onRentalRequest={() => setShowTransactionModal(true)}
               onTransactionProcess={() => setShowTransactionModal(true)}
               onShipping={() => setShowShippingModal(true)}
             />
@@ -2257,54 +2255,50 @@ const ChatRoomPage = () => {
                   productData
                 });
 
-                // 판매자에게는 "물품 보내기" 버튼
-                if (isSeller && rentalHisId) {
+                // 판매자/구매자 모두 배송 조회 버튼 처리
+                if (rentalHisId) {
+                  // 운송장 번호가 등록되었는지 확인
+                  const hasTracking = trackedRentalIds.has(rentalHisId);
+                  
                   buttons.push({
-                    label: '📦 물품 보내기',
-                    className: 'bg-green-600 text-white hover:bg-green-700',
+                    label: hasTracking ? '🚚 배송 조회' : (isSeller ? '📦 물품 보내기' : '📋 거래 확인'),
+                    className: hasTracking 
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : (isSeller ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'),
                     onClick: async () => {
                       try {
-                        console.log('[ChatRoomPage] 물품 보내기 클릭:', rentalHisId);
+                        console.log('[ChatRoomPage] 버튼 클릭:', { isSeller, rentalHisId, hasTracking });
 
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data;
+                        const rentalData = rentalResponse.data || rentalResponse;
 
                         console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
 
                         setCurrentRentalData(rentalData);
 
-                        // 발송 모달 열기
-                        setTimeout(() => {
-                          setShowShippingModal(true);
-                        }, 50);
-                      } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                      }
-                    }
-                  });
-                }
+                        // 운송장 번호 확인
+                        const trackingNumber = rentalData?.trackingNo || rentalData?.trackingNumber;
+                        const courier = rentalData?.carrierCode || rentalData?.courier;
 
-                // 구매자에게는 "거래 확인" 버튼
-                if (!isSeller && rentalHisId) {
-                  buttons.push({
-                    label: '📋 거래 확인',
-                    className: 'bg-blue-600 text-white hover:bg-blue-700',
-                    onClick: async () => {
-                      try {
-                        console.log('[ChatRoomPage] 거래 확인 클릭:', rentalHisId);
-
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
-
-                        // 거래 내역 조회 모달 열기 (외부 API 호출용)
-                        setShowTransactionCheckModal(true);
+                        if (trackingNumber && courier) {
+                          // 운송장 번호가 있으면 배송 조회 모달 열기
+                          setTrackingInfo({ trackingNumber, courier });
+                          setShowTrackingModal(true);
+                          // 운송장 번호 등록 상태 업데이트
+                          setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
+                        } else {
+                          // 운송장 번호가 없으면 기존 동작
+                          if (isSeller) {
+                            // 판매자: 발송 모달 열기
+                            setTimeout(() => {
+                              setShowShippingModal(true);
+                            }, 50);
+                          } else {
+                            // 구매자: 거래 내역 조회 모달 열기
+                            setShowTransactionCheckModal(true);
+                          }
+                        }
                       } catch (err) {
                         console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
@@ -2546,6 +2540,194 @@ const ChatRoomPage = () => {
                   </React.Fragment>
                 );
               }
+
+            // 대여 요청 메시지 감지 (카드로 렌더링)
+            const rentalRequestInfo = parseRentalRequestMessage(message.content);
+            if (rentalRequestInfo) {
+              // 요청자 확인
+              const senderId = message.sender?.id || message.sender?.memberId;
+              const currentUserId = user?.id || user?.memberId;
+              const isRequester = senderId && Number(senderId) === Number(currentUserId);
+
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <RentalRequestMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isRequester={isRequester}
+                    isSeller={isSeller}
+                    onRentalRequestAgain={() => {
+                      setShowRentalRequestModal(true);
+                    }}
+                    onCreateTransaction={async ({ startDate, endDate, rentMethod }) => {
+                      // 상품 ID 추출
+                      const productIdToUse = productId || productData?.productId || productData?.product_id;
+                      if (!productIdToUse) {
+                        alert('상품 정보를 찾을 수 없습니다.');
+                        return;
+                      }
+
+                      // 기간 계산
+                      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+                      console.log('[ChatRoomPage] 거래 생성하기 버튼 클릭:', {
+                        productId: productIdToUse,
+                        startDate,
+                        endDate,
+                        rentMethod,
+                        days
+                      });
+
+                      // rentalData를 null로 설정하고, requestedDateRange만 전달
+                      // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
+                      setRequestedDateRange({
+                        start: startDate,
+                        end: endDate,
+                        rentMethod
+                      });
+
+                      setCurrentRentalData(null);
+                      setTimeout(() => {
+                        setShowTransactionModal(true);
+                      }, 50);
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 거래 생성 완료 메시지 감지 (카드로 렌더링)
+            const transactionInfo = parseTransactionCreatedMessage(message.content);
+            if (transactionInfo) {
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <TransactionCreatedMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    onPaymentClick={async (rentalHisId) => {
+                      try {
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data;
+
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+
+                        // requestedDateRange를 먼저 초기화한 후 rentalData 설정
+                        setRequestedDateRange(null);
+                        setCurrentRentalData(rentalData);
+
+                        // 약간의 지연 후 모달 열기
+                        setTimeout(() => {
+                          setShowTransactionModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 결제 완료 메시지 감지 (카드로 렌더링)
+            const paymentInfo = parsePaymentCompleteMessage(message.content);
+            if (paymentInfo) {
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserId = user?.id || user?.memberId;
+              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <PaymentCompleteMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    onShippingClick={async (rentalHisId) => {
+                      try {
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data || rentalResponse;
+
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+
+                        setCurrentRentalData(rentalData);
+
+                        // 약간의 지연 후 발송 모달 열기
+                        setTimeout(() => {
+                          setShowShippingModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 발송 메시지 감지 (카드로 렌더링)
+            const shippingInfo = parseShippingMessage(message.content);
+            if (shippingInfo) {
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <ShippingMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    onTrackClick={async (rentalHisId) => {
+                      try {
+                        // 백엔드 API에서 정확한 배송 정보 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data || rentalResponse;
+                        
+                        const trackingNumber = rentalData?.trackingNo || rentalData?.trackingNumber;
+                        const courier = rentalData?.carrierCode || rentalData?.courier;
+                        
+                        if (trackingNumber && courier) {
+                          setTrackingInfo({ trackingNumber, courier });
+                          setShowTrackingModal(true);
+                        } else {
+                          // 백엔드에 정보가 없으면 채팅 메시지 파싱 값 사용
+                          setTrackingInfo({ 
+                            trackingNumber: shippingInfo.trackingNumber, 
+                            courier: shippingInfo.courier 
+                          });
+                          setShowTrackingModal(true);
+                        }
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 배송 정보 조회 실패:', err);
+                        // 에러 시 채팅 메시지 파싱 값 사용
+                        setTrackingInfo({ 
+                          trackingNumber: shippingInfo.trackingNumber, 
+                          courier: shippingInfo.courier 
+                        });
+                        setShowTrackingModal(true);
+                      }
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
 
             // MessageBubble 렌더링
             return (
@@ -2906,6 +3088,23 @@ const ChatRoomPage = () => {
         chatRoomId={chatRoomId}
       />
 
+      {/* 배송 조회 모달 */}
+      {showTrackingModal && trackingInfo.trackingNumber && trackingInfo.courier && (
+        <Modal
+          isOpen={showTrackingModal}
+          onClose={() => setShowTrackingModal(false)}
+          title="배송 조회"
+          className="max-w-2xl"
+        >
+          <div className="p-4">
+            <TrackingStatusCard
+              trackingNumber={trackingInfo.trackingNumber}
+              courier={trackingInfo.courier}
+            />
+          </div>
+        </Modal>
+      )}
+
       {/* 발송 모달 */}
       {showShippingModal && currentRentalData && (
         <ShippingModal
@@ -2916,7 +3115,7 @@ const ChatRoomPage = () => {
             console.log('[ChatRoomPage] 발송 완료:', { videoUrl, trackingNo, courier });
 
             // 채팅방에 발송 완료 메시지 전송
-            const messageContent = `📦 물품을 발송했습니다!\n\n택배사: ${courier}\n운송장 번호: ${trackingNo}\n\n${videoUrl ? `[동영상 보기](${videoUrl})` : ''}\n\nrentalHisId:${currentRentalData.rentalHisId}`;
+            const messageContent = `📦 물품을 발송했습니다!\n\n택배사: ${courier}\n운송장 번호: ${trackingNo}\n\n${videoUrl ? `[동영상 보기](${videoUrl})` : ''}\nrentalHisId:${currentRentalData.rentalHisId}`;
 
             await sendMessage({
               type: 'TEXT',
@@ -2935,6 +3134,8 @@ const ChatRoomPage = () => {
                 courier: courier
               };
               setCurrentRentalData(updatedData);
+              // 운송장 번호 등록 상태 업데이트 (버튼 레이블 변경용)
+              setTrackedRentalIds(prev => new Set([...prev, currentRentalData.rentalHisId]));
             }
 
             alert('물품 발송이 완료되었습니다!');

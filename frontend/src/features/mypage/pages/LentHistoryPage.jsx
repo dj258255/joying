@@ -311,13 +311,13 @@ const LentHistoryPage = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">대여자 정보</h2>
             
             <div className="text-center mb-4">
-              <ProfileImage 
+              <ProfileImage
                 src={rental.renter.profileImageUrl}
-                alt={rental.renter.username}
+                alt={rental.renter.nickname}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.renter.username} 님 (Renter)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.renter.nickname} 님 (Renter)</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
                   {renderPreciseStars(rental.renter.rating)}
@@ -404,7 +404,7 @@ const LentHistoryPage = () => {
                   <div>
                     <p className="text-gray-700 mb-3">"{renterReview.content}"</p>
                     <div className="text-sm text-gray-500">
-                      {renterReview.reviewer?.username} • {formatDate(renterReview.createdAt)}
+                      {renterReview.reviewer?.nickname} • {formatDate(renterReview.createdAt)}
                     </div>
                   </div>
                 );

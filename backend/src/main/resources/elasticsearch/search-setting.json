@@ -1,14 +1,14 @@
 {
   "analysis": {
     "tokenizer": {
-      "edge_ngram_tokenizer": {
-        "type": "edge_ngram",
-        "min_gram": 2,
-        "max_gram": 5,
-        "token_chars": ["letter", "digit", "whitespace"]
-      },
       "nori_tokenizer": {
         "type": "nori_tokenizer"
+      },
+      "ngram_tokenizer": {
+        "type": "ngram",
+        "min_gram": 2,
+        "max_gram": 5,
+        "token_chars": ["letter", "digit"]
       }
     },
     "analyzer": {
@@ -23,7 +23,7 @@
       },
       "korean_autocomplete": {
         "type": "custom",
-        "tokenizer": "edge_ngram_tokenizer",
+        "tokenizer": "ngram_tokenizer",
         "filter": [
           "lowercase"
         ]

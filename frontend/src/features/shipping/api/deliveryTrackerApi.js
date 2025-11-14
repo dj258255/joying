@@ -29,10 +29,16 @@ const COURIER_CODE_MAP = {
 
 /**
  * 프론트엔드 택배사 코드를 Delivery Tracker carrierId로 변환
- * @param {string} courierCode - 프론트엔드 택배사 코드 (cj, post, lotte 등)
+ * @param {string} courierCode - 프론트엔드 택배사 코드 (cj, post, lotte 등) 또는 carrierId (kr.cjlogistics 등)
  * @returns {string} Delivery Tracker carrierId
  */
 export const mapCourierToCarrierId = (courierCode) => {
+  // 이미 carrierId 형식인 경우 (kr.xxx) 그대로 반환
+  if (courierCode?.startsWith('kr.')) {
+    return courierCode;
+  }
+  
+  // 프론트엔드 코드를 carrierId로 변환
   const carrierId = COURIER_CODE_MAP[courierCode?.toLowerCase()];
   if (!carrierId) {
     throw new Error(`지원하지 않는 택배사 코드입니다: ${courierCode}`);
@@ -97,28 +103,20 @@ export const trackPackage = async (carrierId, trackingNumber) => {
           }
           description
         }
-        from {
-          name
-          time
-        }
-        to {
-          name
-          time
-        }
-        state {
-          id
-          text
-        }
-        progresses {
-          time
-          status {
-            code
-            name
+        events(last: 50) {
+          edges {
+            node {
+              time
+              status {
+                code
+                name
+              }
+              location {
+                name
+              }
+              description
+            }
           }
-          location {
-            name
-          }
-          description
         }
       }
     }
@@ -134,13 +132,14 @@ export const trackPackage = async (carrierId, trackingNumber) => {
 
 /**
  * 택배사 목록 조회 (Query.carriers) - 선택적
- * @param {number} first - 조회할 택배사 개수 (기본: 10)
+ * @param {number} first - 조회할 택배사 개수 (기본: 50)
+ * @param {string} after - 커서 (페이징용)
  * @returns {Promise<Array>} 택배사 목록
  */
-export const getCarriers = async (first = 10) => {
+export const getCarriers = async (first = 50, after = null) => {
   const CARRIERS_QUERY = `
-    query CarrierList($first: Int!) {
-      carriers(first: $first) {
+    query CarrierList($first: Int!, $after: String) {
+      carriers(first: $first, after: $after) {
         edges {
           node {
             id
@@ -151,7 +150,7 @@ export const getCarriers = async (first = 10) => {
     }
   `;
 
-  const data = await graphqlRequest(CARRIERS_QUERY, { first });
+  const data = await graphqlRequest(CARRIERS_QUERY, { first, after });
   return data.carriers.edges.map(edge => edge.node);
 };
 
@@ -192,13 +191,17 @@ export const transformTrackingData = (trackData) => {
     }
   }
 
-  // 배송 히스토리 변환
-  const history = (trackData.progresses || []).map((progress) => ({
-    status: progress.status?.name || 'UNKNOWN',
-    location: progress.location?.name || null,
-    timestamp: progress.time ? new Date(progress.time).toISOString() : null,
-    description: progress.description || null,
-  }));
+  // 배송 히스토리 변환 (events 구조에 맞게 수정)
+  const events = trackData.events?.edges || [];
+  const history = events.map((edge) => {
+    const node = edge.node;
+    return {
+      status: node.status?.name || 'UNKNOWN',
+      location: node.location?.name || null,
+      timestamp: node.time ? new Date(node.time).toISOString() : null,
+      description: node.description || null,
+    };
+  });
 
   return {
     status: mappedStatus,
@@ -207,9 +210,6 @@ export const transformTrackingData = (trackData) => {
     statusName: statusName,
     statusCode: statusCode,
     history: history,
-    from: trackData.from,
-    to: trackData.to,
-    state: trackData.state,
   };
 };
 
