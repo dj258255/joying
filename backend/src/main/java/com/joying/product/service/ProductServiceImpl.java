@@ -459,6 +459,8 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
+        searchService.updateDocumentByProductId(productId);
+
         return product.getProductId();
     }
 
