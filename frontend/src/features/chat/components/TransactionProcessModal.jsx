@@ -544,7 +544,10 @@ const TransactionProcessModal = ({
         setCurrentStep('rental');
         alert('대여가 시작되었습니다.');
       } else if (currentStep === 'return') {
-        alert('반납 영상 업로드가 완료되었습니다.');
+        // 반납 영상 업로드 완료, 운송장 입력 화면으로 돌아가기
+        console.log('[TransactionProcessModal] 반납 영상 업로드 완료');
+        alert('영상 업로드가 완료되었습니다. 운송장 번호를 입력해주세요.');
+        // currentStep은 'return' 유지 -> 운송장 입력 UI 계속 표시
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 영상 업로드 실패:', err);
@@ -583,11 +586,19 @@ const TransactionProcessModal = ({
 
   // 반납 처리
   const handleReturnItem = async () => {
+    // 영상이 필요한데 아직 안 찍었으면 영상 촬영 먼저
+    if (requireVideo && recordedVideos.length === 0) {
+      setShowVideoRecorder(true);
+      return;
+    }
+
+    // 운송장 정보 확인
     if (!trackingNumber || !courier) {
       setError('택배사와 운송장 번호를 입력해주세요.');
       return;
     }
 
+    // 반납 API 호출
     try {
       setIsLoading(true);
       setError(null);
@@ -597,12 +608,19 @@ const TransactionProcessModal = ({
         trackingNo: trackingNumber
       });
 
-      if (requireVideo) {
-        setShowVideoRecorder(true);
-      } else {
-        setCurrentStep('return');
-        alert('반납 처리가 완료되었습니다.');
+      // 채팅방에 반납 완료 메시지 전송
+      const videoUrl = recordedVideos.length > 0 ? recordedVideos[0] : null;
+      const messageContent = `📦 반납을 완료했습니다!\n\n택배사: ${courier}\n운송장 번호: ${trackingNumber}\n\n${videoUrl ? `[동영상 보기](${videoUrl})` : ''}\n\nrentalHisId:${transactionData.rentalHisId}`;
+
+      if (sendMessage) {
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
       }
+
+      alert('반납 처리가 완료되었습니다.');
+      onClose();
     } catch (err) {
       console.error('[TransactionProcessModal] 반납 처리 실패:', err);
       const errorMessage = err.response?.data?.message || err.message || '반납 처리에 실패했습니다.';
@@ -1120,6 +1138,13 @@ const TransactionProcessModal = ({
               </div>
 
               <button
+                onClick={() => setCurrentStep('receive')}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                물품 수령 확인하기
+              </button>
+
+              <button
                 onClick={onClose}
                 className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
@@ -1195,7 +1220,7 @@ const TransactionProcessModal = ({
                   </button>
                 )}
                 <button
-                  onClick={() => setCurrentStep('cancel')}
+                  onClick={() => setShowCancelModal(true)}
                   className="flex-1 px-4 py-2 border border-red-300 rounded-lg text-red-700 hover:bg-red-50"
                 >
                   거래 중단하기
@@ -1315,7 +1340,6 @@ const TransactionProcessModal = ({
       {showVideoRecorder && (
         <Modal isOpen={showVideoRecorder} onClose={() => setShowVideoRecorder(false)} title="영상 촬영" className="max-w-2xl">
           <div>
-            <p style={{color: 'red', fontSize: '20px', fontWeight: 'bold'}}>VideoRecorder 테스트</p>
             <VideoRecorder
               onRecordComplete={handleVideoUploadComplete}
               purpose={currentStep === 'shipping' || currentStep === 'return' ? 'delivery' : 'return'}

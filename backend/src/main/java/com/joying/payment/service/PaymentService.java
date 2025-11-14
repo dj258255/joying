@@ -1,5 +1,7 @@
 package com.joying.payment.service;
 
+import com.joying.account.domain.Account;
+import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.payment.domain.Payment;
@@ -22,6 +24,7 @@ import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.escrow.domain.Escrow;
 import com.joying.escrow.repository.EscrowRepository;
+import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -60,6 +63,8 @@ public class PaymentService {
     private final EscrowRepository escrowRepository;
     private final TossPaymentsClient tossClient;
     private final ApplicationEventPublisher eventPublisher;
+    private final FinanceApiService financeApiService;
+    private final FinanceApiProperties financeApiProperties;
 
     /**
      * 1. 결제 생성 (orderId 발급)
@@ -375,6 +380,30 @@ public class PaymentService {
                 Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
                 escrowRepository.save(escrow);
                 log.info("Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), payment.getPaymentId());
+
+                // 토스 결제 완료 후 Joying 에스크로 계좌로 입금 (SSAFY 금융망)
+                // 실제 돈은 토스에 있고, SSAFY 금융망에는 논리적으로만 입금
+                try {
+                    String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
+                    String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
+                    long totalAmount = rentalFee.longValue() + depositAmount.longValue();
+
+                    // 에스크로 계좌에 입금 (출금 없이 입금만 수행)
+                    String txNo = financeApiService.depositMoney(
+                            escrowAccountNo,
+                            totalAmount,
+                            "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")",
+                            escrowUserKey
+                    );
+
+                    log.info("[에스크로 계좌 입금 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                            rentalHistory.getRentalHisId(), txNo, totalAmount, escrowAccountNo);
+                } catch (Exception e) {
+                    log.error("[에스크로 계좌 입금 실패] rentalHisId={}, paymentId={}",
+                            rentalHistory.getRentalHisId(), payment.getPaymentId(), e);
+                    // 입금 실패해도 결제는 정상 처리 (별도 알림/재처리 필요)
+                    // 운영 환경에서는 알림 발송 or 재시도 로직 추가 필요
+                }
             }
 
         } else if (payment.getPaymentType() == PaymentType.EXTENSION) {
