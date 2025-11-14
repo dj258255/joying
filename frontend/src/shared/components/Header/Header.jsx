@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { useAuth } from '@/features/auth';
+import ProfileImage from '@/shared/components/ProfileImage';
 
 /**
  * @param {Object} props
@@ -49,10 +50,13 @@ const Header = ({ className = '' }) => {
                   마이페이지
                 </a>
                 <div className="flex items-center space-x-2">
-                  <div className="w-5 h-5 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center ring-1 ring-gray-300 hover:ring-gray-400 transition-all duration-200 shadow-sm">
-                    <span className="text-white font-bold text-[9px] leading-none">
-                      {user?.nickname?.charAt(0)?.toUpperCase() || '?'}
-                    </span>
+                  <div className="w-5 h-5 rounded-full ring-1 ring-gray-300 hover:ring-gray-400 transition-all duration-200 shadow-sm overflow-hidden">
+                    <ProfileImage
+                      src={user?.profileImageUrl}
+                      alt={user?.nickname || '프로필'}
+                      size={20}
+                      className="w-full h-full"
+                    />
                   </div>
                   <button
                     onClick={handleLogout}

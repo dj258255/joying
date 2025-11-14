@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import ProfileImage from '@/shared/components/ProfileImage';
 import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
@@ -540,10 +541,15 @@ const ProductListMain = () => {
           // 로그인 상태: 원형 프로필 버튼
           <button
             onClick={() => setIsSideNavOpen(!isSideNavOpen)}
-            className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+            className="group relative w-9 h-9 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50 overflow-hidden"
             title={user?.nickname || '프로필'}
           >
-            {user?.nickname?.charAt(0) || '👤'}
+            <ProfileImage
+              src={user?.profileImageUrl}
+              alt={user?.nickname || '프로필'}
+              size={36}
+              className="w-full h-full"
+            />
           </button>
         ) : (
           // 미로그인 상태: 로그인하기 버튼 노출
@@ -1174,25 +1180,30 @@ const ProductListMain = () => {
                </svg>
              </button>
              
-            {/* 프로필 또는 로그인 버튼 */}
-            {isAuthenticated ? (
-              <button
-                onClick={() => setIsSideNavOpen(!isSideNavOpen)}
-                className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30"
-                title={user?.nickname || '프로필'}
-              >
-                {user?.nickname?.charAt(0) || '👤'}
-              </button>
-            ) : (
-              <button
-                onClick={() => kakaoLogin()}
-                className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
-                title="로그인하기"
-              >
-                로그인하기
-              </button>
-            )}
-           </div>
+           {/* 프로필 또는 로그인 버튼 */}
+           {isAuthenticated ? (
+             <button
+               onClick={() => setIsSideNavOpen(!isSideNavOpen)}
+               className="w-9 h-9 rounded-full shadow-md hover:shadow-lg transition-all duration-300 ring-2 ring-white/30 overflow-hidden"
+               title={user?.nickname || '프로필'}
+             >
+               <ProfileImage
+                 src={user?.profileImageUrl}
+                 alt={user?.nickname || '프로필'}
+                 size={36}
+                 className="w-full h-full"
+               />
+             </button>
+           ) : (
+             <button
+               onClick={() => kakaoLogin()}
+               className="px-3 py-2 rounded-md text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors shadow-sm"
+               title="로그인하기"
+             >
+               로그인하기
+             </button>
+           )}
+          </div>
          </div>
        </div>
 
