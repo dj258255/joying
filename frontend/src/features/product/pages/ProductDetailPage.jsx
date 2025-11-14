@@ -183,8 +183,8 @@ const ProductDetailPage = () => {
           createdAt: review.created_at || review.createdAt,
           reviewer: {
             member_id: review.reviewer?.member_id,
-            username: review.reviewer?.name,
-            name: review.reviewer?.name,
+            username: review.reviewer?.nickname,
+            name: review.reviewer?.nickname,
             profileImageUrl: review.reviewer?.profile_image_url,
             profile_image_url: review.reviewer?.profile_image_url,
           },
@@ -205,8 +205,8 @@ const ProductDetailPage = () => {
       images,
       sellerId: productResponse?.writer?.memberId || productResponse?.writer?.member_id,
       seller: {
-        nickname: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
-        name: productResponse?.writer?.name || sellerUser?.nickname || '판매자',
+        nickname: productResponse?.writer?.nickname || sellerUser?.nickname || '판매자',
+        name: productResponse?.writer?.nickname || sellerUser?.nickname || '판매자',
         profileImage: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
         profile_image_url: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
         rating: Number(productResponse?.writer?.rating) || 0,

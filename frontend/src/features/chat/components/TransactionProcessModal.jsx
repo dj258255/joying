@@ -13,7 +13,7 @@ import { fileApi } from '../../../shared/api/fileApi';
 import { useAuth } from '../../auth/contexts/AuthContext';
 import DateRangeCalendar from '../../checkout/components/DateRangeCalendar';
 import VideoRecorder from '../../video/components/VideoRecorder';
-import ShippingStatusCard from '../../shipping/components/ShippingStatusCard';
+import { TrackingStatusCard } from '../../shipping';
 import PaymentModal from '../../payment/components/PaymentModal';
 import CancelRequestModal from '../../rental/components/CancelRequestModal';
 import { calculateRentalDays, calculateTotalAmount, getVideoType, getModalTitle } from '../../../shared/utils/transactionUtils';
@@ -1030,58 +1030,76 @@ const TransactionProcessModal = ({
                     </div>
                   )}
 
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-800 font-medium">📦 2단계: 운송장 번호 입력</p>
-                    <p className="text-blue-600 text-sm mt-1">
-                      물건을 포장하고 우체국에 맡긴 후 운송장 번호를 입력해주세요.
-                    </p>
-                  </div>
+                  {/* 운송장 번호가 이미 등록된 경우 배송 조회 카드 표시 */}
+                  {(transactionData?.trackingNumber || (transactionData && trackingNumber)) ? (
+                    <>
+                      <TrackingStatusCard
+                        trackingNumber={transactionData?.trackingNumber || trackingNumber}
+                        courier={transactionData?.carrierCode || transactionData?.courier || courier}
+                      />
+                      <button
+                        onClick={onClose}
+                        className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                      >
+                        닫기
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-blue-800 font-medium">📦 2단계: 운송장 번호 입력</p>
+                        <p className="text-blue-600 text-sm mt-1">
+                          물건을 포장하고 우체국에 맡긴 후 운송장 번호를 입력해주세요.
+                        </p>
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      택배사 선택 *
-                    </label>
-                    <select
-                      value={courier}
-                      onChange={(e) => setCourier(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">택배사를 선택하세요</option>
-                      {courierOptions.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          택배사 선택 *
+                        </label>
+                        <select
+                          value={courier}
+                          onChange={(e) => setCourier(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">택배사를 선택하세요</option>
+                          {courierOptions.map((c) => (
+                            <option key={c.value} value={c.value}>{c.label}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      운송장 번호 *
-                    </label>
-                    <input
-                      type="text"
-                      value={trackingNumber}
-                      onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
-                      placeholder="숫자만 입력하세요"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          운송장 번호 *
+                        </label>
+                        <input
+                          type="text"
+                          value={trackingNumber}
+                          onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
+                          placeholder="숫자만 입력하세요"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={onClose}
-                      disabled={isLoading}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      나중에 하기
-                    </button>
-                    <button
-                      onClick={handleShipItem}
-                      disabled={isLoading || !courier || !trackingNumber}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {isLoading ? '처리 중...' : '발송 완료'}
-                    </button>
-                  </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={onClose}
+                          disabled={isLoading}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          나중에 하기
+                        </button>
+                        <button
+                          onClick={handleShipItem}
+                          disabled={isLoading || !courier || !trackingNumber}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isLoading ? '처리 중...' : '발송 완료'}
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -1090,12 +1108,12 @@ const TransactionProcessModal = ({
           {/* 배송 추적 단계 (구매자) */}
           {currentStep === 'delivery' && userRole === 'buyer' && (
             <div className="space-y-4">
-              <ShippingStatusCard
-                trackingNumber={transactionData?.trackingNumber || trackingNumber}
-                courier={transactionData?.courier || courier}
-                status={transactionData?.shippingStatus || 'IN_TRANSIT'}
-                type="outbound"
-              />
+              {(transactionData?.trackingNumber || trackingNumber) && (
+                <TrackingStatusCard
+                  trackingNumber={transactionData?.trackingNumber || trackingNumber}
+                  courier={transactionData?.carrierCode || transactionData?.courier || courier}
+                />
+              )}
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-blue-800 text-sm">물건이 도착하면 수령 확인을 진행해주세요</p>
@@ -1251,12 +1269,12 @@ const TransactionProcessModal = ({
           {/* 반납 확인 대기 단계 (판매자) */}
           {currentStep === 'return' && userRole === 'seller' && (
             <div className="space-y-4">
-              <ShippingStatusCard
-                trackingNumber={transactionData?.returnTrackingNumber || trackingNumber}
-                courier={transactionData?.returnCourier || courier}
-                status={transactionData?.returnShippingStatus || 'IN_TRANSIT'}
-                type="return"
-              />
+              {(transactionData?.returnTrackingNumber || trackingNumber) && (
+                <TrackingStatusCard
+                  trackingNumber={transactionData?.returnTrackingNumber || trackingNumber}
+                  courier={transactionData?.returnCourier || courier}
+                />
+              )}
 
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-blue-800 text-sm">물건이 도착하면 확인 후 거래를 완료해주세요</p>

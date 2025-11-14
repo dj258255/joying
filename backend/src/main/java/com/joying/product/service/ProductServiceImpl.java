@@ -88,7 +88,7 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
 
         // 리뷰
-        var reviewDtos = reviewRepository.findByProduct_ProductIdOrderByReviewIdDesc(productId).stream()
+        var reviewDtos = reviewRepository.findByProduct_ProductIdAndUploadTypeOrderByReviewIdDesc(productId, UploadType.BORROW).stream()
                 .map(r -> ProductResponseDto.ReviewSummaryDto.builder()
                         .reviewId(r.getReviewId())
                         .title(r.getTitle())
@@ -97,6 +97,7 @@ public class ProductServiceImpl implements ProductService {
                         .reviewer(ProductResponseDto.ReviewerDto.builder()
                                 .memberId(r.getReviewer().getMemberId())
                                 .name(r.getReviewer().getName())
+                                .nickname(r.getReviewer().getNickname())
                                 .profileImageUrl(
                                         r.getReviewer().getProfileImage() != null
                                                 ? fileUrlResolver.toPublicUrl(r.getReviewer().getProfileImage())
@@ -142,6 +143,7 @@ public class ProductServiceImpl implements ProductService {
         var writerDto = ProductResponseDto.WriterDto.builder()
                 .memberId(writer.getMemberId())
                 .name(writer.getName())
+                .nickname(writer.getNickname())
                 .profileImageUrl(
                         writer.getProfileImage() != null
                                 ? fileUrlResolver.toPublicUrl(writer.getProfileImage())

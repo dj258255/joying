@@ -36,7 +36,7 @@ const TransactionActionButton = ({
     <div className="flex gap-2">
       <button
         onClick={onTransactionProcess}
-        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+        className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
       >
         거래 보기
       </button>
