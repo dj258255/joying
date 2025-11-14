@@ -382,14 +382,13 @@ function ProductCreatePage() {
         updateField('content', result.description.slice(0, 2000));
       }
 
-      // 추천 대여료 자동 입력 (포맷팅하여 입력)
+      // 추천 대여료 자동 입력 (숫자만 입력)
       if (result.recommended_price) {
-        const formattedPrice = result.recommended_price.toLocaleString();
-        updateField('rentalFee', formattedPrice);
+        updateField('rentalFee', String(result.recommended_price));
         console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
       }
 
-      // 추천 보증금 자동 입력 (포맷팅하여 입력)
+      // 추천 보증금 자동 입력 (숫자만 입력)
       console.log('[ProductCreatePage] 보증금 체크:', {
         recommended_deposit: result.recommended_deposit,
         type: typeof result.recommended_deposit,
@@ -397,9 +396,8 @@ function ProductCreatePage() {
       });
 
       if (result.recommended_deposit) {
-        const formattedDeposit = result.recommended_deposit.toLocaleString();
-        updateField('deposit', formattedDeposit);
-        console.log('[ProductCreatePage] ✅ AI 추천 보증금 입력:', result.recommended_deposit, '원 → 포맷:', formattedDeposit);
+        updateField('deposit', String(result.recommended_deposit));
+        console.log('[ProductCreatePage] ✅ AI 추천 보증금 입력:', result.recommended_deposit, '원');
       } else {
         console.warn('[ProductCreatePage] ❌ 보증금 없음 또는 0');
       }
@@ -458,13 +456,16 @@ function ProductCreatePage() {
   };
 
   /**
-   * 카테고리 트리에서 이름으로 카테고리 찾기
+   * 카테고리 트리에서 이름으로 카테고리 찾기 (부분 일치 포함)
    */
   const findCategoryByName = (tree, name) => {
-    if (!tree || tree.length === 0) return null;
+    if (!tree || tree.length === 0 || !name) return null;
 
+    const normalizedName = name.trim().toLowerCase();
+
+    // 1차: 정확한 매칭 시도
     for (const category of tree) {
-      if (category.categoryName === name) {
+      if (category.categoryName?.toLowerCase() === normalizedName) {
         return category;
       }
       if (category.children && category.children.length > 0) {
@@ -472,6 +473,23 @@ function ProductCreatePage() {
         if (found) return found;
       }
     }
+
+    // 2차: 부분 일치 시도 (카테고리명에 검색어 포함 또는 검색어에 카테고리명 포함)
+    for (const category of tree) {
+      const catName = category.categoryName?.toLowerCase() || '';
+      if (catName.includes(normalizedName) || normalizedName.includes(catName)) {
+        return category;
+      }
+      if (category.children && category.children.length > 0) {
+        for (const child of category.children) {
+          const childName = child.categoryName?.toLowerCase() || '';
+          if (childName.includes(normalizedName) || normalizedName.includes(childName)) {
+            return child;
+          }
+        }
+      }
+    }
+
     return null;
   };
 
