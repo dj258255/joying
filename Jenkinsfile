@@ -7,6 +7,24 @@ pipeline {
   }
 
   stages {
+    stage('Check Branch') {
+      steps {
+        script {
+          def branchName = env.GIT_BRANCH ?: 'unknown'
+          echo "[INFO] Current branch: ${branchName}"
+
+          // develop 또는 master/main 브랜치만 빌드
+          if (!(branchName.contains('develop') || branchName.contains('master') || branchName.contains('main'))) {
+            echo "[SKIP] This pipeline only runs on 'develop', 'master', or 'main' branch."
+            echo "[SKIP] Current branch: ${branchName}"
+            currentBuild.result = 'NOT_BUILT'
+            error("Skipping build for branch: ${branchName}")
+          }
+          echo "[OK] Branch check passed. Proceeding with build..."
+        }
+      }
+    }
+
     stage('Checkout') {
       steps {
         deleteDir()
