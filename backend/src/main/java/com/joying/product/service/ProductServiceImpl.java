@@ -88,7 +88,7 @@ public class ProductServiceImpl implements ProductService {
                 .toList();
 
         // 리뷰
-        var reviewDtos = reviewRepository.findByProduct_ProductIdOrderByReviewIdDesc(productId).stream()
+        var reviewDtos = reviewRepository.findByProduct_ProductIdAndUploadTypeOrderByReviewIdDesc(productId, UploadType.BORROW).stream()
                 .map(r -> ProductResponseDto.ReviewSummaryDto.builder()
                         .reviewId(r.getReviewId())
                         .title(r.getTitle())
