@@ -135,13 +135,26 @@ public class AccountService {
 			throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
 		}
 
+		// SSAFY API로 실제 예금주명 조회
+		String realAccountHolderName = financeApiService.inquireDemandDepositAccountHolderName(
+			accountNo,
+			member.getSsafyUserKey()
+		);
+
+		// 사용자 입력과 실제 예금주명 비교
+		if (!realAccountHolderName.equals(accountHolderName)) {
+			log.error("예금주명 불일치: 입력={}, 실제={}, memberId={}, accountNo={}",
+				accountHolderName, realAccountHolderName, memberId, accountNo);
+			throw new BusinessException(ErrorCode.ACCOUNT_VERIFICATION_FAILED);
+		}
+
 		// 계좌번호에서 은행코드 추출 (앞 3자리)
 		String bankCode = accountNo.substring(0, 3);
 		String bankName = getBankNameByCode(bankCode);
 
-		// 회원의 실명 업데이트 (1원 인증 시마다 갱신)
-		member.updateRealName(accountHolderName);
-		log.info("회원 실명 저장/갱신: memberId={}, realName={}", memberId, accountHolderName);
+		// 검증된 실명으로 업데이트 (SSAFY API에서 조회한 실제 예금주명 사용)
+		member.updateRealName(realAccountHolderName);
+		log.info("회원 실명 저장/갱신: memberId={}, realName={}", memberId, realAccountHolderName);
 
 		// 기존 계좌가 있으면 업데이트, 없으면 새로 생성
 		Account account = accountRepository.findByAccountNo(accountNo)

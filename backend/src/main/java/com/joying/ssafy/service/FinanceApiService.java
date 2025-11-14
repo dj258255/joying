@@ -505,6 +505,75 @@ public class FinanceApiService {
 	}
 
 	/**
+	 * 예금주 조회 (계좌번호로 예금주명 조회)
+	 *
+	 * @param accountNo 계좌번호
+	 * @param userKey   사용자 KEY
+	 * @return 예금주명
+	 */
+	public String inquireDemandDepositAccountHolderName(String accountNo, String userKey) {
+		String apiName = "inquireDemandDepositAccountHolderName";
+
+		// Header 생성
+		SsafyApiHeader header = SsafyApiHeader.createRequestHeaderWithUserKey(
+			apiName,
+			apiName,
+			financeApiProperties.getApiKey(),
+			userKey,
+			financeApiProperties.getInstitutionCode(),
+			financeApiProperties.getFintechAppNo()
+		);
+
+		// Request 생성
+		InquireDemandDepositAccountHolderNameRequest request = InquireDemandDepositAccountHolderNameRequest.builder()
+			.header(header)
+			.accountNo(accountNo)
+			.build();
+
+		log.info("예금주 조회 요청: accountNo={}", accountNo);
+
+		try {
+			// API 호출
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<InquireDemandDepositAccountHolderNameRequest> entity = new HttpEntity<>(request, headers);
+
+			ResponseEntity<InquireDemandDepositAccountHolderNameResponse> response = restTemplate.postForEntity(
+				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
+				entity,
+				InquireDemandDepositAccountHolderNameResponse.class
+			);
+
+			InquireDemandDepositAccountHolderNameResponse responseBody = response.getBody();
+
+			if (responseBody == null || responseBody.getRec() == null) {
+				log.error("예금주 조회 응답이 null입니다");
+				throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+			}
+
+			// 응답 코드 확인
+			if (!"H0000".equals(responseBody.getHeader().getResponseCode())) {
+				log.error("예금주 조회 실패: responseCode={}, responseMessage={}",
+					responseBody.getHeader().getResponseCode(),
+					responseBody.getHeader().getResponseMessage());
+				throw new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND);
+			}
+
+			String userName = responseBody.getRec().getUserName();
+
+			log.info("예금주 조회 성공: accountNo={}, userName={}", accountNo, userName);
+
+			return userName;
+
+		} catch (BusinessException e) {
+			throw e;
+		} catch (Exception e) {
+			log.error("예금주 조회 API 호출 중 오류 발생", e);
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
 	 * 계좌 출금 (송금)
 	 * Joying 중개계좌 → 사용자 계좌로 송금
 	 *
