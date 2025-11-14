@@ -25,7 +25,8 @@ class AdvancedProductChain:
             temperature=settings.TEMPERATURE,
             max_tokens=settings.MAX_TOKENS,
             openai_api_key=settings.GMS_API_KEY,
-            openai_api_base="https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+            openai_api_base="https://gms.ssafy.io/gmsapi/api.openai.com/v1",
+            model_kwargs={"response_format": {"type": "json_object"}}  # JSON 모드 강제
         )
 
     async def analyze_image_and_extract_product_name(self, image_base64: str) -> Dict[str, Any]:
@@ -57,20 +58,31 @@ class AdvancedProductChain:
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", f"""당신은 상품 이미지 분석 전문가입니다.
-이미지를 보고 다음 정보를 JSON 형식으로 추출하세요:
+이미지를 보고 다음 정보를 JSON 형식으로 추출하세요.
 
 {categories}
 
-**응답 형식:**
+**중요: 반드시 아래 형식의 유효한 JSON만 응답하세요. 다른 설명은 포함하지 마세요.**
+
+응답 형식:
 {{{{
   "product_name": "상품명 (간결하게)",
   "parent_category": "상위 카테고리 (창작, 공예, 오락, 아웃도어, 생활, 요리, 패션, 음악·영상 감상, IT·디지털, 반려생활 중 하나)",
   "sub_category": "하위 카테고리 (위 목록에서 가장 적합한 것 선택)",
   "key_features": ["특징1", "특징2", "특징3"],
   "condition": "상품 상태 (새것, 거의 새것, 사용감 있음, 많이 사용함)"
+}}}}
+
+이미지에서 상품을 인식할 수 없는 경우에도 JSON 형식으로 응답하세요:
+{{{{
+  "product_name": "알 수 없음",
+  "parent_category": "생활",
+  "sub_category": "기타",
+  "key_features": ["분석 불가"],
+  "condition": "알 수 없음"
 }}}}"""),
             ("user", [
-                {"type": "text", "text": "이 상품의 정보를 분석해주세요."},
+                {"type": "text", "text": "이 이미지의 상품 정보를 JSON으로만 응답해주세요."},
                 {"type": "image_url", "image_url": {
                     "url": f"data:image/jpeg;base64,{image_base64}",
                     "detail": "low"  # 512px로 자동 리사이즈, 토큰 사용량 감소
