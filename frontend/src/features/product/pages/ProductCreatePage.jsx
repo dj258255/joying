@@ -127,6 +127,7 @@ function ProductCreatePage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
   const [aiAutoFill, setAiAutoFill] = useState(true); // AI 자동 입력 사용 여부
+  const [aiUploadType, setAiUploadType] = useState('RENT'); // AI용 업로드 타입 (빌려줘/구해요)
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -386,10 +387,10 @@ function ProductCreatePage() {
 
     try {
       setAiGenerating(true);
-      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name);
+      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', aiUploadType);
 
       // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
-      const result = await aiApi.generateProductDescription(imageFile);
+      const result = await aiApi.generateProductDescription(imageFile, aiUploadType);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
       console.log('[ProductCreatePage] 🔍 보증금 확인:', {
@@ -815,6 +816,9 @@ function ProductCreatePage() {
 
   // 단계별 유효성 검사
   const canGoNext = useMemo(() => {
+    // AI 처리 중일 때는 다음 버튼 비활성화
+    if (aiGenerating) return false;
+
     switch (currentStep) {
       case 1:
         // 1단계: 이미지
@@ -832,7 +836,7 @@ function ProductCreatePage() {
       default:
         return false;
     }
-  }, [currentStep, form, fileIds, noEndDate]);
+  }, [currentStep, form, fileIds, noEndDate, aiGenerating]);
 
   const handleNext = () => {
     if (canGoNext && currentStep < TOTAL_STEPS) {
@@ -1237,19 +1241,50 @@ function ProductCreatePage() {
           <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
         </div>
 
-        {/* AI 자동 입력 체크박스 */}
+        {/* AI 자동 입력 체크박스 + 업로드 타입 선택 */}
         {aiAvailable && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
-            <input
-              type="checkbox"
-              id="aiAutoFill"
-              checked={aiAutoFill}
-              onChange={(e) => setAiAutoFill(e.target.checked)}
-              className="w-4 h-4 rounded accent-blue-600"
-            />
-            <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
-              🤖 AI 자동 입력
-            </label>
+          <div className="flex items-center gap-3">
+            {/* AI 자동 입력 체크박스 */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+              <input
+                type="checkbox"
+                id="aiAutoFill"
+                checked={aiAutoFill}
+                onChange={(e) => setAiAutoFill(e.target.checked)}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
+                🤖 AI 자동 입력
+              </label>
+            </div>
+
+            {/* AI용 업로드 타입 선택 (AI 체크박스가 활성화되어 있을 때만 표시) */}
+            {aiAutoFill && (
+              <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 border border-gray-300 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setAiUploadType('RENT')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    aiUploadType === 'RENT'
+                      ? 'bg-black text-white'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  빌려줘
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiUploadType('BORROW')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    aiUploadType === 'BORROW'
+                      ? 'bg-black text-white'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  구해요
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

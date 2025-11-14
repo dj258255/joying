@@ -56,7 +56,8 @@ async def root():
     }
 )
 async def generate_product_description(
-    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG)")
+    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG)"),
+    upload_type: str = Form("RENT", description="업로드 타입 (RENT: 빌려줘, BORROW: 구해요)")
 ):
     """
     AI 이미지 기반 게시글 자동 생성 (GPT-4o 기반)
@@ -81,7 +82,7 @@ async def generate_product_description(
     - confidence: 신뢰도 (0-1)
     """
     try:
-        logger.info(f"AI 게시글 생성 요청: filename={image.filename}")
+        logger.info(f"AI 게시글 생성 요청: filename={image.filename}, upload_type={upload_type}")
 
         # 이미지 검증
         if not image.content_type.startswith("image/"):
@@ -139,8 +140,8 @@ async def generate_product_description(
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
         # AI 체인 실행
-        logger.info("AI 체인 시작")
-        result = await advanced_chain.run_full_chain(image_base64)
+        logger.info(f"AI 체인 시작 (upload_type={upload_type})")
+        result = await advanced_chain.run_full_chain(image_base64, upload_type=upload_type)
 
         # 응답 생성
         response = ProductGenerationResponse(

@@ -16,16 +16,19 @@ export const aiApi = {
    * AI 게시글 자동 생성 (가격 추천 포함)
    *
    * @param {File} imageFile - 상품 이미지 파일
+   * @param {string} uploadType - 업로드 타입 ('RENT' | 'BORROW')
    * @returns {Promise<Object>} { title, description, category_suggestion, confidence, recommended_price, estimated_purchase_price, rental_ratio, price_reasoning }
    */
-  generateProductDescription: async (imageFile) => {
+  generateProductDescription: async (imageFile, uploadType = 'RENT') => {
     try {
       const formData = new FormData();
       formData.append('image', imageFile);
+      formData.append('upload_type', uploadType);
 
       console.log('[aiApi] AI 게시글 생성 요청:', {
         fileName: imageFile.name,
-        fileSize: imageFile.size
+        fileSize: imageFile.size,
+        uploadType: uploadType
       });
 
       const response = await axios.post(`${AI_API_BASE_URL}/api/generate`, formData, {

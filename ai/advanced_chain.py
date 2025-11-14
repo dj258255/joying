@@ -246,7 +246,8 @@ class AdvancedProductChain:
     async def generate_final_description(
         self,
         product_info: Dict[str, Any],
-        price_info: Dict[str, Any]
+        price_info: Dict[str, Any],
+        upload_type: str = "RENT"
     ) -> Dict[str, Any]:
         """
         3단계: 모든 정보를 통합하여 최종 설명 및 해시태그 생성
@@ -273,9 +274,32 @@ class AdvancedProductChain:
         else:
             price_context = "**가격:** 협의 가능"
 
+        # upload_type에 따라 톤 변경
+        posting_type = "빌려줘" if upload_type == "RENT" else "구해요"
+        tone_guide = ""
+        if upload_type == "RENT":
+            tone_guide = """
+**빌려줘 톤:**
+- "이 상품을 대여합니다" 톤으로 작성
+- 상품의 장점과 특징을 강조
+- 대여 조건과 가격 명확히 제시
+- 예: "깨끗하게 관리한 닌텐도 스위치 대여합니다. 하루 15,000원, 보증금 150,000원입니다."
+"""
+        else:
+            tone_guide = """
+**구해요 톤:**
+- "이 상품을 찾고 있습니다" 톤으로 작성
+- 필요한 이유와 용도 설명
+- 희망하는 상품 조건 제시
+- 예: "닌텐도 스위치를 단기 대여하고 싶습니다. 깨끗한 상태로 3일간 사용할 예정입니다."
+"""
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """당신은 중고 물품 대여 플랫폼의 전문 게시글 작성자입니다.
+            ("system", f"""당신은 중고 물품 대여 플랫폼의 전문 게시글 작성자입니다.
 주어진 상품 정보와 가격 추천을 바탕으로 매력적인 게시글과 해시태그를 작성하세요.
+
+**게시글 타입: {posting_type}**
+{tone_guide}
 
 **응답 형식 (JSON):**
 {{{{
@@ -287,21 +311,23 @@ class AdvancedProductChain:
 
 **작성 가이드:**
 1. 제목:
-   - 제품명을 그대로 사용 (예: "닌텐도 스위치 대여", "맥북 에어 M1 대여")
-   - 일반 명사 사용 금지 (❌ "휴대용 게임 콘솔 대여" → ✅ "닌텐도 스위치 대여")
-   - 상태나 특징을 간결하게 추가 가능 (예: "새것같은 닌텐도 스위치")
+   - 제품명을 그대로 사용 (예: "닌텐도 스위치 {posting_type}", "맥북 에어 M1 {posting_type}")
+   - 일반 명사 사용 금지 (❌ "휴대용 게임 콘솔 {posting_type}" → ✅ "닌텐도 스위치 {posting_type}")
+   - 상태나 특징을 간결하게 추가 가능 (예: "새것같은 닌텐도 스위치 {posting_type}")
 2. 설명:
    - 인사말로 시작
    - 상품의 특징과 상태 상세히 설명
-   - 추천 대여료/보증금과 산정 근거 제시
-   - 대여 시 장점 강조
+   - {'추천 대여료/보증금과 산정 근거 제시' if upload_type == 'RENT' else '희망하는 대여 조건과 기간 제시'}
+   - {'대여 시 장점 강조' if upload_type == 'RENT' else '필요한 이유와 용도 설명'}
    - 친근한 마무리
 3. 해시태그:
    - 정확히 5개 생성
    - 카테고리, 상품명, 주요 특징, 용도를 고려
-   - # 기호 없이 단어만 (예: "노트북", "고성능", "대여")
+   - # 기호 없이 단어만 (예: "노트북", "고성능", "{posting_type}")
 4. 존댓말 사용, 이모지 적절히 활용"""),
             ("user", f"""다음 정보를 바탕으로 게시글과 해시태그를 작성해주세요:
+
+**게시글 타입:** {posting_type}
 
 **상품 정보:**
 - 상품명: {product_info['product_name']}
@@ -350,12 +376,13 @@ class AdvancedProductChain:
             "price_reasoning": price_info.get("reasoning")
         }
 
-    async def run_full_chain(self, image_base64: str) -> Dict[str, Any]:
+    async def run_full_chain(self, image_base64: str, upload_type: str = "RENT") -> Dict[str, Any]:
         """
         전체 체인 실행: 이미지 → 상품명 추출 → 시장 가격 조사 → 설명 생성
 
         Args:
             image_base64: Base64 인코딩된 이미지
+            upload_type: 업로드 타입 (RENT: 빌려줘, BORROW: 구해요)
 
         Returns:
             최종 게시글 정보
@@ -375,10 +402,11 @@ class AdvancedProductChain:
         )
 
         # 3단계: 최종 설명 생성
-        logger.info("3단계: 최종 설명 생성 중...")
+        logger.info(f"3단계: 최종 설명 생성 중... (upload_type={upload_type})")
         final_result = await self.generate_final_description(
             product_info,
-            price_info
+            price_info,
+            upload_type
         )
 
         logger.info("=== 고급 AI 체인 완료 ===")
