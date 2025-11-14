@@ -10,8 +10,8 @@ import React, { useEffect } from 'react';
  * @param {boolean} props.isOpen - 모달 열림 상태
  * @param {Function} props.onClose - 모달 닫기 핸들러
  * @param {React.ReactNode} props.children - 모달 내용
- * @param {string} props.title - 모달 제목
- * @param {string} props.className - 추가 CSS 클래스
+ * @param {string} [props.title] - 모달 제목 (선택적)
+ * @param {string} [props.className] - 추가 CSS 클래스
  */
 const Modal = ({
   isOpen,
@@ -59,27 +59,10 @@ const Modal = ({
       />
       
       {/* 모달 컨테이너 */}
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className={`relative glass-modal-fullscreen max-w-md w-full ${className}`}>
-          {/* 헤더 */}
-          {title && (
-            <div className="glass-modal-header flex items-center justify-between p-6 border-b border-white/20">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {title}
-              </h3>
-              <button
-                onClick={onClose}
-                className="glass-modal-close text-gray-600 hover:text-gray-900"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          )}
-          
-          {/* 내용 */}
-          <div className="p-6">
+      <div className="flex min-h-full items-center justify-center p-2 md:p-4">
+        <div className={`relative glass-modal-fullscreen max-w-md w-full max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden ${className}`} onClick={(e) => e.stopPropagation()}>
+          {/* 내용 - 스크롤 가능 (데스크톱에서) */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide p-1 md:p-4">
             {children}
           </div>
         </div>

@@ -1,14 +1,15 @@
 /**
- * Shipping Feature Barrel Export
- * 배송 추적 관련 모든 컴포넌트와 훅을 export
+ * Shipping Feature
+ * 배송 추적 관련 기능
  */
 
 // Components
-export { default as TrackingNumberInput } from './components/TrackingNumberInput';
-export { default as ShippingStatusCard } from './components/ShippingStatusCard';
+export { default as TrackingStatusCard } from './components/TrackingStatusCard';
 
 // Hooks
-export { useShippingTracker, useTrackingNumberSubmit } from './hooks/useShippingTracker';
+export { useTrackingStatus } from './hooks/useTrackingStatus';
 
-// API
+// APIs
 export { shippingApi } from './api/shippingApi';
+export { trackPackage, mapCourierToCarrierId, transformTrackingData } from './api/deliveryTrackerApi';
+
