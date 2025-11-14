@@ -18,6 +18,7 @@ import { useCategoryTree } from '@/features/category';
 import { useProductDetail } from '../hooks/useProductDetail';
 import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 import { productApi } from '../api/productApi';
+import { aiApi } from '../api/aiApi';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
@@ -121,6 +122,11 @@ function ProductCreatePage() {
   const [uploading, setUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // AI 자동 생성 상태
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(true);
+  const [aiAutoFill, setAiAutoFill] = useState(true); // AI 자동 입력 사용 여부
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -352,6 +358,55 @@ function ProductCreatePage() {
   }, [showHashtagRecommendations]);
 
   // 파일 업로드 로직
+  /**
+   * AI로 게시글 제목과 내용 자동 생성
+   */
+  const generateWithAI = async (imageFile) => {
+    if (!aiAvailable || !aiAutoFill) return;
+
+    try {
+      setAiGenerating(true);
+      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name);
+
+      // AI API 호출 (가격 추천 포함)
+      const result = await aiApi.generateProductDescription(imageFile);
+
+      console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
+
+      // 제목과 내용 자동 입력
+      if (result.title) {
+        updateField('title', result.title.slice(0, 50));
+      }
+
+      if (result.description) {
+        updateField('content', result.description.slice(0, 2000));
+      }
+
+      // 추천 대여료가 있으면 자동 입력
+      if (result.recommended_price) {
+        updateField('rentalFee', result.recommended_price);
+        console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
+      }
+
+      // 성공 메시지 표시
+      setErrorMessage('');
+      const priceInfo = result.recommended_price ? ` / 추천 대여료: ${result.recommended_price.toLocaleString()}원` : '';
+      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo})`;
+      setErrorMessage(successMessage);
+      setTimeout(() => {
+        if (errorMessage === successMessage) {
+          setErrorMessage('');
+        }
+      }, 5000);
+
+    } catch (error) {
+      console.error('[ProductCreatePage] AI 게시글 생성 실패:', error);
+      console.warn('[ProductCreatePage] AI 자동 생성을 건너뜁니다:', error.message);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleFiles = async (files) => {
     const fileArr = Array.from(files || []);
     if (fileArr.length === 0) return;
@@ -406,6 +461,12 @@ function ProductCreatePage() {
       const successfulUploads = uploadedResults.filter(r => r.fileId !== undefined && r.fileId !== null);
       if (successfulUploads.length > 0) {
         setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
+
+        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (제목과 내용이 비어있을 때만)
+        if (previewStartIndex === 0 && fileArr.length > 0 && !form.title && !form.content) {
+          console.log('[ProductCreatePage] 첫 이미지 업로드 완료, AI 자동 생성 시작');
+          await generateWithAI(fileArr[0]);
+        }
       }
 
       if (failedIndices.length > 0) {
@@ -1063,9 +1124,27 @@ function ProductCreatePage() {
   // Step 2: 이미지 업로드
   const renderStep2 = () => (
     <div className="space-y-3">
-      <div>
-        <h2 className="text-xl font-bold text-black mb-1">이미지 업로드</h2>
-        <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-black mb-1">이미지 업로드</h2>
+          <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
+        </div>
+
+        {/* AI 자동 입력 체크박스 */}
+        {aiAvailable && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+            <input
+              type="checkbox"
+              id="aiAutoFill"
+              checked={aiAutoFill}
+              onChange={(e) => setAiAutoFill(e.target.checked)}
+              className="w-4 h-4 rounded accent-blue-600"
+            />
+            <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
+              🤖 AI 자동 입력
+            </label>
+          </div>
+        )}
       </div>
 
       {/* 드래그 영역과 미리보기를 가로로 배치 */}
@@ -1076,14 +1155,18 @@ function ProductCreatePage() {
             ref={dndZoneRef}
             onDrop={onDrop}
             onDragOver={onDragOver}
-            onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
+            onClick={() => { if (!uploading && !aiGenerating) fileInputRef.current?.click(); }}
             className="w-full lg:w-80 aspect-square border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors bg-gray-50"
           >
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
             <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading} />
-            {uploading && <p className="text-gray-600 text-xs mt-1">업로드 중...</p>}
+            {aiAvailable && aiAutoFill && (
+              <p className="text-blue-600 text-xs text-center px-4 mt-1">✨ 첫 이미지 업로드 시 AI가 제목과 설명을 작성합니다</p>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating} />
+            {uploading && <p className="text-gray-600 text-xs mt-2">업로드 중...</p>}
+            {aiGenerating && <p className="text-blue-600 text-xs mt-2 animate-pulse">🤖 AI가 게시글을 작성하고 있습니다...</p>}
           </div>
         </div>
 
@@ -1471,7 +1554,11 @@ function ProductCreatePage() {
               }}
             >
               {errorMessage && (
-                <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-xl text-red-700 text-sm">
+                <div className={`mb-6 p-4 rounded-xl text-sm ${
+                  errorMessage.includes('✨') || errorMessage.includes('성공')
+                    ? 'bg-green-50 border-2 border-green-300 text-green-700'
+                    : 'bg-red-50 border-2 border-red-300 text-red-700'
+                }`}>
                   {errorMessage}
                 </div>
               )}
