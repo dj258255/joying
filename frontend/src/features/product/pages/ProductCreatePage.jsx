@@ -359,7 +359,7 @@ function ProductCreatePage() {
 
   // 파일 업로드 로직
   /**
-   * AI로 게시글 제목과 내용 자동 생성
+   * AI로 게시글 제목과 내용 자동 생성 (GPT-4o 기반)
    */
   const generateWithAI = async (imageFile) => {
     if (!aiAvailable || !aiAutoFill) return;
@@ -368,7 +368,7 @@ function ProductCreatePage() {
       setAiGenerating(true);
       console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name);
 
-      // AI API 호출 (가격 추천 포함)
+      // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
       const result = await aiApi.generateProductDescription(imageFile);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
@@ -382,16 +382,41 @@ function ProductCreatePage() {
         updateField('content', result.description.slice(0, 2000));
       }
 
-      // 추천 대여료가 있으면 자동 입력
+      // 추천 대여료 자동 입력
       if (result.recommended_price) {
         updateField('rentalFee', result.recommended_price);
         console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
       }
 
+      // 추천 보증금 자동 입력
+      if (result.recommended_deposit) {
+        updateField('deposit', result.recommended_deposit);
+        console.log('[ProductCreatePage] AI 추천 보증금:', result.recommended_deposit, '원');
+      }
+
+      // 해시태그 자동 입력 (5개)
+      if (result.hashtags && result.hashtags.length > 0) {
+        setHashtags(result.hashtags);
+        console.log('[ProductCreatePage] AI 생성 해시태그:', result.hashtags);
+      }
+
+      // 카테고리 자동 선택 (하위 카테고리 우선)
+      if (result.sub_category || result.parent_category) {
+        // categoryTree에서 매칭되는 카테고리 찾기
+        const categoryName = result.sub_category || result.parent_category;
+        const matchedCategory = findCategoryByName(categoryTree, categoryName);
+        if (matchedCategory) {
+          updateField('categoryId', matchedCategory.categoryId);
+          console.log('[ProductCreatePage] AI 추천 카테고리:', categoryName, '(ID:', matchedCategory.categoryId, ')');
+        }
+      }
+
       // 성공 메시지 표시
       setErrorMessage('');
-      const priceInfo = result.recommended_price ? ` / 추천 대여료: ${result.recommended_price.toLocaleString()}원` : '';
-      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo})`;
+      const priceInfo = result.recommended_price ? ` / 대여료: ${result.recommended_price.toLocaleString()}원` : '';
+      const depositInfo = result.recommended_deposit ? ` / 보증금: ${result.recommended_deposit.toLocaleString()}원` : '';
+      const hashtagInfo = result.hashtags?.length ? ` / 해시태그: ${result.hashtags.length}개` : '';
+      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo}${depositInfo}${hashtagInfo})`;
       setErrorMessage(successMessage);
       setTimeout(() => {
         if (errorMessage === successMessage) {
@@ -405,6 +430,24 @@ function ProductCreatePage() {
     } finally {
       setAiGenerating(false);
     }
+  };
+
+  /**
+   * 카테고리 트리에서 이름으로 카테고리 찾기
+   */
+  const findCategoryByName = (tree, name) => {
+    if (!tree || tree.length === 0) return null;
+
+    for (const category of tree) {
+      if (category.categoryName === name) {
+        return category;
+      }
+      if (category.children && category.children.length > 0) {
+        const found = findCategoryByName(category.children, name);
+        if (found) return found;
+      }
+    }
+    return null;
   };
 
   const handleFiles = async (files) => {
