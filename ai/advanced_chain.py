@@ -95,17 +95,49 @@ class AdvancedProductChain:
 
         logger.info(f"이미지 분석 결과: {result}")
 
-        # 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
-        result = result.strip()
-        if result.startswith("```"):
-            # 첫 번째 줄 제거 (```json 또는 ```)
-            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
-            # 마지막 ``` 제거
-            if result.endswith("```"):
-                result = result.rsplit("```", 1)[0]
+        # JSON 추출 시도 (여러 패턴 처리)
         result = result.strip()
 
-        return json.loads(result)
+        # 1. 마크다운 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+            if result.endswith("```"):
+                result = result.rsplit("```", 1)[0]
+
+        result = result.strip()
+
+        # 2. JSON 객체 찾기 (중괄호로 시작하는 부분 추출)
+        if not result.startswith("{"):
+            # 중괄호가 있는 부분만 추출
+            start_idx = result.find("{")
+            if start_idx != -1:
+                end_idx = result.rfind("}")
+                if end_idx != -1:
+                    result = result[start_idx:end_idx+1]
+                    logger.info(f"JSON 추출 완료: {result[:100]}...")
+            else:
+                # JSON을 찾을 수 없으면 기본값 반환
+                logger.warning(f"JSON을 찾을 수 없음. 기본값 사용. 원본: {result}")
+                return {
+                    "product_name": "알 수 없음",
+                    "parent_category": "생활",
+                    "sub_category": "커피머신",
+                    "key_features": ["분석 불가"],
+                    "condition": "알 수 없음"
+                }
+
+        try:
+            return json.loads(result)
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON 파싱 실패: {e}. 원본: {result}")
+            # 파싱 실패 시 기본값 반환
+            return {
+                "product_name": "알 수 없음",
+                "parent_category": "생활",
+                "sub_category": "커피머신",
+                "key_features": ["분석 불가"],
+                "condition": "알 수 없음"
+            }
 
     async def search_market_prices(self, product_name: str, category: str, condition: str) -> Dict[str, Any]:
         """
@@ -173,13 +205,21 @@ class AdvancedProductChain:
 
             logger.info(f"시장 가격 분석 결과: {result}")
 
-            # 마크다운 코드블록 제거
+            # JSON 추출
             result = result.strip()
             if result.startswith("```"):
                 result = result.split("\n", 1)[1] if "\n" in result else result[3:]
                 if result.endswith("```"):
                     result = result.rsplit("```", 1)[0]
             result = result.strip()
+
+            # JSON 객체 찾기
+            if not result.startswith("{"):
+                start_idx = result.find("{")
+                if start_idx != -1:
+                    end_idx = result.rfind("}")
+                    if end_idx != -1:
+                        result = result[start_idx:end_idx+1]
 
             price_info = json.loads(result)
 
@@ -268,13 +308,22 @@ class AdvancedProductChain:
 
         logger.info(f"최종 설명 생성 완료")
 
-        # 마크다운 코드블록 제거
+        # JSON 추출
         result = result.strip()
         if result.startswith("```"):
             result = result.split("\n", 1)[1] if "\n" in result else result[3:]
             if result.endswith("```"):
                 result = result.rsplit("```", 1)[0]
         result = result.strip()
+
+        # JSON 객체 찾기
+        if not result.startswith("{"):
+            start_idx = result.find("{")
+            if start_idx != -1:
+                end_idx = result.rfind("}")
+                if end_idx != -1:
+                    result = result[start_idx:end_idx+1]
+                    logger.info(f"JSON 추출 완료 (3단계)")
 
         parsed_result = json.loads(result)
 
