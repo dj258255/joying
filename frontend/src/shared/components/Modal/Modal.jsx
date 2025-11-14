@@ -60,8 +60,7 @@ const Modal = ({
       
       {/* 모달 컨테이너 */}
       <div className="flex min-h-full items-center justify-center p-2 md:p-4">
-        <div className={`relative glass-modal-fullscreen max-w-md w-full max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden ${className}`} onClick={(e) => e.stopPropagation()}>
-          {/* 내용 - 스크롤 가능 (데스크톱에서) */}
+        <div className={`relative glass-modal-fullscreen max-w-md w-full max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden ${className}`} onClick={(e) => e.stopPropagation()}>          {/* 내용 - 스크롤 가능 (데스크톱에서) */}
           <div className="flex-1 overflow-y-auto scrollbar-hide p-1 md:p-4">
             {children}
           </div>
