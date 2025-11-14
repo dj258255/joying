@@ -53,7 +53,7 @@ const ReviewWriteForm = ({
   }, [review]);
 
   const handleRatingChange = (rating) => {
-    setFormData(prev => ({ ...prev, rating: Math.max(0.5, rating) }));
+    setFormData(prev => ({ ...prev, rating: Math.max(0.5, Math.min(5, rating)) }));
   };
 
   const handleInputChange = (e) => {
