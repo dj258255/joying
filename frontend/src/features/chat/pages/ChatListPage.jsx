@@ -14,6 +14,7 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getWebSocketUrl } from '../api/websocketApi';
+import { requestNotificationPermission, getNotificationPermission } from '@/features/push/services/pushNotificationService';
 
 const ChatListPage = () => {
   const navigate = useNavigate();
@@ -295,6 +296,59 @@ const ChatListPage = () => {
       }
     };
   }, [queryClient]);
+
+  // 알림 권한 자동 요청 (채팅 목록 페이지 진입 시)
+  useEffect(() => {
+    const requestPermissionIfNeeded = async () => {
+      try {
+        // 브라우저가 알림을 지원하는지 확인
+        if (!('Notification' in window)) {
+          console.log('[ChatListPage] 브라우저가 알림을 지원하지 않습니다.');
+          return;
+        }
+
+        const permission = await getNotificationPermission();
+        console.log('[ChatListPage] 현재 알림 권한:', permission);
+
+        // 권한이 'default'(아직 결정 안함)인 경우에만 자동 요청
+        if (permission === 'default') {
+          // localStorage에서 마지막 요청 시간 확인 (하루에 한 번만 자동 요청)
+          const lastRequestTime = localStorage.getItem('notification_last_request_time');
+          const now = Date.now();
+          const oneDayInMs = 24 * 60 * 60 * 1000;
+
+          if (!lastRequestTime || (now - parseInt(lastRequestTime)) > oneDayInMs) {
+            console.log('[ChatListPage] 알림 권한을 자동으로 요청합니다...');
+
+            try {
+              const newPermission = await requestNotificationPermission();
+              console.log('[ChatListPage] 알림 권한 요청 결과:', newPermission);
+
+              // 요청 시간 기록
+              localStorage.setItem('notification_last_request_time', now.toString());
+            } catch (error) {
+              console.warn('[ChatListPage] 알림 권한 요청 실패:', error.message);
+            }
+          } else {
+            console.log('[ChatListPage] 알림 권한은 하루에 한 번만 자동 요청합니다.');
+          }
+        } else if (permission === 'denied') {
+          console.log('[ChatListPage] 알림 권한이 거부되었습니다. 브라우저 설정에서 수동으로 허용해주세요.');
+        } else if (permission === 'granted') {
+          console.log('[ChatListPage] 알림 권한이 이미 허용되어 있습니다.');
+        }
+      } catch (error) {
+        console.error('[ChatListPage] 알림 권한 체크 중 오류:', error);
+      }
+    };
+
+    // 페이지 진입 시 500ms 후 권한 체크 (UX 개선)
+    const timer = setTimeout(() => {
+      requestPermissionIfNeeded();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   const handleChatRoomClick = (chatRoomId) => {
     const id = normalizeChatRoomId(chatRoomId);

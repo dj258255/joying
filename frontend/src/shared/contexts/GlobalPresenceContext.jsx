@@ -123,7 +123,31 @@ export const GlobalPresenceProvider = ({ children }) => {
             try {
               const update = JSON.parse(message.body);
               console.log('[GlobalPresence] 채팅방 업데이트:', update);
+
+              // 채팅방 업데이트 이벤트 발생
               window.dispatchEvent(new CustomEvent('chatroom-update', { detail: update }));
+
+              // 브라우저 알림 표시 (현재 채팅방에 있지 않을 때만)
+              // update 구조: { chatRoomId, lastMessage, lastMessageAt, unreadCount }
+              if (update.lastMessage && update.chatRoomId) {
+                const currentPath = window.location.pathname;
+                const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
+                const isInCurrentChatRoom = currentChatRoomId && String(currentChatRoomId) === String(update.chatRoomId);
+
+                if (!isInCurrentChatRoom) {
+                  // 브라우저 알림 표시
+                  handleNotification({
+                    title: '새 메시지',
+                    body: update.lastMessage,
+                    icon: '/vite.svg',
+                    tag: `chat-${update.chatRoomId}-${Date.now()}`,
+                    data: {
+                      chatRoomId: update.chatRoomId,
+                      url: `/chats/${update.chatRoomId}`
+                    }
+                  });
+                }
+              }
             } catch (error) {
               console.error('[GlobalPresence] 채팅방 업데이트 파싱 오류:', error);
             }
