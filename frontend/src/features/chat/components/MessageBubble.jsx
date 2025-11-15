@@ -559,7 +559,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                 isOwn ? 'rounded-br-md' : 'rounded-bl-md'
               }`}>
                 <video
-                  src={content}
+                  src={message?.fileUrl || content}
                   controls
                   className="max-w-full max-h-96 rounded-2xl"
                   style={{ maxWidth: '300px' }}
@@ -832,8 +832,8 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                 handleClick(e);
               }}
             >
-              <img 
-                src={content} 
+              <img
+                src={message?.imageUrl || content}
                 alt="전송된 이미지"
                 className="rounded-2xl max-w-full h-auto cursor-pointer"
               />

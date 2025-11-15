@@ -404,6 +404,8 @@ const ChatRoomPage = () => {
   const [isCheckingTransaction, setIsCheckingTransaction] = useState(false);
   // 운송장 번호가 등록된 거래 ID 목록 (버튼 레이블 변경용)
   const [trackedRentalIds, setTrackedRentalIds] = useState(new Set());
+  // 드래그 앤 드롭 상태
+  const [isDragging, setIsDragging] = useState(false);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -816,6 +818,60 @@ const ChatRoomPage = () => {
       console.error('파일 전송 실패:', error);
       throw error;
     }
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 자식 요소로 이동할 때 isDragging이 false가 되는 것을 방지
+    if (e.currentTarget.contains(e.relatedTarget)) {
+      return;
+    }
+
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    const file = files[0];
+
+    // 파일 타입 검증
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (!isImage && !isVideo) {
+      alert('이미지 또는 영상 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    // 파일 크기 검증
+    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      const maxSizeMB = isImage ? '10MB' : '50MB';
+      alert(`파일 크기가 너무 큽니다. ${isImage ? '이미지' : '영상'}는 최대 ${maxSizeMB}까지 업로드할 수 있습니다.`);
+      return;
+    }
+
+    await handleSendFile(file);
   };
 
   const handleReply = (message) => {
@@ -1933,8 +1989,29 @@ const ChatRoomPage = () => {
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className={`flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col relative ${isDragging ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
       >
+        {/* 드래그 앤 드롭 오버레이 */}
+        {isDragging && (
+          <div className="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
+            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+              <div className="w-20 h-20 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p className="text-lg font-semibold text-gray-900 mb-2">이미지/영상 업로드</p>
+              <p className="text-sm text-gray-600">
+                파일을 여기에 놓아주세요
+              </p>
+            </div>
+          </div>
+        )}
+
         {isLoadingHistory && (
           <div className="flex justify-center py-2 text-xs text-gray-500">
             이전 메시지를 불러오는 중...
