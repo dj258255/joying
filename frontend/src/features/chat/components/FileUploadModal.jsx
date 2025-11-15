@@ -104,10 +104,10 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
             </div>
             
             <h3 className="text-lg font-medium text-white mb-2">
-              파일을 드래그하거나 클릭하여 업로드
+              이미지/영상을 드래그하거나 클릭하여 업로드
             </h3>
             <p className="text-sm text-white/70 mb-4">
-              이미지: 최대 10MB, 일반 파일: 최대 50MB
+              이미지: 최대 10MB, 영상: 최대 50MB
             </p>
             
             <button
@@ -122,7 +122,7 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
           <input
             ref={fileInputRef}
             type="file"
-            accept="*/*"
+            accept="image/*,video/*"
             onChange={handleFileInput}
             className="hidden"
           />
