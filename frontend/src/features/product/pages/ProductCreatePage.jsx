@@ -400,6 +400,7 @@ function ProductCreatePage() {
       });
 
       // 한 번에 모든 필드 업데이트 (setForm 한 번만 호출)
+      // 백엔드가 항상 유효한 값을 반환하므로 프론트엔드는 신뢰
       const newFormData = {
         ...form,
         title: result.title ? result.title.slice(0, 50) : form.title,
@@ -487,7 +488,7 @@ function ProductCreatePage() {
   };
 
   /**
-   * 카테고리 트리에서 이름으로 카테고리 찾기 (부분 일치 포함)
+   * 카테고리 트리에서 이름으로 카테고리 찾기 (부분 일치 포함 + 유사도 기반 매칭)
    */
   const findCategoryByName = (tree, name) => {
     if (!tree || tree.length === 0 || !name) return null;
@@ -521,7 +522,61 @@ function ProductCreatePage() {
       }
     }
 
-    return null;
+    // 3차: 유사도 기반 매칭 (가장 비슷한 카테고리 찾기)
+    console.log('[ProductCreatePage] 정확한 카테고리를 찾지 못함. 유사도 기반 매칭 시도...');
+
+    // 모든 카테고리를 평탄화 (부모 + 자식 모두)
+    const allCategories = [];
+    for (const category of tree) {
+      allCategories.push(category);
+      if (category.children && category.children.length > 0) {
+        allCategories.push(...category.children);
+      }
+    }
+
+    // 유사도 계산 함수 (공통 문자 개수 기반)
+    const calculateSimilarity = (str1, str2) => {
+      const s1 = str1.toLowerCase();
+      const s2 = str2.toLowerCase();
+
+      // 공통 문자 개수 계산
+      let commonChars = 0;
+      for (let i = 0; i < s1.length; i++) {
+        if (s2.includes(s1[i])) {
+          commonChars++;
+        }
+      }
+
+      // 유사도 = 공통 문자 개수 / 긴 문자열 길이
+      return commonChars / Math.max(s1.length, s2.length);
+    };
+
+    // 각 카테고리의 유사도 계산
+    let bestMatch = null;
+    let bestSimilarity = 0;
+
+    for (const category of allCategories) {
+      const catName = category.categoryName?.toLowerCase() || '';
+      const similarity = calculateSimilarity(normalizedName, catName);
+
+      if (similarity > bestSimilarity) {
+        bestSimilarity = similarity;
+        bestMatch = category;
+      }
+    }
+
+    // 가장 유사한 카테고리 반환 (유사도가 0보다 크면)
+    if (bestMatch && bestSimilarity > 0) {
+      console.log(`[ProductCreatePage] ✅ 유사도 기반 매칭 성공: "${name}" → "${bestMatch.categoryName}" (유사도: ${Math.round(bestSimilarity * 100)}%)`);
+      return bestMatch;
+    }
+
+    // 4차: 그래도 찾지 못하면 첫 번째 하위 카테고리 반환 (기본값)
+    console.log('[ProductCreatePage] ⚠️ 유사한 카테고리를 찾지 못함. 첫 번째 카테고리를 기본값으로 선택합니다.');
+    if (tree[0]?.children && tree[0].children.length > 0) {
+      return tree[0].children[0];
+    }
+    return tree[0] || null;
   };
 
   const handleFiles = async (files) => {
