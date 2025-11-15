@@ -153,36 +153,22 @@ const chatReducer = (state, action) => {
         lastReadAt: action.payload
       };
     case 'MARK_MESSAGES_AS_READ':
-      // 마지막 메시지만 읽음 표시 표시 (생겼다 사라지는 형태)
+      // 모든 메시지에 읽음 표시 표시 (1 → 읽음)
       const { readAt, currentUserId } = action.payload;
       if (!readAt) return state;
       const readTimestamp = new Date(readAt).getTime();
-      
-      // 내가 보낸 메시지 중 가장 마지막 메시지 찾기
-      const ownMessages = state.messages
-        .filter((msg) => {
-          const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
-          const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-          return isOwnMessage && msgTimestamp <= readTimestamp;
-        })
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      
-      const lastOwnMessage = ownMessages[0];
-      
+
       const updatedMessages = state.messages.map((msg) => {
-        // 마지막 메시지만 읽음 표시 표시
-        if (lastOwnMessage && msg.id === lastOwnMessage.id) {
-          return { ...msg, isRead: true, showReadIndicator: true };
-        }
-        // 나머지 메시지는 읽음 상태만 업데이트 (표시는 숨김)
         const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
         const msgTimestamp = new Date(msg.timestamp || 0).getTime();
+
+        // 내가 보낸 메시지이고 readAt 이전 메시지면 읽음 처리
         if (isOwnMessage && msgTimestamp <= readTimestamp) {
-          return { ...msg, isRead: true, showReadIndicator: false };
+          return { ...msg, isRead: true, showReadIndicator: true };
         }
         return msg;
       });
-      
+
       return {
         ...state,
         messages: updatedMessages,
