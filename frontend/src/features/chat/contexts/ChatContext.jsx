@@ -1156,18 +1156,16 @@ export const ChatProvider = ({ children }) => {
         }
       },
       onRead: (readEvent) => {
-        // 본인의 읽음 알림은 무시
-        if (readEvent.memberId && Number(readEvent.memberId) === Number(currentUserId)) {
-          return;
-        }
-        
+        // 본인이 보낸 읽음 이벤트인 경우에도 처리 (다른 기기에서 읽은 경우 동기화)
+        // 단, 상대방이 읽은 것이므로 내가 보낸 메시지에 대해 읽음 처리
+
         // 상대방이 읽은 시간 이전의 내가 보낸 메시지를 읽음 처리
         if (readEvent.readAt) {
           // readAt이 Unix timestamp (milliseconds)인 경우 Date로 변환
-          const readAt = typeof readEvent.readAt === 'number' 
+          const readAt = typeof readEvent.readAt === 'number'
             ? new Date(readEvent.readAt).toISOString()
             : readEvent.readAt;
-          
+
           // 마지막 메시지만 읽음 표시 표시
           dispatch({
             type: 'MARK_MESSAGES_AS_READ',
