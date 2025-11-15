@@ -31,9 +31,7 @@ const MessageInput = ({
   const [message, setMessage] = useState('');
   const [showFileModal, setShowFileModal] = useState(false);
   const [showEmoticonPicker, setShowEmoticonPicker] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef(null);
-  const dropZoneRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const lastTypingTimeRef = useRef(0);
 
@@ -133,66 +131,6 @@ const MessageInput = ({
     }
   };
 
-  // 드래그 앤 드롭 핸들러
-  const handleDragEnter = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (disabled) return;
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (disabled) return;
-    // dropZone 영역을 완전히 벗어났을 때만 isDragging을 false로 설정
-    if (e.currentTarget === e.target) {
-      setIsDragging(false);
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    if (disabled) return;
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    const file = files[0]; // 첫 번째 파일만 처리
-
-    // 이미지 또는 영상 파일인지 확인
-    const isImage = file.type.startsWith('image/');
-    const isVideo = file.type.startsWith('video/');
-
-    if (!isImage && !isVideo) {
-      alert('이미지 또는 영상 파일만 업로드할 수 있습니다.');
-      return;
-    }
-
-    // 파일 크기 확인 (이미지: 10MB, 영상: 50MB)
-    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      const maxSizeMB = isImage ? '10MB' : '50MB';
-      alert(`파일 크기가 너무 큽니다. ${isImage ? '이미지' : '영상'}는 최대 ${maxSizeMB}까지 업로드할 수 있습니다.`);
-      return;
-    }
-
-    // 파일 전송
-    try {
-      await handleFileSelect(file);
-    } catch (error) {
-      console.error('드래그 앤 드롭 파일 전송 실패:', error);
-    }
-  };
-
   return (
     <>
       {/* 미리보기 (하단이 아닐 때 상대방 메시지) */}
@@ -264,29 +202,7 @@ const MessageInput = ({
       )}
 
       {/* 메시지 입력 영역 */}
-      <div
-        ref={dropZoneRef}
-        className="bg-white border-t border-gray-200 p-4 relative"
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        {/* 드래그 오버레이 */}
-        {isDragging && (
-          <div className="absolute inset-0 bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg flex items-center justify-center z-10 pointer-events-none">
-            <div className="bg-white rounded-lg p-6 shadow-lg">
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <p className="text-sm font-medium text-gray-900">이미지 또는 영상을 여기에 놓으세요</p>
-                <p className="text-xs text-gray-500">이미지: 최대 10MB, 영상: 최대 50MB</p>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="bg-white border-t border-gray-200 p-4">
         <form onSubmit={handleSubmit} className="flex items-end gap-3">
           {/* 이모티콘 버튼 */}
           <button

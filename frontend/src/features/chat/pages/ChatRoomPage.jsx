@@ -1998,15 +1998,18 @@ const ChatRoomPage = () => {
         {/* 드래그 앤 드롭 오버레이 */}
         {isDragging && (
           <div className="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
-            <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-              <div className="w-20 h-20 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border-4 border-dashed border-blue-400">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <p className="text-lg font-semibold text-gray-900 mb-2">이미지/영상 업로드</p>
-              <p className="text-sm text-gray-600">
+              <p className="text-2xl font-bold text-gray-900 mb-3">이미지 또는 영상을 올리세요</p>
+              <p className="text-base text-gray-600 mb-2">
                 파일을 여기에 놓아주세요
+              </p>
+              <p className="text-sm text-gray-500">
+                이미지: 최대 10MB, 영상: 최대 50MB
               </p>
             </div>
           </div>
