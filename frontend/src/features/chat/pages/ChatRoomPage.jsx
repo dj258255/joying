@@ -2909,7 +2909,7 @@ const ChatRoomPage = () => {
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
             <span>
-              {currentChatRoom?.otherMember?.nickname || currentChatRoom?.otherMember?.name || '상대방'}이 입력 중입니다...
+              {currentChatRoom?.otherMember?.nickname || currentChatRoom?.otherMember?.name || '상대방'}님이 입력 중입니다...
             </span>
           </div>
         )}

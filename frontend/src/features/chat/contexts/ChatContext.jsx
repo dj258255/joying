@@ -586,6 +586,15 @@ export const ChatProvider = ({ children }) => {
       });
     }
 
+    // 파일 타입이 'file'이고 fileName이 비디오 확장자인 경우 'video'로 변경
+    if (type === 'file' && rawMessage.fileName) {
+      const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v'];
+      const fileName = rawMessage.fileName.toLowerCase();
+      if (videoExtensions.some(ext => fileName.endsWith(ext))) {
+        type = 'video';
+      }
+    }
+
     // 대여 요청 메시지인 경우 content를 빈 문자열로 설정 (rentalInfo에서 표시하므로)
     // 일반 텍스트 메시지가 아닌 경우만 content 유지
     let messageContent = rawMessage.content || '';
@@ -594,8 +603,24 @@ export const ChatProvider = ({ children }) => {
       messageContent = '';
     } else if (type === 'image') {
       messageContent = rawMessage.imageUrl || rawMessage.content || '';
+    } else if (type === 'video') {
+      messageContent = rawMessage.fileUrl || rawMessage.content || '';
     } else if (type === 'system') {
       messageContent = rawMessage.content || '';
+    }
+
+    // 읽음 상태 계산: lastReadAt과 비교 (내가 보낸 메시지만)
+    const userIdForCheck = user?.memberId ?? user?.id ?? user?.member_id ?? null;
+    const isOwnMessage = userIdForCheck != null && Number(senderId) === Number(userIdForCheck);
+    let isRead = rawMessage.isRead ?? false;
+
+    // 내가 보낸 메시지이고 lastReadAt이 있으면, 메시지 시간과 비교
+    if (isOwnMessage && state.lastReadAt && timestamp) {
+      const msgTimestamp = new Date(timestamp).getTime();
+      const readTimestamp = new Date(state.lastReadAt).getTime();
+      if (msgTimestamp <= readTimestamp) {
+        isRead = true;
+      }
     }
 
     const message = {
@@ -612,7 +637,7 @@ export const ChatProvider = ({ children }) => {
       sender,
       senderId,
       timestamp,
-      isRead: rawMessage.isRead ?? false,
+      isRead,
       showReadIndicator: false, // 일시적 읽음 표시 (기본값: 숨김)
       isDeleted: rawMessage.isDeleted ?? false,
       isEdited: rawMessage.isEdited ?? false,
@@ -623,7 +648,7 @@ export const ChatProvider = ({ children }) => {
     };
 
     return message;
-  }, [resolveSenderInfo, state.currentChatRoom?.chatRoomId, state.currentChatRoom?.id]);
+  }, [resolveSenderInfo, state.currentChatRoom?.chatRoomId, state.currentChatRoom?.id, user, state.lastReadAt]);
 
   const loadOlderMessages = useCallback(async () => {
     try {
@@ -775,6 +800,8 @@ export const ChatProvider = ({ children }) => {
         lastMessage = message.content || '';
       } else if (message.type === 'image') {
         lastMessage = '[이미지]';
+      } else if (message.type === 'video') {
+        lastMessage = '[영상]';
       } else if (message.type === 'file') {
         lastMessage = `[파일] ${message.fileName || '파일'}`;
       } else if (message.type === 'rental_request' || message.rentalInfo) {
