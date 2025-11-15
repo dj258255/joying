@@ -406,6 +406,7 @@ const ChatRoomPage = () => {
   const [trackedRentalIds, setTrackedRentalIds] = useState(new Set());
   // 드래그 앤 드롭 상태
   const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -820,23 +821,23 @@ const ChatRoomPage = () => {
     }
   };
 
-  // 드래그 앤 드롭 핸들러
+  // 드래그 앤 드롭 핸들러 (카운터 방식으로 자식 요소 문제 해결)
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // 자식 요소로 이동할 때 isDragging이 false가 되는 것을 방지
-    if (e.currentTarget.contains(e.relatedTarget)) {
-      return;
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
     }
-
-    setIsDragging(false);
   };
 
   const handleDragOver = (e) => {
@@ -847,6 +848,7 @@ const ChatRoomPage = () => {
   const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounterRef.current = 0;
     setIsDragging(false);
 
     const files = Array.from(e.dataTransfer.files);
@@ -1997,16 +1999,16 @@ const ChatRoomPage = () => {
       >
         {/* 드래그 앤 드롭 오버레이 */}
         {isDragging && (
-          <div className="absolute inset-0 bg-blue-500/10 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
+          <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-50 pointer-events-none">
             <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border-4 border-dashed border-blue-400">
               <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
                 <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <p className="text-2xl font-bold text-gray-900 mb-3">이미지 또는 영상을 올리세요</p>
+              <p className="text-2xl font-bold text-gray-900 mb-3">이미지나 영상을 드래그하시면 파일이 전송됩니다</p>
               <p className="text-base text-gray-600 mb-2">
-                파일을 여기에 놓아주세요
+                파일을 놓아주세요
               </p>
               <p className="text-sm text-gray-500">
                 이미지: 최대 10MB, 영상: 최대 50MB
