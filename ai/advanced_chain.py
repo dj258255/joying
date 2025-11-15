@@ -234,12 +234,19 @@ class AdvancedProductChain:
 
         except Exception as e:
             logger.error(f"시장 가격 조사 오류: {e}")
-            # 기본값 반환
+            # 기본값 반환 (AI가 가격을 추천하지 못하면 합리적인 기본값 사용)
+            default_rental_price = 10000  # 기본 일일요금: 10,000원
+            default_deposit = 50000       # 기본 보증금: 50,000원
+
+            logger.warning(f"가격 분석 실패. 기본값 사용: 일일요금={default_rental_price:,}원, 보증금={default_deposit:,}원")
+
             return {
-                "estimated_purchase_price": None,
-                "recommended_rental_price": None,
-                "rental_ratio": None,
-                "reasoning": "가격 정보를 찾을 수 없습니다."
+                "estimated_purchase_price": 100000,  # 예상 구매가 (기본값)
+                "recommended_rental_price": default_rental_price,
+                "recommended_deposit": default_deposit,
+                "rental_ratio": 0.1,
+                "deposit_ratio": 0.5,
+                "reasoning": "AI 가격 분석 실패로 기본 가격을 적용했습니다. 사용자가 직접 수정해주세요."
             }
 
 
