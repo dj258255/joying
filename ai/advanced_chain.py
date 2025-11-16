@@ -1,5 +1,6 @@
 """
 고급 AI 체인: 이미지 분석 → 상품명 추출 → 유사 상품 검색 → 가격 추천 → 최종 설명 생성
+하이브리드 카테고리 분류: 룰 베이스 (빠른 경로) + AI (느린 경로)
 """
 import json
 import logging
@@ -11,6 +12,7 @@ from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
 from langchain.schema.output_parser import StrOutputParser
 
 from config import settings
+from category_matcher import match_category_by_keywords, get_category_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +367,10 @@ class AdvancedProductChain:
         generated_content: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        4단계: 생성된 텍스트 정보를 종합하여 카테고리 분류
+        4단계: 하이브리드 카테고리 분류 (현업 방식)
+
+        빠른 경로 (Fast Path): 룰 베이스 키워드 매칭
+        느린 경로 (Slow Path): AI 기반 분류 (확신도 체크)
 
         Args:
             product_info: 1단계에서 추출한 상품 정보 (상품명, 특징, 상태)
@@ -374,7 +379,64 @@ class AdvancedProductChain:
         Returns:
             {
                 "parent_category": "오락",
-                "sub_category": "콘솔 게임기"
+                "sub_category": "콘솔 게임기",
+                "confidence": 1.0,
+                "matched_by": "rule" or "ai" or "none"
+            }
+        """
+        logger.info("=== 하이브리드 카테고리 분류 시작 ===")
+
+        # 1️⃣ 빠른 경로: 룰 베이스 키워드 매칭 (밀리초 단위)
+        product_name = product_info.get('product_name', '')
+        features = product_info.get('key_features', [])
+
+        rule_match = match_category_by_keywords(product_name, features)
+
+        if rule_match:
+            parent_category, sub_category = rule_match
+            logger.info(f"✅ [FAST PATH] 룰 베이스 매칭 성공: {parent_category} - {sub_category}")
+            return {
+                "parent_category": parent_category,
+                "sub_category": sub_category,
+                "confidence": 1.0,
+                "matched_by": "rule"
+            }
+
+        logger.info("⚠️ [FAST PATH] 룰 베이스 매칭 실패 → AI 경로로 전환")
+
+        # 2️⃣ 느린 경로: AI 분류 (확신도 체크)
+        ai_result = await self._classify_by_ai(product_info, generated_content)
+
+        # 확신도가 충분히 높으면 AI 결과 사용
+        if ai_result and ai_result.get('confidence', 0) >= 0.85:
+            logger.info(f"✅ [SLOW PATH] AI 분류 성공 (확신도: {ai_result['confidence']:.2f})")
+            return {
+                **ai_result,
+                "matched_by": "ai"
+            }
+
+        # 3️⃣ 확신도 낮음 → 미분류
+        logger.warning(f"❌ [SLOW PATH] AI 확신도 낮음 ({ai_result.get('confidence', 0):.2f}) → 미분류")
+        return {
+            "parent_category": None,
+            "sub_category": None,
+            "confidence": 0.0,
+            "matched_by": "none"
+        }
+
+    async def _classify_by_ai(
+        self,
+        product_info: Dict[str, Any],
+        generated_content: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        AI 기반 카테고리 분류 (내부 함수)
+
+        Returns:
+            {
+                "parent_category": "...",
+                "sub_category": "...",
+                "confidence": 0.95
             }
         """
         # 카테고리 목록 및 가이드라인
@@ -458,18 +520,20 @@ class AdvancedProductChain:
 
 **중요: 반드시 아래 형식의 유효한 JSON만 응답하세요. 다른 설명은 포함하지 마세요.**
 
-**카테고리 분류 방법:**
-1. 상품명에서 명확한 브랜드/모델명 확인 (예: "닌텐도 스위치" → 오락)
-2. 제목과 설명에서 나타난 용도와 맥락 분석 (예: "게임", "플레이" → 오락)
-3. 해시태그에서 카테고리 힌트 찾기 (예: "#게임", "#콘솔" → 오락)
-4. 특징에서 용도 파악 (예: "게이밍용" → 오락, "촬영용" → 창작)
-5. 위 정보를 종합하여 가장 적합한 카테고리 선택
+**중요: 확신할 수 없으면 confidence를 낮게 설정하세요!**
 
 응답 형식:
 {{{{
   "parent_category": "상위 카테고리 (창작, 공예, 오락, 아웃도어, 생활, 요리, 패션, 음악·영상 감상, IT·디지털, 반려생활 중 하나)",
-  "sub_category": "하위 카테고리 (위 목록에서 가장 적합한 것 선택)"
-}}}}"""),
+  "sub_category": "하위 카테고리 (위 목록에서 가장 적합한 것 선택)",
+  "confidence": 0.95
+}}}}
+
+confidence 가이드:
+- 0.9~1.0: 매우 명확함 (예: 닌텐도 스위치 → 오락)
+- 0.7~0.9: 높은 확신 (일반적인 경우)
+- 0.5~0.7: 낮은 확신 (애매한 경우)
+- 0.0~0.5: 매우 불확실함"""),
             ("user", f"""다음 정보를 종합하여 상품의 카테고리를 분류해주세요:
 
 **상품 기본 정보:**
