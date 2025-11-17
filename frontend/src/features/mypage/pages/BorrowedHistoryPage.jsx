@@ -42,8 +42,9 @@ const BorrowedHistoryPage = () => {
       // API 호출로 대여 내역 조회
       const response = await rentalApi.getRentalDetail(rentalId);
       
-      // 응답 구조: { body: { data: {...} } } 또는 { data: {...} }
-      const rentalData = response?.body?.data || response?.data || response;
+      // 응답 구조: { status, message, data: {... }, timestamp }
+      // 또는 axios 응답: { data: { status, message, data: {... }, timestamp } }
+      const rentalData = response?.data?.data || response?.data || response;
       
       if (!rentalData) {
         console.error('대여 내역을 찾을 수 없습니다:', rentalId);
@@ -51,6 +52,7 @@ const BorrowedHistoryPage = () => {
         return;
       }
       
+      console.log('[BorrowedHistoryPage] 대여 내역 로드 완료:', rentalData);
       setRental(rentalData);
     } catch (error) {
       console.error('대여 내역 로딩 중 오류:', error);
@@ -319,8 +321,8 @@ const BorrowedHistoryPage = () => {
             
             <div className="text-center mb-4">
               <ProfileImage
-                src={rental.owner?.profileImageUrl}
-                alt={rental.owner?.nickname || rental.owner?.name}
+                src={rental.owner?.profileImage || rental.owner?.profileImageUrl || null}
+                alt={rental.owner?.nickname || rental.owner?.name || '판매자'}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
