@@ -22,7 +22,7 @@ import { aiApi } from '../api/aiApi';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
-  { label: '빌려줘', value: 'RENT' },  // 백엔드 API: RENT
+  { label: '빌려드려요', value: 'RENT' },  // 백엔드 API: RENT
   { label: '구해요', value: 'BORROW' },
 ];
 
@@ -1048,7 +1048,7 @@ function ProductCreatePage() {
                 <div className="absolute inset-0 flex items-center pointer-events-none">
                   <div className="w-1/2 flex items-center justify-center">
                     <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'RENT' ? 'text-white' : 'text-gray-600'}`}>
-                      빌려줘
+                      빌려드려요
                     </span>
                   </div>
                   <div className="w-1/2 flex items-center justify-center">
@@ -1332,7 +1332,7 @@ function ProductCreatePage() {
                       : 'bg-transparent text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  빌려줘
+                  빌려드려요
                 </button>
                 <button
                   type="button"
