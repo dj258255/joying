@@ -7,40 +7,9 @@ import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 /**
  * 마이페이지 API
+ * 참고: 대여 내역은 rentalApi를 사용합니다 (/rentals/borrowed/history, /rentals/lend/history)
  */
 export const mypageApi = {
-  /**
-   * 나의 대여 내역 (빌린 내역)
-   * @param {Object} [params]
-   * @param {number} [params.page=1]
-   * @param {number} [params.size=20]
-   * @returns {Promise<{items: Array, total: number}>}
-   */
-  getBorrowedHistory: async (params = {}) => {
-    return await axiosInstance.get('/mypage/borrowed/history', {
-      params: {
-        page: params.page || 1,
-        size: params.size || 20
-      }
-    });
-  },
-
-  /**
-   * 내가 대여해준 내역
-   * @param {Object} [params]
-   * @param {number} [params.page=1]
-   * @param {number} [params.size=20]
-   * @returns {Promise<{items: Array, total: number}>}
-   */
-  getLentHistory: async (params = {}) => {
-    return await axiosInstance.get('/mypage/lend/history', {
-      params: {
-        page: params.page || 1,
-        size: params.size || 20
-      }
-    });
-  },
-
   /**
    * 등록한 상품 목록
    * @param {Object} [params]

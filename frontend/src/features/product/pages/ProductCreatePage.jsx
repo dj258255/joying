@@ -22,8 +22,8 @@ import { aiApi } from '../api/aiApi';
 import celebrationAnimation from '../assets/Celebration.json';
 
 const enumUploadTypes = [
-  { label: '빌려줘', value: 'RENT' },  // 백엔드 API: RENT
-  { label: '구해요', value: 'BORROW' },
+  { label: '빌려드려요', value: 'RENT' },  // 백엔드 API: RENT
+  { label: '빌려요', value: 'BORROW' },
 ];
 
 const enumRentMethods = [
@@ -80,6 +80,7 @@ function ProductCreatePage() {
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
   const dndZoneRef = useRef(null);
   const fileInputRef = useRef(null);
   const dragItemIndex = useRef(null);
@@ -127,6 +128,7 @@ function ProductCreatePage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
   const [aiAutoFill, setAiAutoFill] = useState(true); // AI 자동 입력 사용 여부
+  const [aiUploadType, setAiUploadType] = useState('RENT'); // AI용 업로드 타입 (빌려줘/구해요)
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -179,6 +181,16 @@ function ProductCreatePage() {
       setActiveSidoId(sidos[0].sidoId || sidos[0].id);
     }
   }, [sidos, activeSidoId]);
+
+  // 폼 상태 변경 디버깅
+  useEffect(() => {
+    console.log('[ProductCreatePage] 💰 폼 상태 변경:', {
+      deposit: form.deposit,
+      rentalFee: form.rentalFee,
+      depositType: typeof form.deposit,
+      rentalFeeType: typeof form.rentalFee
+    });
+  }, [form.deposit, form.rentalFee]);
 
   // 수정 모드일 때 기존 상품 정보를 폼에 채우기
   useEffect(() => {
@@ -270,11 +282,21 @@ function ProductCreatePage() {
     }
   };
 
-  // 해시태그 관리
+  // 해시태그 관리 (쉼표로 여러 개 추가 가능)
   const addHashtag = () => {
-    const t = hashtagInput.trim();
-    if (!t || hashtags.includes(t)) return;
-    setHashtags((prev) => [...prev, t]);
+    const input = hashtagInput.trim();
+    if (!input) return;
+
+    // 쉼표로 구분된 여러 해시태그 처리
+    const newTags = input
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0 && !hashtags.includes(tag));
+
+    if (newTags.length > 0) {
+      setHashtags((prev) => [...prev, ...newTags]);
+    }
+
     setHashtagInput('');
     // 입력창에 자동 포커스
     setTimeout(() => {
@@ -359,39 +381,98 @@ function ProductCreatePage() {
 
   // 파일 업로드 로직
   /**
-   * AI로 게시글 제목과 내용 자동 생성
+   * AI로 게시글 제목과 내용 자동 생성 (GPT-4o 기반)
    */
   const generateWithAI = async (imageFile) => {
     if (!aiAvailable || !aiAutoFill) return;
 
     try {
       setAiGenerating(true);
-      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name);
+      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', aiUploadType);
 
-      // AI API 호출 (가격 추천 포함)
-      const result = await aiApi.generateProductDescription(imageFile);
+      // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
+      const result = await aiApi.generateProductDescription(imageFile, aiUploadType);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
+      console.log('[ProductCreatePage] 🔍 보증금 확인:', {
+        recommended_deposit: result.recommended_deposit,
+        type: typeof result.recommended_deposit,
+        string_value: String(result.recommended_deposit)
+      });
 
-      // 제목과 내용 자동 입력
-      if (result.title) {
-        updateField('title', result.title.slice(0, 50));
+      // 한 번에 모든 필드 업데이트 (setForm 한 번만 호출)
+      // 백엔드가 항상 유효한 값을 반환하므로 프론트엔드는 신뢰
+      const newFormData = {
+        ...form,
+        title: result.title ? result.title.slice(0, 50) : form.title,
+        content: result.description ? result.description.slice(0, 2000) : form.content,
+        rentalFee: result.recommended_price ? formatCurrency(result.recommended_price) : form.rentalFee,
+        deposit: result.recommended_deposit ? formatCurrency(result.recommended_deposit) : form.deposit,
+      };
+
+      console.log('[ProductCreatePage] 📝 업데이트할 폼 데이터:', {
+        title: newFormData.title,
+        rentalFee: newFormData.rentalFee,
+        deposit: newFormData.deposit,
+      });
+
+      setForm(newFormData);
+
+      console.log('[ProductCreatePage] ✅ AI 자동 입력 완료!');
+
+      // 해시태그 자동 입력 (5개)
+      if (result.hashtags && result.hashtags.length > 0) {
+        setHashtags(result.hashtags);
+        console.log('[ProductCreatePage] ✅ AI 생성 해시태그:', result.hashtags);
       }
 
-      if (result.description) {
-        updateField('content', result.description.slice(0, 2000));
-      }
+      // 카테고리 자동 선택 (카테고리 데이터가 로드된 후에만)
+      console.log('[ProductCreatePage] 🔍 카테고리 로드 상태:', {
+        categories_exists: !!categories,
+        categories_length: categories?.length,
+        isCategoriesLoading,
+        sub_category: result.sub_category,
+        parent_category: result.parent_category,
+        categories_sample: categories?.[0]
+      });
 
-      // 추천 대여료가 있으면 자동 입력
-      if (result.recommended_price) {
-        updateField('rentalFee', result.recommended_price);
-        console.log('[ProductCreatePage] AI 추천 대여료:', result.recommended_price, '원/일');
+      if (categories && categories.length > 0 && (result.sub_category || result.parent_category)) {
+        const categoryName = result.sub_category || result.parent_category;
+        console.log('[ProductCreatePage] 📂 카테고리 검색 시작:', categoryName);
+
+        const matchedCategory = findCategoryByName(categories, categoryName);
+
+        if (matchedCategory) {
+          updateField('categoryId', matchedCategory.categoryId);
+          setSelectedCategoryName(matchedCategory.categoryName);
+
+          // AI가 선택한 카테고리의 부모 카테고리를 activeCategoryId로 설정
+          const parentCategory = categories.find(parent =>
+            parent.children?.some(child => child.categoryId === matchedCategory.categoryId)
+          );
+          if (parentCategory) {
+            setActiveCategoryId(parentCategory.categoryId);
+          }
+
+          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 선택:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
+        } else {
+          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName);
+          console.warn('[ProductCreatePage] 전체 카테고리 목록:', categories.map(c => ({
+            name: c.categoryName,
+            children: c.children?.map(ch => ch.categoryName)
+          })));
+        }
+      } else {
+        console.warn('[ProductCreatePage] ❌ 카테고리 선택 불가 - categories가 아직 로드되지 않았거나 AI 응답에 카테고리 정보가 없음');
       }
 
       // 성공 메시지 표시
       setErrorMessage('');
-      const priceInfo = result.recommended_price ? ` / 추천 대여료: ${result.recommended_price.toLocaleString()}원` : '';
-      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo})`;
+      const priceInfo = result.recommended_price ? ` / 대여료: ${result.recommended_price.toLocaleString()}원` : '';
+      const depositInfo = result.recommended_deposit ? ` / 보증금: ${result.recommended_deposit.toLocaleString()}원` : '';
+      const hashtagInfo = result.hashtags?.length ? ` / 해시태그: ${result.hashtags.length}개` : '';
+      const categoryInfo = result.sub_category ? ` / 카테고리: ${result.sub_category}` : '';
+      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo}${depositInfo}${hashtagInfo}${categoryInfo})`;
       setErrorMessage(successMessage);
       setTimeout(() => {
         if (errorMessage === successMessage) {
@@ -405,6 +486,82 @@ function ProductCreatePage() {
     } finally {
       setAiGenerating(false);
     }
+  };
+
+  /**
+   * 카테고리 트리에서 이름으로 카테고리 찾기 (정확한 매칭만 수행)
+   */
+  const findCategoryByName = (tree, name) => {
+    if (!tree || tree.length === 0 || !name) {
+      console.warn('[ProductCreatePage] ❌ findCategoryByName: 유효하지 않은 입력', { tree: !!tree, name });
+      return null;
+    }
+
+    // 정규화: 공백 제거, 소문자 변환, 특수문자 정규화
+    const normalize = (str) => {
+      if (!str) return '';
+      return str
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')  // 여러 공백을 하나로
+        .replace(/[·・]/g, '·');  // 중점 통일
+    };
+
+    const normalizedName = normalize(name);
+    console.log('[ProductCreatePage] 🔍 카테고리 검색:', {
+      original: name,
+      normalized: normalizedName
+    });
+
+    // 1차: 정확한 매칭 (부모 카테고리 포함)
+    for (const category of tree) {
+      const normalizedCatName = normalize(category.categoryName);
+
+      if (normalizedCatName === normalizedName) {
+        console.log('[ProductCreatePage] ✅ 부모 카테고리 정확 매칭:', category.categoryName);
+        return category;
+      }
+
+      // 자식 카테고리 확인
+      if (category.children && category.children.length > 0) {
+        for (const child of category.children) {
+          const normalizedChildName = normalize(child.categoryName);
+
+          if (normalizedChildName === normalizedName) {
+            console.log('[ProductCreatePage] ✅ 자식 카테고리 정확 매칭:', child.categoryName);
+            return child;
+          }
+        }
+      }
+    }
+
+    // 2차: 부분 매칭 (자식 카테고리만, 더 구체적인 매칭)
+    // AI가 반환한 이름이 카테고리 이름에 정확히 포함되어 있는지 확인
+    for (const category of tree) {
+      if (category.children && category.children.length > 0) {
+        for (const child of category.children) {
+          const normalizedChildName = normalize(child.categoryName);
+
+          // 완전히 일치하거나, 카테고리 이름에 검색어가 정확히 포함된 경우만
+          if (normalizedChildName.includes(normalizedName) && normalizedName.length >= 3) {
+            console.log('[ProductCreatePage] ✅ 자식 카테고리 부분 매칭:', child.categoryName);
+            return child;
+          }
+        }
+      }
+    }
+
+    // 매칭 실패 - 경고 로깅
+    console.warn('[ProductCreatePage] ⚠️ 카테고리 매칭 실패:', {
+      searchName: name,
+      normalized: normalizedName,
+      availableCategories: tree.map(c => ({
+        parent: c.categoryName,
+        children: c.children?.map(ch => ch.categoryName) || []
+      }))
+    });
+
+    return null;
   };
 
   const handleFiles = async (files) => {
@@ -462,8 +619,8 @@ function ProductCreatePage() {
       if (successfulUploads.length > 0) {
         setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
 
-        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (제목과 내용이 비어있을 때만)
-        if (previewStartIndex === 0 && fileArr.length > 0 && !form.title && !form.content) {
+        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (이미지가 없었을 때)
+        if (previewStartIndex === 0 && fileArr.length > 0) {
           console.log('[ProductCreatePage] 첫 이미지 업로드 완료, AI 자동 생성 시작');
           await generateWithAI(fileArr[0]);
         }
@@ -507,8 +664,20 @@ function ProductCreatePage() {
     }
   };
 
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
   const onDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     handleFiles(e.dataTransfer.files);
   };
 
@@ -708,6 +877,9 @@ function ProductCreatePage() {
 
   // 단계별 유효성 검사
   const canGoNext = useMemo(() => {
+    // AI 처리 중일 때는 다음 버튼 비활성화
+    if (aiGenerating) return false;
+
     switch (currentStep) {
       case 1:
         // 1단계: 이미지
@@ -725,7 +897,7 @@ function ProductCreatePage() {
       default:
         return false;
     }
-  }, [currentStep, form, fileIds, noEndDate]);
+  }, [currentStep, form, fileIds, noEndDate, aiGenerating]);
 
   const handleNext = () => {
     if (canGoNext && currentStep < TOTAL_STEPS) {
@@ -889,12 +1061,12 @@ function ProductCreatePage() {
                 <div className="absolute inset-0 flex items-center pointer-events-none">
                   <div className="w-1/2 flex items-center justify-center">
                     <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'RENT' ? 'text-white' : 'text-gray-600'}`}>
-                      빌려줘
+                      빌려드려요
                     </span>
                   </div>
                   <div className="w-1/2 flex items-center justify-center">
                     <span className={`text-sm font-bold transition-colors duration-300 ${form.uploadType === 'BORROW' ? 'text-white' : 'text-gray-600'}`}>
-                      구해요
+                      빌려요
                     </span>
                   </div>
                 </div>
@@ -958,7 +1130,18 @@ function ProductCreatePage() {
             <label className="block text-sm font-medium text-black mb-1.5">카테고리</label>
             <button
               type="button"
-              onClick={() => setShowCategoryPopover(!showCategoryPopover)}
+              onClick={() => {
+                // 모달 열 때 현재 선택된 카테고리의 부모 카테고리를 activeCategoryId로 설정
+                if (form.categoryId) {
+                  const parentCategory = categories.find(parent =>
+                    parent.children?.some(child => child.categoryId === form.categoryId)
+                  );
+                  if (parentCategory) {
+                    setActiveCategoryId(parentCategory.categoryId);
+                  }
+                }
+                setShowCategoryPopover(!showCategoryPopover);
+              }}
               className="w-full px-4 py-3 text-left text-sm bg-white border-2 border-gray-300 rounded-xl text-black hover:border-black transition-colors overflow-hidden whitespace-nowrap text-ellipsis"
             >
               {selectedCategoryName || '카테고리를 선택하세요'}
@@ -982,7 +1165,7 @@ function ProductCreatePage() {
 
           {/* 해시태그 */}
           <div>
-            <label className="block text-sm font-medium text-black mb-1.5">해시태그</label>
+            <label className="block text-sm font-medium text-black mb-1.5">해시태그 (쉼표로 여러 개 추가 가능)</label>
             <div className="flex gap-2">
               <div className="flex-1 flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
                 {/* 입력창 */}
@@ -991,7 +1174,7 @@ function ProductCreatePage() {
                   value={hashtagInput}
                   onChange={(e) => setHashtagInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addHashtag())}
-                  placeholder="예: 카메라"
+                  placeholder="예: 카메라, 렌즈, 삼각대"
                   className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
                 />
                 
@@ -1130,19 +1313,56 @@ function ProductCreatePage() {
           <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
         </div>
 
-        {/* AI 자동 입력 체크박스 */}
+        {/* AI 자동 입력 체크박스 + 업로드 타입 선택 */}
         {aiAvailable && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
-            <input
-              type="checkbox"
-              id="aiAutoFill"
-              checked={aiAutoFill}
-              onChange={(e) => setAiAutoFill(e.target.checked)}
-              className="w-4 h-4 rounded accent-blue-600"
-            />
-            <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
-              🤖 AI 자동 입력
-            </label>
+          <div className="flex items-center gap-3">
+            {/* AI 자동 입력 체크박스 */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+              <input
+                type="checkbox"
+                id="aiAutoFill"
+                checked={aiAutoFill}
+                onChange={(e) => setAiAutoFill(e.target.checked)}
+                className="w-4 h-4 rounded accent-blue-600"
+              />
+              <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
+                🤖 AI 자동 입력
+              </label>
+            </div>
+
+            {/* AI용 업로드 타입 선택 (AI 체크박스가 활성화되어 있을 때만 표시) */}
+            {aiAutoFill && (
+              <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 border border-gray-300 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiUploadType('RENT');
+                    updateField('uploadType', 'RENT'); // 실제 업로드 타입도 동기화
+                  }}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    aiUploadType === 'RENT'
+                      ? 'bg-black text-white'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  빌려드려요
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiUploadType('BORROW');
+                    updateField('uploadType', 'BORROW'); // 실제 업로드 타입도 동기화
+                  }}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                    aiUploadType === 'BORROW'
+                      ? 'bg-black text-white'
+                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  빌려요
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1154,9 +1374,15 @@ function ProductCreatePage() {
           <div
             ref={dndZoneRef}
             onDrop={onDrop}
-            onDragOver={onDragOver}
+            onDragOver={handleDrag}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
             onClick={() => { if (!uploading && !aiGenerating) fileInputRef.current?.click(); }}
-            className="w-full lg:w-80 aspect-square border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors bg-gray-50"
+            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+              dragActive
+                ? 'border-black bg-gray-100 scale-105'
+                : 'border-gray-300 hover:border-black bg-gray-50'
+            }`}
           >
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>

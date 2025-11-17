@@ -83,8 +83,27 @@ export const rentalApi = {
    * @returns {Promise<Object>} 거래 상세 정보
    */
   getRentalDetail: async (rentalHisId) => {
-    const response = await axiosInstance.get(`/rentals/rental-histories/${rentalHisId}`);
-    return response.data;
+    try {
+      const response = await axiosInstance.get(`/rentals/rental-histories/${rentalHisId}`);
+      
+      console.log('[rentalApi] 거래 상세 조회 성공:', response.data);
+      
+      // 응답 구조: { status, message, data: {... }, timestamp }
+      // 또는 axios 응답: { data: { status, message, data: {... }, timestamp } }
+      if (response.data?.data) {
+        return response.data.data;
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('[rentalApi] 거래 상세 조회 실패:', {
+        rentalHisId,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   },
 
   /**

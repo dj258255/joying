@@ -56,34 +56,39 @@ async def root():
     }
 )
 async def generate_product_description(
-    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG)")
+    image: UploadFile = File(..., description="상품 이미지 (JPEG, PNG, WebP, GIF)"),
+    upload_type: str = Form("RENT", description="업로드 타입 (RENT: 빌려줘, BORROW: 구해요)")
 ):
     """
-    AI 이미지 기반 게시글 자동 생성 (가격 추천 포함)
+    AI 이미지 기반 게시글 자동 생성 (GPT-4o 기반)
 
     **처리 단계:**
-    1. 이미지 분석 → 상품명 추출
-    2. AI 기반 시장 가격 조사
-    3. 모든 정보를 통합하여 최종 설명 생성
+    1. 이미지 분석 → 상품명, 카테고리, 특징, 상태 추출
+    2. AI 기반 시장 가격 조사 → 대여료 + 보증금 추천
+    3. 최종 설명 및 해시태그 생성
 
     **출력:**
-    - title: 생성된 제목
-    - description: 생성된 설명 (가격 정보 포함)
-    - recommended_price: 추천 대여료
-    - estimated_purchase_price: 예상 구매가
-    - rental_ratio: 대여료 비율
+    - title: 생성된 제목 (20자 이내)
+    - description: 생성된 설명 (200-500자)
+    - hashtags: AI가 생성한 해시태그 5개
+    - parent_category: AI가 추천하는 상위 카테고리
+    - sub_category: AI가 추천하는 하위 카테고리
+    - recommended_price: 추천 대여료 (원/일)
+    - recommended_deposit: 추천 보증금 (원)
+    - estimated_purchase_price: 예상 구매가 (원)
+    - rental_ratio: 대여료 비율 (구매가 대비)
+    - deposit_ratio: 보증금 비율 (현재 가치 대비)
     - price_reasoning: 가격 산정 근거
-    - category_suggestion: AI가 제안하는 카테고리
     - confidence: 신뢰도 (0-1)
     """
     try:
-        logger.info(f"AI 게시글 생성 요청: filename={image.filename}")
+        logger.info(f"AI 게시글 생성 요청: filename={image.filename}, upload_type={upload_type}")
 
         # 이미지 검증
         if not image.content_type.startswith("image/"):
             raise HTTPException(
                 status_code=400,
-                detail="이미지 파일만 업로드 가능합니다. (JPEG, PNG)"
+                detail="이미지 파일만 업로드 가능합니다. (JPEG, PNG, WebP, GIF)"
             )
 
         # 이미지 읽기 및 전처리
@@ -93,22 +98,20 @@ async def generate_product_description(
             img = Image.open(io.BytesIO(image_bytes))
             logger.info(f"이미지 정보: size={img.size}, format={img.format}")
 
-            # 리사이즈 및 압축 (GMS API 용량 제한 대응)
-            # detail="low"를 사용하면 OpenAI가 512px로 자동 리사이즈하지만,
-            # Base64 전송 용량을 줄이기 위해 사전에 리사이즈
-            max_size = 1024
+            # GPT-4o 최적화: detail="low"는 512px로 처리하므로 1536px까지 허용
+            # 하지만 Base64 전송 용량을 줄이기 위해 적절한 크기로 리사이즈
+            max_size = 1536
             if img.width > max_size or img.height > max_size:
                 img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
-            # JPEG로 변환 및 품질 조정
-            buffer = io.BytesIO()
+            # JPEG로 변환
             if img.mode in ('RGBA', 'LA', 'P'):
                 # 투명도 있는 이미지는 RGB로 변환
                 img = img.convert('RGB')
 
-            # 품질을 조정하면서 목표 크기(100KB) 이하로 압축
+            # GPT-4o는 더 큰 이미지를 처리 가능하므로 목표를 200KB로 상향
             quality = 85
-            max_file_size = 100 * 1024  # 100KB
+            max_file_size = 200 * 1024  # 200KB
 
             for _ in range(3):  # 최대 3번 시도
                 buffer = io.BytesIO()
@@ -119,12 +122,12 @@ async def generate_product_description(
                     break
 
                 # 너무 크면 품질 낮춤
-                quality -= 15
-                if quality < 40:
-                    quality = 40
+                quality -= 10
+                if quality < 50:
+                    quality = 50
                     break
 
-            logger.info(f"이미지 압축 완료: {len(image_bytes)} bytes (quality={quality})")
+            logger.info(f"이미지 최적화 완료: {len(image_bytes)} bytes (quality={quality})")
 
         except Exception as e:
             raise HTTPException(
@@ -137,22 +140,26 @@ async def generate_product_description(
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
 
         # AI 체인 실행
-        logger.info("AI 체인 시작")
-        result = await advanced_chain.run_full_chain(image_base64)
+        logger.info(f"AI 체인 시작 (upload_type={upload_type})")
+        result = await advanced_chain.run_full_chain(image_base64, upload_type=upload_type)
 
         # 응답 생성
         response = ProductGenerationResponse(
             title=result.get("title", "제목 없음"),
             description=result.get("description", "설명 없음"),
-            category_suggestion=result.get("category"),
+            hashtags=result.get("hashtags", []),
+            parent_category=result.get("parent_category"),
+            sub_category=result.get("sub_category"),
             confidence=result.get("confidence", 0.8),
             recommended_price=result.get("recommended_price"),
+            recommended_deposit=result.get("recommended_deposit"),
             estimated_purchase_price=result.get("estimated_purchase_price"),
             rental_ratio=result.get("rental_ratio"),
+            deposit_ratio=result.get("deposit_ratio"),
             price_reasoning=result.get("price_reasoning")
         )
 
-        logger.info(f"AI 게시글 생성 완료: title={response.title}, price={response.recommended_price}원")
+        logger.info(f"AI 게시글 생성 완료: title={response.title}, price={response.recommended_price}원, deposit={response.recommended_deposit}원, hashtags={len(response.hashtags)}개")
         return response
 
     except HTTPException:

@@ -27,6 +27,7 @@ public class FileServiceImpl implements FileService {
             "image/jpeg",
             "image/jpg",
             "image/gif",
+            "image/webp",        // WebP 지원 추가
 
             // 영상
             "video/mp4",

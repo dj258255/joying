@@ -24,7 +24,14 @@ export const useInfiniteSearch = (query, filters = {}) => {
     queryKey: [QUERY_KEYS.SEARCH, query, filters],
     queryFn: ({ pageParam = 1 }) => {
       console.log('🚀 [useInfiniteSearch] queryFn 실행 - page:', pageParam);
-      return searchApi.search({ query, ...filters, page: pageParam, size: 20 });
+      // 백엔드는 q 파라미터를 기대하므로, query를 q로 변환
+      // filters에 q가 있으면 우선적으로 사용, 없으면 query를 q로 사용
+      return searchApi.search({ 
+        q: filters.q !== undefined ? filters.q : query,
+        ...filters, 
+        page: pageParam, 
+        size: 20 
+      });
     },
     getNextPageParam: (lastPage, allPages) => {
       const data = lastPage?.data?.data;

@@ -201,7 +201,7 @@ public class SearchService {
 			if (hasKeyword) {
 				mustQueries.add(
 					MultiMatchQuery.of(m -> m
-						.fields("title^2", "content")
+						.fields("title^2", "title.syn^2", "content", "content.syn")
 						.query(q)
 						.operator(Operator.Or)
 					)._toQuery()
@@ -211,8 +211,11 @@ public class SearchService {
 				if (tokens.size() > 1) {
 					for (String token : tokens) {
 						List<Query> tokenShould = new ArrayList<>();
+
 						tokenShould.add(MatchQuery.of(m -> m.field("title").query(token))._toQuery());
+						tokenShould.add(MatchQuery.of(m -> m.field("title.syn").query(token))._toQuery());
 						tokenShould.add(MatchQuery.of(m -> m.field("content").query(token))._toQuery());
+						tokenShould.add(MatchQuery.of(m -> m.field("content.syn").query(token))._toQuery());
 
 						shouldQueries.add(
 							BoolQuery.of(b -> b

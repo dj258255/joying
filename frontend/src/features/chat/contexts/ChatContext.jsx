@@ -153,36 +153,22 @@ const chatReducer = (state, action) => {
         lastReadAt: action.payload
       };
     case 'MARK_MESSAGES_AS_READ':
-      // 마지막 메시지만 읽음 표시 표시 (생겼다 사라지는 형태)
+      // 모든 메시지에 읽음 표시 표시 (1 → 읽음)
       const { readAt, currentUserId } = action.payload;
       if (!readAt) return state;
       const readTimestamp = new Date(readAt).getTime();
-      
-      // 내가 보낸 메시지 중 가장 마지막 메시지 찾기
-      const ownMessages = state.messages
-        .filter((msg) => {
-          const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
-          const msgTimestamp = new Date(msg.timestamp || 0).getTime();
-          return isOwnMessage && msgTimestamp <= readTimestamp;
-        })
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      
-      const lastOwnMessage = ownMessages[0];
-      
+
       const updatedMessages = state.messages.map((msg) => {
-        // 마지막 메시지만 읽음 표시 표시
-        if (lastOwnMessage && msg.id === lastOwnMessage.id) {
-          return { ...msg, isRead: true, showReadIndicator: true };
-        }
-        // 나머지 메시지는 읽음 상태만 업데이트 (표시는 숨김)
         const isOwnMessage = currentUserId != null && Number(msg.senderId) === Number(currentUserId);
         const msgTimestamp = new Date(msg.timestamp || 0).getTime();
+
+        // 내가 보낸 메시지이고 readAt 이전 메시지면 읽음 처리
         if (isOwnMessage && msgTimestamp <= readTimestamp) {
-          return { ...msg, isRead: true, showReadIndicator: false };
+          return { ...msg, isRead: true, showReadIndicator: true };
         }
         return msg;
       });
-      
+
       return {
         ...state,
         messages: updatedMessages,
@@ -600,6 +586,15 @@ export const ChatProvider = ({ children }) => {
       });
     }
 
+    // 파일 타입이 'file'이고 fileName이 비디오 확장자인 경우 'video'로 변경
+    if (type === 'file' && rawMessage.fileName) {
+      const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v'];
+      const fileName = rawMessage.fileName.toLowerCase();
+      if (videoExtensions.some(ext => fileName.endsWith(ext))) {
+        type = 'video';
+      }
+    }
+
     // 대여 요청 메시지인 경우 content를 빈 문자열로 설정 (rentalInfo에서 표시하므로)
     // 일반 텍스트 메시지가 아닌 경우만 content 유지
     let messageContent = rawMessage.content || '';
@@ -608,8 +603,24 @@ export const ChatProvider = ({ children }) => {
       messageContent = '';
     } else if (type === 'image') {
       messageContent = rawMessage.imageUrl || rawMessage.content || '';
+    } else if (type === 'video') {
+      messageContent = rawMessage.fileUrl || rawMessage.content || '';
     } else if (type === 'system') {
       messageContent = rawMessage.content || '';
+    }
+
+    // 읽음 상태 계산: lastReadAt과 비교 (내가 보낸 메시지만)
+    const userIdForCheck = user?.memberId ?? user?.id ?? user?.member_id ?? null;
+    const isOwnMessage = userIdForCheck != null && Number(senderId) === Number(userIdForCheck);
+    let isRead = rawMessage.isRead ?? false;
+
+    // 내가 보낸 메시지이고 lastReadAt이 있으면, 메시지 시간과 비교
+    if (isOwnMessage && state.lastReadAt && timestamp) {
+      const msgTimestamp = new Date(timestamp).getTime();
+      const readTimestamp = new Date(state.lastReadAt).getTime();
+      if (msgTimestamp <= readTimestamp) {
+        isRead = true;
+      }
     }
 
     const message = {
@@ -626,7 +637,7 @@ export const ChatProvider = ({ children }) => {
       sender,
       senderId,
       timestamp,
-      isRead: rawMessage.isRead ?? false,
+      isRead,
       showReadIndicator: false, // 일시적 읽음 표시 (기본값: 숨김)
       isDeleted: rawMessage.isDeleted ?? false,
       isEdited: rawMessage.isEdited ?? false,
@@ -637,7 +648,7 @@ export const ChatProvider = ({ children }) => {
     };
 
     return message;
-  }, [resolveSenderInfo, state.currentChatRoom?.chatRoomId, state.currentChatRoom?.id]);
+  }, [resolveSenderInfo, state.currentChatRoom?.chatRoomId, state.currentChatRoom?.id, user, state.lastReadAt]);
 
   const loadOlderMessages = useCallback(async () => {
     try {
@@ -789,6 +800,8 @@ export const ChatProvider = ({ children }) => {
         lastMessage = message.content || '';
       } else if (message.type === 'image') {
         lastMessage = '[이미지]';
+      } else if (message.type === 'video') {
+        lastMessage = '[영상]';
       } else if (message.type === 'file') {
         lastMessage = `[파일] ${message.fileName || '파일'}`;
       } else if (message.type === 'rental_request' || message.rentalInfo) {
@@ -1143,18 +1156,16 @@ export const ChatProvider = ({ children }) => {
         }
       },
       onRead: (readEvent) => {
-        // 본인의 읽음 알림은 무시
-        if (readEvent.memberId && Number(readEvent.memberId) === Number(currentUserId)) {
-          return;
-        }
-        
+        // 본인이 보낸 읽음 이벤트인 경우에도 처리 (다른 기기에서 읽은 경우 동기화)
+        // 단, 상대방이 읽은 것이므로 내가 보낸 메시지에 대해 읽음 처리
+
         // 상대방이 읽은 시간 이전의 내가 보낸 메시지를 읽음 처리
         if (readEvent.readAt) {
           // readAt이 Unix timestamp (milliseconds)인 경우 Date로 변환
-          const readAt = typeof readEvent.readAt === 'number' 
+          const readAt = typeof readEvent.readAt === 'number'
             ? new Date(readEvent.readAt).toISOString()
             : readEvent.readAt;
-          
+
           // 마지막 메시지만 읽음 표시 표시
           dispatch({
             type: 'MARK_MESSAGES_AS_READ',
