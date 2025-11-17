@@ -44,6 +44,7 @@ const ProductListMain = () => {
   const [sameDayRental, setSameDayRental] = useState(false);
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [priceError, setPriceError] = useState('');
 
   // 적용된 필터 상태 (실제 API 호출에 사용)
   const [appliedFilters, setAppliedFilters] = useState({
@@ -465,7 +466,36 @@ const ProductListMain = () => {
   const handlePriceBlur = (type) => {
     const value = priceRange[type];
     if (value) {
-      setPriceRange(prev => ({ ...prev, [type]: formatPrice(value.replace(/,/g, '')) }));
+      const numValue = parseInt(value.replace(/,/g, ''), 10);
+      if (isNaN(numValue)) {
+        setPriceRange(prev => ({ ...prev, [type]: '' }));
+        setPriceError('');
+        return;
+      }
+      
+      const formattedValue = formatPrice(String(numValue));
+      setPriceRange(prev => {
+        const newRange = { ...prev, [type]: formattedValue };
+        
+        // 최소 금액과 최대 금액 비교
+        const minNum = type === 'min' ? numValue : (prev.min ? parseInt(prev.min.replace(/,/g, ''), 10) : null);
+        const maxNum = type === 'max' ? numValue : (prev.max ? parseInt(prev.max.replace(/,/g, ''), 10) : null);
+        
+        if (minNum !== null && maxNum !== null && minNum > maxNum) {
+          setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+          // 최소 금액이 최대 금액보다 크면 최대 금액으로 조정
+          if (type === 'min') {
+            return { ...newRange, min: formatPrice(String(maxNum)) };
+          } else {
+            return { ...newRange, max: formatPrice(String(minNum)) };
+          }
+        } else {
+          setPriceError('');
+          return newRange;
+        }
+      });
+    } else {
+      setPriceError('');
     }
   };
 
@@ -839,13 +869,31 @@ const ProductListMain = () => {
               type="text"
               placeholder="최소 금액"
               value={priceRange.min}
-              onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={(e) => {
+                const newMin = e.target.value.replace(/[^0-9]/g, '');
+                setPriceRange(prev => {
+                  const newRange = { ...prev, min: newMin };
+                  // 실시간 검증
+                  if (newMin && prev.max) {
+                    const minNum = parseInt(newMin.replace(/,/g, ''), 10);
+                    const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
+                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                    } else {
+                      setPriceError('');
+                    }
+                  } else {
+                    setPriceError('');
+                  }
+                  return newRange;
+                });
+              }}
               onBlur={() => handlePriceBlur('min')}
               className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
               style={{ 
                 background: 'rgba(255, 255, 255, 0.7)',
                 backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
               }}
             />
@@ -853,17 +901,52 @@ const ProductListMain = () => {
               type="text"
               placeholder="최대 금액"
               value={priceRange.max}
-              onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value.replace(/[^0-9]/g, '') }))}
+              onChange={(e) => {
+                const newMax = e.target.value.replace(/[^0-9]/g, '');
+                setPriceRange(prev => {
+                  const newRange = { ...prev, max: newMax };
+                  // 실시간 검증
+                  if (newMax && prev.min) {
+                    const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
+                    const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
+                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                    } else {
+                      setPriceError('');
+                    }
+                  } else {
+                    setPriceError('');
+                  }
+                  return newRange;
+                });
+              }}
               onBlur={() => handlePriceBlur('max')}
               className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
               style={{ 
                 background: 'rgba(255, 255, 255, 0.7)',
                 backdropFilter: 'blur(20px)',
-                border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
                 boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
               }}
             />
           </div>
+          {priceError && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-800 text-xs">
+              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium flex-1">{priceError}</span>
+              <button
+                type="button"
+                onClick={() => setPriceError('')}
+                className="text-current opacity-70 hover:opacity-100 transition-opacity"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
          {/* 카테고리 */}
@@ -1634,13 +1717,31 @@ const ProductListMain = () => {
                    type="text"
                    placeholder="최소 금액"
                    value={priceRange.min}
-                   onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value.replace(/[^0-9]/g, '') }))}
+                   onChange={(e) => {
+                     const newMin = e.target.value.replace(/[^0-9]/g, '');
+                     setPriceRange(prev => {
+                       const newRange = { ...prev, min: newMin };
+                       // 실시간 검증
+                       if (newMin && prev.max) {
+                         const minNum = parseInt(newMin.replace(/,/g, ''), 10);
+                         const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
+                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                         } else {
+                           setPriceError('');
+                         }
+                       } else {
+                         setPriceError('');
+                       }
+                       return newRange;
+                     });
+                   }}
                    onBlur={() => handlePriceBlur('min')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                     border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
                      boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)',
                      '--tw-ring-color': 'rgb(59 130 246 / 0.3)'
                    }}
@@ -1649,17 +1750,52 @@ const ProductListMain = () => {
                    type="text"
                    placeholder="최대 금액"
                    value={priceRange.max}
-                   onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value.replace(/[^0-9]/g, '') }))}
+                   onChange={(e) => {
+                     const newMax = e.target.value.replace(/[^0-9]/g, '');
+                     setPriceRange(prev => {
+                       const newRange = { ...prev, max: newMax };
+                       // 실시간 검증
+                       if (newMax && prev.min) {
+                         const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
+                         const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
+                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                         } else {
+                           setPriceError('');
+                         }
+                       } else {
+                         setPriceError('');
+                       }
+                       return newRange;
+                     });
+                   }}
                    onBlur={() => handlePriceBlur('max')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
                      background: 'rgba(255, 255, 255, 0.7)',
                      backdropFilter: 'blur(20px)',
-                     border: '1.5px solid rgba(255, 255, 255, 0.4)',
+                     border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
                      boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
                    }}
                  />
                </div>
+               {priceError && (
+                 <div className="mt-1.5 flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-800 text-xs">
+                   <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                   </svg>
+                   <span className="font-medium flex-1">{priceError}</span>
+                   <button
+                     type="button"
+                     onClick={() => setPriceError('')}
+                     className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                   >
+                     <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                       <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                     </svg>
+                   </button>
+                 </div>
+               )}
              </div>
 
              {/* 카테고리 */}
