@@ -274,14 +274,20 @@ const UserProfilePage = () => {
 
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="text-center p-3 bg-gray-50 rounded-xl">
+                  <button
+                    onClick={() => setActiveTab('products')}
+                    className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
                     <div className="text-xl font-bold text-gray-900">{pageInfo.content.length}</div>
-                    <div className="text-xs text-gray-500">등록 상품</div>
-                  </div>
-                  <div className="text-center p-3 bg-gray-50 rounded-xl">
+                    <div className="text-xs text-gray-600">등록 상품</div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('reviews')}
+                    className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
                     <div className="text-xl font-bold text-gray-900">{totalReviewCount}</div>
-                    <div className="text-xs text-gray-500">리뷰</div>
-                  </div>
+                    <div className="text-xs text-gray-600">리뷰</div>
+                  </button>
                 </div>
               </div>
 

@@ -51,6 +51,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     @EntityGraph(attributePaths = {"reviewer", "product", "reviewFiles", "reviewFiles.file"})
     Page<Review> findByReviewed_MemberIdAndUploadType(Long memberId, UploadType uploadType, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"reviewed", "product", "reviewFiles", "reviewFiles.file"})
+    Page<Review> findByReviewer_MemberIdAndUploadType(Long memberId, UploadType uploadType, Pageable pageable);
+
     @EntityGraph(attributePaths = {"reviewFiles", "reviewFiles.file"})
     @Query("""
     SELECT r FROM Review r
