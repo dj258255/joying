@@ -127,3 +127,4 @@ const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = fal
 };
 
 export default TransactionCompleteMessageCard;
+
