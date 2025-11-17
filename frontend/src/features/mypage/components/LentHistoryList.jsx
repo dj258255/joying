@@ -240,7 +240,7 @@ const LentHistoryList = ({
                   <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <ProfileImage 
                       src={rental.counterparty.profileImage}
-                      alt={rental.counterparty.name}
+                      alt={rental.counterparty.nickname || rental.counterparty.name || '상대방'}
                       size={50}
                       className="w-12 h-12"
                     />
