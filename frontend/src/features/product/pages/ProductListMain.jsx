@@ -783,176 +783,6 @@ const ProductListMain = () => {
            </div>
           </div>
 
-        {/* 날짜 기간 */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">날짜 기간</h3>
-            {formatDateRange() && (
-              <span className="text-xs font-bold text-gray-900">
-                {formatDateRange()}
-              </span>
-            )}
-          </div>
-
-          {/* 캘린더 */}
-          <div className="p-4 rounded-2xl" style={{ 
-            background: 'rgba(255, 255, 255, 0.75)',
-            backdropFilter: 'blur(25px)',
-            border: '1.5px solid rgba(255, 255, 255, 0.5)',
-            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.12), inset 0 0 20px rgba(255, 255, 255, 0.6)'
-          }}>
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={() => navigateMonth(-1)}
-                className="p-2 rounded-lg transition-all duration-200"
-                style={{ 
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <span className="text-lg text-gray-700">‹</span>
-              </button>
-              <h4 className="text-sm font-semibold text-gray-800">
-                {currentMonth.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}
-              </h4>
-              <button
-                onClick={() => navigateMonth(1)}
-                className="p-2 rounded-lg transition-all duration-200"
-                style={{ 
-                  background: 'rgba(255, 255, 255, 0.5)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <span className="text-lg text-gray-700">›</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-                <div key={day} className="text-center text-xs font-medium text-gray-600 py-1">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth(currentMonth).map((date, index) => (
-                <button
-                  key={index}
-                  onClick={() => date && handleDateClick(date)}
-                  disabled={!date}
-                  className={`
-                    aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
-                    ${!date ? 'invisible' : ''}
-                    ${isDateSelected(date) || isDateInRange(date)
-                      ? 'text-white font-semibold' 
-                      : 'text-gray-700'
-                    }
-                  `}
-                   style={isDateSelected(date) || isDateInRange(date) ? {
-                     background: 'linear-gradient(135deg, #1f2937, #111827)',
-                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
-                   } : {
-                    background: 'rgba(255, 255, 255, 0.3)',
-                    backdropFilter: 'blur(5px)'
-                  }}
-                >
-                  {date && date.getDate()}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-         {/* 가격 범위 */}
-         <div className="space-y-3">
-           <h3 className="text-base font-extrabold text-gray-900">가격 범위</h3>
-          
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="최소 금액"
-              value={priceRange.min}
-              onChange={(e) => {
-                const newMin = e.target.value.replace(/[^0-9]/g, '');
-                setPriceRange(prev => {
-                  const newRange = { ...prev, min: newMin };
-                  // 실시간 검증
-                  if (newMin && prev.max) {
-                    const minNum = parseInt(newMin.replace(/,/g, ''), 10);
-                    const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
-                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                    } else {
-                      setPriceError('');
-                    }
-                  } else {
-                    setPriceError('');
-                  }
-                  return newRange;
-                });
-              }}
-              onBlur={() => handlePriceBlur('min')}
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
-            <input
-              type="text"
-              placeholder="최대 금액"
-              value={priceRange.max}
-              onChange={(e) => {
-                const newMax = e.target.value.replace(/[^0-9]/g, '');
-                setPriceRange(prev => {
-                  const newRange = { ...prev, max: newMax };
-                  // 실시간 검증
-                  if (newMax && prev.min) {
-                    const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
-                    const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
-                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                    } else {
-                      setPriceError('');
-                    }
-                  } else {
-                    setPriceError('');
-                  }
-                  return newRange;
-                });
-              }}
-              onBlur={() => handlePriceBlur('max')}
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.7)',
-                backdropFilter: 'blur(20px)',
-                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-              }}
-            />
-          </div>
-          {priceError && (
-            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-800 text-xs">
-              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <span className="font-medium flex-1">{priceError}</span>
-              <button
-                type="button"
-                onClick={() => setPriceError('')}
-                className="text-current opacity-70 hover:opacity-100 transition-opacity"
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          )}
-        </div>
-
          {/* 카테고리 */}
          <div className="space-y-3 relative">
            <h3 className="text-base font-semibold text-gray-900">카테고리</h3>
@@ -1246,6 +1076,215 @@ const ProductListMain = () => {
           )}
         </div>
 
+         {/* 가격 범위 */}
+         <div className="space-y-3">
+           <h3 className="text-base font-extrabold text-gray-900">가격 범위</h3>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="최소 금액"
+              value={priceRange.min}
+              onChange={(e) => {
+                const newMin = e.target.value.replace(/[^0-9]/g, '');
+                setPriceRange(prev => {
+                  const newRange = { ...prev, min: newMin };
+                  // 실시간 검증
+                  if (newMin && prev.max) {
+                    const minNum = parseInt(newMin.replace(/,/g, ''), 10);
+                    const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
+                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                    } else {
+                      setPriceError('');
+                    }
+                  } else {
+                    setPriceError('');
+                  }
+                  return newRange;
+                });
+              }}
+              onBlur={() => handlePriceBlur('min')}
+              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
+              style={{
+                background: 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(20px)',
+                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
+                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+              }}
+            />
+            <input
+              type="text"
+              placeholder="최대 금액"
+              value={priceRange.max}
+              onChange={(e) => {
+                const newMax = e.target.value.replace(/[^0-9]/g, '');
+                setPriceRange(prev => {
+                  const newRange = { ...prev, max: newMax };
+                  // 실시간 검증
+                  if (newMax && prev.min) {
+                    const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
+                    const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
+                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
+                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                    } else {
+                      setPriceError('');
+                    }
+                  } else {
+                    setPriceError('');
+                  }
+                  return newRange;
+                });
+              }}
+              onBlur={() => handlePriceBlur('max')}
+              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
+              style={{
+                background: 'rgba(255, 255, 255, 0.7)',
+                backdropFilter: 'blur(20px)',
+                border: priceError ? '1.5px solid rgba(239, 68, 68, 0.6)' : '1.5px solid rgba(255, 255, 255, 0.4)',
+                boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+              }}
+            />
+          </div>
+          {priceError && (
+            <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-800 text-xs">
+              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium flex-1">{priceError}</span>
+              <button
+                type="button"
+                onClick={() => setPriceError('')}
+                className="text-current opacity-70 hover:opacity-100 transition-opacity"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 날짜 기간 */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">날짜 기간</h3>
+            {formatDateRange() && (
+              <span className="text-xs font-bold text-gray-900">
+                {formatDateRange()}
+              </span>
+            )}
+          </div>
+
+          {/* 캘린더 */}
+          <div className="p-4 rounded-2xl" style={{
+            background: 'rgba(255, 255, 255, 0.75)',
+            backdropFilter: 'blur(25px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.5)',
+            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.12), inset 0 0 20px rgba(255, 255, 255, 0.6)'
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => navigateMonth(-1)}
+                className="p-2 rounded-lg transition-all duration-200"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  backdropFilter: 'blur(10px)'
+                }}
+              >
+                <span className="text-lg text-gray-700">‹</span>
+              </button>
+              <h4 className="text-sm font-semibold text-gray-800">
+                {currentMonth.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}
+              </h4>
+              <button
+                onClick={() => navigateMonth(1)}
+                className="p-2 rounded-lg transition-all duration-200"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.5)',
+                  backdropFilter: 'blur(10px)'
+                }}
+              >
+                <span className="text-lg text-gray-700">›</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+                <div key={day} className="text-center text-xs font-medium text-gray-600 py-1">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {getDaysInMonth(currentMonth).map((date, index) => (
+                <button
+                  key={index}
+                  onClick={() => date && handleDateClick(date)}
+                  disabled={!date}
+                  className={`
+                    aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
+                    ${!date ? 'invisible' : ''}
+                    ${isDateSelected(date) || isDateInRange(date)
+                      ? 'text-white font-semibold'
+                      : 'text-gray-700'
+                    }
+                  `}
+                   style={isDateSelected(date) || isDateInRange(date) ? {
+                     background: 'linear-gradient(135deg, #1f2937, #111827)',
+                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
+                   } : {
+                    background: 'rgba(255, 255, 255, 0.3)',
+                    backdropFilter: 'blur(5px)'
+                  }}
+                >
+                  {date && date.getDate()}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+         {/* 당일 대여 */}
+         <div className="space-y-3">
+           <h3 className="text-base font-semibold text-gray-900">당일 대여 가능</h3>
+
+          <div className="flex items-center justify-between p-4 rounded-xl transition-all duration-300" style={{
+            background: 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(20px)',
+            border: '1.5px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
+          }}>
+            <span className="text-sm text-gray-700">당일 대여 가능</span>
+            <button
+              onClick={() => setSameDayRental(!sameDayRental)}
+              className="relative inline-flex items-center rounded-full transition-all duration-300 focus:outline-none"
+               style={{
+                 minWidth: '52px',
+                 height: '32px',
+                 background: sameDayRental
+                   ? 'linear-gradient(135deg, #1f2937, #111827)'
+                   : 'rgba(229, 231, 235, 0.8)',
+                 backdropFilter: 'blur(10px)',
+                 boxShadow: sameDayRental
+                   ? '0 4px 12px rgba(0, 0, 0, 0.25)'
+                   : '0 2px 8px rgba(0, 0, 0, 0.1)'
+               }}
+            >
+              <span
+                className="inline-block rounded-full bg-white transition-all duration-300"
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  transform: sameDayRental ? 'translateX(22px)' : 'translateX(2px)',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)'
+                }}
+              />
+            </button>
+          </div>
+        </div>
+
          {/* 최소 평점 (0.5점 단위, 별 5개만 표시) */}
          <div className="space-y-3">
            <h3 className="text-base font-semibold text-gray-900">최소 평점</h3>
@@ -1301,45 +1340,6 @@ const ProductListMain = () => {
               </button>
             </div>
           )}
-        </div>
-
-         {/* 당일 대여 */}
-         <div className="space-y-3">
-           <h3 className="text-base font-semibold text-gray-900">당일 대여 가능</h3>
-          
-          <div className="flex items-center justify-between p-4 rounded-xl transition-all duration-300" style={{ 
-            background: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(20px)',
-            border: '1.5px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.4)'
-          }}>
-            <span className="text-sm text-gray-700">당일 대여 가능</span>
-            <button
-              onClick={() => setSameDayRental(!sameDayRental)}
-              className="relative inline-flex items-center rounded-full transition-all duration-300 focus:outline-none"
-               style={{ 
-                 minWidth: '52px',
-                 height: '32px',
-                 background: sameDayRental 
-                   ? 'linear-gradient(135deg, #1f2937, #111827)' 
-                   : 'rgba(229, 231, 235, 0.8)',
-                 backdropFilter: 'blur(10px)',
-                 boxShadow: sameDayRental 
-                   ? '0 4px 12px rgba(0, 0, 0, 0.25)' 
-                   : '0 2px 8px rgba(0, 0, 0, 0.1)'
-               }}
-            >
-              <span
-                className="inline-block rounded-full bg-white transition-all duration-300"
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  transform: sameDayRental ? 'translateX(22px)' : 'translateX(2px)',
-                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)'
-                }}
-              />
-            </button>
-          </div>
         </div>
       </div>
 

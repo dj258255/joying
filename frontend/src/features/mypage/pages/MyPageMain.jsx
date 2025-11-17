@@ -98,22 +98,16 @@ const MyPageMain = () => {
 
     setIsLoadingReviews(true);
     try {
-      // 받은 리뷰 (RENT: 빌려줬을 때 받은 리뷰)
+      // 받은 리뷰: 내가 빌려줬을 때 받은 리뷰 (빌린 사람이 나에게 작성)
+      // uploadType=BORROW: 빌린 사람이 작성한 리뷰, reviewed=나
       const receivedResponse = await axiosInstance.get(`/review/member/${currentUserId}`, {
-        params: {
-          uploadType: 'RENT',
-          page: 1,
-          size: 100
-        }
+        params: { uploadType: 'BORROW', page: 1, size: 100 }
       });
 
-      // 작성한 리뷰 (BORROW: 빌렸을 때 작성한 리뷰)
-      const writtenResponse = await axiosInstance.get(`/review/member/${currentUserId}`, {
-        params: {
-          uploadType: 'BORROW',
-          page: 1,
-          size: 100
-        }
+      // 작성한 리뷰: 내가 빌렸을 때 작성한 리뷰 (내가 빌려준 사람에게 작성)
+      // uploadType=BORROW: 내가 빌린 상품에 대해 작성한 리뷰, reviewer=나
+      const writtenResponse = await axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
+        params: { uploadType: 'BORROW', page: 1, size: 100 }
       });
 
       setReceivedReviews(receivedResponse.data.data.content || []);
@@ -319,10 +313,13 @@ const MyPageMain = () => {
                     <div className="text-lg sm:text-xl font-bold text-gray-900">{userProducts.length}</div>
                     <div className="text-xs text-gray-600">등록 상품</div>
                   </button>
-                  <div className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{reviewCount}</div>
+                  <button
+                    onClick={() => setActiveTab('reviews')}
+                    className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{receivedReviews.length + writtenReviews.length}</div>
                     <div className="text-xs text-gray-600">리뷰</div>
-              </div>
+                  </button>
             </div>
           </div>
           
@@ -616,12 +613,12 @@ const MyPageMain = () => {
                               />
                             ))
                           ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-center">
-                              <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                              <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                               </svg>
-                              <p className="text-gray-500 text-sm">아직 받은 리뷰가 없습니다</p>
-                              <p className="text-gray-400 text-xs mt-2">상품을 빌려주면 리뷰를 받을 수 있습니다</p>
+                              <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 받은 리뷰가 없습니다</p>
+                              <p className="text-gray-400 text-xs sm:text-sm">상품을 빌려주면 리뷰를 받을 수 있습니다</p>
                             </div>
                           )}
                         </>
@@ -639,12 +636,12 @@ const MyPageMain = () => {
                               />
                             ))
                           ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-center">
-                              <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                              <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
-                              <p className="text-gray-500 text-sm">아직 작성한 리뷰가 없습니다</p>
-                              <p className="text-gray-400 text-xs mt-2">상품을 빌린 후 리뷰를 작성해보세요</p>
+                              <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 작성한 리뷰가 없습니다</p>
+                              <p className="text-gray-400 text-xs sm:text-sm">상품을 빌린 후 리뷰를 작성해보세요</p>
                             </div>
                           )}
                         </>

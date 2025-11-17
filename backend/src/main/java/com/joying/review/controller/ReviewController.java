@@ -128,4 +128,29 @@ public class ReviewController {
 
 		return ApiResponse.ok("인물 리뷰 리스트 조회 성공", response);
 	}
+
+	@Operation(summary = "내가 작성한 리뷰 조회", description = "내가 작성한 리뷰를 조회합니다. (reviewer 기준)")
+	@GetMapping("/my-reviews/{memberId}")
+	public ResponseEntity<?> getMyReviews(
+		@PathVariable Long memberId,
+		@RequestParam UploadType uploadType,
+		@RequestParam(required = false, defaultValue = "1") int page,
+		@RequestParam(required = false, defaultValue = "3") int size
+	) {
+
+		if (!uploadType.equals(UploadType.RENT) && !uploadType.equals(UploadType.BORROW)) {
+			throw new IllegalArgumentException("type은 RENT 또는 BORROW 중 하나여야 합니다.");
+		}
+
+		Page<ReviewResponseDto> reviews = reviewService.getReviewsByReviewer(memberId, uploadType, page, size);
+
+		PagedResponse<ReviewResponseDto> response = PagedResponse.<ReviewResponseDto>builder()
+			.data(reviews.getContent())
+			.totalCount(reviews.getTotalElements())
+			.page(page)
+			.size(size)
+			.build();
+
+		return ApiResponse.ok("내가 작성한 리뷰 조회 성공", response);
+	}
 }
