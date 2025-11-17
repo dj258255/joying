@@ -239,12 +239,12 @@ const BorrowedHistoryList = ({
                   <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <ProfileImage 
                       src={rental.counterparty.profileImage}
-                      alt={rental.counterparty.name}
+                      alt={rental.counterparty.nickname || rental.counterparty.name || '상대방'}
                       size={50}
                       className="w-12 h-12"
                     />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{rental.counterparty.name} 님에게 빌림</h4>
+                      <h4 className="font-semibold text-gray-900">{(rental.counterparty.nickname || rental.counterparty.name || '알 수 없음')} 님에게 빌림</h4>
                       <p className="text-sm text-gray-600">거래 방식: {rental.rentMethod === 'ONLINE' ? '택배 거래' : '직거래'}</p>
                     </div>
                   </div>
