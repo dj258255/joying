@@ -13,6 +13,7 @@ import { rentalApi } from '@/features/rental/api/rentalApi';
 import { useReviewWrite } from '@/features/review/hooks/useReviewWrite';
 import { reviewApi } from '@/features/review/api/reviewApi';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 
 const BorrowedHistoryPage = () => {
   const { rentalId } = useParams();
@@ -29,6 +30,17 @@ const BorrowedHistoryPage = () => {
   const [myReview, setMyReview] = useState(null); // 내가 작성한 리뷰 (빌린 사람이 상품에 대한 리뷰)
   const [ownerReview, setOwnerReview] = useState(null); // 판매자가 작성한 리뷰 (빌린 사람에 대한 리뷰)
   const [loadingReviews, setLoadingReviews] = useState(false);
+  
+  // 판매자 정보 조회 (별점 포함)
+  const ownerMemberId = rental?.owner?.memberId;
+  const { user: ownerUser } = useUserProfile(ownerMemberId);
+  const ownerRating = ownerUser?.rating || rental?.owner?.rating || 0;
+  
+  // 커스텀 알림 상태
+  const [alertMessage, setAlertMessage] = useState(null);
+  const [alertType, setAlertType] = useState('success');
+  const [confirmMessage, setConfirmMessage] = useState(null);
+  const [confirmCallback, setConfirmCallback] = useState(null);
   
   // 모달 상태들
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -377,6 +389,31 @@ const BorrowedHistoryPage = () => {
     <div className="min-h-screen bg-gray-50">
       <SideNavbar />
       
+      {/* 커스텀 알림 */}
+      {alertMessage && (
+        <CustomAlert
+          message={alertMessage}
+          type={alertType}
+          onClose={() => {
+            setAlertMessage(null);
+            setAlertType('success');
+          }}
+        />
+      )}
+      
+      {/* 커스텀 확인 모달 */}
+      {confirmMessage && confirmCallback && (
+        <CustomConfirm
+          message={confirmMessage}
+          onConfirm={confirmCallback}
+          onCancel={() => {
+            setConfirmMessage(null);
+            setConfirmCallback(null);
+          }}
+          type="warning"
+        />
+      )}
+      
       <div className="p-6 max-w-6xl mx-auto">
         {/* 헤더 */}
         <div className="mb-6">
@@ -422,9 +459,9 @@ const BorrowedHistoryPage = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.owner?.nickname || rental.owner?.name} 님</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
-                  {renderPreciseStars(Number(rental.owner?.rating) || 0)}
+                  {renderPreciseStars(Number(ownerRating) || 0)}
                 </div>
-                <span className="text-sm text-gray-600">{Number(rental.owner?.rating) || 0}</span>
+                <span className="text-sm text-gray-600">{Number(ownerRating) || 0}</span>
               </div>
             </div>
 
@@ -542,17 +579,23 @@ const BorrowedHistoryPage = () => {
                     수정
                   </button>
                   <button
-                    onClick={async () => {
-                      if (!confirm('리뷰를 삭제하시겠습니까?')) return;
-                      try {
-                        await deleteReview(myReview.reviewId);
-                        alert('리뷰가 삭제되었습니다.');
-                        setMyReview(null);
-                        loadReviews();
-                      } catch (error) {
-                        console.error('리뷰 삭제 실패:', error);
-                        alert('리뷰 삭제에 실패했습니다.');
-                      }
+                    onClick={() => {
+                      setConfirmMessage('리뷰를 삭제하시겠습니까?');
+                      setConfirmCallback(async () => {
+                        try {
+                          await deleteReview(myReview.reviewId);
+                          setAlertMessage('리뷰가 삭제되었습니다.');
+                          setAlertType('success');
+                          setMyReview(null);
+                          loadReviews();
+                        } catch (error) {
+                          console.error('리뷰 삭제 실패:', error);
+                          setAlertMessage('리뷰 삭제에 실패했습니다.');
+                          setAlertType('error');
+                        }
+                        setConfirmMessage(null);
+                        setConfirmCallback(null);
+                      });
                     }}
                     disabled={isDeletingReview}
                     className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
@@ -762,7 +805,8 @@ const BorrowedHistoryPage = () => {
                 <button
                   onClick={async () => {
                     if (!reviewRating || !reviewContent.trim()) {
-                      alert('평점과 리뷰 내용을 입력해주세요.');
+                      setAlertMessage('평점과 리뷰 내용을 입력해주세요.');
+                      setAlertType('warning');
                       return;
                     }
                     
@@ -789,7 +833,8 @@ const BorrowedHistoryPage = () => {
                       }, 500);
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
-                      alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
+                      setAlertMessage('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
+                      setAlertType('error');
                     }
                   }}
                   disabled={isCreatingReview}
@@ -905,7 +950,8 @@ const BorrowedHistoryPage = () => {
                 <button
                   onClick={async () => {
                     if (!reviewRating || !reviewContent.trim()) {
-                      alert('평점과 리뷰 내용을 입력해주세요.');
+                      setAlertMessage('평점과 리뷰 내용을 입력해주세요.');
+                      setAlertType('warning');
                       return;
                     }
                     
@@ -917,7 +963,8 @@ const BorrowedHistoryPage = () => {
                         rating: reviewRating
                       });
                       
-                      alert('리뷰가 수정되었습니다.');
+                      setAlertMessage('리뷰가 수정되었습니다.');
+                      setAlertType('success');
                       setShowEditReviewModal(false);
                       setReviewTitle('');
                       setReviewContent('');
@@ -926,7 +973,8 @@ const BorrowedHistoryPage = () => {
                       await loadReviews();
                     } catch (error) {
                       console.error('리뷰 수정 실패:', error);
-                      alert('리뷰 수정에 실패했습니다. 다시 시도해주세요.');
+                      setAlertMessage('리뷰 수정에 실패했습니다. 다시 시도해주세요.');
+                      setAlertType('error');
                     }
                   }}
                   disabled={isUpdatingReview}
