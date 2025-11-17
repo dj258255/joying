@@ -42,8 +42,9 @@ const LentHistoryPage = () => {
       // API 호출로 대여 내역 조회
       const response = await rentalApi.getRentalDetail(rentalId);
       
-      // 응답 구조: { body: { data: {...} } } 또는 { data: {...} }
-      const rentalData = response?.body?.data || response?.data || response;
+      // 응답 구조: { status, message, data: {... }, timestamp }
+      // 또는 axios 응답: { data: { status, message, data: {... }, timestamp } }
+      const rentalData = response?.data?.data || response?.data || response;
       
       if (!rentalData) {
         console.error('대여 내역을 찾을 수 없습니다:', rentalId);
@@ -51,6 +52,7 @@ const LentHistoryPage = () => {
         return;
       }
       
+      console.log('[LentHistoryPage] 대여 내역 로드 완료:', rentalData);
       setRental(rentalData);
     } catch (error) {
       console.error('대여 내역 로딩 중 오류:', error);
@@ -319,8 +321,8 @@ const LentHistoryPage = () => {
             
             <div className="text-center mb-4">
               <ProfileImage
-                src={rental.renter?.profileImageUrl}
-                alt={rental.renter?.nickname || rental.renter?.name}
+                src={rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
+                alt={rental.renter?.nickname || rental.renter?.name || '대여자'}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
