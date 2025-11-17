@@ -98,20 +98,40 @@ const MyPageMain = () => {
 
     setIsLoadingReviews(true);
     try {
-      // 받은 리뷰: 내가 빌려줬을 때 받은 리뷰 (빌린 사람이 나에게 작성)
-      // uploadType=BORROW: 빌린 사람이 작성한 리뷰, reviewed=나
-      const receivedResponse = await axiosInstance.get(`/review/member/${currentUserId}`, {
-        params: { uploadType: 'BORROW', page: 1, size: 100 }
-      });
+      // 받은 리뷰: BORROW(빌려줬을 때) + RENT(빌렸을 때) 모두 조회
+      const [receivedBorrowRes, receivedRentRes, writtenBorrowRes, writtenRentRes] = await Promise.all([
+        // 빌려줬을 때 받은 리뷰 (빌린 사람이 나에게 작성)
+        axiosInstance.get(`/review/member/${currentUserId}`, {
+          params: { uploadType: 'BORROW', page: 1, size: 100 }
+        }),
+        // 빌렸을 때 받은 리뷰 (빌려준 사람이 나에게 작성)
+        axiosInstance.get(`/review/member/${currentUserId}`, {
+          params: { uploadType: 'RENT', page: 1, size: 100 }
+        }),
+        // 빌렸을 때 작성한 리뷰 (내가 빌려준 사람에게 작성)
+        axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
+          params: { uploadType: 'BORROW', page: 1, size: 100 }
+        }),
+        // 빌려줬을 때 작성한 리뷰 (내가 빌린 사람에게 작성)
+        axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
+          params: { uploadType: 'RENT', page: 1, size: 100 }
+        })
+      ]);
 
-      // 작성한 리뷰: 내가 빌렸을 때 작성한 리뷰 (내가 빌려준 사람에게 작성)
-      // uploadType=BORROW: 내가 빌린 상품에 대해 작성한 리뷰, reviewer=나
-      const writtenResponse = await axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
-        params: { uploadType: 'BORROW', page: 1, size: 100 }
-      });
+      // 받은 리뷰 합치기
+      const allReceivedReviews = [
+        ...(receivedBorrowRes.data.data.content || []),
+        ...(receivedRentRes.data.data.content || [])
+      ];
 
-      setReceivedReviews(receivedResponse.data.data.content || []);
-      setWrittenReviews(writtenResponse.data.data.content || []);
+      // 작성한 리뷰 합치기
+      const allWrittenReviews = [
+        ...(writtenBorrowRes.data.data.content || []),
+        ...(writtenRentRes.data.data.content || [])
+      ];
+
+      setReceivedReviews(allReceivedReviews);
+      setWrittenReviews(allWrittenReviews);
     } catch (error) {
       console.error('리뷰 로드 실패:', error);
       setReceivedReviews([]);

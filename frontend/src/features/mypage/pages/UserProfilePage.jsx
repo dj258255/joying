@@ -29,7 +29,7 @@ const UserProfilePage = () => {
     content: [],
     totalPages: 1,
     currentPage: 0,
-    uploadType: 'RENT'   // 기본값: 빌려줬을 때
+    uploadType: 'BORROW'   // 기본값: 빌려줬을 때
   });
 
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
@@ -121,7 +121,7 @@ const UserProfilePage = () => {
 
     setReviewPageInfo(prev => ({
       ...prev,
-      uploadType: tab === 'borrowed' ? 'BORROW' : 'RENT',
+      uploadType: tab === 'borrowed' ? 'RENT' : 'BORROW',
       currentPage: 0
     }));
   };
@@ -462,41 +462,8 @@ const UserProfilePage = () => {
           {/* 오른쪽 위젯 영역 */}
           <div className="lg:w-80 flex-shrink-0">
             <div className="space-y-6">
-              {/* 달력 위젯 */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <h4 className="font-semibold text-gray-900">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}</h4>
-                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
-                  {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
-                    <div key={day} className="p-2">{day}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                    <div key={day} className={`p-2 text-center text-sm rounded-lg ${
-                      day === new Date().getDate() ? 'border border-gray-900 text-gray-900 font-semibold' :
-                      'text-gray-700 hover:bg-gray-100'
-                    }`}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* 등록 상품 목록 */}
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-450px)] flex flex-col">
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-150px)] flex flex-col">
                 <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
                 <div className="flex-1 overflow-y-auto scrollbar-hide">
                   <div className="space-y-3 pr-2">

@@ -472,12 +472,6 @@ const LentHistoryPage = () => {
               >
                 프로필 보기
               </button>
-              <button
-                onClick={() => navigate(`/chats`)}
-                className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                메시지 보내기
-              </button>
             </div>
           </div>
 
