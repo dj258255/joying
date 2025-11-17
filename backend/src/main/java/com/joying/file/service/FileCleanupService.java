@@ -1,5 +1,7 @@
 package com.joying.file.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joying.file.domain.File;
 import com.joying.file.repository.FileRepository;
 import com.joying.file.repository.ProductFileRepository;
@@ -23,6 +25,7 @@ public class FileCleanupService {
     private final FileRepository fileRepository;
     private final ProductFileRepository productFileRepository;
     private final S3Client r2s3Client;
+    private final ObjectMapper objectMapper;
 
     @Value("${cloudflare.r2.bucket}")
     private String bucketName;
@@ -94,29 +97,21 @@ public class FileCleanupService {
     }
 
     private String extractObjectKey(File file) {
-        // 1순위: metadata.key
-        // 2순위: directory + "/" + fileName
         try {
             String meta = file.getMetadata();
-            if (meta != null && meta.contains("\"key\"")) {
-                // 파싱
-                int idx = meta.indexOf("\"key\"");
-                if (idx >= 0) {
-                    int start = meta.indexOf(":", idx) + 1;
-                    int quote1 = meta.indexOf("\"", start);
-                    int quote2 = meta.indexOf("\"", quote1 + 1);
-                    if (quote1 >= 0 && quote2 > quote1) {
-                        return meta.substring(quote1 + 1, quote2);
-                    }
+            if (meta != null) {
+                JsonNode node = objectMapper.readTree(meta);
+                if (node.hasNonNull("key")) {
+                    return node.get("key").asText();
                 }
             }
         } catch (Exception ignored) {}
 
         String dir = file.getDirectory();
         String name = file.getFileName();
-        if (dir == null || dir.isBlank()) {
-            return name;
-        }
+
+        if (dir == null || dir.isBlank()) return name;
+
         return dir.replaceAll("^/+", "").replaceAll("/+$", "") + "/" + name;
     }
 }
