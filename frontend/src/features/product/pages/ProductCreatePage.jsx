@@ -76,6 +76,13 @@ function ProductCreatePage() {
   const [recommendedHashtags, setRecommendedHashtags] = useState([]);
   const [showHashtagRecommendations, setShowHashtagRecommendations] = useState(false);
   const [loadingHashtags, setLoadingHashtags] = useState(false);
+  const [hashtagMessage, setHashtagMessage] = useState('');
+  const [hashtagMessageType, setHashtagMessageType] = useState(''); // 'error' | 'success' | ''
+  
+  // 가격 관련 메시지 상태
+  const [priceMessage, setPriceMessage] = useState('');
+  const [priceMessageType, setPriceMessageType] = useState(''); // 'error' | 'success' | ''
+  const [priceMessageField, setPriceMessageField] = useState(''); // 'deposit' | 'rentalFee' | ''
 
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
@@ -311,12 +318,34 @@ function ProductCreatePage() {
     const onlyDigits = raw.replace(/[^0-9]/g, '');
     const numValue = Number(onlyDigits) || 0;
 
+    // 메시지 초기화 (다른 필드의 메시지는 유지)
+    if (priceMessageField !== key) {
+      setPriceMessage('');
+      setPriceMessageType('');
+      setPriceMessageField('');
+    }
+
     // 21억 초과 시 제한
     if (numValue > MAX_PRICE) {
-      alert(`가격은 최대 ${MAX_PRICE.toLocaleString()}원(21억)까지 입력 가능합니다.`);
+      const fieldName = key === 'deposit' ? '보증금' : '일일요금';
+      setPriceMessage(`${fieldName}은(는) 최대 ${MAX_PRICE.toLocaleString()}원(21억)까지 입력 가능합니다.`);
+      setPriceMessageType('error');
+      setPriceMessageField(key);
       updateField(key, String(MAX_PRICE));
+      // 3초 후 메시지 자동 제거
+      setTimeout(() => {
+        setPriceMessage('');
+        setPriceMessageType('');
+        setPriceMessageField('');
+      }, 3000);
     } else {
       updateField(key, onlyDigits);
+      // 정상 입력 시 메시지 제거
+      if (priceMessageField === key) {
+        setPriceMessage('');
+        setPriceMessageType('');
+        setPriceMessageField('');
+      }
     }
   };
 
@@ -336,10 +365,20 @@ function ProductCreatePage() {
     const input = hashtagInput.trim();
     if (!input) return;
 
+    // 메시지 초기화
+    setHashtagMessage('');
+    setHashtagMessageType('');
+
     // 이미 3개 이상이면 추가 불가
     if (hashtags.length >= 3) {
-      alert('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      setHashtagMessage('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      setHashtagMessageType('error');
       setHashtagInput('');
+      // 3초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 3000);
       return;
     }
 
@@ -355,11 +394,24 @@ function ProductCreatePage() {
       })
       .slice(0, 3 - hashtags.length); // 남은 개수만큼만 추가
 
-    if (newTags.length > 0) {
-      setHashtags((prev) => [...prev, ...newTags]);
+    if (inputTags.length > 0) {
+      setHashtags((prev) => [...prev, ...inputTags]);
+      setHashtagMessage(`${inputTags.length}개의 해시태그가 추가되었습니다.`);
+      setHashtagMessageType('success');
+      // 2초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 2000);
     } else if (input.split(',').some(tag => tag.trim().length > 0)) {
       // 중복된 태그가 있는 경우
-      alert('이미 추가된 해시태그입니다.');
+      setHashtagMessage('이미 추가된 해시태그입니다.');
+      setHashtagMessageType('error');
+      // 3초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 3000);
     }
 
     setHashtagInput('');
@@ -416,9 +468,19 @@ function ProductCreatePage() {
 
   // 추천 해시태그 선택
   const addRecommendedHashtag = (tag) => {
+    // 메시지 초기화
+    setHashtagMessage('');
+    setHashtagMessageType('');
+
     // 이미 3개 이상이면 추가 불가
     if (hashtags.length >= 3) {
-      alert('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      setHashtagMessage('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      setHashtagMessageType('error');
+      // 3초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 3000);
       return;
     }
 
@@ -428,8 +490,21 @@ function ProductCreatePage() {
     
     if (!isDuplicate) {
       setHashtags((prev) => [...prev, tag]);
+      setHashtagMessage(`"${tag}" 해시태그가 추가되었습니다.`);
+      setHashtagMessageType('success');
+      // 2초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 2000);
     } else {
-      alert('이미 추가된 해시태그입니다.');
+      setHashtagMessage('이미 추가된 해시태그입니다.');
+      setHashtagMessageType('error');
+      // 3초 후 메시지 자동 제거
+      setTimeout(() => {
+        setHashtagMessage('');
+        setHashtagMessageType('');
+      }, 3000);
     }
   };
 
@@ -1307,6 +1382,41 @@ function ProductCreatePage() {
               </button>
             </div>
             
+            {/* 해시태그 메시지 */}
+            {hashtagMessage && (
+              <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-300 ${
+                hashtagMessageType === 'error' 
+                  ? 'bg-red-50 border-red-200 text-red-800' 
+                  : hashtagMessageType === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+                {hashtagMessageType === 'error' && (
+                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                )}
+                {hashtagMessageType === 'success' && (
+                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                )}
+                <span className="text-xs font-medium flex-1">{hashtagMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHashtagMessage('');
+                    setHashtagMessageType('');
+                  }}
+                  className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            
             {/* 추천 해시태그 목록 */}
             {showHashtagRecommendations && recommendedHashtags.length > 0 && (
               <div ref={recommendedHashtagsRef} className="mt-2 p-3 bg-gray-50 border-2 border-gray-300 rounded-lg">
@@ -1394,6 +1504,32 @@ function ProductCreatePage() {
                   placeholder="300000"
                   className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
+                {/* 보증금 메시지 */}
+                {priceMessage && priceMessageField === 'deposit' && (
+                  <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                    priceMessageType === 'error' 
+                      ? 'bg-red-50 border-red-200 text-red-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700'
+                  }`}>
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-medium flex-1">{priceMessage}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPriceMessage('');
+                        setPriceMessageType('');
+                        setPriceMessageField('');
+                      }}
+                      className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-black mb-1">일일요금</label>
@@ -1406,6 +1542,32 @@ function ProductCreatePage() {
                   placeholder="35000"
                   className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
                 />
+                {/* 일일요금 메시지 */}
+                {priceMessage && priceMessageField === 'rentalFee' && (
+                  <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                    priceMessageType === 'error' 
+                      ? 'bg-red-50 border-red-200 text-red-800' 
+                      : 'bg-gray-50 border-gray-200 text-gray-700'
+                  }`}>
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-medium flex-1">{priceMessage}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPriceMessage('');
+                        setPriceMessageType('');
+                        setPriceMessageField('');
+                      }}
+                      className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
