@@ -281,19 +281,35 @@ function ProductCreatePage() {
     }
   };
 
-  // 해시태그 관리 (쉼표로 여러 개 추가 가능)
+  // 해시태그 관리 (쉼표로 여러 개 추가 가능, 최대 3개)
   const addHashtag = () => {
     const input = hashtagInput.trim();
     if (!input) return;
+
+    // 이미 3개 이상이면 추가 불가
+    if (hashtags.length >= 3) {
+      alert('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      setHashtagInput('');
+      return;
+    }
 
     // 쉼표로 구분된 여러 해시태그 처리
     const newTags = input
       .split(',')
       .map(tag => tag.trim())
-      .filter(tag => tag.length > 0 && !hashtags.includes(tag));
+      .filter(tag => tag.length > 0)
+      .filter(tag => {
+        // 대소문자 구분 없이 중복 체크
+        const lowerTag = tag.toLowerCase();
+        return !hashtags.some(existingTag => existingTag.toLowerCase() === lowerTag);
+      })
+      .slice(0, 3 - hashtags.length); // 남은 개수만큼만 추가
 
     if (newTags.length > 0) {
       setHashtags((prev) => [...prev, ...newTags]);
+    } else if (input.split(',').some(tag => tag.trim().length > 0)) {
+      // 중복된 태그가 있는 경우
+      alert('이미 추가된 해시태그입니다.');
     }
 
     setHashtagInput('');
@@ -350,8 +366,20 @@ function ProductCreatePage() {
 
   // 추천 해시태그 선택
   const addRecommendedHashtag = (tag) => {
-    if (!hashtags.includes(tag)) {
+    // 이미 3개 이상이면 추가 불가
+    if (hashtags.length >= 3) {
+      alert('해시태그는 최대 3개까지 추가할 수 있습니다.');
+      return;
+    }
+
+    // 대소문자 구분 없이 중복 체크
+    const lowerTag = tag.toLowerCase();
+    const isDuplicate = hashtags.some(existingTag => existingTag.toLowerCase() === lowerTag);
+    
+    if (!isDuplicate) {
       setHashtags((prev) => [...prev, tag]);
+    } else {
+      alert('이미 추가된 해시태그입니다.');
     }
   };
 
@@ -419,10 +447,22 @@ function ProductCreatePage() {
 
       console.log('[ProductCreatePage] ✅ AI 자동 입력 완료!');
 
-      // 해시태그 자동 입력 (5개)
+      // 해시태그 자동 입력 (최대 3개)
       if (result.hashtags && result.hashtags.length > 0) {
-        setHashtags(result.hashtags);
-        console.log('[ProductCreatePage] ✅ AI 생성 해시태그:', result.hashtags);
+        // 중복 제거 및 최대 3개로 제한
+        const uniqueHashtags = [];
+        const lowerCaseSet = new Set();
+        
+        for (const tag of result.hashtags) {
+          const lowerTag = tag.toLowerCase();
+          if (!lowerCaseSet.has(lowerTag) && uniqueHashtags.length < 3) {
+            lowerCaseSet.add(lowerTag);
+            uniqueHashtags.push(tag);
+          }
+        }
+        
+        setHashtags(uniqueHashtags);
+        console.log('[ProductCreatePage] ✅ AI 생성 해시태그:', uniqueHashtags);
       }
 
       // 카테고리 자동 선택 (카테고리 데이터가 로드된 후에만)
@@ -1152,7 +1192,10 @@ function ProductCreatePage() {
 
           {/* 해시태그 */}
           <div>
-            <label className="block text-sm font-medium text-black mb-1.5">해시태그 (쉼표로 여러 개 추가 가능)</label>
+            <label className="block text-sm font-medium text-black mb-1.5">
+              해시태그 (최대 3개, 쉼표로 여러 개 추가 가능)
+              <span className="ml-2 text-xs text-gray-500">({hashtags.length}/3)</span>
+            </label>
             <div className="flex gap-2">
               <div className="flex-1 flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
                 {/* 입력창 */}
@@ -1169,7 +1212,9 @@ function ProductCreatePage() {
                 <button
                   type="button"
                   onClick={addHashtag}
-                  className="w-10 h-10 flex items-center justify-center bg-black text-white text-xl font-bold hover:bg-gray-800 transition-colors flex-shrink-0"
+                  disabled={hashtags.length >= 3}
+                  className="w-10 h-10 flex items-center justify-center bg-black text-white text-xl font-bold hover:bg-gray-800 transition-colors flex-shrink-0 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  title={hashtags.length >= 3 ? '해시태그는 최대 3개까지 추가할 수 있습니다' : '해시태그 추가'}
                 >
                   +
                 </button>
@@ -1207,9 +1252,13 @@ function ProductCreatePage() {
                       key={tag}
                       type="button"
                       onClick={() => addRecommendedHashtag(tag)}
-                      disabled={hashtags.includes(tag)}
+                      disabled={
+                        hashtags.length >= 3 || 
+                        hashtags.some(existingTag => existingTag.toLowerCase() === tag.toLowerCase())
+                      }
                       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                        hashtags.includes(tag)
+                        hashtags.length >= 3 || 
+                        hashtags.some(existingTag => existingTag.toLowerCase() === tag.toLowerCase())
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           : 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-900 hover:text-white'
                       }`}
