@@ -9,7 +9,8 @@ INSERT IGNORE INTO category (category_id, parent_id, category_name, category_lev
 (7, NULL, '패션', 1),
 (8, NULL, '음악·영상 감상', 1),
 (9, NULL, 'IT·디지털', 1),
-(10, NULL, '반려생활', 1);
+(10, NULL, '반려생활', 1),
+(11, NULL, '기타', 1);
 
 -- 하위 카테고리 삽입
 INSERT IGNORE INTO category (parent_id, category_name, category_level) VALUES
@@ -84,3 +85,6 @@ INSERT IGNORE INTO category (parent_id, category_name, category_level) VALUES
 (10, '급식기', 2),
 (10, '하우스', 2),
 (10, '산책용품', 2);
+
+-- 기타
+(11, '기타', 2);
