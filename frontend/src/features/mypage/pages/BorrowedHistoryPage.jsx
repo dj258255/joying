@@ -11,6 +11,7 @@ import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
 import { rentalApi } from '@/features/rental/api/rentalApi';
 import { useReviewWrite } from '@/features/review/hooks/useReviewWrite';
+import { reviewApi } from '@/features/review/api/reviewApi';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 const BorrowedHistoryPage = () => {
@@ -22,11 +23,17 @@ const BorrowedHistoryPage = () => {
   const [activeReviewTab, setActiveReviewTab] = useState('myReview'); // 'myReview' | 'ownerReview'
   
   // 리뷰 작성 훅
-  const { createReview, isCreating: isCreatingReview } = useReviewWrite();
+  const { createReview, updateReview, deleteReview, isCreating: isCreatingReview, isUpdating: isUpdatingReview, isDeleting: isDeletingReview } = useReviewWrite();
+  
+  // 리뷰 데이터 상태
+  const [myReview, setMyReview] = useState(null); // 내가 작성한 리뷰 (빌린 사람이 상품에 대한 리뷰)
+  const [ownerReview, setOwnerReview] = useState(null); // 판매자가 작성한 리뷰 (빌린 사람에 대한 리뷰)
+  const [loadingReviews, setLoadingReviews] = useState(false);
   
   // 모달 상태들
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showEditReviewModal, setShowEditReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewTitle, setReviewTitle] = useState('');
@@ -34,6 +41,12 @@ const BorrowedHistoryPage = () => {
   useEffect(() => {
     loadRentalHistory();
   }, [rentalId]);
+
+  useEffect(() => {
+    if (rental && rentalId) {
+      loadReviews();
+    }
+  }, [rental, rentalId]);
 
   const loadRentalHistory = async () => {
     try {
@@ -138,14 +151,56 @@ const BorrowedHistoryPage = () => {
   };
 
   // 리뷰 데이터 가져오기
-  const getReviews = () => {
-    if (!rental) return { myReview: null, ownerReview: null };
+  const loadReviews = async () => {
+    if (!rental || !rentalId) return;
     
-    // TODO: API 호출로 리뷰 조회
-    // const myReview = await reviewApi.getReview({ productId: rental.productId, reviewerId: 101, revieweeId: rental.ownerId });
-    // const ownerReview = await reviewApi.getReview({ productId: rental.productId, reviewerId: rental.ownerId, revieweeId: 101 });
-    
-    return { myReview: null, ownerReview: null };
+    try {
+      setLoadingReviews(true);
+      
+      // 내가 작성한 리뷰 조회 (빌린 사람이 상품에 대한 리뷰) - type: 'borrow'
+      try {
+        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
+        const myReviewData = myReviewResponse?.data?.data || myReviewResponse?.data;
+        if (myReviewData && myReviewData.reviewId) {
+          setMyReview(myReviewData);
+        } else {
+          setMyReview(null);
+        }
+      } catch (error) {
+        // 리뷰가 없으면 null로 설정
+        if (error.response?.status !== 404) {
+          console.error('내 리뷰 조회 실패:', error);
+        }
+        setMyReview(null);
+      }
+      
+      // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰) - type: 'rent'
+      try {
+        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const ownerReviewData = ownerReviewResponse?.data?.data || ownerReviewResponse?.data;
+        if (ownerReviewData && ownerReviewData.reviewId) {
+          setOwnerReview(ownerReviewData);
+        } else {
+          setOwnerReview(null);
+        }
+      } catch (error) {
+        // 리뷰가 없으면 null로 설정
+        if (error.response?.status !== 404) {
+          console.error('판매자 리뷰 조회 실패:', error);
+        }
+        setOwnerReview(null);
+      }
+    } catch (error) {
+      console.error('리뷰 조회 중 오류:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  // 거래 완료 상태 확인
+  const isCompleted = () => {
+    if (!rental) return false;
+    return rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED';
   };
 
   // 캘린더 렌더링 함수
@@ -384,69 +439,104 @@ const BorrowedHistoryPage = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">판매자가 남긴 리뷰</h2>
             
-            {(() => {
-              const { ownerReview } = getReviews();
-              if (ownerReview) {
-                return (
-                  <div>
-                    <p className="text-gray-700 mb-3">"{ownerReview.content}"</p>
-                    <div className="text-sm text-gray-500">
-                      {ownerReview.reviewer?.username} • {formatDate(ownerReview.createdAt)}
-                    </div>
+            {loadingReviews ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                <p className="text-gray-600">로딩 중...</p>
+              </div>
+            ) : ownerReview ? (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex">
+                    {renderPreciseStars(ownerReview.rating || 0)}
                   </div>
-                );
-              } else {
-                return (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600">판매자가 아직 리뷰를 작성하지 않았습니다.</p>
-                  </div>
-                );
-              }
-            })()}
+                  <span className="text-sm text-gray-600">{ownerReview.rating || 0}</span>
+                </div>
+                {ownerReview.title && (
+                  <h4 className="font-semibold text-gray-900 mb-2">{ownerReview.title}</h4>
+                )}
+                <p className="text-gray-700 mb-3">"{ownerReview.content}"</p>
+                <div className="text-sm text-gray-500">
+                  {ownerReview.reviewerName || '판매자'} • {ownerReview.createdAt ? formatDate(ownerReview.createdAt) : ''}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-600">판매자가 아직 리뷰를 작성하지 않았습니다.</p>
+              </div>
+            )}
           </div>
 
           {/* 하단 오른쪽: 내가 남긴 리뷰 */}
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">내가 남긴 리뷰</h2>
             
-            {(() => {
-              const { myReview } = getReviews();
-              if (myReview) {
-                return (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <svg
-                            key={i}
-                            className={`w-4 h-4 ${i < myReview.rating ? 'text-yellow-400' : 'text-gray-300'}`}
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-gray-700 mb-3">"{myReview.content}"</p>
-                    <div className="text-sm text-gray-500">
-                      {formatDate(myReview.createdAt)}
-                    </div>
+            {loadingReviews ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                <p className="text-gray-600">로딩 중...</p>
+              </div>
+            ) : myReview ? (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex">
+                    {renderPreciseStars(myReview.rating || 0)}
                   </div>
-                );
-              } else {
-                return (
-                  <div className="text-center py-8">
-                    <button 
-                      onClick={() => setShowReviewModal(true)}
-                      className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-                    >
-                      리뷰 작성하기
-                    </button>
-                  </div>
-                );
-              }
-            })()}
+                  <span className="text-sm text-gray-600">{myReview.rating || 0}</span>
+                </div>
+                {myReview.title && (
+                  <h4 className="font-semibold text-gray-900 mb-2">{myReview.title}</h4>
+                )}
+                <p className="text-gray-700 mb-3">"{myReview.content}"</p>
+                <div className="text-sm text-gray-500 mb-4">
+                  {formatDate(myReview.createdAt || new Date())}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setReviewTitle(myReview.title || '');
+                      setReviewContent(myReview.content || '');
+                      setReviewRating(myReview.rating || 0);
+                      setShowEditReviewModal(true);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    수정
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('리뷰를 삭제하시겠습니까?')) return;
+                      try {
+                        await deleteReview(myReview.reviewId);
+                        alert('리뷰가 삭제되었습니다.');
+                        setMyReview(null);
+                        loadReviews();
+                      } catch (error) {
+                        console.error('리뷰 삭제 실패:', error);
+                        alert('리뷰 삭제에 실패했습니다.');
+                      }
+                    }}
+                    disabled={isDeletingReview}
+                    className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {isDeletingReview ? '삭제 중...' : '삭제'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                {isCompleted() ? (
+                  <button 
+                    onClick={() => setShowReviewModal(true)}
+                    className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    리뷰 작성하기
+                  </button>
+                ) : (
+                  <p className="text-gray-600">거래 완료 후 리뷰를 작성할 수 있습니다.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -491,10 +581,10 @@ const BorrowedHistoryPage = () => {
                     <span className="text-gray-600">대여 시작일</span>
                     <span className="font-medium text-gray-900">{formatDate(rental.startRen)}</span>
                   </div>
-                  <div className="flex justify-between">
+                    <div className="flex justify-between">
                     <span className="text-gray-600">대여 종료일</span>
                     <span className="font-medium text-gray-900">{formatDate(rental.endRen)}</span>
-                  </div>
+                    </div>
                 </div>
               </div>
 
@@ -652,8 +742,8 @@ const BorrowedHistoryPage = () => {
                       setReviewRating(0);
                       setReviewContent('');
                       setReviewTitle('');
-                      // 대여 내역 다시 불러오기
-                      loadRentalHistory();
+                      // 리뷰 다시 불러오기
+                      await loadReviews();
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
                       alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
@@ -663,6 +753,143 @@ const BorrowedHistoryPage = () => {
                   className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isCreatingReview ? '작성 중...' : '작성하기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 리뷰 수정 모달 */}
+      {showEditReviewModal && myReview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">리뷰 수정</h3>
+              <button
+                onClick={() => {
+                  setShowEditReviewModal(false);
+                  setReviewTitle('');
+                  setReviewContent('');
+                  setReviewRating(0);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">평점</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => {
+                        if (reviewRating === star) {
+                          setReviewRating(star - 0.5);
+                        } else {
+                          setReviewRating(star);
+                        }
+                      }}
+                      className="relative"
+                    >
+                      <svg
+                        className={`w-8 h-8 transition-colors ${
+                          star <= reviewRating ? 'text-yellow-400' : 'text-gray-300'
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      {reviewRating === star - 0.5 && (
+                        <div className="absolute inset-0 overflow-hidden">
+                          <svg
+                            className="w-8 h-8 text-yellow-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                            style={{ clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' }}
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-600 mt-2">
+                  현재 평점: {reviewRating}점
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 제목 (선택)</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
+                  placeholder="리뷰 제목을 입력해주세요..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
+                  rows={4}
+                  placeholder="리뷰를 작성해주세요..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditReviewModal(false);
+                    setReviewTitle('');
+                    setReviewContent('');
+                    setReviewRating(0);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!reviewRating || !reviewContent.trim()) {
+                      alert('평점과 리뷰 내용을 입력해주세요.');
+                      return;
+                    }
+                    
+                    try {
+                      await updateReview({
+                        reviewId: myReview.reviewId,
+                        title: reviewTitle.trim() || `리뷰`,
+                        content: reviewContent.trim(),
+                        rating: reviewRating
+                      });
+                      
+                      alert('리뷰가 수정되었습니다.');
+                      setShowEditReviewModal(false);
+                      setReviewTitle('');
+                      setReviewContent('');
+                      setReviewRating(0);
+                      // 리뷰 다시 불러오기
+                      await loadReviews();
+                    } catch (error) {
+                      console.error('리뷰 수정 실패:', error);
+                      alert('리뷰 수정에 실패했습니다. 다시 시도해주세요.');
+                    }
+                  }}
+                  disabled={isUpdatingReview}
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdatingReview ? '수정 중...' : '수정하기'}
                 </button>
               </div>
             </div>
