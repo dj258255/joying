@@ -7,6 +7,7 @@ import React, { useState, useRef } from 'react';
 
 const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
   const [dragActive, setDragActive] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const fileInputRef = useRef(null);
 
   const handleDrag = (e) => {
@@ -23,35 +24,55 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(Array.from(e.dataTransfer.files));
     }
   };
 
   const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(Array.from(e.target.files));
     }
   };
 
-  const handleFile = (file) => {
-    // 파일 타입 검증은 백엔드에서 자동으로 처리되므로
-    // 여기서는 기본적인 검증만 수행
-    // 이미지: 10MB, 일반 파일: 50MB 제한은 백엔드에서 처리
-    
-    // ContentType 기반으로 이미지 여부 판단
-    const isImage = file.type && file.type.startsWith('image/');
-    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+  const handleFiles = (files) => {
+    // 파일 검증
+    const validFiles = [];
 
-    if (file.size > maxSize) {
-      alert(isImage 
-        ? '이미지 파일 크기는 10MB 이하여야 합니다.' 
-        : '파일 크기는 50MB 이하여야 합니다.');
-      return;
+    for (const file of files) {
+      // ContentType 기반으로 이미지 여부 판단
+      const isImage = file.type && file.type.startsWith('image/');
+      const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+
+      if (file.size > maxSize) {
+        alert(`${file.name}: ${isImage
+          ? '이미지 파일 크기는 10MB 이하여야 합니다.'
+          : '파일 크기는 50MB 이하여야 합니다.'}`);
+        continue;
+      }
+
+      validFiles.push(file);
     }
 
-    onFileSelect(file);
+    if (validFiles.length > 0) {
+      setSelectedFiles(validFiles);
+    }
+  };
+
+  const removeFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) return;
+
+    // 여러 파일을 순차적으로 업로드
+    for (const file of selectedFiles) {
+      await onFileSelect(file);
+    }
+
+    setSelectedFiles([]);
     onClose();
   };
 
@@ -118,11 +139,75 @@ const FileUploadModal = ({ isOpen, onClose, onFileSelect }) => {
             </button>
           </div>
 
+          {/* 선택된 파일 목록 */}
+          {selectedFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm text-white/80 font-medium">
+                  선택된 파일 ({selectedFiles.length}개)
+                </p>
+                <button
+                  onClick={() => setSelectedFiles([])}
+                  className="text-xs text-white/60 hover:text-white/90 transition-colors"
+                >
+                  전체 삭제
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-white/10 backdrop-blur-md rounded-lg p-3 border border-white/20"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex-shrink-0">
+                        {file.type.startsWith('image/') ? (
+                          <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white font-medium truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-white/60">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="flex-shrink-0 ml-2 p-1 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* 업로드 버튼 */}
+              <button
+                onClick={handleUpload}
+                className="w-full mt-4 px-6 py-3 bg-black/60 backdrop-blur-md text-white rounded-xl font-semibold hover:bg-black/80 transition-all duration-200 shadow-lg hover:shadow-xl border border-white/20"
+              >
+                업로드 ({selectedFiles.length}개)
+              </button>
+            </div>
+          )}
+
           {/* 숨겨진 파일 입력 */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*,video/*"
+            multiple
             onChange={handleFileInput}
             className="hidden"
           />

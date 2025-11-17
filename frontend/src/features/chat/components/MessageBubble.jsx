@@ -854,6 +854,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                   <img
                     src={imageUrl}
                     alt="전송된 이미지"
+                    draggable="false"
                     className="rounded-2xl max-w-full h-auto cursor-pointer"
                     onError={(e) => {
                       // 이미지 로드 실패 시 에러 메시지 표시
@@ -1039,7 +1040,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                 {sender?.nickname || '알 수 없음'}
               </div>
             )}
-            <div className="text-sm whitespace-pre-wrap">
+            <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-break-word">
               {isDeleted ? '삭제된 메시지입니다.' : content}
             </div>
             {isEdited && !isDeleted && (

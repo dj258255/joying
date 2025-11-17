@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -18,8 +18,9 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   
   // 사이드 네비게이션 상태
@@ -60,6 +61,61 @@ const ProductListMain = () => {
   const categoryParam = searchParams.get('category') || '';
 
   const lastAppliedFilters = React.useRef(null);
+  const isInitialLoad = React.useRef(true);
+
+  // URL 파라미터에서 필터 상태 복원하는 함수
+  const getFiltersFromURL = React.useCallback(() => {
+    const hashtagsParam = searchParams.get('hashtags');
+    let selectedHashtags = [];
+    if (hashtagsParam) {
+      try {
+        selectedHashtags = JSON.parse(hashtagsParam);
+      } catch (e) {
+        console.error('해시태그 파싱 오류:', e);
+        selectedHashtags = [];
+      }
+    }
+
+    const filters = {
+      searchQuery: searchParams.get('q') || '',
+      selectedDates: {
+        start: searchParams.get('dateFrom') ? new Date(searchParams.get('dateFrom')) : null,
+        end: searchParams.get('dateTo') ? new Date(searchParams.get('dateTo')) : null
+      },
+      priceRange: {
+        min: searchParams.get('priceMin') || '',
+        max: searchParams.get('priceMax') || ''
+      },
+      selectedSubcategories: [], // 나중에 categories 로드 후 복원
+      selectedDong: null, // 나중에 regions 로드 후 복원
+      rating: parseFloat(searchParams.get('rating')) || 0,
+      sameDayRental: searchParams.get('sameDayRental') === 'true',
+      selectedHashtags: selectedHashtags
+    };
+    return filters;
+  }, [searchParams]);
+
+  // 필터 상태를 URL 파라미터로 저장하는 함수
+  const updateURLWithFilters = React.useCallback((filters) => {
+    const params = new URLSearchParams();
+
+    if (filters.searchQuery) params.set('q', filters.searchQuery);
+    if (filters.selectedDates.start) params.set('dateFrom', formatToLocalDate(filters.selectedDates.start));
+    if (filters.selectedDates.end) params.set('dateTo', formatToLocalDate(filters.selectedDates.end));
+    if (filters.priceRange.min) params.set('priceMin', filters.priceRange.min.toString().replace(/,/g, ''));
+    if (filters.priceRange.max) params.set('priceMax', filters.priceRange.max.toString().replace(/,/g, ''));
+    if (filters.selectedSubcategories.length > 0) {
+      params.set('category', filters.selectedSubcategories[0].categoryId.toString());
+    }
+    if (filters.selectedDong) params.set('dong', filters.selectedDong.id || filters.selectedDong.dongId);
+    if (filters.rating > 0) params.set('rating', filters.rating.toString());
+    if (filters.sameDayRental) params.set('sameDayRental', 'true');
+    if (filters.selectedHashtags && filters.selectedHashtags.length > 0) {
+      params.set('hashtags', JSON.stringify(filters.selectedHashtags.map(h => ({ id: h.id, name: h.name }))));
+    }
+
+    setSearchParams(params, { replace: true });
+  }, [setSearchParams]);
 
   // 지역 팝오버 관련 상태
   const [showRegionPopover, setShowRegionPopover] = useState(false);
@@ -81,6 +137,53 @@ const ProductListMain = () => {
       setActiveSidoId(sidos[0].sidoId || sidos[0].id);
     }
   }, [sidos, activeSidoId, showRegionPopover]);
+
+  // location.state에서 해시태그 필터 받아오기 (상품 상세 페이지에서 넘어온 경우)
+  React.useEffect(() => {
+    if (location.state?.filterByHashtag) {
+      const hashtag = location.state.filterByHashtag;
+      console.log('🏷️ [ProductListMain] 상품 상세에서 해시태그 필터 적용:', hashtag);
+
+      // 해시태그를 선택 상태에 추가
+      setSelectedHashtags([hashtag]);
+      setAppliedFilters(prev => ({
+        ...prev,
+        selectedHashtags: [hashtag]
+      }));
+
+      // location.state 초기화 (뒤로가기 시 다시 적용되지 않도록)
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
+  // 컴포넌트 마운트 시 URL에서 필터 복원
+  React.useEffect(() => {
+    if (isInitialLoad.current && searchParams.toString()) {
+      console.log('🔄 [ProductListMain] 초기 로드 - URL에서 필터 복원');
+      const urlFilters = getFiltersFromURL();
+
+      // 기본 필터들 복원
+      setSearchQuery(urlFilters.searchQuery);
+      setSelectedDates(urlFilters.selectedDates);
+      setPriceRange(urlFilters.priceRange);
+      setRating(urlFilters.rating);
+      setSameDayRental(urlFilters.sameDayRental);
+      setSelectedHashtags(urlFilters.selectedHashtags);
+
+      // 적용된 필터에도 반영 (카테고리와 지역은 제외, 별도 처리됨)
+      setAppliedFilters(prev => ({
+        ...prev,
+        searchQuery: urlFilters.searchQuery,
+        selectedDates: urlFilters.selectedDates,
+        priceRange: urlFilters.priceRange,
+        rating: urlFilters.rating,
+        sameDayRental: urlFilters.sameDayRental,
+        selectedHashtags: urlFilters.selectedHashtags
+      }));
+
+      isInitialLoad.current = false;
+    }
+  }, [searchParams, getFiltersFromURL]);
 
   React.useEffect(() => {
     if (q) {
@@ -411,9 +514,9 @@ const ProductListMain = () => {
     setRating(0);
     setSameDayRental(false);
     setSelectedHashtags([]);
-    
+
     // 적용된 필터도 초기화
-    setAppliedFilters({
+    const resetFilters = {
       searchQuery: '',
       selectedDates: { start: null, end: null },
       priceRange: { min: '', max: '' },
@@ -422,14 +525,25 @@ const ProductListMain = () => {
       rating: 0,
       sameDayRental: false,
       selectedHashtags: []
-    });
+    };
+
+    setAppliedFilters(resetFilters);
+
+    // URL도 초기화
+    setSearchParams({}, { replace: true });
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
+    // 해시태그 유효성 검사
+    if (!hashtag || !hashtag.id || !hashtag.name) {
+      console.warn('[ProductListMain] 잘못된 해시태그:', hashtag);
+      return;
+    }
+
     if (isRemove) {
-      setSelectedHashtags(prev => prev.filter(h => h.id !== hashtag.id));
+      setSelectedHashtags(prev => prev.filter(h => h && h.id !== hashtag.id));
     } else {
-      const isAlreadySelected = selectedHashtags.some(h => h.id === hashtag.id);
+      const isAlreadySelected = selectedHashtags.some(h => h && h.id === hashtag.id);
       if (!isAlreadySelected) {
         setSelectedHashtags(prev => [...prev, hashtag]);
       }
@@ -467,9 +581,8 @@ const ProductListMain = () => {
     });
 
     // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
-    
-    // 임시 필터를 적용된 필터로 복사 (이것이 useEffect를 트리거)
-    setAppliedFilters({
+
+    const newFilters = {
       searchQuery,
       selectedDates,
       priceRange,
@@ -478,7 +591,13 @@ const ProductListMain = () => {
       rating,
       sameDayRental,
       selectedHashtags
-    });
+    };
+
+    // 임시 필터를 적용된 필터로 복사 (이것이 useEffect를 트리거)
+    setAppliedFilters(newFilters);
+
+    // URL에 필터 상태 저장
+    updateURLWithFilters(newFilters);
 
     console.log('✅ [ProductListMain] 필터 적용:', {
       searchQuery,
@@ -1254,11 +1373,11 @@ const ProductListMain = () => {
          )}
 
          {/* 상품 목록 */}
-         {!isLoading && !isError && products.length > 0 && (
+         {!isLoading && !isError && filteredProducts.length > 0 && (
            <>
              <div className="mb-4 flex items-center justify-between">
                <p className="text-sm text-gray-600">
-                 총 <span className="font-semibold text-gray-900">{filteredProducts.length}</span>개의 상품
+                 총 <span className="font-semibold text-gray-900">{total}</span>개의 상품
                </p>
              </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
@@ -1291,7 +1410,7 @@ const ProductListMain = () => {
          )}
 
          {/* 빈 상태 */}
-         {!isLoading && !isError && products.length === 0 && (
+         {!isLoading && !isError && filteredProducts.length === 0 && (
            <div className="flex items-center justify-center py-20">
              <div className="text-center">
                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

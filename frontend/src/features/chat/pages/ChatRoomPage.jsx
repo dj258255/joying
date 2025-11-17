@@ -27,6 +27,7 @@ import ReceiveModal from '../../../features/rental/components/ReceiveModal';
 import ReturnModal from '../../../features/rental/components/ReturnModal';
 import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
+import VideoListModal from '../../../features/rental/components/VideoListModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
@@ -407,6 +408,8 @@ const ChatRoomPage = () => {
   // 드래그 앤 드롭 상태
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
+  // 거래 영상 조회 모달
+  const [showVideoListModal, setShowVideoListModal] = useState(false);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -678,14 +681,14 @@ const ChatRoomPage = () => {
         console.log('[scrollToBottom] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
         return;
       }
+
+      // 메시지 점프 중이면 자동 스크롤하지 않음 (force가 아닌 경우에만)
+      if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+        console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
+        return;
+      }
     }
-    
-    // 메시지 점프 중이면 자동 스크롤하지 않음
-    if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
-      console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
-      return;
-    }
-    
+
     if (messagesContainerRef.current) {
       if (behavior === 'smooth') {
         messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
@@ -724,7 +727,7 @@ const ChatRoomPage = () => {
       }
       return;
     }
-    
+
     // 메시지 점프 중이거나 대기 중이면 자동 스크롤하지 않음
     if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
       // 읽음 처리만 실행
@@ -733,7 +736,12 @@ const ChatRoomPage = () => {
       }
       return;
     }
-    scrollToBottom('auto');
+
+    // 채팅방 입장 시 강제로 최하단 스크롤 (이미지/영상 로드 대기)
+    setTimeout(() => {
+      scrollToBottom('auto', true);
+    }, 300);
+
     // 채팅방 진입 시 읽음 처리
     if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
       sendReadReceipt();
@@ -823,6 +831,9 @@ const ChatRoomPage = () => {
 
   // 드래그 앤 드롭 핸들러 (카운터 방식으로 자식 요소 문제 해결)
   const handleDragEnter = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current++;
@@ -832,6 +843,9 @@ const ChatRoomPage = () => {
   };
 
   const handleDragLeave = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current--;
@@ -841,11 +855,21 @@ const ChatRoomPage = () => {
   };
 
   const handleDragOver = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
   };
 
   const handleDrop = async (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current = 0;
@@ -1910,8 +1934,8 @@ const ChatRoomPage = () => {
       >
       {/* 드래그 앤 드롭 오버레이 - 전체 화면 */}
       {isDragging && (
-        <div className="fixed inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-[9999]">
-          <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border-4 border-dashed border-blue-400">
+        <div className="fixed inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-[9999] pointer-events-none">
+          <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border-4 border-dashed border-blue-400 pointer-events-none">
             <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
               <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1998,6 +2022,19 @@ const ChatRoomPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
+            {/* 거래 영상 보기 버튼 */}
+            {currentRentalData?.rentalHisId && (
+              <button
+                onClick={() => setShowVideoListModal(true)}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="거래 영상 보기"
+                title="거래 영상 보기"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
             {/* 설정 버튼 */}
             <button
               onClick={() => setShowSettings(true)}
@@ -2016,7 +2053,7 @@ const ChatRoomPage = () => {
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col relative"
+        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col relative bg-white"
       >
 
         {isLoadingHistory && (
@@ -3542,6 +3579,15 @@ const ChatRoomPage = () => {
         onReject={handleCancelReject}
         isProcessing={isProcessingCancel}
       />
+
+      {/* 거래 영상 조회 모달 */}
+      {currentRentalData?.rentalHisId && (
+        <VideoListModal
+          isOpen={showVideoListModal}
+          onClose={() => setShowVideoListModal(false)}
+          rentalHisId={currentRentalData.rentalHisId}
+        />
+      )}
     </div>
     </>
   );

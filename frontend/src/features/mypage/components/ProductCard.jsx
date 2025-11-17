@@ -268,17 +268,17 @@ const ProductCard = ({
           
           {/* 가격 & 평점 */}
           <div className="flex items-center justify-between gap-1">
-            <p className="text-white font-semibold text-[8px] sm:text-xs truncate">
+            <p className="text-white font-bold text-xs sm:text-sm truncate drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {product?.rentalFee ? `${product.rentalFee.toLocaleString()}원/일` : '가격 정보 없음'}
             </p>
-            
+
             {/* 별점 표시 */}
             {product?.rating !== undefined && (
-              <div className="flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-xs text-white flex-shrink-0">
-                <span className="text-[10px] sm:text-sm">⭐</span>
-                <span className="font-semibold">{product.rating.toFixed(1)}</span>
+              <div className="flex items-center gap-0.5 sm:gap-1 text-xs sm:text-sm text-white flex-shrink-0 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <span className="text-sm sm:text-base">⭐</span>
+                <span className="font-bold">{product.rating.toFixed(1)}</span>
                 {product?.reviewCount && (
-                  <span className="text-gray-300 hidden sm:inline">({product.reviewCount})</span>
+                  <span className="text-gray-200 hidden sm:inline">({product.reviewCount})</span>
                 )}
               </div>
             )}
