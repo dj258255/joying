@@ -198,7 +198,7 @@ const BorrowedHistoryList = ({
              <div 
                key={rental.rentalHisId}
                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200 cursor-pointer"
-               onClick={() => navigate(`/chats`)}
+               onClick={() => navigate(`/mypage/borrowed/${rental.rentalHisId}`)}
              >
                <div className="flex flex-col lg:flex-row gap-6">
                  {/* 상품 정보 */}

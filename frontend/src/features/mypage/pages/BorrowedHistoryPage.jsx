@@ -9,41 +9,52 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import ReviewCard from '../../review/components/ReviewCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
-import { DUMMY_RENTAL_HISTORY, DUMMY_USERS, DUMMY_REVIEWS, DUMMY_PRODUCTS } from '../../../shared/constants/dummyData';
+import { rentalApi } from '@/features/rental/api/rentalApi';
+import { useReviewWrite } from '@/features/review/hooks/useReviewWrite';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 const BorrowedHistoryPage = () => {
   const { rentalId } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [rental, setRental] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeReviewTab, setActiveReviewTab] = useState('myReview'); // 'myReview' | 'ownerReview'
+  
+  // 리뷰 작성 훅
+  const { createReview, isCreating: isCreatingReview } = useReviewWrite();
   
   // 모달 상태들
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
+  const [reviewTitle, setReviewTitle] = useState('');
 
   useEffect(() => {
     loadRentalHistory();
   }, [rentalId]);
 
-  const loadRentalHistory = () => {
+  const loadRentalHistory = async () => {
     try {
       setLoading(true);
       
-      // 빌린 내역에서 해당 rental 찾기
-      const foundRental = DUMMY_RENTAL_HISTORY.borrowed.find(r => r.id === rentalId);
+      // API 호출로 대여 내역 조회
+      const response = await rentalApi.getRentalDetail(rentalId);
       
-      if (!foundRental) {
+      // 응답 구조: { body: { data: {...} } } 또는 { data: {...} }
+      const rentalData = response?.body?.data || response?.data || response;
+      
+      if (!rentalData) {
         console.error('대여 내역을 찾을 수 없습니다:', rentalId);
         navigate('/404');
         return;
       }
       
-      setRental(foundRental);
+      setRental(rentalData);
     } catch (error) {
       console.error('대여 내역 로딩 중 오류:', error);
+      navigate('/404');
     } finally {
       setLoading(false);
     }
@@ -128,29 +139,19 @@ const BorrowedHistoryPage = () => {
   const getReviews = () => {
     if (!rental) return { myReview: null, ownerReview: null };
     
-    // 내가 작성한 리뷰 (빌렸을 때)
-    const myReview = DUMMY_REVIEWS.find(r => 
-      r.productId === rental.productId && 
-      r.reviewerId === 101 && 
-      r.revieweeId === rental.ownerId
-    );
+    // TODO: API 호출로 리뷰 조회
+    // const myReview = await reviewApi.getReview({ productId: rental.productId, reviewerId: 101, revieweeId: rental.ownerId });
+    // const ownerReview = await reviewApi.getReview({ productId: rental.productId, reviewerId: rental.ownerId, revieweeId: 101 });
     
-    // 상대가 작성한 리뷰 (빌려줬을 때)
-    const ownerReview = DUMMY_REVIEWS.find(r => 
-      r.productId === rental.productId && 
-      r.reviewerId === rental.ownerId && 
-      r.revieweeId === 101
-    );
-    
-    return { myReview, ownerReview };
+    return { myReview: null, ownerReview: null };
   };
 
   // 캘린더 렌더링 함수
   const renderCalendar = () => {
     if (!rental) return null;
 
-    const startDate = new Date(rental.startDate);
-    const endDate = new Date(rental.endDate);
+    const startDate = new Date(rental.startRen);
+    const endDate = new Date(rental.endRen);
     
     // 시작일과 종료일이 다른 월에 있는 경우를 고려
     const startMonth = startDate.getMonth();
@@ -190,7 +191,7 @@ const BorrowedHistoryPage = () => {
     const days = getDaysInMonth(new Date(displayYear, displayMonth));
 
     return (
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {displayYear}년 {displayMonth + 1}월
@@ -221,7 +222,7 @@ const BorrowedHistoryPage = () => {
                 key={index}
                 className={`h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
                   isSelected
-                    ? 'bg-blue-600 text-white font-bold shadow-md'
+                    ? 'bg-gray-900 text-white font-bold shadow-md'
                     : isToday
                     ? 'bg-gray-200 text-gray-800 font-semibold'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -236,7 +237,7 @@ const BorrowedHistoryPage = () => {
         {/* 범례 */}
         <div className="flex items-center justify-center gap-4 mt-4 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-blue-600 rounded"></div>
+            <div className="w-3 h-3 bg-gray-900 rounded"></div>
             <span className="text-gray-600">대여 기간</span>
           </div>
           <div className="flex items-center gap-1">
@@ -252,7 +253,7 @@ const BorrowedHistoryPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">로딩 중...</p>
         </div>
       </div>
@@ -266,7 +267,7 @@ const BorrowedHistoryPage = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-4">대여 내역을 찾을 수 없습니다</h2>
           <button
             onClick={() => navigate('/mypage')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
           >
             마이페이지로 돌아가기
           </button>
@@ -290,7 +291,6 @@ const BorrowedHistoryPage = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">빌린 내역 상세</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -299,10 +299,17 @@ const BorrowedHistoryPage = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">상품 정보</h2>
             
             <ProductCard
-              product={rental.product}
+              product={{
+                id: rental.product?.productId,
+                title: rental.product?.title,
+                thumbnailUrl: rental.product?.thumbnail,
+                rentalFee: rental.fee
+              }}
               actionType="view"
-              status={rental.status}
-              onClick={() => navigate(`/products/${rental.product.id}`)}
+              status={rental.status === 'COMPLETED' ? 'completed' :
+                     rental.status === 'RENTING' ? 'rented' :
+                     rental.status === 'CANCELLED' ? 'unavailable' : 'pending'}
+              onClick={() => navigate(`/products/${rental.product?.productId}`)}
             />
           </div>
 
@@ -312,52 +319,30 @@ const BorrowedHistoryPage = () => {
             
             <div className="text-center mb-4">
               <ProfileImage
-                src={rental.owner.profileImageUrl}
-                alt={rental.owner.nickname}
+                src={rental.owner?.profileImageUrl}
+                alt={rental.owner?.nickname || rental.owner?.name}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.owner.nickname} 님 (Owner)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.owner?.nickname || rental.owner?.name} 님 (Owner)</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
-                  {renderPreciseStars(rental.owner.rating)}
+                  {renderPreciseStars(rental.owner?.rating || 0)}
                 </div>
-                <span className="text-sm text-gray-600">{rental.owner.rating} (124개 리뷰)</span>
-              </div>
-            </div>
-
-            {/* 추가 정보 */}
-            <div className="space-y-3 mb-4">
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">이메일</span>
-                <span className="text-sm font-medium text-gray-900">{rental.owner.email}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">성별</span>
-                <span className="text-sm font-medium text-gray-900">{rental.owner.gender === 'M' ? '남성' : '여성'}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">나이</span>
-                <span className="text-sm font-medium text-gray-900">{new Date().getFullYear() - new Date(rental.owner.birth).getFullYear()}세</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-600">활동 기간</span>
-                <span className="text-sm font-medium text-blue-600">
-                  {Math.ceil((new Date() - new Date(rental.owner.createdAt)) / (1000 * 60 * 60 * 24))}일째 활동중
-                </span>
+                <span className="text-sm text-gray-600">{rental.owner?.rating || 0}</span>
               </div>
             </div>
 
             <div className="space-y-2">
               <button
-                onClick={() => navigate(`/members/${rental.ownerId}`)}
-                className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                onClick={() => navigate(`/members/${rental.owner?.memberId}`)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 프로필 보기
               </button>
               <button
-                onClick={() => navigate(`/chats/${rental.ownerId}`)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => navigate(`/chats`)}
+                className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
               >
                 메시지 보내기
               </button>
@@ -377,17 +362,17 @@ const BorrowedHistoryPage = () => {
             <div className="space-y-3 mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-600">총 대여료</span>
-                <span className="font-bold text-lg text-gray-900">{rental.totalPrice.toLocaleString()}원</span>
+                <span className="font-bold text-lg text-gray-900">{rental.fee?.toLocaleString() || 0}원</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">보증금</span>
-                <span className="font-bold text-lg text-gray-900">5,000원</span>
+                <span className="font-bold text-lg text-gray-900">{rental.deposit?.toLocaleString() || 0}원</span>
               </div>
             </div>
 
             <button 
               onClick={() => setShowPaymentModal(true)}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
             >
               결제 상세 정보
             </button>
@@ -452,7 +437,7 @@ const BorrowedHistoryPage = () => {
                   <div className="text-center py-8">
                     <button 
                       onClick={() => setShowReviewModal(true)}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                     >
                       리뷰 작성하기
                     </button>
@@ -486,29 +471,28 @@ const BorrowedHistoryPage = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 ID</span>
-                    <span className="font-medium text-gray-900">{rental.id}</span>
+                    <span className="font-medium text-gray-900">{rental.rentalHisId}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 상태</span>
                     <span className={`px-2 py-1 rounded-full text-sm ${
-                      rental.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                      rental.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                      rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
+                      rental.status === 'RENTING' ? 'bg-yellow-100 text-yellow-800' : 
                       'bg-red-100 text-red-800'
                     }`}>
-                      {rental.status === 'completed' ? '완료' : 
-                       rental.status === 'pending' ? '진행중' : '취소'}
+                      {rental.status === 'COMPLETED' ? '완료' : 
+                       rental.status === 'RENTING' ? '진행중' : 
+                       rental.status === 'CANCELLED' ? '취소' : rental.status}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">신청일</span>
-                    <span className="font-medium text-gray-900">{formatDate(rental.createdAt)}</span>
+                    <span className="text-gray-600">대여 시작일</span>
+                    <span className="font-medium text-gray-900">{formatDate(rental.startRen)}</span>
                   </div>
-                  {rental.completedAt && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">완료일</span>
-                      <span className="font-medium text-gray-900">{formatDate(rental.completedAt)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">대여 종료일</span>
+                    <span className="font-medium text-gray-900">{formatDate(rental.endRen)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -516,27 +500,23 @@ const BorrowedHistoryPage = () => {
                 <h4 className="font-semibold text-gray-900 mb-3">결제 정보</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">일일 대여료</span>
-                    <span className="font-medium text-gray-900">{rental.product.price.toLocaleString()}원</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-gray-600">대여 일수</span>
                     <span className="font-medium text-gray-900">
-                      {Math.ceil((new Date(rental.endDate) - new Date(rental.startDate)) / (1000 * 60 * 60 * 24))}일
+                      {Math.ceil((new Date(rental.endRen) - new Date(rental.startRen)) / (1000 * 60 * 60 * 24))}일
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">총 대여료</span>
-                    <span className="font-medium text-gray-900">{rental.totalPrice.toLocaleString()}원</span>
+                    <span className="font-medium text-gray-900">{rental.fee?.toLocaleString() || 0}원</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">보증금</span>
-                    <span className="font-medium text-gray-900">5,000원</span>
+                    <span className="font-medium text-gray-900">{rental.deposit?.toLocaleString() || 0}원</span>
                   </div>
                   <hr className="my-2" />
                   <div className="flex justify-between font-bold text-lg text-gray-900">
                     <span>총 결제금액</span>
-                    <span>{(rental.totalPrice + 5000).toLocaleString()}원</span>
+                    <span>{((rental.fee || 0) + (rental.deposit || 0)).toLocaleString()}원</span>
                   </div>
                 </div>
               </div>
@@ -622,11 +602,21 @@ const BorrowedHistoryPage = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 제목 (선택)</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
+                  placeholder="리뷰 제목을 입력해주세요..."
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
                 <textarea
                   value={reviewContent}
                   onChange={(e) => setReviewContent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
                   rows={4}
                   placeholder="리뷰를 작성해주세요..."
                 />
@@ -640,16 +630,37 @@ const BorrowedHistoryPage = () => {
                   취소
                 </button>
                 <button
-                  onClick={() => {
-                    // 리뷰 저장 로직
-                    console.log('리뷰 저장:', { rating: reviewRating, content: reviewContent });
-                    setShowReviewModal(false);
-                    setReviewRating(0);
-                    setReviewContent('');
+                  onClick={async () => {
+                    if (!reviewRating || !reviewContent.trim()) {
+                      alert('평점과 리뷰 내용을 입력해주세요.');
+                      return;
+                    }
+                    
+                    try {
+                      await createReview({
+                        rentalHistoryId: Number(rentalId),
+                        title: reviewTitle.trim() || `리뷰`,
+                        content: reviewContent.trim(),
+                        rating: reviewRating,
+                        uploadType: 'BORROW' // 빌린 내역이므로 BORROW
+                      });
+                      
+                      alert('리뷰가 작성되었습니다.');
+                      setShowReviewModal(false);
+                      setReviewRating(0);
+                      setReviewContent('');
+                      setReviewTitle('');
+                      // 대여 내역 다시 불러오기
+                      loadRentalHistory();
+                    } catch (error) {
+                      console.error('리뷰 작성 실패:', error);
+                      alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
+                    }
                   }}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isCreatingReview}
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  작성하기
+                  {isCreatingReview ? '작성 중...' : '작성하기'}
                 </button>
               </div>
             </div>

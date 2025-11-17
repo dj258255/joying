@@ -162,10 +162,12 @@ export const messageApi = {
    * @returns {Promise<Object>}
    */
   sendMessage: async (chatRoomId, data) => {
+    // TODO: API 호출로 메시지 전송
+    // sender는 백엔드에서 자동으로 현재 사용자 정보를 사용하도록 처리
     const sender = data.sender || {
-      id: DUMMY_USERS.currentUser.id,
-      username: DUMMY_USERS.currentUser.username,
-      profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
+      id: null,
+      username: null,
+      profileImageUrl: null
     };
 
     const newMessage = {
@@ -197,7 +199,8 @@ export const messageApi = {
       };
       chatRoom.updatedAt = newMessage.timestamp;
       // 읽지 않은 메시지 수 업데이트 (본인이 보낸 메시지가 아닌 경우)
-      if (newMessage.sender?.id !== DUMMY_USERS.currentUser.id) {
+      // TODO: 현재 사용자 ID와 비교하여 처리
+      if (newMessage.sender?.id) {
         chatRoom.unreadCount = (chatRoom.unreadCount || 0) + 1;
       }
       localStorage.setItem('chatRooms', JSON.stringify(chatRooms));
@@ -231,10 +234,12 @@ export const messageApi = {
    * @returns {Promise<Object>}
    */
   sendRentalRequest: async (chatRoomId, data) => {
+    // TODO: API 호출로 대여 요청 메시지 전송
+    // sender는 백엔드에서 자동으로 현재 사용자 정보를 사용하도록 처리
     const sender = data.sender || {
-      id: DUMMY_USERS.currentUser.id,
-      username: DUMMY_USERS.currentUser.username,
-      profileImageUrl: DUMMY_USERS.currentUser.profileImageUrl
+      id: null,
+      username: null,
+      profileImageUrl: null
     };
 
     const rentalMessage = {

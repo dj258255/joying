@@ -5,7 +5,7 @@ import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import ProfileImage from '@/shared/components/ProfileImage';
-import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
+import { PRODUCT_TYPES } from '../../../shared/constants/productTypes';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
@@ -601,7 +601,7 @@ const ProductListMain = () => {
                    : 'text-gray-600 hover:text-gray-900'
                }`}
              >
-               구해요
+               빌려요
              </button>
            </div>
           </div>
@@ -1173,7 +1173,7 @@ const ProductListMain = () => {
                  </div>
                  <div className="w-1/2 flex items-center justify-center">
                    <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'borrow' ? 'text-white' : 'text-gray-600'}`}>
-                     구해요
+                     빌려요
                    </span>
                  </div>
                </div>
@@ -1373,7 +1373,7 @@ const ProductListMain = () => {
                      boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
-                   구해요
+                   빌려요
                  </button>
                </div>
              </div>

@@ -14,7 +14,6 @@ import PriceCalculation from '../../../features/checkout/components/PriceCalcula
 import RentButton from '../../../features/checkout/components/RentButton';
 import { chatApi } from '../../../features/chat/api/chatApi';
 import { messageApi } from '../../../features/chat/api/messageApi';
-import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { useProductDetail } from '@/features/product/hooks/useProductDetail';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
