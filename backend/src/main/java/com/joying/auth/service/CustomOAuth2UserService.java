@@ -83,8 +83,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
 				// Member에 userKey 저장 (실명은 1원 인증 완료 시에만 저장)
 				member.updateSsafyUserKey(registerResponse.getUserKey());
+                // DB에 명시적으로 저장 (Dirty Checking만으로는 부족할 수 있으므로)
+				memberRepository.save(member);
 
-				log.info("SSAFY 회원 등록 및 userKey 발급 완료: memberId={}, userKey={}",
+				log.info("SSAFY 회원 등록 및 userKey 발급 완료 (DB 저장): memberId={}, userKey={}",
 					member.getMemberId(), registerResponse.getUserKey());
 
 			} catch (Exception e) {
