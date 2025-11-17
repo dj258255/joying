@@ -94,20 +94,9 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
 
   return (
     <div className="space-y-3">
-      {/* 헤더 - 검색창과 전체보기 버튼 */}
-      <div className="flex items-center gap-2">
-        {/* 해시태그 검색 */}
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="해시태그 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-          />
-        </div>
-        
-        {/* 전체보기 버튼 */}
+      {/* 헤더 - 전체보기 버튼만 표시 */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700"># 해시태그</h3>
         {hashtags.length > 20 && (
           <button
             onClick={() => setShowAll(!showAll)}
@@ -117,6 +106,19 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
           </button>
         )}
       </div>
+
+      {/* 전체보기 모드일 때만 검색창 표시 */}
+      {showAll && (
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="해시태그 검색..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+          />
+        </div>
+      )}
 
       {/* 해시태그 목록 */}
       <div

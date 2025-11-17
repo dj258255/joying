@@ -8,7 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
 import ReviewCard from '../../review/components/ReviewCard';
-import { DUMMY_PRODUCTS, DUMMY_REVIEWS, DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
+import { DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
 import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
@@ -20,7 +20,7 @@ const UserProfilePage = () => {
   const [activeTab, setActiveTab] = useState('products');
   const [reviewTab, setReviewTab] = useState('borrowed'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
   const [userProducts, setUserProducts] = useState([]);
-  const [userReviews, setUserReviews] = useState([]);
+  const [totalReviewCount, setTotalReviewCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pageInfo, setPageInfo] = useState({
     content: [],
@@ -33,7 +33,7 @@ const UserProfilePage = () => {
     currentPage: 0,
     uploadType: 'BORROW'   // 기본값: 빌렸을 때
   });
-  
+
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
   const { user, isLoading, error } = useUserProfile(memberId ? parseInt(memberId) : null);
 
@@ -43,17 +43,34 @@ const UserProfilePage = () => {
       navigate('/404');
       return;
     }
+  }, [error, navigate]);
 
-    // user 정보만 확인
-    if (user && memberId) {
-      // 리뷰는 여기서 가져도 OK
-      const reviews = DUMMY_REVIEWS.filter(r =>
-        r.reviewerId === parseInt(memberId) ||
-        r.revieweeId === parseInt(memberId)
-      );
-      setUserReviews(reviews);
-    }
-  }, [user, memberId, error, navigate]);
+  // 전체 리뷰 개수 가져오기 (RENT + BORROW)
+  useEffect(() => {
+    if (!memberId) return;
+
+    const fetchReviewCount = async () => {
+      try {
+        const [rentRes, borrowRes] = await Promise.all([
+          axiosInstance.get(`/review/member/${memberId}`, {
+            params: { uploadType: 'RENT', page: 1, size: 1 }
+          }),
+          axiosInstance.get(`/review/member/${memberId}`, {
+            params: { uploadType: 'BORROW', page: 1, size: 1 }
+          })
+        ]);
+
+        const rentCount = rentRes.data.data.totalCount || 0;
+        const borrowCount = borrowRes.data.data.totalCount || 0;
+        setTotalReviewCount(rentCount + borrowCount);
+      } catch (err) {
+        console.error("리뷰 개수 로드 실패:", err);
+        setTotalReviewCount(0);
+      }
+    };
+
+    fetchReviewCount();
+  }, [memberId]);
 
   useEffect(() => {
     const fetchUserProducts = async () => {
@@ -110,24 +127,6 @@ const UserProfilePage = () => {
       uploadType: tab === 'borrowed' ? 'BORROW' : 'RENT',
       currentPage: 0
     }));
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('ko-KR');
-  };
-
-  const getReviewType = (review) => {
-    return review.reviewerId === parseInt(memberId) ? '빌려줬을 때' : '빌렸을 때';
-  };
-
-  const getFilteredReviews = () => {
-    if (reviewTab === 'lent') {
-      // 빌려줬을 때: 내가 빌려준 상품에 대한 리뷰 (내가 받은 리뷰)
-      return userReviews.filter(r => r.revieweeId === parseInt(memberId));
-    } else {
-      // 빌렸을 때: 내가 빌린 상품에 대한 리뷰 (내가 작성한 리뷰)
-      return userReviews.filter(r => r.reviewerId === parseInt(memberId));
-    }
   };
 
   // 선택된 상품의 대여 예약 내역 가져오기
@@ -302,11 +301,11 @@ const UserProfilePage = () => {
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
-                    <div className="text-xl font-bold text-gray-900">{userProducts.length}</div>
+                    <div className="text-xl font-bold text-gray-900">{pageInfo.content.length}</div>
                     <div className="text-xs text-gray-500">등록 상품</div>
                   </div>
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
-                    <div className="text-xl font-bold text-gray-900">{userReviews.length}</div>
+                    <div className="text-xl font-bold text-gray-900">{totalReviewCount}</div>
                     <div className="text-xs text-gray-500">리뷰</div>
                   </div>
                 </div>
