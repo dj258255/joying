@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { DUMMY_CHAT_ROOMS } from '../../../shared/constants/dummyData';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useMyProducts } from '@/features/product/hooks/useMyProducts';
 import { useLikedProducts } from '@/features/product/hooks/useLikedProducts';
@@ -38,6 +37,8 @@ const MyPageMain = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser } = useAuth();
+  const scrollContainerRef = React.useRef(null);
+  
   // 데스크톱에서는 'products' 기본 선택, 모바일에서는 null
   const [activeTab, setActiveTab] = useState(() => {
     // location.state에서 전달된 activeTab이 있으면 사용
@@ -66,6 +67,20 @@ const MyPageMain = () => {
       setProductTab(location.state.productTab);
     }
   }, [location.state]);
+
+  // productTab 변경 시 스크롤을 맨 위로 이동 (빌린 내역/빌려준 내역 탭 변경 시)
+  useEffect(() => {
+    // 약간의 delay를 주어 DOM이 업데이트된 후 스크롤 이동
+    const timer = setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+      // window 스크롤도 맨 위로 이동
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, [productTab]);
   
   const currentUserId = currentUser?.memberId || currentUser?.id;
   
@@ -85,7 +100,8 @@ const MyPageMain = () => {
   const likedProducts = likedProductsData?.content || [];
   
   // 채팅방 수
-  const chatRoomsCount = DUMMY_CHAT_ROOMS.length;
+  // TODO: API 호출로 채팅방 개수 조회
+  const chatRoomsCount = 0;
 
   // 별점 렌더링 함수
   const renderStarRating = (rating) => {
@@ -431,7 +447,7 @@ const MyPageMain = () => {
           </div>
         </div>
 
-                <div className="flex-1 overflow-y-auto scrollbar-hide pb-0">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-hide pb-0">
                   <div className="pb-0">
                     {productTab === 'registered' && <RegisteredProductList />}
                     {productTab === 'liked' && <LikedProductList />}

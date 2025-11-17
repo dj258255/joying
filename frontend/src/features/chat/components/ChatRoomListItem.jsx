@@ -6,7 +6,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
-import { DUMMY_USERS } from '../../../shared/constants/dummyData';
 
 /**
  * @param {Object} props
