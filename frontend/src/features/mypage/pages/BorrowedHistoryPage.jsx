@@ -157,9 +157,10 @@ const BorrowedHistoryPage = () => {
     try {
       setLoadingReviews(true);
       
-      // 내가 작성한 리뷰 조회 (빌린 사람이 상품에 대한 리뷰) - type: 'borrow'
+      // 내가 작성한 리뷰 조회 (빌린 사람이 작성한 리뷰)
+      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member (빌린 사람이 작성한 리뷰)
       try {
-        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
+        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
         // API 응답 구조: { status, message, data: { reviewId, title, content, rating, reviewerName } }
         const myReviewData = myReviewResponse?.data?.data;
         if (myReviewData && myReviewData.reviewId) {
@@ -177,9 +178,10 @@ const BorrowedHistoryPage = () => {
         }
       }
       
-      // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰) - type: 'rent'
+      // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰)
+      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member (빌린 사람에 대한 리뷰)
       try {
-        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
         const ownerReviewData = ownerReviewResponse?.data?.data;
         if (ownerReviewData && ownerReviewData.reviewId) {
           setOwnerReview(ownerReviewData);
@@ -203,7 +205,7 @@ const BorrowedHistoryPage = () => {
   };
 
   // 리뷰 조회 재시도 헬퍼 함수
-  const retryLoadMyReview = async (type = 'borrow', maxRetries = 5) => {
+  const retryLoadMyReview = async (type = 'rent', maxRetries = 5) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         const response = await reviewApi.getRentalReview(rentalId, type);
@@ -781,7 +783,7 @@ const BorrowedHistoryPage = () => {
                       
                       // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 재시도)
                       setTimeout(async () => {
-                        await retryLoadMyReview('borrow');
+                        await retryLoadMyReview('rent');
                         // 전체 리뷰 목록도 다시 로드
                         await loadReviews();
                       }, 500);
