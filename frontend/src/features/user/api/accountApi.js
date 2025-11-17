@@ -63,5 +63,25 @@ export const accountApi = {
    */
   verifyAccount: async (data) => {
     return await axiosInstance.post('/accounts/verify', data);
+  },
+
+  /**
+   * 수시 입출금 상품 목록 조회
+   * @returns {Promise<Array<{bankCode: string, bankName: string, accountTypeUniqueNo: string, accountTypeName: string, accountDescription: string}>>}
+   */
+  getAccountProducts: async () => {
+    const response = await axiosInstance.get(API_ENDPOINTS.ACCOUNT.PRODUCTS);
+    return response.data;
+  },
+
+  /**
+   * SSAFY 계좌 생성
+   * @param {Object} data
+   * @param {string} data.accountTypeUniqueNo - 상품 고유번호 (예: "004-1-001")
+   * @returns {Promise<{ssafyAccountId: number, accountTypeUniqueNo: string, accountNo: string, bankCode: string, accountHolderName: string, accountState: string}>}
+   */
+  createSsafyAccount: async (data) => {
+    const response = await axiosInstance.post(API_ENDPOINTS.SSAFY_ACCOUNT.CREATE, data);
+    return response.data;
   }
 };

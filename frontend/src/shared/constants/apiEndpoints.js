@@ -97,8 +97,14 @@ export const API_ENDPOINTS = {
 
   // Account
   ACCOUNT: {
+    PRODUCTS: '/accounts/products', // 수시 입출금 상품 목록 조회
     VERIFY_START: '/accounts/verify/start',
     VERIFY_COMPLETE: '/accounts/verify/complete',
     TRANSACTIONS: '/accounts/transactions'
+  },
+  // SSAFY Account
+  SSAFY_ACCOUNT: {
+    BASE: '/ssafy-accounts', // SSAFY 계좌 생성
+    CREATE: '/ssafy-accounts'
   },
 };
