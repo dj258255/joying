@@ -8,7 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import ReviewCard from '../../review/components/ReviewCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
-import ProductCard from '../components/ProductCard';
+import ProductCardByProductId from '../components/ProductCardByProductId';
 import { rentalApi } from '@/features/rental/api/rentalApi';
 import { useReviewWrite } from '@/features/review/hooks/useReviewWrite';
 import { reviewApi } from '@/features/review/api/reviewApi';
@@ -355,17 +355,15 @@ const BorrowedHistoryPage = () => {
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">상품 정보</h2>
             
-            <ProductCard
-              product={{
-                id: rental.product?.productId,
-                title: rental.product?.title,
-                thumbnailUrl: rental.product?.thumbnail,
-                rentalFee: rental.fee
-              }}
-              actionType="view"
-              status={rental.status === 'COMPLETED' ? 'completed' :
-                     rental.status === 'RENTING' ? 'rented' :
-                     rental.status === 'CANCELLED' ? 'unavailable' : 'pending'}
+            <ProductCardByProductId
+              productId={rental.product?.productId}
+              status={
+                rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED' ? 'completed' :
+                rental.status === 'RENTING' ? 'rented' :
+                rental.status === 'CANCELLED' ? 'unavailable' :
+                rental.status === 'PENDING' || rental.status === 'ESCROW' ? 'pending' :
+                'available'
+              }
               onClick={() => navigate(`/products/${rental.product?.productId}`)}
             />
           </div>
@@ -737,13 +735,14 @@ const BorrowedHistoryPage = () => {
                         uploadType: 'BORROW' // 빌린 내역이므로 BORROW
                       });
                       
-                      alert('리뷰가 작성되었습니다.');
+                      // 리뷰 다시 불러오기 (모달 닫기 전에 먼저 로드)
+                      await loadReviews();
+                      
+                      // 리뷰 로드 완료 후 모달 닫기
                       setShowReviewModal(false);
                       setReviewRating(0);
                       setReviewContent('');
                       setReviewTitle('');
-                      // 리뷰 다시 불러오기
-                      await loadReviews();
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
                       alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
