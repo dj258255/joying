@@ -7,15 +7,15 @@ import React, { useState, useEffect } from 'react';
 import logo from '@/assets/icons/logo.png';
 
 // ⚡ 고정된 total 리소스 수 (로딩바 역행 방지)
-const EXPECTED_TOTAL_RESOURCES = 30;
+const EXPECTED_TOTAL_RESOURCES = 35;
 // 계산 근거:
 // - GLB 파일: 3개 (camera, gamepad, tent)
 // - GLB 내부: ~11개 (텍스처, 메시, 머티리얼)
 // - Environment: 2개 (HDRI)
 // - Section chunks: 7개 (lazy loading)
-// - 기타: 4개 (Draco decoder, 쉐이더 등)
-// - 안전 마진: +3개
-// = 총 30개
+// - 기타: 7개 (Draco decoder, 쉐이더, 컴파일 등)
+// - 안전 마진: +5개
+// = 총 35개 (실제 최대 32개 관찰됨)
 
 const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onLoadComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
@@ -33,11 +33,6 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
       // ⚡ 고정된 total 사용 (로딩바 역행 방지)
       const fixedProgress = (loaded / EXPECTED_TOTAL_RESOURCES) * 100;
       const targetProgress = Math.max(fixedProgress, minProgress);
-      
-      // 디버깅: 로딩 진행 상황 로그 (개발 모드에서만)
-      if (process.env.NODE_ENV === 'development' && loaded > 0 && Math.random() < 0.1) {
-        console.log(`📦 로딩 중: ${loaded}/${total} (실제) | ${loaded}/${EXPECTED_TOTAL_RESOURCES} (고정) | ${Math.round(fixedProgress)}%`);
-      }
       
       setSmoothProgress(prev => {
         const diff = targetProgress - prev;
@@ -57,7 +52,6 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
   useEffect(() => {
     // 로딩이 완료되면 부모에게 알림
     if (!active && smoothProgress >= 99) {
-      console.log('✅ Loading Complete!');
       setSmoothProgress(100); // 100%로 강제 설정
       
       onLoadComplete?.();
@@ -76,7 +70,7 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
   return (
     <div 
       className={`fixed inset-0 bg-black z-[10000] flex flex-col items-center justify-center transition-opacity duration-500 ${
-        !active ? 'opacity-0' : 'opacity-100'
+        !active ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
       {/* 로고 */}
