@@ -158,7 +158,7 @@ public class SearchReindexService {
 					"ngram_tokenizer", Map.of(
 						"type", "ngram",
 						"min_gram", 2,
-						"max_gram", 5,
+						"max_gram", 3,
 						"token_chars", List.of("letter", "digit")
 					)
 				),
