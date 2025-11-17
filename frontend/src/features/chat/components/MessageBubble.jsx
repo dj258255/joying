@@ -854,6 +854,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
                   <img
                     src={imageUrl}
                     alt="전송된 이미지"
+                    draggable="false"
                     className="rounded-2xl max-w-full h-auto cursor-pointer"
                     onError={(e) => {
                       // 이미지 로드 실패 시 에러 메시지 표시
