@@ -1483,12 +1483,19 @@ function ProductCreatePage() {
               <label className="block text-sm font-medium text-black mb-1.5">내용</label>
               <textarea
                 value={form.content}
-                onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
+                onChange={(e) => updateField('content', e.target.value.slice(0, 255))}
                 rows={3}
                 placeholder="상세 내용을 입력하세요"
                 className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
               />
-              <div className="text-right text-xs text-gray-500">{form.content.length}/2000</div>
+              <div className="text-right text-xs mt-1">
+                <span className={form.content.length >= 230 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
+                  {form.content.length}/255
+                </span>
+                {form.content.length === 255 && (
+                  <span className="ml-2 text-red-600 text-xs">최대 길이입니다</span>
+                )}
+              </div>
             </div>
 
             {/* 오른쪽: 보증금 + 일일요금 */}
@@ -1839,7 +1846,7 @@ function ProductCreatePage() {
 
             {calendarMode === 'available' && (
               <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-xl">
-                {/* 빌려요 모드일 때는 종료일 없음 옵션 비활성화 */}
+                {/* 빌려드려요(RENT) 모드일 때만 종료일 없음 옵션 표시 */}
                 {form.uploadType === 'RENT' && (
                   <label className="flex items-center gap-2 text-black mb-3">
                     <input
