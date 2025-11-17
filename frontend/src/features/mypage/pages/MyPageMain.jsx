@@ -120,14 +120,14 @@ const MyPageMain = () => {
 
       // 받은 리뷰 합치기
       const allReceivedReviews = [
-        ...(receivedBorrowRes.data.data.content || []),
-        ...(receivedRentRes.data.data.content || [])
+        ...(receivedBorrowRes.data.data.data || []),
+        ...(receivedRentRes.data.data.data || [])
       ];
 
       // 작성한 리뷰 합치기
       const allWrittenReviews = [
-        ...(writtenBorrowRes.data.data.content || []),
-        ...(writtenRentRes.data.data.content || [])
+        ...(writtenBorrowRes.data.data.data || []),
+        ...(writtenRentRes.data.data.data || [])
       ];
 
       setReceivedReviews(allReceivedReviews);
