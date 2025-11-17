@@ -27,27 +27,43 @@ public class FileCleanupService {
     @Value("${cloudflare.r2.bucket}")
     private String bucketName;
 
-    // 예: 24시간 지나고도 매핑 안 된 파일은 삭제
+    // 일반 파일: 24시간 후 삭제
     @Value("${app.file.cleanup-threshold-hours:24}")
     private long thresholdHours;
 
+    // 채팅 파일: 3개월(90일) 후 삭제
+    @Value("${app.file.chat-cleanup-threshold-days:90}")
+    private long chatCleanupDays;
+
     /**
      * 매 시간마다 돌면서 고아 파일 삭제
-     * cron()이나 fixedRate()는 원하는 정책대로 조정 가능
+     * - 일반 파일(상품, 리뷰 등): 24시간 후 삭제
+     * - 채팅 파일: 3개월 후 삭제
      */
     @Scheduled(cron = "0 0 * * * *") // 매 정각마다
     public void cleanupOrphanFiles() {
 
-        Instant cutoff = Instant.now().minus(Duration.ofHours(thresholdHours));
+        Instant generalCutoff = Instant.now().minus(Duration.ofHours(thresholdHours));
+        Instant chatCutoff = Instant.now().minus(Duration.ofDays(chatCleanupDays));
 
         // 오래 전에 업로드된 파일 중, 어떤 product_file 관계도 없는 애들
-        List<File> orphans = fileRepository.findOrphanFilesBefore(cutoff);
+        List<File> orphans = fileRepository.findOrphanFilesBefore(generalCutoff);
 
         for (File f : orphans) {
             try {
                 // R2 object key 구하기
-                // metadata에서 key 뽑거나 directory/fileName 합성
                 String objectKey = extractObjectKey(f);
+
+                // 채팅 파일인지 확인 (uploads/YYYY-MM-DD/ 패턴)
+                boolean isChatFile = isChatFile(f);
+
+                if (isChatFile) {
+                    // 채팅 파일은 3개월 후에만 삭제
+                    if (f.getCreatedAt().isAfter(chatCutoff)) {
+                        log.debug("[FileCleanup] 채팅 파일은 3개월 보관, 건너뜀: fileId={}", f.getFileId());
+                        continue;
+                    }
+                }
 
                 // S3/R2에서 삭제
                 r2s3Client.deleteObject(DeleteObjectRequest.builder()
@@ -58,12 +74,23 @@ public class FileCleanupService {
                 // DB에서 삭제
                 fileRepository.delete(f);
 
-                log.info("[FileCleanup] deleted orphan fileId={} key={}", f.getFileId(), objectKey);
+                log.info("[FileCleanup] deleted orphan fileId={} key={} type={}",
+                    f.getFileId(), objectKey, isChatFile ? "CHAT" : "GENERAL");
 
             } catch (Exception e) {
                 log.warn("[FileCleanup] failed to delete orphan fileId={}", f.getFileId(), e);
             }
         }
+    }
+
+    /**
+     * 채팅 파일인지 확인 (directory가 "uploads/YYYY-MM-DD" 패턴인 경우)
+     */
+    private boolean isChatFile(File file) {
+        String dir = file.getDirectory();
+        if (dir == null) return false;
+        // "uploads/2025-11-17" 형식인지 확인
+        return dir.matches("^uploads/\\d{4}-\\d{2}-\\d{2}$");
     }
 
     private String extractObjectKey(File file) {
