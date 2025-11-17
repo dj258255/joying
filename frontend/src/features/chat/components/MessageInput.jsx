@@ -70,10 +70,12 @@ const MessageInput = ({
       return;
     }
     try {
+      // 파일이 순차적으로 전송되므로 각각 await
       await onSendFile?.(file);
     } catch (error) {
       console.error('파일 전송 실패:', error);
-      alert(error.message || '파일 전송에 실패했습니다.');
+      // 에러가 발생해도 다음 파일 업로드를 위해 throw하지 않음
+      alert(`${file.name || '파일'} 전송에 실패했습니다: ${error.message || '알 수 없는 오류'}`);
     }
   };
 
@@ -247,17 +249,28 @@ const MessageInput = ({
               ref={textareaRef}
               value={message}
               onChange={(e) => {
-                setMessage(e.target.value);
-                adjustTextareaHeight();
-                handleTyping();
+                const newValue = e.target.value;
+                // 최대 1000자 제한
+                if (newValue.length <= 1000) {
+                  setMessage(newValue);
+                  adjustTextareaHeight();
+                  handleTyping();
+                }
               }}
               onKeyPress={handleKeyPress}
               placeholder={disabled ? '상대방이 나간 채팅방입니다' : '메시지를 입력하세요...'}
               disabled={disabled}
               rows={1}
+              maxLength={1000}
               className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
               style={{ minHeight: '40px', caretColor: '#111827' }}
             />
+            {/* 글자 수 카운터 */}
+            {message.length > 800 && (
+              <div className="absolute bottom-1 left-2 text-xs text-gray-500">
+                {message.length}/1000
+              </div>
+            )}
             
             {/* 전송 버튼 */}
             <button

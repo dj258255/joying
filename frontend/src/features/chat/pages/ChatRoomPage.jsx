@@ -681,14 +681,14 @@ const ChatRoomPage = () => {
         console.log('[scrollToBottom] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
         return;
       }
+
+      // 메시지 점프 중이면 자동 스크롤하지 않음 (force가 아닌 경우에만)
+      if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
+        console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
+        return;
+      }
     }
-    
-    // 메시지 점프 중이면 자동 스크롤하지 않음
-    if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
-      console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
-      return;
-    }
-    
+
     if (messagesContainerRef.current) {
       if (behavior === 'smooth') {
         messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
@@ -727,7 +727,7 @@ const ChatRoomPage = () => {
       }
       return;
     }
-    
+
     // 메시지 점프 중이거나 대기 중이면 자동 스크롤하지 않음
     if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
       // 읽음 처리만 실행
@@ -736,7 +736,12 @@ const ChatRoomPage = () => {
       }
       return;
     }
-    scrollToBottom('auto');
+
+    // 채팅방 입장 시 강제로 최하단 스크롤 (이미지/영상 로드 대기)
+    setTimeout(() => {
+      scrollToBottom('auto', true);
+    }, 300);
+
     // 채팅방 진입 시 읽음 처리
     if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
       sendReadReceipt();
@@ -826,6 +831,9 @@ const ChatRoomPage = () => {
 
   // 드래그 앤 드롭 핸들러 (카운터 방식으로 자식 요소 문제 해결)
   const handleDragEnter = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current++;
@@ -835,6 +843,9 @@ const ChatRoomPage = () => {
   };
 
   const handleDragLeave = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current--;
@@ -844,11 +855,21 @@ const ChatRoomPage = () => {
   };
 
   const handleDragOver = (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) return;
+
     e.preventDefault();
     e.stopPropagation();
   };
 
   const handleDrop = async (e) => {
+    // 결제 모달이 열려있으면 드래그앤드롭 비활성화
+    if (showPaymentModal) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     dragCounterRef.current = 0;
