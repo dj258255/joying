@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrackingStatusCard } from '../../shipping';
 import Modal from '@/shared/components/Modal';
+import VideoListModal from '../../rental/components/VideoListModal';
 
 /**
  * 반납 완료 메시지 내용 파싱
@@ -53,6 +54,7 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [isLoadingTracking, setIsLoadingTracking] = useState(false);
+  const [showVideoListModal, setShowVideoListModal] = useState(false);
 
   const returnInfo = parseReturnMessage(message.content);
 
@@ -155,36 +157,38 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
                 </div>
               </div>
 
-              {returnInfo.videoUrl && (
-                <div className="mt-3">
-                  <a
-                    href={returnInfo.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-gray-600 hover:text-gray-900 underline flex items-center gap-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              {/* 버튼 그룹 */}
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {/* 반납 배송 조회 버튼 */}
+                <button
+                  onClick={handleTrackClick}
+                  disabled={isLoadingTracking}
+                  className="glass-button text-sm py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    반납 영상 보기
-                  </a>
-                </div>
-              )}
+                    <span>{isLoadingTracking ? '조회 중...' : '배송 조회'}</span>
+                  </div>
+                </button>
 
-              {/* 반납 배송 조회 버튼 (양쪽) */}
-              <button
-                onClick={handleTrackClick}
-                disabled={isLoadingTracking}
-                className="glass-button w-full text-sm mt-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                  <span>{isLoadingTracking ? '조회 중...' : '반납 배송 조회'}</span>
-                </div>
-              </button>
+                {/* 거래 영상 보기 버튼 */}
+                {returnInfo.rentalHisId && (
+                  <button
+                    onClick={() => setShowVideoListModal(true)}
+                    className="glass-button text-sm py-2.5"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      <span>거래 영상</span>
+                    </div>
+                  </button>
+                )}
+              </div>
 
               {/* 반납 수령 확인 버튼 (판매자만) */}
               {!isOwn && onReceiveConfirmClick && returnInfo.rentalHisId && (
@@ -228,6 +232,15 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
             courier={trackingInfo.courier}
           />
         </Modal>
+      )}
+
+      {/* 거래 영상 조회 모달 */}
+      {returnInfo.rentalHisId && (
+        <VideoListModal
+          isOpen={showVideoListModal}
+          onClose={() => setShowVideoListModal(false)}
+          rentalHisId={returnInfo.rentalHisId}
+        />
       )}
     </>
   );
