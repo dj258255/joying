@@ -582,7 +582,7 @@ const MyPageMain = () => {
                           : 'text-gray-600 hover:text-gray-800'
                       }`}
                     >
-                      받은 리뷰
+                      빌려줬을 때
                     </button>
                     <button
                       onClick={() => setReviewTab('written')}
@@ -592,7 +592,7 @@ const MyPageMain = () => {
                           : 'text-gray-600 hover:text-gray-800'
                       }`}
                     >
-                      작성한 리뷰
+                      빌렸을 때
                     </button>
                   </div>
                 </div>

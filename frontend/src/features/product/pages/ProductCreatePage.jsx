@@ -1310,9 +1310,93 @@ function ProductCreatePage() {
   // Step - 상품 설명 (제목, 해시태그, 내용, 보증금, 일일요금)
   const renderStepDescription = () => (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-black mb-2">상품 설명</h2>
-        <p className="text-gray-600">상품의 상세 정보를 입력해주세요</p>
+      {/* 헤더 + 보증금/일일요금 */}
+      <div className="flex items-start justify-between gap-4">
+        {/* 왼쪽: 헤더 */}
+        <div>
+          <h2 className="text-xl font-bold text-black mb-2">상품 설명</h2>
+          <p className="text-gray-600">상품의 상세 정보를 입력해주세요</p>
+        </div>
+
+        {/* 오른쪽: 보증금 + 일일요금 (가로 배치) */}
+        <div className="flex gap-3">
+          <div className="w-40">
+            <label className="block text-sm font-medium text-black mb-1">보증금</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.deposit}
+              onChange={(e) => handlePriceInput('deposit', e.target.value)}
+              onBlur={() => handlePriceBlur('deposit')}
+              placeholder="300000"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            {/* 보증금 메시지 */}
+            {priceMessage && priceMessageField === 'deposit' && (
+              <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                priceMessageType === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium flex-1">{priceMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMessage('');
+                    setPriceMessageType('');
+                    setPriceMessageField('');
+                  }}
+                  className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="w-40">
+            <label className="block text-sm font-medium text-black mb-1">일일요금</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.rentalFee}
+              onChange={(e) => handlePriceInput('rentalFee', e.target.value)}
+              onBlur={() => handlePriceBlur('rentalFee')}
+              placeholder="35000"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            {/* 일일요금 메시지 */}
+            {priceMessage && priceMessageField === 'rentalFee' && (
+              <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                priceMessageType === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium flex-1">{priceMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMessage('');
+                    setPriceMessageType('');
+                    setPriceMessageField('');
+                  }}
+                  className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto space-y-3">
@@ -1335,10 +1419,8 @@ function ProductCreatePage() {
             </div>
           </div>
 
-          {/* 해시태그 + 보증금/일일요금 (가로 배치) */}
-          <div className="flex gap-4">
-            {/* 왼쪽: 해시태그 */}
-            <div className="flex-1">
+          {/* 해시태그 (전체 너비) */}
+          <div>
             <label className="block text-sm font-medium text-black mb-1.5">
               해시태그 (최대 3개, 쉼표로 여러 개 추가 가능)
               <span className="ml-2 text-xs text-gray-500">({hashtags.length}/3)</span>
@@ -1474,98 +1556,17 @@ function ProductCreatePage() {
             )}
           </div>
 
-            {/* 오른쪽: 보증금 + 일일요금 (세로 배치) */}
-            <div className="w-48 space-y-2">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-black mb-1">보증금</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.deposit}
-                onChange={(e) => handlePriceInput('deposit', e.target.value)}
-                onBlur={() => handlePriceBlur('deposit')}
-                placeholder="300000"
-                className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-              />
-              {/* 보증금 메시지 */}
-              {priceMessage && priceMessageField === 'deposit' && (
-                <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
-                  priceMessageType === 'error'
-                    ? 'bg-red-50 border-red-200 text-red-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-700'
-                }`}>
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  <span className="font-medium flex-1">{priceMessage}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPriceMessage('');
-                      setPriceMessageType('');
-                      setPriceMessageField('');
-                    }}
-                    className="text-current opacity-70 hover:opacity-100 transition-opacity"
-                  >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-black mb-1">일일요금</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.rentalFee}
-                onChange={(e) => handlePriceInput('rentalFee', e.target.value)}
-                onBlur={() => handlePriceBlur('rentalFee')}
-                placeholder="35000"
-                className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-              />
-              {/* 일일요금 메시지 */}
-              {priceMessage && priceMessageField === 'rentalFee' && (
-                <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
-                  priceMessageType === 'error'
-                    ? 'bg-red-50 border-red-200 text-red-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-700'
-                }`}>
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  <span className="font-medium flex-1">{priceMessage}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPriceMessage('');
-                      setPriceMessageType('');
-                      setPriceMessageField('');
-                    }}
-                    className="text-current opacity-70 hover:opacity-100 transition-opacity"
-                  >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          </div>
-
           {/* 내용 - 전체 너비 */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">내용</label>
             <textarea
               value={form.content}
-              onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
+              onChange={(e) => updateField('content', e.target.value.slice(0, 255))}
               rows={5}
               placeholder="상세 내용을 입력하세요"
               className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
             />
-            <div className="text-right text-xs text-gray-500">{form.content.length}/2000</div>
+            <div className="text-right text-xs text-gray-500">{form.content.length}/255</div>
           </div>
         </div>
       </div>

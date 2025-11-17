@@ -18,7 +18,7 @@ const UserProfilePage = () => {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
-  const [reviewTab, setReviewTab] = useState('borrowed'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
+  const [reviewTab, setReviewTab] = useState('lent'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
   const [userProducts, setUserProducts] = useState([]);
   const [totalReviewCount, setTotalReviewCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -31,7 +31,7 @@ const UserProfilePage = () => {
     content: [],
     totalPages: 1,
     currentPage: 0,
-    uploadType: 'BORROW'   // 기본값: 빌렸을 때
+    uploadType: 'RENT'   // 기본값: 빌려줬을 때
   });
 
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
@@ -107,7 +107,7 @@ const UserProfilePage = () => {
 
         setReviewPageInfo(prev => ({
           ...prev,
-          content: data.data,
+          content: data.content || [],
           totalPages: Math.ceil(data.totalCount / data.size),
           currentPage: data.page - 1
         }));
@@ -408,24 +408,24 @@ const UserProfilePage = () => {
                   <h3 className="text-xl font-bold text-gray-900">리뷰</h3>
                   <div className="flex bg-gray-100 rounded-xl p-1">
                     <button
-                      onClick={() => handleReviewTabChange('borrowed')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        reviewTab === 'borrowed'
-                          ? 'bg-gray-100 text-gray-900 shadow-sm border border-gray-900'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      빌렸을 때
-                    </button>
-                    <button
                       onClick={() => handleReviewTabChange('lent')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         reviewTab === 'lent'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       빌려줬을 때
+                    </button>
+                    <button
+                      onClick={() => handleReviewTabChange('borrowed')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        reviewTab === 'borrowed'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌렸을 때
                     </button>
                   </div>
                 </div>
