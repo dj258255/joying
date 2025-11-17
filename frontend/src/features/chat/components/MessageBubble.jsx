@@ -810,43 +810,78 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
               </div>
             </div>
           )}
-          <div 
+          <div
             className={`relative ${isDeleted ? 'opacity-60' : ''}`}
           >
             {isDeleted ? (
               <div className={`px-4 py-2 rounded-2xl ${
-                isOwn 
-                  ? 'bg-gray-900 text-white rounded-br-md' 
+                isOwn
+                  ? 'bg-gray-900 text-white rounded-br-md'
                   : 'bg-gray-200 text-gray-900 rounded-bl-md'
               }`}>
                 <p className="text-sm italic">삭제된 메시지입니다.</p>
               </div>
-            ) : (
-            <div 
-              className="relative group"
-              onClick={(e) => {
-                // 액션 버튼 클릭이 아닐 때만 이미지 열기
-                if (!e.target.closest('button') && !isLongPress.current) {
-                  window.open(content, '_blank');
-                }
-                handleClick(e);
-              }}
-            >
-              <img
-                src={message?.imageUrl || content}
-                alt="전송된 이미지"
-                className="rounded-2xl max-w-full h-auto cursor-pointer"
-              />
-              {/* 이미지 확대 아이콘 */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="bg-black/50 rounded-full p-1">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                  </svg>
+            ) : (() => {
+              // 이미지 URL 결정: imageUrl 우선, 없으면 content가 URL인지 확인
+              const imageUrl = message?.imageUrl ||
+                             (content && (content.startsWith('http://') || content.startsWith('https://')) ? content : null);
+
+              if (!imageUrl) {
+                // URL이 없으면 에러 메시지 표시
+                return (
+                  <div className={`px-4 py-2 rounded-2xl ${
+                    isOwn
+                      ? 'bg-gray-900 text-white rounded-br-md'
+                      : 'bg-gray-200 text-gray-900 rounded-bl-md'
+                  }`}>
+                    <p className="text-sm italic">이미지를 불러올 수 없습니다.</p>
+                    <p className="text-xs opacity-70 mt-1">{content}</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  className="relative group"
+                  onClick={(e) => {
+                    // 액션 버튼 클릭이 아닐 때만 이미지 열기
+                    if (!e.target.closest('button') && !isLongPress.current) {
+                      window.open(imageUrl, '_blank');
+                    }
+                    handleClick(e);
+                  }}
+                >
+                  <img
+                    src={imageUrl}
+                    alt="전송된 이미지"
+                    className="rounded-2xl max-w-full h-auto cursor-pointer"
+                    onError={(e) => {
+                      // 이미지 로드 실패 시 에러 메시지 표시
+                      e.target.style.display = 'none';
+                      const errorDiv = document.createElement('div');
+                      errorDiv.className = `px-4 py-2 rounded-2xl ${
+                        isOwn
+                          ? 'bg-gray-900 text-white rounded-br-md'
+                          : 'bg-gray-200 text-gray-900 rounded-bl-md'
+                      }`;
+                      errorDiv.innerHTML = `
+                        <p class="text-sm italic">이미지를 불러올 수 없습니다.</p>
+                        <p class="text-xs opacity-70 mt-1">${imageUrl}</p>
+                      `;
+                      e.target.parentElement.replaceWith(errorDiv);
+                    }}
+                  />
+                  {/* 이미지 확대 아이콘 */}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-black/50 rounded-full p-1">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            )}
+              );
+            })()}
           </div>
           <div 
             className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500 flex items-center gap-1 relative`}
