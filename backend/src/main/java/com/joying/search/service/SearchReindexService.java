@@ -149,38 +149,38 @@ public class SearchReindexService {
 	private void createIndexWithRetry(IndexOperations indexOps, String indexName) {
 		int maxRetries = 2;
 
-		Map<String, Object> settings = Map.of(
-			"analysis", Map.of(
-				"tokenizer", Map.of(
-					"nori_tokenizer", Map.of(
-						"type", "nori_tokenizer"
-					),
-					"ngram_tokenizer", Map.of(
-						"type", "ngram",
-						"min_gram", 2,
-						"max_gram", 3,
-						"token_chars", List.of("letter", "digit")
-					)
-				),
-				"analyzer", Map.of(
-					"korean", Map.of(
-						"type", "custom",
-						"tokenizer", "nori_tokenizer",
-						"filter", List.of("nori_part_of_speech", "nori_readingform", "lowercase")
-					),
-					"korean_autocomplete", Map.of(
-						"type", "custom",
-						"tokenizer", "ngram_tokenizer",
-						"filter", List.of("lowercase")
-					)
-				)
-			)
-		);
+		// Map<String, Object> settings = Map.of(
+		// 	"analysis", Map.of(
+		// 		"tokenizer", Map.of(
+		// 			"nori_tokenizer", Map.of(
+		// 				"type", "nori_tokenizer"
+		// 			),
+		// 			"ngram_tokenizer", Map.of(
+		// 				"type", "ngram",
+		// 				"min_gram", 2,
+		// 				"max_gram", 3,
+		// 				"token_chars", List.of("letter", "digit")
+		// 			)
+		// 		),
+		// 		"analyzer", Map.of(
+		// 			"korean", Map.of(
+		// 				"type", "custom",
+		// 				"tokenizer", "nori_tokenizer",
+		// 				"filter", List.of("nori_part_of_speech", "nori_readingform", "lowercase")
+		// 			),
+		// 			"korean_autocomplete", Map.of(
+		// 				"type", "custom",
+		// 				"tokenizer", "ngram_tokenizer",
+		// 				"filter", List.of("lowercase")
+		// 			)
+		// 		)
+		// 	)
+		// );
 
 		for (int attempt = 1; attempt <= maxRetries; attempt++) {
 			try {
 				if (!indexOps.exists()) {
-					indexOps.create(settings);
+					indexOps.create();
 					indexOps.putMapping(indexOps.createMapping(SearchDocument.class));
 				}
 				log.info("인덱스 [{}] 생성 완료", indexName);
