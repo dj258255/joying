@@ -104,7 +104,7 @@ const UserProfilePage = () => {
 
         setReviewPageInfo(prev => ({
           ...prev,
-          content: data.content || [],
+          content: data.data || [],
           totalPages: Math.ceil(data.totalCount / data.size),
           currentPage: data.page - 1
         }));
