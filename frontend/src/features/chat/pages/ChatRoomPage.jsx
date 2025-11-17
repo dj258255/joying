@@ -2226,10 +2226,16 @@ const ChatRoomPage = () => {
 
                       // rentalData를 null로 설정하고, requestedDateRange만 전달
                       // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
+                      // 상품 정보에서 기본 금액 가져오기
+                      const defaultRentalFee = productData?.price || productData?.rentalFee || productData?.dailyPrice || 0;
+                      const defaultDeposit = productData?.deposit || 0;
+                      
                       setRequestedDateRange({
                         start: startDate,
                         end: endDate,
-                        rentMethod
+                        rentMethod,
+                        rentalFee: defaultRentalFee,
+                        deposit: defaultDeposit
                       });
 
                       setCurrentRentalData(null);
@@ -2691,7 +2697,7 @@ const ChatRoomPage = () => {
                     onRentalRequestAgain={() => {
                       setShowRentalRequestModal(true);
                     }}
-                    onCreateTransaction={async ({ startDate, endDate, rentMethod }) => {
+                    onCreateTransaction={async ({ startDate, endDate, rentMethod, rentalFee, deposit }) => {
                       // 상품 ID 추출
                       const productIdToUse = productId || productData?.productId || productData?.product_id;
                       if (!productIdToUse) {
@@ -2712,10 +2718,16 @@ const ChatRoomPage = () => {
 
                       // rentalData를 null로 설정하고, requestedDateRange만 전달
                       // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
+                      // 상품 정보에서 기본 금액 가져오기 (rentalFee, deposit가 전달된 경우 우선 사용)
+                      const defaultRentalFee = rentalFee !== undefined ? rentalFee : (productData?.price || productData?.rentalFee || productData?.dailyPrice || 0);
+                      const defaultDeposit = deposit !== undefined ? deposit : (productData?.deposit || 0);
+                      
                       setRequestedDateRange({
                         start: startDate,
                         end: endDate,
-                        rentMethod
+                        rentMethod,
+                        rentalFee: defaultRentalFee,
+                        deposit: defaultDeposit
                       });
 
                       setCurrentRentalData(null);
