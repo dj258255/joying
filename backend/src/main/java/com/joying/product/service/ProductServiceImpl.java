@@ -327,7 +327,9 @@ public class ProductServiceImpl implements ProductService {
             req.getHashtags(),
             thumbnailFileId,
             sido.getName(),
+            sido.getSidoId(),
             gungu.getName(),
+            gungu.getGunguId(),
             dong.getName(),
             dong.getDongId(),
             category.getCategoryId()));
