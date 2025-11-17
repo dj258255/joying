@@ -49,12 +49,16 @@ useGLTF.preload('/models/gamepad.glb');  // 1.9MB - 즉시 로드
 
 /**
  * Progress Tracker - Canvas 내부에서 useProgress를 호출하고 부모에게 전달
+ * ⚡ requestAnimationFrame으로 state 업데이트를 다음 프레임으로 지연하여 React 경고 방지
  */
 const ProgressTracker = ({ onProgressChange }) => {
   const { progress, active, loaded, total, errors } = useProgress();
   
   useEffect(() => {
-    onProgressChange({ progress, active, loaded, total, errors });
+    // 렌더링 사이클이 끝난 후에 state 업데이트 (React 경고 방지)
+    requestAnimationFrame(() => {
+      onProgressChange({ progress, active, loaded, total, errors });
+    });
   }, [progress, active, loaded, total, errors, onProgressChange]);
   
   return null;
