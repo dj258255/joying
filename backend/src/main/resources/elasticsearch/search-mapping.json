@@ -8,6 +8,11 @@
       "analyzer": "korean",
       "search_analyzer": "korean",
       "fields": {
+        "syn": {
+          "type": "text",
+          "analyzer": "synonym_search",
+          "search_analyzer": "synonym_search"
+        },
         "autocomplete": {
           "type": "text",
           "analyzer": "korean_autocomplete",
@@ -18,7 +23,14 @@
     "content": {
       "type": "text",
       "analyzer": "korean",
-      "search_analyzer": "korean"
+      "search_analyzer": "korean",
+      "fields": {
+        "syn": {
+          "type": "text",
+          "analyzer": "synonym_search",
+          "search_analyzer": "synonym_search"
+        }
+      }
     },
     "categoryId": {
       "type": "integer"
