@@ -136,8 +136,19 @@ const AccountVerifyForm = ({ onComplete }) => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">계좌 인증</h2>
-        <p className="text-gray-600 mt-2 text-sm">대여 수익을 받기 위한 계좌 인증을 진행하세요</p>
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-gray-900">계좌 인증</h2>
+            <p className="text-gray-600 mt-2 text-sm">대여 수익을 받기 위한 계좌 인증을 진행하세요</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/accounts/transactions')}
+            className="ml-4 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap flex-shrink-0"
+          >
+            테스트 계좌 생성
+          </button>
+        </div>
       </div>
 
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/50 p-6">
