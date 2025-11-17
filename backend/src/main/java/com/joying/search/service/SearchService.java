@@ -164,6 +164,19 @@ public class SearchService {
 				throw new IllegalArgumentException("유효하지 않은 uploadType 입니다.");
 			}
 		}
+
+		if (dateFrom != null && dateTo != null && dateFrom.isAfter(dateTo)) {
+			LocalDate temp = dateFrom;
+			dateFrom = dateTo;
+			dateTo = temp;
+		}
+
+		if (priceMin != null && priceMax != null && priceMin > priceMax) {
+			Integer temp = priceMin;
+			priceMin = priceMax;
+			priceMax = temp;
+		}
+
 		Instant dateFromInstant = (dateFrom == null) ? null : Instant.parse(dateFrom + "T00:00:00Z");
 		Instant dateToInstant = (dateTo == null) ? null : Instant.parse(dateTo + "T23:59:59Z");
 		RentMethod rentMethod = null;
