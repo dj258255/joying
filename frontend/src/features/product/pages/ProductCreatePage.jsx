@@ -80,6 +80,7 @@ function ProductCreatePage() {
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
+  const [dragActive, setDragActive] = useState(false);
   const dndZoneRef = useRef(null);
   const fileInputRef = useRef(null);
   const dragItemIndex = useRef(null);
@@ -663,8 +664,20 @@ function ProductCreatePage() {
     }
   };
 
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
   const onDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
     handleFiles(e.dataTransfer.files);
   };
 
@@ -1361,9 +1374,15 @@ function ProductCreatePage() {
           <div
             ref={dndZoneRef}
             onDrop={onDrop}
-            onDragOver={onDragOver}
+            onDragOver={handleDrag}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
             onClick={() => { if (!uploading && !aiGenerating) fileInputRef.current?.click(); }}
-            className="w-full lg:w-80 aspect-square border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-black transition-colors bg-gray-50"
+            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
+              dragActive
+                ? 'border-black bg-gray-100 scale-105'
+                : 'border-gray-300 hover:border-black bg-gray-50'
+            }`}
           >
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>

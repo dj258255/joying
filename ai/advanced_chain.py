@@ -415,11 +415,11 @@ class AdvancedProductChain:
                 "matched_by": "ai"
             }
 
-        # 3️⃣ 확신도 낮음 → 미분류
-        logger.warning(f"❌ [SLOW PATH] AI 확신도 낮음 ({ai_result.get('confidence', 0):.2f}) → 미분류")
+        # 3️⃣ 확신도 낮음 → 기타 카테고리로 분류
+        logger.warning(f"❌ [SLOW PATH] AI 확신도 낮음 ({ai_result.get('confidence', 0):.2f}) → 기타 카테고리로 분류")
         return {
-            "parent_category": None,
-            "sub_category": None,
+            "parent_category": "기타",
+            "sub_category": "기타",
             "confidence": 0.0,
             "matched_by": "none"
         }
@@ -579,10 +579,10 @@ confidence 가이드:
 
         except Exception as e:
             logger.error(f"카테고리 분류 오류: {e}")
-            # AI 오류 시 None 반환 (미분류 처리)
+            # AI 오류 시 기타 카테고리 반환
             return {
-                "parent_category": None,
-                "sub_category": None,
+                "parent_category": "기타",
+                "sub_category": "기타",
                 "confidence": 0.0
             }
 
