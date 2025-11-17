@@ -2704,21 +2704,54 @@ const ChatRoomPage = () => {
                       try {
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data;
+                        const rentalData = rentalResponse.data || rentalResponse;
 
                         console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
 
-                        // requestedDateRange를 먼저 초기화한 후 rentalData 설정
-                        setRequestedDateRange(null);
-                        setCurrentRentalData(rentalData);
+                        // 거래 상태 확인 - PENDING 상태가 아니면 TransactionProcessModal 열기
+                        const status = rentalData.status || rentalData.rentalStatus;
+                        if (status !== 'PENDING') {
+                          // PENDING이 아니면 기존 플로우대로 TransactionProcessModal 열기
+                          setRequestedDateRange(null);
+                          setCurrentRentalData(rentalData);
+                          setTimeout(() => {
+                            setShowTransactionModal(true);
+                          }, 50);
+                          return;
+                        }
 
-                        // 약간의 지연 후 모달 열기
-                        setTimeout(() => {
-                          setShowTransactionModal(true);
-                        }, 50);
+                        // PENDING 상태면 바로 결제 진행
+                        const product = productData || {};
+                        const days = Math.ceil(
+                          (new Date(rentalData.endRen) - new Date(rentalData.startRen)) / (1000 * 60 * 60 * 24)
+                        ) + 1;
+                        const totalAmount = (rentalData.fee * days) + Number(rentalData.deposit);
+
+                        // 결제 정보 생성
+                        const paymentData = {
+                          rentalHisId: rentalHisId,
+                          productId: product.id || product.productId,
+                          totalAmount: totalAmount,
+                          orderName: `${product.title || product.name || '상품'} 대여(보증금 포함)`
+                        };
+
+                        const paymentResult = await paymentApi.createPayment(paymentData);
+                        console.log('[ChatRoomPage] 결제 생성 완료:', paymentResult);
+
+                        // PaymentModal 열기
+                        setPaymentMessage({
+                          paymentId: paymentResult.data?.paymentId,
+                          orderId: paymentResult.data?.orderId,
+                          totalAmount: totalAmount,
+                          rentalInfo: {
+                            rentalHisId: rentalHisId,
+                            productTitle: product.title || product.name
+                          }
+                        });
+                        setShowPaymentModal(true);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        console.error('[ChatRoomPage] 결제 처리 실패:', err);
+                        alert(err.response?.data?.message || err.message || '결제 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
                   />
