@@ -77,6 +77,9 @@ public class ReviewService {
 		if (dto == null) throw new IllegalArgumentException("리뷰 요청 데이터가 비어 있습니다.");
 		if (dto.rentalHistoryId() == null)
 			throw new IllegalArgumentException("대여 이력 ID가 필요합니다.");
+		if (dto.content().length() > 1000) {
+			throw new IllegalArgumentException("내용은 1000자 이내여야 합니다.");
+		}
 
 		// 로그인 사용자
 		Member reviewer = memberRepository.findById(authId)
@@ -118,8 +121,9 @@ public class ReviewService {
 			if (!product.getWriter().getMemberId().equals(authId)) {
 				throw new UnauthorizedReviewAccessException("해당 대여에 대한 리뷰 작성 권한이 없습니다.");
 			}
-			reviewed = rentalHistory.getMember();
-			if (reviewed.getMemberId().equals(reviewer.getMemberId())) {
+			reviewed = memberRepository.findById(rentalHistory.getMember().getMemberId())
+				.orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+			if (reviewed.getMemberId().equals(authId)) {
 				throw new UnauthorizedReviewAccessException("본인에 대한 리뷰를 작성할 수 없습니다.");
 			}
 			reviewed.updateRating(dto.rating()); // 사용자 평점 업데이트
@@ -154,6 +158,9 @@ public class ReviewService {
 			throw new IllegalArgumentException("리뷰 ID가 필요합니다.");
 		if (authId == null)
 			throw new UnauthorizedReviewAccessException("로그인이 필요한 요청입니다.");
+		if (dto.content().length() > 1000) {
+			throw new IllegalArgumentException("내용은 1000자 이내여야 합니다.");
+		}
 
 		Review review = reviewRepository.findById(reviewId)
 			.orElseThrow(() -> new EntityNotFoundException("존재하지 않는 리뷰입니다."));

@@ -42,7 +42,7 @@ public class Review extends BaseEntity {
     private String title;
 
     @Comment("내용")
-    @Column(name = "content")
+    @Column(name = "content", length = 1000)
     private String content;
 
     @Comment("등록 타입")
