@@ -56,14 +56,29 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleHashtagClick = (hashtag) => {
+    // 해시태그 유효성 검사
+    if (!hashtag || !hashtag.id) {
+      console.warn('[HashtagFilter] 잘못된 해시태그:', hashtag);
+      return;
+    }
     // 이미 선택된 태그인지 확인
-    const isSelected = selectedHashtags.some(h => h.id === hashtag.id);
+    const isSelected = selectedHashtags.some(h => h && h.id === hashtag.id);
     // 선택된 태그면 제거(true), 아니면 추가(false)
     onHashtagSelect(hashtag, isSelected);
   };
 
   const handleRemoveHashtag = (hashtagId) => {
-    onHashtagSelect(hashtags.find(h => h.id === hashtagId), true);
+    const foundHashtag = hashtags.find(h => h && h.id === hashtagId);
+    if (!foundHashtag) {
+      console.warn('[HashtagFilter] 해시태그를 찾을 수 없음:', hashtagId);
+      // selectedHashtags에서 직접 찾기 (fallback)
+      const selectedHashtag = selectedHashtags.find(h => h && h.id === hashtagId);
+      if (selectedHashtag) {
+        onHashtagSelect(selectedHashtag, true);
+      }
+      return;
+    }
+    onHashtagSelect(foundHashtag, true);
   };
 
   // 검색 필터링
@@ -104,10 +119,10 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
       </div>
 
       {/* 해시태그 목록 */}
-      <div 
-        className={`${showAll ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2' : 'flex gap-2 overflow-x-auto pb-2'}`}
-        style={!showAll ? { 
-          scrollbarWidth: 'none', 
+      <div
+        className={`${showAll ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2' : 'flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory'}`}
+        style={!showAll ? {
+          scrollbarWidth: 'none',
           msOverflowStyle: 'none',
           WebkitOverflowScrolling: 'touch',
           cursor: 'grab',
@@ -118,7 +133,8 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
           touchAction: 'pan-x',
           position: 'relative',
           zIndex: 1,
-          transition: 'all 0.2s ease' // 부드럽게 줄어듦
+          transition: 'all 0.2s ease', // 부드럽게 줄어듦
+          scrollBehavior: 'smooth'
         } : {
           overflowY: 'hidden',
           touchAction: 'manipulation',
@@ -186,7 +202,7 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
                   e.stopPropagation();
                   handleHashtagClick(hashtag);
                 }}
-                className={`${showAll ? 'w-full' : 'flex-shrink-0'} px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap select-none ${
+                className={`${showAll ? 'w-full' : 'flex-shrink-0 snap-start'} px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap select-none ${
                   isSelected
                     ? 'bg-gray-900 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'

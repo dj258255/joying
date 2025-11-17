@@ -8,6 +8,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useMyProducts } from '@/features/product/hooks/useMyProducts';
 import { useLikedProducts } from '@/features/product/hooks/useLikedProducts';
+import { useChatRooms } from '@/features/chat/hooks/useChatRooms';
+import { useReviews } from '@/features/review/hooks/useReviews';
 import { ROUTE_PATHS } from '@/shared/constants/routePaths';
 import { 
   FiPackage, 
@@ -98,10 +100,16 @@ const MyPageMain = () => {
     size: 100 // 활동 통계용으로 충분한 수량
   });
   const likedProducts = likedProductsData?.content || [];
-  
-  // 채팅방 수
-  // TODO: API 호출로 채팅방 개수 조회
-  const chatRoomsCount = 0;
+
+  // 채팅방 수 조회
+  const { chatRooms } = useChatRooms();
+  const chatRoomsCount = chatRooms?.length || 0;
+
+  // 리뷰 개수 조회 (사용자 ID가 있을 때만)
+  const { reviews: userReviews } = useReviews('member', currentUserId, {
+    enabled: !!currentUserId
+  });
+  const reviewCount = userReviews?.length || 0;
 
   // 별점 렌더링 함수
   const renderStarRating = (rating) => {
@@ -263,7 +271,7 @@ const MyPageMain = () => {
                     <div className="text-xs text-gray-600">등록 상품</div>
                   </button>
                   <div className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{currentUser?.reviewCount || 0}</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{reviewCount}</div>
                     <div className="text-xs text-gray-600">리뷰</div>
               </div>
             </div>

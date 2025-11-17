@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -18,6 +18,7 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAuthenticated, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -137,6 +138,24 @@ const ProductListMain = () => {
     }
   }, [sidos, activeSidoId, showRegionPopover]);
 
+  // location.state에서 해시태그 필터 받아오기 (상품 상세 페이지에서 넘어온 경우)
+  React.useEffect(() => {
+    if (location.state?.filterByHashtag) {
+      const hashtag = location.state.filterByHashtag;
+      console.log('🏷️ [ProductListMain] 상품 상세에서 해시태그 필터 적용:', hashtag);
+
+      // 해시태그를 선택 상태에 추가
+      setSelectedHashtags([hashtag]);
+      setAppliedFilters(prev => ({
+        ...prev,
+        selectedHashtags: [hashtag]
+      }));
+
+      // location.state 초기화 (뒤로가기 시 다시 적용되지 않도록)
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
+
   // 컴포넌트 마운트 시 URL에서 필터 복원
   React.useEffect(() => {
     if (isInitialLoad.current && searchParams.toString()) {
@@ -211,7 +230,7 @@ const ProductListMain = () => {
         categoryAppliedRef.current = true; // 적용 완료 표시
         break;
       }
-    } d
+    }
   }, [categoryParam, categories]);
   
   // URL 파라미터가 없어지면 (상세 페이지에서 /products로 돌아올 때) ref 초기화
@@ -515,10 +534,16 @@ const ProductListMain = () => {
   };
 
   const handleHashtagSelect = (hashtag, isRemove = false) => {
+    // 해시태그 유효성 검사
+    if (!hashtag || !hashtag.id || !hashtag.name) {
+      console.warn('[ProductListMain] 잘못된 해시태그:', hashtag);
+      return;
+    }
+
     if (isRemove) {
-      setSelectedHashtags(prev => prev.filter(h => h.id !== hashtag.id));
+      setSelectedHashtags(prev => prev.filter(h => h && h.id !== hashtag.id));
     } else {
-      const isAlreadySelected = selectedHashtags.some(h => h.id === hashtag.id);
+      const isAlreadySelected = selectedHashtags.some(h => h && h.id === hashtag.id);
       if (!isAlreadySelected) {
         setSelectedHashtags(prev => [...prev, hashtag]);
       }
@@ -1348,7 +1373,7 @@ const ProductListMain = () => {
          )}
 
          {/* 상품 목록 */}
-         {!isLoading && !isError && products.length > 0 && (
+         {!isLoading && !isError && filteredProducts.length > 0 && (
            <>
              <div className="mb-4 flex items-center justify-between">
                <p className="text-sm text-gray-600">
@@ -1385,7 +1410,7 @@ const ProductListMain = () => {
          )}
 
          {/* 빈 상태 */}
-         {!isLoading && !isError && products.length === 0 && (
+         {!isLoading && !isError && filteredProducts.length === 0 && (
            <div className="flex items-center justify-center py-20">
              <div className="text-center">
                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

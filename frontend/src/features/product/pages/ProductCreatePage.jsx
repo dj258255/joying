@@ -100,6 +100,19 @@ function ProductCreatePage() {
   const [calEnd, setCalEnd] = useState(null);
   const [noEndDate, setNoEndDate] = useState(false);
 
+  // 종료일 없음 체크박스 토글 시 endRent 필드 업데이트
+  useEffect(() => {
+    if (form.startRent) {
+      if (noEndDate) {
+        // 체크박스 활성화 시 종료일 제거
+        updateField('endRent', '');
+      } else if (!form.endRent || form.endRent === '') {
+        // 체크박스 비활성화 시, endRent가 비어있으면 시작일과 같은 날짜로 설정하지 않음
+        // 사용자가 다시 캘린더에서 선택해야 함
+      }
+    }
+  }, [noEndDate]);
+
   // 카테고리 관련 상태
   const [showCategoryPopover, setShowCategoryPopover] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
@@ -115,9 +128,34 @@ function ProductCreatePage() {
   const [selectedRegionName, setSelectedRegionName] = useState('');
   
   // 지역 API 조회
-  const { data: sidos = [], isLoading: isSidosLoading } = useSidos();
-  const { data: gungus = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
-  const { data: dongs = [], isLoading: isDongsLoading } = useDongs(activeGunguId);
+  const { data: sidosData = [], isLoading: isSidosLoading } = useSidos();
+  const { data: gungusData = [], isLoading: isGungusLoading } = useGungus(activeSidoId);
+  const { data: dongsData = [], isLoading: isDongsLoading } = useDongs(activeGunguId);
+
+  // 지역 데이터 가나다순 정렬
+  const sidos = useMemo(() => {
+    return [...sidosData].sort((a, b) => {
+      const nameA = a.sidoName || a.name || '';
+      const nameB = b.sidoName || b.name || '';
+      return nameA.localeCompare(nameB, 'ko-KR');
+    });
+  }, [sidosData]);
+
+  const gungus = useMemo(() => {
+    return [...gungusData].sort((a, b) => {
+      const nameA = a.gunguName || a.name || '';
+      const nameB = b.gunguName || b.name || '';
+      return nameA.localeCompare(nameB, 'ko-KR');
+    });
+  }, [gungusData]);
+
+  const dongs = useMemo(() => {
+    return [...dongsData].sort((a, b) => {
+      const nameA = a.dongName || a.name || '';
+      const nameB = b.dongName || b.name || '';
+      return nameA.localeCompare(nameB, 'ko-KR');
+    });
+  }, [dongsData]);
 
   // 기타 상태
   const [uploading, setUploading] = useState(false);
@@ -265,10 +303,21 @@ function ProductCreatePage() {
     }
   }, [isEditMode, existingProduct, isProductLoading]);
 
+  // Java Integer 최대값: 2,147,483,647
+  const MAX_PRICE = 2147483647;
+
   // 입력 중에는 숫자만 허용 (포맷팅 없음)
   const handlePriceInput = (key, raw) => {
     const onlyDigits = raw.replace(/[^0-9]/g, '');
-    updateField(key, onlyDigits);
+    const numValue = Number(onlyDigits) || 0;
+
+    // 21억 초과 시 제한
+    if (numValue > MAX_PRICE) {
+      alert(`가격은 최대 ${MAX_PRICE.toLocaleString()}원(21억)까지 입력 가능합니다.`);
+      updateField(key, String(MAX_PRICE));
+    } else {
+      updateField(key, onlyDigits);
+    }
   };
 
   // 포커스 잃을 때 포맷팅
@@ -288,10 +337,19 @@ function ProductCreatePage() {
     if (!input) return;
 
     // 쉼표로 구분된 여러 해시태그 처리
-    const newTags = input
+    const inputTags = input
       .split(',')
       .map(tag => tag.trim())
-      .filter(tag => tag.length > 0 && !hashtags.includes(tag));
+      .filter(tag => tag.length > 0);
+
+    // 중복 검사
+    const duplicates = inputTags.filter(tag => hashtags.includes(tag));
+    const newTags = inputTags.filter(tag => !hashtags.includes(tag));
+
+    // 중복된 해시태그가 있으면 사용자에게 알림
+    if (duplicates.length > 0) {
+      alert(`이미 추가된 해시태그입니다: ${duplicates.join(', ')}`);
+    }
 
     if (newTags.length > 0) {
       setHashtags((prev) => [...prev, ...newTags]);
@@ -891,6 +949,11 @@ function ProductCreatePage() {
         // 3단계: 지역
         return form.sidoId && form.gunguId && form.dongId;
       case 4:
+        // 빌려요 모드일 때는 종료일 필수
+        if (form.uploadType === 'BORROW') {
+          return form.startRent && form.endRent && form.endRent !== '';
+        }
+        // 빌려드려요 모드일 때는 기존 로직 유지
         return form.startRent && (noEndDate || form.endRent || form.endRent === '');
       case 5:
         return true;
@@ -1160,7 +1223,14 @@ function ProductCreatePage() {
               placeholder="상품 제목을 입력하세요"
               className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
             />
-            <div className="text-right text-xs text-gray-500 mt-1">{form.title.length}/50</div>
+            <div className="text-right text-xs mt-1">
+              <span className={form.title.length >= 45 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
+                {form.title.length}/50
+              </span>
+              {form.title.length === 50 && (
+                <span className="ml-2 text-red-600 text-xs">최대 길이입니다</span>
+              )}
+            </div>
           </div>
 
           {/* 해시태그 */}
@@ -1567,15 +1637,23 @@ function ProductCreatePage() {
 
             {calendarMode === 'available' && (
               <div className="p-4 bg-gray-50 border-2 border-gray-300 rounded-xl">
-                <label className="flex items-center gap-2 text-black mb-3">
-                  <input
-                    type="checkbox"
-                    checked={noEndDate}
-                    onChange={(e) => setNoEndDate(e.target.checked)}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className="text-sm">종료일 없음</span>
-                </label>
+                {/* 빌려요 모드일 때는 종료일 없음 옵션 비활성화 */}
+                {form.uploadType === 'RENT' && (
+                  <label className="flex items-center gap-2 text-black mb-3">
+                    <input
+                      type="checkbox"
+                      checked={noEndDate}
+                      onChange={(e) => setNoEndDate(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="text-sm">종료일 없음</span>
+                  </label>
+                )}
+                {form.uploadType === 'BORROW' && (
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-300 rounded-lg">
+                    <p className="text-xs text-blue-900">💡 빌려요 모드에서는 빌리고 싶은 기간을 명확히 입력해주세요</p>
+                  </div>
+                )}
                 <div className="space-y-2 text-sm text-gray-700">
                   <div>시작: {form.startRent ? new Date(form.startRent).toLocaleDateString('ko-KR') : '-'}</div>
                   <div>종료: {form.endRent === '' ? '종료일 없음' : (form.endRent ? new Date(form.endRent).toLocaleDateString('ko-KR') : '-')}</div>

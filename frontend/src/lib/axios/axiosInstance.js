@@ -51,10 +51,11 @@ let isRedirectingToLogin = false;
 const shouldSuppressRedirect = () => {
   try {
     const path = window.location?.pathname || '';
-    // 로그인/회원가입/콜백 및 공개 페이지에서는 리다이렉트 금지
+    // 로그인/회원가입/콜백 페이지에서는 리다이렉트 금지
     if (path.startsWith('/login') || path.includes('/oauth2') || path.startsWith('/register')) return true;
+    // 홈 페이지와 제품 목록 페이지만 공개 (제품 상세는 제외)
     if (path === '/' || path === '/home') return true;
-    if (path === '/products' || path.startsWith('/products/')) return true;
+    if (path === '/products') return true; // 목록만 공개, 상세(/products/:id)는 로그인 필요
     return false;
   } catch (_) {
     return false;
