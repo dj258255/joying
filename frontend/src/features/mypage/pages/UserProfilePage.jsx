@@ -8,7 +8,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
 import ReviewCard from '../../review/components/ReviewCard';
-import { DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
 import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
@@ -19,7 +18,6 @@ const UserProfilePage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
   const [reviewTab, setReviewTab] = useState('lent'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
-  const [userProducts, setUserProducts] = useState([]);
   const [totalReviewCount, setTotalReviewCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pageInfo, setPageInfo] = useState({
@@ -127,29 +125,6 @@ const UserProfilePage = () => {
       uploadType: tab === 'borrowed' ? 'BORROW' : 'RENT',
       currentPage: 0
     }));
-  };
-
-  // 선택된 상품의 대여 예약 내역 가져오기
-  const getProductReservations = () => {
-    if (!selectedProduct) return [];
-    return DUMMY_RESERVATIONS.filter(reservation => 
-      reservation.productId === selectedProduct.id && 
-      reservation.ownerId === parseInt(memberId)
-    );
-  };
-
-  // 특정 날짜에 예약이 있는지 확인
-  const hasReservationOnDate = (day) => {
-    const reservations = getProductReservations();
-    const dateStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
-    return reservations.some(reservation => {
-      const startDate = new Date(reservation.startDate);
-      const endDate = new Date(reservation.endDate);
-      const checkDate = new Date(dateStr);
-      
-      return checkDate >= startDate && checkDate <= endDate;
-    });
   };
 
   if (isLoading) {
@@ -328,7 +303,7 @@ const UserProfilePage = () => {
                 </button>
                 
                 <button
-                  onClick={() => setActiveTab('reviews')}reviews
+                  onClick={() => setActiveTab('reviews')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'reviews'
                       ? 'bg-gray-100 text-gray-900 border border-gray-900 shadow-sm'
@@ -544,7 +519,6 @@ const UserProfilePage = () => {
                   {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                     <div key={day} className={`p-2 text-center text-sm rounded-lg ${
                       day === new Date().getDate() ? 'border border-gray-900 text-gray-900 font-semibold' :
-                      selectedProduct && hasReservationOnDate(day) ? 'bg-gray-200 text-gray-900' :
                       'text-gray-700 hover:bg-gray-100'
                     }`}>
                       {day}
