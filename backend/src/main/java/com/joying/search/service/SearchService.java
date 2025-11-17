@@ -143,6 +143,8 @@ public class SearchService {
 		String q,
 		Integer priceMin,
 		Integer priceMax,
+		Long sido,
+		Long gungu,
 		Long dong,
 		LocalDate dateFrom,
 		LocalDate dateTo,
@@ -262,6 +264,12 @@ public class SearchService {
 			if (dong != null) {
 				TermQuery dongQuery = TermQuery.of(t -> t.field("dongId").value(dong));
 				filterQueries.add(dongQuery._toQuery());
+			} else if (gungu != null) {
+				TermQuery gunguQuery = TermQuery.of(t -> t.field("gugunId").value(gungu));
+				filterQueries.add(gunguQuery._toQuery());
+			} else if (sido != null) {
+				TermQuery sidoQuery = TermQuery.of(t -> t.field("sidoId").value(sido));
+				filterQueries.add(sidoQuery._toQuery());
 			}
 
 			// 카테고리 필터
@@ -490,7 +498,9 @@ public class SearchService {
 			.content(product.getContent())
 			.categoryId(product.getCategory().getCategoryId())
 			.sido(product.getSido().getName())
+			.sidoId(product.getSido().getSidoId())
 			.gugun(product.getGungu().getName())
+			.gugunId(product.getGungu().getGunguId())
 			.dong(product.getDong().getName())
 			.deposit(product.getDeposit())
 			.rentalFee(product.getRentalFee())
