@@ -3,7 +3,7 @@
  * 빌린 내역 상세 페이지
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import ReviewCard from '../../review/components/ReviewCard';
@@ -43,10 +43,10 @@ const BorrowedHistoryPage = () => {
   }, [rentalId]);
 
   useEffect(() => {
-    if (rental && rentalId) {
+    if (rentalId) {
       loadReviews();
     }
-  }, [rental, rentalId]);
+  }, [rentalId]);
 
   const loadRentalHistory = async () => {
     try {
@@ -151,8 +151,8 @@ const BorrowedHistoryPage = () => {
   };
 
   // 리뷰 데이터 가져오기
-  const loadReviews = async () => {
-    if (!rental || !rentalId) return;
+  const loadReviews = async (retryCount = 0) => {
+    if (!rentalId) return;
     
     try {
       setLoadingReviews(true);
@@ -160,41 +160,79 @@ const BorrowedHistoryPage = () => {
       // 내가 작성한 리뷰 조회 (빌린 사람이 상품에 대한 리뷰) - type: 'borrow'
       try {
         const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
-        const myReviewData = myReviewResponse?.data?.data || myReviewResponse?.data;
+        // API 응답 구조: { status, message, data: { reviewId, title, content, rating, reviewerName } }
+        const myReviewData = myReviewResponse?.data?.data;
         if (myReviewData && myReviewData.reviewId) {
           setMyReview(myReviewData);
         } else {
           setMyReview(null);
         }
       } catch (error) {
-        // 리뷰가 없으면 null로 설정
-        if (error.response?.status !== 404) {
+        // 404는 리뷰가 없다는 의미이므로 null로 설정
+        if (error.response?.status === 404) {
+          setMyReview(null);
+        } else {
           console.error('내 리뷰 조회 실패:', error);
+          setMyReview(null);
         }
-        setMyReview(null);
       }
       
       // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰) - type: 'rent'
       try {
         const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
-        const ownerReviewData = ownerReviewResponse?.data?.data || ownerReviewResponse?.data;
+        const ownerReviewData = ownerReviewResponse?.data?.data;
         if (ownerReviewData && ownerReviewData.reviewId) {
           setOwnerReview(ownerReviewData);
         } else {
           setOwnerReview(null);
         }
       } catch (error) {
-        // 리뷰가 없으면 null로 설정
-        if (error.response?.status !== 404) {
+        // 404는 리뷰가 없다는 의미이므로 null로 설정
+        if (error.response?.status === 404) {
+          setOwnerReview(null);
+        } else {
           console.error('판매자 리뷰 조회 실패:', error);
+          setOwnerReview(null);
         }
-        setOwnerReview(null);
       }
     } catch (error) {
       console.error('리뷰 조회 중 오류:', error);
     } finally {
       setLoadingReviews(false);
     }
+  };
+
+  // 리뷰 조회 재시도 헬퍼 함수
+  const retryLoadMyReview = async (type = 'borrow', maxRetries = 5) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const response = await reviewApi.getRentalReview(rentalId, type);
+        const reviewData = response?.data?.data;
+        
+        if (reviewData && reviewData.reviewId) {
+          setMyReview(reviewData);
+          return true; // 성공
+        }
+        
+        // 리뷰가 아직 없으면 재시도
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        // 404는 리뷰가 아직 없다는 의미이므로 재시도
+        if (error.response?.status === 404) {
+          if (i < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } else {
+          console.error(`리뷰 조회 시도 ${i + 1} 실패:`, error);
+          if (i < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+      }
+    }
+    return false; // 실패
   };
 
   // 거래 완료 상태 확인
@@ -741,27 +779,12 @@ const BorrowedHistoryPage = () => {
                       setReviewContent('');
                       setReviewTitle('');
                       
-                      // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 여러 번 시도)
-                      const retryLoadReviews = async (retries = 3) => {
-                        for (let i = 0; i < retries; i++) {
-                          try {
-                            await loadReviews();
-                            // 리뷰 조회 성공 시 종료
-                            break;
-                          } catch (err) {
-                            console.error(`리뷰 조회 시도 ${i + 1} 실패:`, err);
-                            if (i < retries - 1) {
-                              // 다음 시도 전 대기
-                              await new Promise(resolve => setTimeout(resolve, 500));
-                            }
-                          }
-                        }
-                      };
-                      
-                      // 약간의 지연 후 리뷰 조회 시작
-                      setTimeout(() => {
-                        retryLoadReviews();
-                      }, 300);
+                      // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 재시도)
+                      setTimeout(async () => {
+                        await retryLoadMyReview('borrow');
+                        // 전체 리뷰 목록도 다시 로드
+                        await loadReviews();
+                      }, 500);
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
                       alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
