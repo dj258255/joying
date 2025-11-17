@@ -3,7 +3,8 @@
  * 수령 확인 메시지 카드 컴포넌트
  */
 
-import React from 'react';
+import React, { useState } from 'react';
+import VideoListModal from '../../rental/components/VideoListModal';
 
 /**
  * 수령 확인 메시지 내용 파싱
@@ -36,6 +37,7 @@ export const parseReceiveMessage = (content) => {
  * 수령 확인 메시지 카드 컴포넌트
  */
 const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onReturnClick, onCancelClick }) => {
+  const [showVideoListModal, setShowVideoListModal] = useState(false);
   const receiveInfo = parseReceiveMessage(message.content);
 
   if (!receiveInfo) {
@@ -44,6 +46,7 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onReturnC
   }
 
   return (
+    <>
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-2 px-4`}>
       <div className={`max-w-[80%] ${isOwn ? 'order-2' : 'order-1'}`}>
         {/* 수령 확인 카드 */}
@@ -69,20 +72,19 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onReturnC
               <p className="text-sm text-gray-900 font-medium">수령이 확인되었습니다</p>
             </div>
 
-            {receiveInfo.videoUrl && (
-              <div className="mt-3">
-                <a
-                  href={receiveInfo.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-gray-600 hover:text-gray-900 underline flex items-center gap-1"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* 거래 영상 보기 버튼 */}
+            {receiveInfo.rentalHisId && (
+              <button
+                onClick={() => setShowVideoListModal(true)}
+                className="glass-button w-full text-sm mt-3 py-2.5"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  개봉 영상 보기
-                </a>
-              </div>
+                  <span>거래 영상 보기</span>
+                </div>
+              </button>
             )}
 
             {/* 버튼들 (구매자만) */}
@@ -131,6 +133,16 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onReturnC
         </div>
       </div>
     </div>
+
+    {/* 거래 영상 조회 모달 */}
+    {receiveInfo.rentalHisId && (
+      <VideoListModal
+        isOpen={showVideoListModal}
+        onClose={() => setShowVideoListModal(false)}
+        rentalHisId={receiveInfo.rentalHisId}
+      />
+    )}
+    </>
   );
 };
 

@@ -211,7 +211,7 @@ const ProductListMain = () => {
         categoryAppliedRef.current = true; // 적용 완료 표시
         break;
       }
-    }
+    } d
   }, [categoryParam, categories]);
   
   // URL 파라미터가 없어지면 (상세 페이지에서 /products로 돌아올 때) ref 초기화
