@@ -211,12 +211,12 @@ const ProductListMain = () => {
   const categoryAppliedRef = React.useRef(false);
   React.useEffect(() => {
     // 이미 적용했거나, categoryParam이 없거나, categories가 로드되지 않았으면 스킵
-    if (categoryAppliedRef.current || !categoryParam || categories.length === 0) {
+    if (categoryAppliedRef.current || !categoryParam || !categories || categories.length === 0) {
       return;
     }
-    
+
     const categoryId = parseInt(categoryParam, 10);
-    
+
     // 하위 카테고리에서 찾기
     for (const mainCat of categories) {
       const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
@@ -579,6 +579,17 @@ const ProductListMain = () => {
       sameDayRental,
       hashtags: selectedHashtags
     });
+
+    // 가격 범위 유효성 검사
+    if (priceRange.min && priceRange.max) {
+      const minPrice = parseInt(priceRange.min.toString().replace(/,/g, ''), 10);
+      const maxPrice = parseInt(priceRange.max.toString().replace(/,/g, ''), 10);
+
+      if (minPrice > maxPrice) {
+        alert('최소 금액이 최대 금액보다 클 수 없습니다.');
+        return;
+      }
+    }
 
     // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
 

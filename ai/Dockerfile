@@ -25,4 +25,16 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')"
 
 # 서버 실행
-CMD ["python", "main.py"]
+# Uvicorn 워커 설정 (리소스 절약)
+# --workers: 워커 프로세스 수 (2개 - 4 vCPU 기준)
+# --limit-concurrency: 동시 처리 요청 수 제한 (100개)
+# --timeout-keep-alive: Keep-Alive 타임아웃 (30초)
+# --timeout-graceful-shutdown: Graceful Shutdown 타임아웃 (30초)
+CMD ["uvicorn", "main:app", \
+     "--host", "0.0.0.0", \
+     "--port", "8000", \
+     "--workers", "2", \
+     "--limit-concurrency", "100", \
+     "--timeout-keep-alive", "30", \
+     "--timeout-graceful-shutdown", "30", \
+     "--log-level", "info"]

@@ -628,7 +628,7 @@ const ProductDetailPage = () => {
                           onClick={handleRentRequest}
                           className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                          대여 요청하기
+                          {product.uploadType === 'RENT' ? '대여 요청하기' : '빌려주기 제안'}
                         </button>
                         <button
                           onClick={handleLikeClick}
@@ -1049,7 +1049,7 @@ const ProductDetailPage = () => {
                     onClick={handleRentRequest}
                     className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    대여 요청하기
+                    {product.uploadType === 'RENT' ? '대여 요청하기' : '빌려주기 제안'}
                   </button>
                 </div>
               </div>
