@@ -9,7 +9,7 @@ import ProfileImage from '../../../shared/components/ProfileImage';
 
 const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
   const navigate = useNavigate();
-  
+
   const formatDate = (dateString) => {
     if (!dateString) return '';
     try {
@@ -38,28 +38,28 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
   };
 
   return (
-    <div className="p-3 md:p-4 border border-gray-200 rounded-2xl">
+    <div className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage
-          src={review.reviewer?.profileImageUrl}
-          alt={review.reviewer?.username || '익명'}
+          src={review.profileImageUrl}
+          alt={review.reviewerName || '익명'}
           size={40}
           className="w-8 h-8 md:w-10 md:h-10"
         />
         <div className="flex-1">
           <div className="font-medium text-gray-900 text-sm md:text-base">
-            {review.reviewer?.username || '익명'}
+            {review.reviewerName || '익명'}
           </div>
           <div className="text-xs text-gray-500">
             {formatDate(review.createdAt)}
           </div>
         </div>
         {/* 별점 표시 (옵션) */}
-        {showRating && (
+        {showRating && review.rating != null && (
           <div className="flex items-center space-x-1">
             {renderStars(review.rating)}
-            <span className="text-xs text-gray-500 ml-1">{review.rating}</span>
+            <span className="text-xs text-gray-500 ml-1">{review.rating.toFixed(1)}</span>
           </div>
         )}
       </div>
@@ -70,39 +70,16 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
           {review.title}
         </h4>
       )}
-      
+
       {/* 리뷰 내용 */}
       <p className="text-gray-700 leading-relaxed text-sm md:text-base mb-3">
         {review.content}
       </p>
-      
-      {/* 상품 정보 표시 (옵션) */}
-      {showProductInfo && review.product && (
-        <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-          <div className="flex items-center gap-3">
-            <img
-              src={review.product.images?.[0]}
-              alt={review.product.title}
-              className="w-12 h-12 object-cover rounded-lg"
-            />
-            <div className="flex-1">
-              <div className="font-medium text-gray-900">{review.product.title}</div>
-              <div className="text-sm text-gray-600">{review.product.price.toLocaleString()}원/일</div>
-            </div>
-            <button
-              onClick={() => navigate(`/products/${review.product.id}`)}
-              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
-            >
-              상품 보기
-            </button>
-          </div>
-        </div>
-      )}
-      
+
       {/* 리뷰 이미지 */}
-      {review.images && review.images.length > 0 && (
+      {review.imageUrls && review.imageUrls.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
-          {review.images.map((image, imgIndex) => (
+          {review.imageUrls.map((image, imgIndex) => (
             <img
               key={imgIndex}
               src={image}
