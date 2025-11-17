@@ -31,7 +31,7 @@ export const reviewApi = {
   /**
    * 리뷰 수정
    * @param {Object} data
-   * @param {number} data.reviewId - 리뷰 ID
+   * @param {number} data.reviewId - 리뷰 ID (path variable로 사용)
    * @param {string} data.title - 리뷰 제목
    * @param {string} data.content - 리뷰 내용
    * @param {number} data.rating - 평점 (1~5)
@@ -39,7 +39,11 @@ export const reviewApi = {
    * @returns {Promise<Object>}
    */
   updateReview: async (data) => {
-    return await axiosInstance.patch(`/review`, data);
+    const { reviewId, ...requestBody } = data;
+    if (!reviewId) {
+      throw new Error('reviewId는 필수입니다.');
+    }
+    return await axiosInstance.patch(`/review/${reviewId}`, requestBody);
   },
 
   /**
