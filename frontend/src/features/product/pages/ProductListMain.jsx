@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
@@ -16,6 +16,7 @@ import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegion
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 import logo from '@/assets/icons/logo_dark.png';
+import { searchApi } from '../../search/api/searchApi';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
@@ -46,6 +47,10 @@ const ProductListMain = () => {
   const [selectedHashtags, setSelectedHashtags] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [priceError, setPriceError] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const searchWrapperRef = useRef(null);
 
   // 적용된 필터 상태 (실제 API 호출에 사용)
   const [appliedFilters, setAppliedFilters] = useState({
@@ -405,6 +410,40 @@ const ProductListMain = () => {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [queryClient, refetch, q, apiFilters]);
+
+  // 자동완성 기능: 검색어 변경 시 자동완성 제안 조회
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (searchQuery.trim().length >= 1) {
+        try {
+          const data = await searchApi.autocomplete(searchQuery);
+          setSuggestions(data || []);
+          setShowSuggestions(true);
+        } catch (error) {
+          console.error('자동완성 조회 실패:', error);
+          setSuggestions([]);
+        }
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    };
+
+    const timeoutId = setTimeout(fetchSuggestions, 300); // 300ms 디바운스
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // 자동완성: 외부 클릭 감지
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -1446,7 +1485,7 @@ const ProductListMain = () => {
       <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
         {/* 검색창 */}
         <div className="mb-4">
-          <div className="relative max-w-2xl mx-auto">
+          <div ref={searchWrapperRef} className="relative max-w-2xl mx-auto">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <svg
                 className="h-5 w-5 text-gray-400"
@@ -1461,9 +1500,26 @@ const ProductListMain = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSelectedIndex(prev =>
+                    prev < suggestions.length - 1 ? prev + 1 : prev
+                  );
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSelectedIndex(prev => prev > 0 ? prev - 1 : -1);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+                    setSearchQuery(suggestions[selectedIndex]);
+                    setShowSuggestions(false);
+                    setSelectedIndex(-1);
+                  }
                   handleApply();
+                } else if (e.key === 'Escape') {
+                  setShowSuggestions(false);
+                  setSelectedIndex(-1);
                 }
               }}
               placeholder="상품명을 검색하세요..."
@@ -1479,6 +1535,8 @@ const ProductListMain = () => {
                 onClick={() => {
                   setSearchQuery('');
                   setAppliedFilters(prev => ({ ...prev, searchQuery: '' }));
+                  setSuggestions([]);
+                  setShowSuggestions(false);
                 }}
                 className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
               >
@@ -1486,6 +1544,33 @@ const ProductListMain = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            )}
+
+            {/* 자동완성 드롭다운 */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setSearchQuery(suggestion);
+                      setShowSuggestions(false);
+                      setSelectedIndex(-1);
+                      setAppliedFilters(prev => ({ ...prev, searchQuery: suggestion }));
+                    }}
+                    className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors ${
+                      index === selectedIndex ? 'bg-gray-100' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <span className="text-gray-900">{suggestion}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
