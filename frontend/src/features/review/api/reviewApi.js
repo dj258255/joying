@@ -30,14 +30,16 @@ export const reviewApi = {
 
   /**
    * 리뷰 수정
-   * @param {string} reviewId - 리뷰 ID
    * @param {Object} data
-   * @param {number} data.rating - 평점 (1-5)
-   * @param {string} data.content - 내용
+   * @param {number} data.reviewId - 리뷰 ID
+   * @param {string} data.title - 리뷰 제목
+   * @param {string} data.content - 리뷰 내용
+   * @param {number} data.rating - 평점 (1~5)
+   * @param {number[]} [data.fileIds] - 업로드한 파일 ID 배열
    * @returns {Promise<Object>}
    */
-  updateReview: async (reviewId, data) => {
-    return await axiosInstance.patch(`/review/${reviewId}`, data);
+  updateReview: async (data) => {
+    return await axiosInstance.patch(`/review`, data);
   },
 
   /**
@@ -56,5 +58,17 @@ export const reviewApi = {
    */
   getReviewDetail: async (reviewId) => {
     return await axiosInstance.get(`/review/${reviewId}`);
+  },
+
+  /**
+   * 대여 내역별 리뷰 조회
+   * @param {number} rentalId - 대여 내역 ID
+   * @param {string} type - 'rent' (빌려준 사람의 리뷰) 또는 'borrow' (빌린 사람의 리뷰)
+   * @returns {Promise<Object>}
+   */
+  getRentalReview: async (rentalId, type) => {
+    return await axiosInstance.get(`/review/rental/${rentalId}`, {
+      params: { type }
+    });
   },
 };
