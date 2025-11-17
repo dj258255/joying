@@ -54,7 +54,6 @@ const ProgressTracker = ({ onProgressChange }) => {
   const { progress, active, loaded, total, errors } = useProgress();
   
   useEffect(() => {
-    console.log('📊 Progress Update:', { progress, active, loaded, total });
     onProgressChange({ progress, active, loaded, total, errors });
   }, [progress, active, loaded, total, errors, onProgressChange]);
   
@@ -814,7 +813,6 @@ const HomePage = () => {
       // 안전장치: 1.5초 후 강제 해제
       setTimeout(() => {
         if (isScrolling) {
-          console.warn('⚠️ 안전장치: isScrolling 강제 해제');
           isScrolling = false;
           setIsAnimating(false);
         }
@@ -1035,20 +1033,8 @@ const HomePage = () => {
         userSelect: isAnimating ? 'none' : 'auto'
       }}
     >
-      {/* 애니메이션 중 터치 차단 오버레이 */}
-      {isAnimating && (
-        <div 
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 9999,
-            pointerEvents: 'all',
-            touchAction: 'none',
-            cursor: 'wait'
-          }}
-        />
-      )}
-
+      {/* ⚡ 성능 최적화: 애니메이션 오버레이 제거 (클릭 차단 문제 해결) */}
+      
       {/* 로딩 화면 */}
       <LoadingScreen 
         progress={loadingProgress.progress}
