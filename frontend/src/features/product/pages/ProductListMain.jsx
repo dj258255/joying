@@ -1246,7 +1246,7 @@ const ProductListMain = () => {
            <>
              <div className="mb-4 flex items-center justify-between">
                <p className="text-sm text-gray-600">
-                 총 <span className="font-semibold text-gray-900">{filteredProducts.length}</span>개의 상품
+                 총 <span className="font-semibold text-gray-900">{total}</span>개의 상품
                </p>
              </div>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
