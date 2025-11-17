@@ -52,6 +52,8 @@ const ProductListMain = () => {
     selectedDates: { start: null, end: null },
     priceRange: { min: '', max: '' },
     selectedSubcategories: [],
+    selectedSido: null,
+    selectedGungu: null,
     selectedDong: null,
     rating: 0,
     sameDayRental: false,
@@ -88,6 +90,8 @@ const ProductListMain = () => {
         max: searchParams.get('priceMax') || ''
       },
       selectedSubcategories: [], // 나중에 categories 로드 후 복원
+      selectedSido: null,
+      selectedGungu: null,
       selectedDong: null, // 나중에 regions 로드 후 복원
       rating: parseFloat(searchParams.get('rating')) || 0,
       sameDayRental: searchParams.get('sameDayRental') === 'true',
@@ -108,6 +112,8 @@ const ProductListMain = () => {
     if (filters.selectedSubcategories.length > 0) {
       params.set('category', filters.selectedSubcategories[0].categoryId.toString());
     }
+    if (filters.selectedSido) params.set('sido', filters.selectedSido.id || filters.selectedSido.sidoId);
+    if (filters.selectedGungu) params.set('gungu', filters.selectedGungu.id || filters.selectedGungu.gunguId);
     if (filters.selectedDong) params.set('dong', filters.selectedDong.id || filters.selectedDong.dongId);
     if (filters.rating > 0) params.set('rating', filters.rating.toString());
     if (filters.sameDayRental) params.set('sameDayRental', 'true');
@@ -136,6 +142,7 @@ const ProductListMain = () => {
   React.useEffect(() => {
     if (sidos.length > 0 && !activeSidoId && showRegionPopover) {
       setActiveSidoId(sidos[0].sidoId || sidos[0].id);
+      setSelectedSido(sidos[0]);
     }
   }, [sidos, activeSidoId, showRegionPopover]);
 
@@ -264,6 +271,8 @@ const ProductListMain = () => {
     category: appliedFilters.selectedSubcategories.length > 0 ? appliedFilters.selectedSubcategories.map(c => c.categoryId) : [],
     "price-min": appliedFilters.priceRange.min ? parseInt(appliedFilters.priceRange.min.toString().replace(/,/g, ''), 10) : null,
     "price-max": appliedFilters.priceRange.max ? parseInt(appliedFilters.priceRange.max.toString().replace(/,/g, ''), 10) : null,
+    sido: appliedFilters.selectedSido !== null ? appliedFilters.selectedSido.id : null,
+    gungu: appliedFilters.selectedGungu !== null ? appliedFilters.selectedGungu.id : null,
     dong: appliedFilters.selectedDong !== null ? appliedFilters.selectedDong.id : null,
     rating: appliedFilters.rating,
     sameDayRental: appliedFilters.sameDayRental,
@@ -274,6 +283,8 @@ const ProductListMain = () => {
     appliedFilters.searchQuery,
     appliedFilters.selectedSubcategories,
     appliedFilters.priceRange,
+    appliedFilters.selectedSido,
+    appliedFilters.selectedGungu,
     appliedFilters.selectedDong,
     appliedFilters.rating,
     appliedFilters.sameDayRental,
@@ -336,6 +347,8 @@ const ProductListMain = () => {
       selectedDates: appliedFilters.selectedDates,
       priceRange: appliedFilters.priceRange,
       selectedSubcategories: appliedFilters.selectedSubcategories.map(c => c.categoryId),
+      selectedSido: appliedFilters.selectedSido?.id,
+      selectedGungu: appliedFilters.selectedGungu?.id,
       selectedDong: appliedFilters.selectedDong?.id,
       rating: appliedFilters.rating,
       sameDayRental: appliedFilters.sameDayRental,
@@ -551,6 +564,8 @@ const ProductListMain = () => {
       selectedDates: { start: null, end: null },
       priceRange: { min: '', max: '' },
       selectedSubcategories: [],
+      selectedSido: null,
+      selectedGungu: null,
       selectedDong: null,
       rating: 0,
       sameDayRental: false,
@@ -617,6 +632,8 @@ const ProductListMain = () => {
       selectedDates,
       priceRange,
       selectedSubcategories,
+      selectedSido,
+      selectedGungu,
       selectedDong,
       rating,
       sameDayRental,
@@ -1200,9 +1217,6 @@ const ProductListMain = () => {
                           type="button"
                           onClick={() => {
                             setSelectedDong(dong);
-                            setSelectedRegionName(
-                              `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
-                            );
                           }}
                           className={`w-full text-left py-2 px-3 text-xs transition-all duration-200 ${
                             selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
@@ -1220,7 +1234,20 @@ const ProductListMain = () => {
                 <div className="h-[60px] p-3 bg-white" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                   <button
                     type="button"
-                    onClick={() => setShowRegionPopover(false)}
+                    onClick={() => {
+                      let finalName = "";
+
+                      if (selectedDong) {
+                        finalName = `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${selectedDong?.dongName || selectedDong?.name}`;
+                      } else if (selectedGungu) {
+                        finalName = `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name}`;
+                      } else if (selectedSido) {
+                        finalName = `${selectedSido?.sidoName || selectedSido?.name}`;
+                      }
+
+                      setSelectedRegionName(finalName);
+                      setShowRegionPopover(false);
+                  }}
                     className="w-full h-full rounded-lg text-xs font-medium text-white bg-gray-900 hover:bg-black transition-colors"
                   >
                     선택 완료
@@ -1993,9 +2020,6 @@ const ProductListMain = () => {
                             type="button"
                             onClick={() => {
                               setSelectedDong(dong);
-                              setSelectedRegionName(
-                                `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${dong?.dongName || dong?.name}`
-                              );
                             }}
                             className={`w-full text-left py-3 px-4 transition-all duration-200 ${
                               selectedDong?.dongId === (dong.dongId || dong.id) || selectedDong?.id === (dong.dongId || dong.id)
@@ -2012,7 +2036,20 @@ const ProductListMain = () => {
                   <div className="p-3" style={{ borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
                     <button 
                       type="button"
-                      onClick={() => setShowRegionPopover(false)}
+                      onClick={() => {
+                        let finalName = "";
+
+                        if (selectedDong) {
+                          finalName = `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${selectedDong?.dongName || selectedDong?.name}`;
+                        } else if (selectedGungu) {
+                          finalName = `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name}`;
+                        } else if (selectedSido) {
+                          finalName = `${selectedSido?.sidoName || selectedSido?.name}`;
+                        }
+
+                        setSelectedRegionName(finalName);
+                        setShowRegionPopover(false);
+                    }}
                       className="w-full py-2 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
                     >
                       선택 완료
