@@ -54,13 +54,19 @@ public class SearchDocument {
 	@Field(type = FieldType.Keyword)
 	private String sido;
 
+	@Field(type = FieldType.Long)
+	private Long sidoId;
+
 	@Field(type = FieldType.Keyword)
 	private String gugun;
+
+	@Field(type = FieldType.Long)
+	private Long gugunId;
 
 	@Field(type = FieldType.Keyword)
 	private String dong;
 
-	@Field(type = FieldType.Integer)
+	@Field(type = FieldType.Long)
 	private Long dongId;
 
 	@Field(type = FieldType.Keyword)
@@ -95,7 +101,9 @@ public class SearchDocument {
 		Boolean videoNecessary,
 		Long categoryId,
 		String sido,
+		Long sidoId,
 		String gugun,
+		Long gugunId,
 		String dong,
 		Long dongId,
 		LocalDateTime startRent,
@@ -112,7 +120,9 @@ public class SearchDocument {
 		this.hashtags = hashtags;
 		this.rentalFee = rentalFee;
 		this.sido = sido;
+		this.sidoId = sidoId;
 		this.gugun = gugun;
+		this.gugunId = gugunId;
 		this.dong = dong;
 		this.dongId = dongId;
 		this.deposit = deposit;
@@ -133,7 +143,9 @@ public class SearchDocument {
 			.content(searchRequest.content())
 			.categoryId(searchRequest.categoryId())
 			.sido(searchRequest.sido())
+			.sidoId(searchRequest.sidoId())
 			.gugun(searchRequest.gugun())
+			.gugunId(searchRequest.gugunId())
 			.dong(searchRequest.dong())
 			.hashtags(searchRequest.hashtags())
 			.rentalFee(searchRequest.rentalFee())
