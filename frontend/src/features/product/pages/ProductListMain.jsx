@@ -15,6 +15,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useSidos, useGungus, useDongs } from '@/features/region/hooks/useRegions';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+import logo from '@/assets/icons/logo_dark.png';
 
 const ProductListMain = () => {
   const navigate = useNavigate();
@@ -713,6 +714,16 @@ const ProductListMain = () => {
 
   return (
     <div className="flex h-screen bg-white">
+      {/* 로고 - 필터 사이드바 바로 옆 (데스크톱) */}
+      <div className="hidden lg:flex fixed top-4 left-[272px] z-[100]">
+        <img
+          src={logo}
+          alt="빌려joying"
+          className="h-10 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => navigate(ROUTE_PATHS.HOME)}
+        />
+      </div>
+
       {/* 우측 상단 프로필/로그인 버튼 - 데스크톱 */}
       <div className="hidden lg:flex fixed top-4 right-4 z-[100] items-center gap-4">
         {isAuthenticated ? (
@@ -771,30 +782,6 @@ const ProductListMain = () => {
              </button>
            </div>
           </div>
-        {/* 검색창 */}
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="상품명 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={handleSearchKeyPress}
-            className="w-full px-4 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
-          />
-          <button
-            onClick={handleSearch}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:text-gray-900 transition-colors"
-          >
-            <svg 
-              className="w-4 h-4 text-gray-400" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
-        </div>
 
         {/* 날짜 기간 */}
         <div className="space-y-2">
@@ -1392,7 +1379,7 @@ const ProductListMain = () => {
                    left: activeTab === 'rent' ? '4px' : 'calc(50% + 0px)'
                  }}
                />
-               
+
                {/* 텍스트 레이어 */}
                <div className="absolute inset-0 flex items-center pointer-events-none">
                  <div className="w-1/2 flex items-center justify-center">
@@ -1408,9 +1395,16 @@ const ProductListMain = () => {
                </div>
              </button>
            </div>
-           
+
            {/* 모바일 우측 버튼 그룹 */}
            <div className="flex items-center gap-2">
+             {/* 로고 */}
+             <img
+               src={logo}
+               alt="빌려joying"
+               className="h-8 w-auto object-contain cursor-pointer hover:opacity-80 transition-opacity"
+               onClick={() => navigate(ROUTE_PATHS.HOME)}
+             />
              {/* 필터 버튼 */}
              <button
                onClick={() => setIsFilterOpen(true)}
@@ -1448,9 +1442,56 @@ const ProductListMain = () => {
          </div>
        </div>
 
-      {/* 해시태그 필터 - 스티키 */}
+      {/* 검색창 + 해시태그 필터 - 스티키 */}
       <div className="sticky top-0 z-10 pt-4 lg:pt-16 pb-4 px-4 bg-white border-b border-gray-200">
-        <HashtagFilter 
+        {/* 검색창 */}
+        <div className="mb-4">
+          <div className="relative max-w-2xl mx-auto">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <svg
+                className="h-5 w-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleApply();
+                }
+              }}
+              placeholder="상품명을 검색하세요..."
+              className="w-full pl-12 pr-12 py-3 text-base
+                         bg-gray-50
+                         border-2 border-gray-200 rounded-xl
+                         text-gray-900 placeholder-gray-400
+                         focus:outline-none focus:border-gray-900 focus:bg-white
+                         transition-all duration-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setAppliedFilters(prev => ({ ...prev, searchQuery: '' }));
+                }}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 해시태그 필터 */}
+        <HashtagFilter
           hashtags={hashtags}
           onHashtagSelect={handleHashtagSelect}
           selectedHashtags={selectedHashtags}

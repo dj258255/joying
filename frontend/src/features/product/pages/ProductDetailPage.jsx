@@ -224,7 +224,6 @@ const ProductDetailPage = () => {
       totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
       // 추가 정보
       rentMethod: productResponse?.rentMethod || 'BOTH',
-      videoNecessary: productResponse?.videoNecessary || false,
       startRent: productResponse?.startRent || null,
       endRent: productResponse?.endRent || null,
       uploadType: productResponse?.uploadType || 'RENT',
@@ -522,15 +521,6 @@ const ProductDetailPage = () => {
                       )}
                     </div>
 
-                    {/* 영상 촬영 필요 */}
-                    {product.videoNecessary && (
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-sm font-medium">
-                          📹 수령/반납 시 영상 촬영 필수
-                        </span>
-                      </div>
-                    )}
-
                     {/* 대여 가능 기간 */}
                     {(product.startRent || product.endRent) && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -556,123 +546,236 @@ const ProductDetailPage = () => {
                   </div>
                 </div>
 
-                {/* 대여 기간 선택 */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
-                  
-                  <div className="flex gap-6">
-                    {/* 왼쪽: 캘린더 */}
-                    <div className="flex-shrink-0">
-                      <DateRangeCalendar
-                        onDateRangeChange={handleDateRangeChange}
-                        disabledDates={product.disabledDates || []}
-                        availableStartDate={product.startRent}
-                        availableEndDate={product.endRent}
-                      />
-                      
-                      {/* 대여 방식 선택 */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          대여 방식
-                        </label>
-                        <div className="space-y-2">
-                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name="rentMethod"
-                              value="ONLY_ONLINE"
-                              checked={rentMethod === 'ONLY_ONLINE'}
-                              onChange={(e) => setRentMethod(e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-900">택배거래</span>
+                {/* 대여 기간 선택 또는 희망 조건 표시 - uploadType에 따라 분기 */}
+                {product.uploadType === 'RENT' ? (
+                  // 빌려드려요 (RENT): 기존 UI - 캘린더 + 대여 방식 선택 + 가격 계산
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
+
+                    <div className="flex gap-6">
+                      {/* 왼쪽: 캘린더 */}
+                      <div className="flex-shrink-0">
+                        <DateRangeCalendar
+                          onDateRangeChange={handleDateRangeChange}
+                          disabledDates={product.disabledDates || []}
+                          availableStartDate={product.startRent}
+                          availableEndDate={product.endRent}
+                        />
+
+                        {/* 대여 방식 선택 */}
+                        <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            대여 방식
                           </label>
-                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name="rentMethod"
-                              value="ONLY_OFFLINE"
-                              checked={rentMethod === 'ONLY_OFFLINE'}
-                              onChange={(e) => setRentMethod(e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-900">직거래</span>
-                          </label>
-                          <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                            <input
-                              type="radio"
-                              name="rentMethod"
-                              value="BOTH"
-                              checked={rentMethod === 'BOTH'}
-                              onChange={(e) => setRentMethod(e.target.value)}
-                              className="mr-2"
-                            />
-                            <span className="text-sm text-gray-900">둘 다 가능</span>
-                          </label>
+                          <div className="space-y-2">
+                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                              <input
+                                type="radio"
+                                name="rentMethod"
+                                value="ONLY_ONLINE"
+                                checked={rentMethod === 'ONLY_ONLINE'}
+                                onChange={(e) => setRentMethod(e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-900">택배거래</span>
+                            </label>
+                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                              <input
+                                type="radio"
+                                name="rentMethod"
+                                value="ONLY_OFFLINE"
+                                checked={rentMethod === 'ONLY_OFFLINE'}
+                                onChange={(e) => setRentMethod(e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-900">직거래</span>
+                            </label>
+                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                              <input
+                                type="radio"
+                                name="rentMethod"
+                                value="BOTH"
+                                checked={rentMethod === 'BOTH'}
+                                onChange={(e) => setRentMethod(e.target.value)}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-900">둘 다 가능</span>
+                            </label>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* 오른쪽: 가격 정보 및 버튼 */}
-                    <div className="flex-1 flex flex-col justify-between min-h-[320px]">
-                      {/* 가격 요약 */}
-                      {dateRange && dateRange.start && dateRange.end ? (
-                        <div className="space-y-4">
-                          <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">대여료 ({calculateDays()}일)</span>
-                              <span className="font-semibold text-gray-900">{(product.price * calculateDays()).toLocaleString()}원</span>
+                      {/* 오른쪽: 가격 정보 및 버튼 */}
+                      <div className="flex-1 flex flex-col justify-between min-h-[320px]">
+                        {/* 가격 요약 */}
+                        {dateRange && dateRange.start && dateRange.end ? (
+                          <div className="space-y-4">
+                            <div className="space-y-3">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">대여료 ({calculateDays()}일)</span>
+                                <span className="font-semibold text-gray-900">{(product.price * calculateDays()).toLocaleString()}원</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">보증금</span>
+                                <span className="font-semibold text-gray-900">{product.deposit.toLocaleString()}원</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">보증금</span>
-                              <span className="font-semibold text-gray-900">{product.deposit.toLocaleString()}원</span>
+                            <div className="pt-4 border-t border-gray-300">
+                              <div className="flex justify-between items-center">
+                                <span className="text-base font-semibold text-gray-900">총 결제 금액</span>
+                                <span className="text-2xl font-bold text-gray-900">
+                                  {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div className="pt-4 border-t border-gray-300">
-                            <div className="flex justify-between items-center">
-                              <span className="text-base font-semibold text-gray-900">총 결제 금액</span>
-                              <span className="text-2xl font-bold text-gray-900">
-                                {((product.price * calculateDays()) + product.deposit).toLocaleString()}원
-                              </span>
-                            </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-500">날짜를 선택해주세요</p>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-32 bg-gray-50 rounded-lg">
-                          <p className="text-sm text-gray-500">날짜를 선택해주세요</p>
-                        </div>
-                      )}
+                        )}
 
-                      {/* 버튼 그룹 */}
-                      <div className="flex gap-3 mt-auto">
-                        <button
-                          disabled={isOwnProduct || !dateRange || !dateRange.start || !dateRange.end}
-                          onClick={handleRentRequest}
-                          className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        >
-                          {isOwnProduct ? '본인 상품입니다' : '대여 요청하기'}
-                        </button>
-                        <button
-                          onClick={handleLikeClick}
-                          className={`w-14 h-14 border-2 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 ${
-                            isLiked 
-                              ? 'border-red-500 hover:border-red-600' 
-                              : 'border-gray-300 hover:border-gray-900'
-                          }`}
-                        >
-                          <svg
-                            className={`w-6 h-6 ${isLiked ? 'text-red-500' : 'text-gray-600'}`}
-                            fill={isLiked ? 'currentColor' : 'none'}
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                        {/* 버튼 그룹 */}
+                        <div className="flex gap-3 mt-auto">
+                          <button
+                            disabled={isOwnProduct || !dateRange || !dateRange.start || !dateRange.end}
+                            onClick={handleRentRequest}
+                            className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                           >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                        </button>
+                            {isOwnProduct ? '본인 상품입니다' : '대여 요청하기'}
+                          </button>
+                          <button
+                            onClick={handleLikeClick}
+                            className={`w-14 h-14 border-2 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 ${
+                              isLiked
+                                ? 'border-red-500 hover:border-red-600'
+                                : 'border-gray-300 hover:border-gray-900'
+                            }`}
+                          >
+                            <svg
+                              className={`w-6 h-6 ${isLiked ? 'text-red-500' : 'text-gray-600'}`}
+                              fill={isLiked ? 'currentColor' : 'none'}
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // 빌려요 (BORROW): 새로운 UI - 희망 조건만 표시 + 채팅 버튼
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">희망 조건</h3>
+
+                    <div className="bg-gray-50 rounded-lg p-6 space-y-4 mb-6">
+                      {/* 필요한 기간 */}
+                      {(product.startRent || product.endRent) && (
+                        <div className="flex items-start gap-3">
+                          <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-700 mb-1">필요한 기간</div>
+                            <div className="text-base text-gray-900">
+                              {product.startRent && (() => {
+                                const dateStr = product.startRent.split('T')[0];
+                                const [year, month, day] = dateStr.split('-');
+                                return `${year}년 ${month}월 ${day}일`;
+                              })()}
+                              {' ~ '}
+                              {product.endRent ? (() => {
+                                const dateStr = product.endRent.split('T')[0];
+                                const [year, month, day] = dateStr.split('-');
+                                return `${year}년 ${month}월 ${day}일`;
+                              })() : '협의'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 희망 가격 */}
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-700 mb-1">희망 대여료</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            ~ {product.price.toLocaleString()}원<span className="text-base text-gray-600 font-normal">/일</span>
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            보증금: ~ {product.deposit.toLocaleString()}원
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 희망 거래 방식 */}
+                      <div className="flex items-start gap-3">
+                        <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-700 mb-1">희망 거래 방식</div>
+                          <div className="text-base text-gray-900">
+                            {product.rentMethod === 'BOTH' && '택배거래 또는 직거래'}
+                            {product.rentMethod === 'ONLY_OFFLINE' && '직거래'}
+                            {product.rentMethod === 'ONLY_ONLINE' && '택배거래'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 버튼 */}
+                    <div className="flex gap-3">
+                      <button
+                        disabled={isOwnProduct}
+                        onClick={async () => {
+                          if (!isAuthenticated || !user) {
+                            alert('로그인이 필요합니다.');
+                            navigate(ROUTE_PATHS.LOGIN);
+                            return;
+                          }
+                          if (isOwnProduct) {
+                            alert('본인이 등록한 글입니다.');
+                            return;
+                          }
+                          try {
+                            const chatRoomData = await chatApi.createChatRoom(product.id);
+                            navigate(`/chats/${chatRoomData.chatRoomId}`, {
+                              state: { productId: product.id, chatRoomData }
+                            });
+                          } catch (error) {
+                            console.error('채팅방 생성 실패:', error);
+                            alert('채팅방 생성에 실패했습니다.');
+                          }
+                        }}
+                        className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        {isOwnProduct ? '본인 글입니다' : '채팅으로 제안하기'}
+                      </button>
+                      <button
+                        onClick={handleLikeClick}
+                        className={`w-14 h-14 border-2 rounded-lg transition-colors flex items-center justify-center flex-shrink-0 ${
+                          isLiked
+                            ? 'border-red-500 hover:border-red-600'
+                            : 'border-gray-300 hover:border-gray-900'
+                        }`}
+                      >
+                        <svg
+                          className={`w-6 h-6 ${isLiked ? 'text-red-500' : 'text-gray-600'}`}
+                          fill={isLiked ? 'currentColor' : 'none'}
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 상품 설명 */}
                 <div className="border-t border-gray-200 pt-6">
@@ -853,15 +956,6 @@ const ProductDetailPage = () => {
                     )}
                   </div>
 
-                  {/* 영상 촬영 필요 */}
-                  {product.videoNecessary && (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-xs font-medium">
-                        📹 영상 촬영 필수
-                      </span>
-                    </div>
-                  )}
-
                   {/* 대여 가능 기간 */}
                   {(product.startRent || product.endRent) && (
                     <div className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -943,20 +1037,54 @@ const ProductDetailPage = () => {
             </div>
           </div>
 
-          {/* 모바일 하단 고정 바 */}
+          {/* 모바일 하단 고정 바 - uploadType에 따라 다른 버튼 */}
           <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
-            <button
-              onClick={() => setIsCalendarOpen(true)}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              날짜 선택하고 대여하기
-            </button>
+            {product.uploadType === 'RENT' ? (
+              // 빌려드려요: 캘린더 모달 열기
+              <button
+                onClick={() => setIsCalendarOpen(true)}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                날짜 선택하고 대여하기
+              </button>
+            ) : (
+              // 빌려요: 바로 채팅하기
+              <button
+                disabled={isOwnProduct}
+                onClick={async () => {
+                  if (!isAuthenticated || !user) {
+                    alert('로그인이 필요합니다.');
+                    navigate(ROUTE_PATHS.LOGIN);
+                    return;
+                  }
+                  if (isOwnProduct) {
+                    alert('본인이 등록한 글입니다.');
+                    return;
+                  }
+                  try {
+                    const chatRoomData = await chatApi.createChatRoom(product.id);
+                    navigate(`/chats/${chatRoomData.chatRoomId}`, {
+                      state: { productId: product.id, chatRoomData }
+                    });
+                  } catch (error) {
+                    console.error('채팅방 생성 실패:', error);
+                    alert('채팅방 생성에 실패했습니다.');
+                  }
+                }}
+                className="w-full bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                {isOwnProduct ? '본인 글입니다' : '채팅으로 제안하기'}
+              </button>
+            )}
           </div>
 
           {/* 모바일 캘린더 모달 */}

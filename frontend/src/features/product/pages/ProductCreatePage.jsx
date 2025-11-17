@@ -32,8 +32,8 @@ const enumRentMethods = [
   { label: '택배 거래', value: 'ONLY_ONLINE' },
 ];
 
-const TOTAL_STEPS = 5;
-const STEP_NAMES = ['이미지', '기본 정보', '지역', '날짜 설정', '완료'];
+const TOTAL_STEPS = 6;
+const STEP_NAMES = ['이미지', '기본 정보', '상품 설명', '지역', '날짜 설정', '완료'];
 
 function ProductCreatePage() {
   const navigate = useNavigate();
@@ -1049,19 +1049,24 @@ function ProductCreatePage() {
         // 1단계: 이미지
         return fileIds.length > 0;
       case 2:
-        // 2단계: 기본 정보
-        return form.title && form.content && parseNumber(form.deposit) > 0 && parseNumber(form.rentalFee) > 0 && form.categoryId;
+        // 2단계: 기본 정보 (업로드타입, 대여방법, 카테고리만)
+        return form.categoryId;
       case 3:
-        // 3단계: 지역
-        return form.sidoId && form.gunguId && form.dongId;
+        // 3단계: 상품 설명 (제목, 내용, 보증금, 일일요금)
+        return form.title && form.content && parseNumber(form.deposit) > 0 && parseNumber(form.rentalFee) > 0;
       case 4:
+        // 4단계: 지역
+        return form.sidoId && form.gunguId && form.dongId;
+      case 5:
+        // 5단계: 날짜
         // 빌려요 모드일 때는 종료일 필수
         if (form.uploadType === 'BORROW') {
           return form.startRent && form.endRent && form.endRent !== '';
         }
         // 빌려드려요 모드일 때는 기존 로직 유지
         return form.startRent && (noEndDate || form.endRent || form.endRent === '');
-      case 5:
+      case 6:
+        // 6단계: 완료
         return true;
       default:
         return false;
@@ -1198,18 +1203,15 @@ function ProductCreatePage() {
     },
   }), [filePreviews, form, hashtags, user]);
 
-  // Step 1: 기본 정보
-  const renderStep1 = () => (
-    <div className="space-y-3">
+  // Step - 기본 정보 (업로드 타입, 대여 방법, 카테고리만)
+  const renderStepBasicInfo = () => (
+    <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-black mb-2">기본 정보</h2>
-        <p className="text-gray-600">상품의 기본 정보를 입력해주세요</p>
+        <h2 className="text-xl font-bold text-black mb-2">기본 정보</h2>
+        <p className="text-gray-600">상품의 기본 정보를 선택해주세요</p>
       </div>
 
-      {/* 좌우 레이아웃 */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* 왼쪽: 업로드 타입, 대여 방법, 영상 필수, 카테고리 */}
-        <div className="w-full lg:w-1/3 space-y-3">
+      <div className="max-w-md mx-auto space-y-3">
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">업로드 타입</label>
             <div className="relative">
@@ -1279,21 +1281,6 @@ function ProductCreatePage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg">
-            <span className="text-sm font-medium text-black">거래 시 영상 필수</span>
-            <button
-              type="button"
-              onClick={() => updateField('videoNecessary', !form.videoNecessary)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                form.videoNecessary ? 'bg-black' : 'bg-gray-300'
-              }`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                form.videoNecessary ? 'translate-x-5' : 'translate-x-0.5'
-              }`} />
-            </button>
-          </div>
-
           {/* 카테고리 선택 */}
           <div className="category-popover-container">
             <label className="block text-sm font-medium text-black mb-1.5">카테고리</label>
@@ -1317,10 +1304,103 @@ function ProductCreatePage() {
             </button>
           </div>
         </div>
+    </div>
+  );
 
-        {/* 오른쪽: 제목, 해시태그, 내용, 보증금, 일일요금 */}
-        <div className="flex-1 space-y-1.5">
-          {/* 제목 */}
+  // Step - 상품 설명 (제목, 해시태그, 내용, 보증금, 일일요금)
+  const renderStepDescription = () => (
+    <div className="space-y-4">
+      {/* 헤더 + 보증금/일일요금 */}
+      <div className="flex items-start justify-between gap-4">
+        {/* 왼쪽: 헤더 */}
+        <div>
+          <h2 className="text-xl font-bold text-black mb-2">상품 설명</h2>
+          <p className="text-gray-600">상품의 상세 정보를 입력해주세요</p>
+        </div>
+
+        {/* 오른쪽: 보증금 + 일일요금 (가로 배치) */}
+        <div className="flex gap-3">
+          <div className="w-40">
+            <label className="block text-sm font-medium text-black mb-1">보증금</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.deposit}
+              onChange={(e) => handlePriceInput('deposit', e.target.value)}
+              onBlur={() => handlePriceBlur('deposit')}
+              placeholder="300000"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            {/* 보증금 메시지 */}
+            {priceMessage && priceMessageField === 'deposit' && (
+              <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                priceMessageType === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium flex-1">{priceMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMessage('');
+                    setPriceMessageType('');
+                    setPriceMessageField('');
+                  }}
+                  className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="w-40">
+            <label className="block text-sm font-medium text-black mb-1">일일요금</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.rentalFee}
+              onChange={(e) => handlePriceInput('rentalFee', e.target.value)}
+              onBlur={() => handlePriceBlur('rentalFee')}
+              placeholder="35000"
+              className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
+            />
+            {/* 일일요금 메시지 */}
+            {priceMessage && priceMessageField === 'rentalFee' && (
+              <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
+                priceMessageType === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}>
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="font-medium flex-1">{priceMessage}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMessage('');
+                    setPriceMessageType('');
+                    setPriceMessageField('');
+                  }}
+                  className="text-current opacity-70 hover:opacity-100 transition-opacity"
+                >
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-3">
+          {/* 제목 - 전체 너비 */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">제목</label>
             <input
@@ -1339,13 +1419,13 @@ function ProductCreatePage() {
             </div>
           </div>
 
-          {/* 해시태그 */}
+          {/* 해시태그 (전체 너비) */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">
               해시태그 (최대 3개, 쉼표로 여러 개 추가 가능)
               <span className="ml-2 text-xs text-gray-500">({hashtags.length}/3)</span>
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-2">
               <div className="flex-1 flex items-center border-2 border-gray-300 rounded-lg focus-within:border-black transition-colors bg-white overflow-hidden">
                 {/* 입력창 */}
                 <input
@@ -1356,7 +1436,7 @@ function ProductCreatePage() {
                   placeholder="예: 카메라, 렌즈, 삼각대"
                   className="flex-1 px-3 py-2 bg-transparent text-sm text-black placeholder-gray-500 focus:outline-none"
                 />
-                
+
                 {/* 추가 버튼 */}
                 <button
                   type="button"
@@ -1368,7 +1448,7 @@ function ProductCreatePage() {
                   +
                 </button>
               </div>
-              
+
               {/* 관련 해시태그 조회 버튼 */}
               <button
                 ref={hashtagButtonRef}
@@ -1476,105 +1556,21 @@ function ProductCreatePage() {
             )}
           </div>
 
-          {/* 내용 + 보증금/일일요금 */}
-          <div className="flex gap-4">
-            {/* 왼쪽: 내용 */}
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-black mb-1.5">내용</label>
-              <textarea
-                value={form.content}
-                onChange={(e) => updateField('content', e.target.value.slice(0, 2000))}
-                rows={3}
-                placeholder="상세 내용을 입력하세요"
-                className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
-              />
-              <div className="text-right text-xs text-gray-500">{form.content.length}/2000</div>
-            </div>
-
-            {/* 오른쪽: 보증금 + 일일요금 */}
-            <div className="w-48 space-y-0.5">
-              <div>
-                <label className="block text-sm font-medium text-black mb-1">보증금</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.deposit}
-                  onChange={(e) => handlePriceInput('deposit', e.target.value)}
-                  onBlur={() => handlePriceBlur('deposit')}
-                  placeholder="300000"
-                  className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-                />
-                {/* 보증금 메시지 */}
-                {priceMessage && priceMessageField === 'deposit' && (
-                  <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
-                    priceMessageType === 'error' 
-                      ? 'bg-red-50 border-red-200 text-red-800' 
-                      : 'bg-gray-50 border-gray-200 text-gray-700'
-                  }`}>
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium flex-1">{priceMessage}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPriceMessage('');
-                        setPriceMessageType('');
-                        setPriceMessageField('');
-                      }}
-                      className="text-current opacity-70 hover:opacity-100 transition-opacity"
-                    >
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-black mb-1">일일요금</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.rentalFee}
-                  onChange={(e) => handlePriceInput('rentalFee', e.target.value)}
-                  onBlur={() => handlePriceBlur('rentalFee')}
-                  placeholder="35000"
-                  className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
-                />
-                {/* 일일요금 메시지 */}
-                {priceMessage && priceMessageField === 'rentalFee' && (
-                  <div className={`mt-1.5 flex items-center gap-2 px-2 py-1.5 rounded-lg border text-xs transition-all duration-300 ${
-                    priceMessageType === 'error' 
-                      ? 'bg-red-50 border-red-200 text-red-800' 
-                      : 'bg-gray-50 border-gray-200 text-gray-700'
-                  }`}>
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium flex-1">{priceMessage}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPriceMessage('');
-                        setPriceMessageType('');
-                        setPriceMessageField('');
-                      }}
-                      className="text-current opacity-70 hover:opacity-100 transition-opacity"
-                    >
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* 내용 - 전체 너비 */}
+          <div>
+            <label className="block text-sm font-medium text-black mb-1.5">내용</label>
+            <textarea
+              value={form.content}
+              onChange={(e) => updateField('content', e.target.value.slice(0, 255))}
+              rows={5}
+              placeholder="상세 내용을 입력하세요"
+              className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
+            />
+            <div className="text-right text-xs text-gray-500">{form.content.length}/255</div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
 
   // Step 2: 이미지 업로드
   const renderStep2 = () => (
@@ -1762,7 +1758,7 @@ function ProductCreatePage() {
               const selected = isDateSelected(d) || isPendingRange(d);
               const inAvailable = isInAvailableRange(d);
               const inRefuse = isInRefuseRanges(d);
-              
+
               return (
                 <button
                   key={idx}
@@ -1770,7 +1766,7 @@ function ProductCreatePage() {
                   disabled={!d}
                   onClick={() => d && onCalendarClick(d)}
                   className={`h-8 w-full aspect-square rounded-lg text-xs transition-all ${
-                    !d ? 'invisible' : 
+                    !d ? 'invisible' :
                     inRefuse ? 'bg-red-500 text-white' :
                     selected || inAvailable ? 'bg-black text-white font-bold' :
                     'text-gray-700 hover:bg-gray-100'
@@ -1795,9 +1791,9 @@ function ProductCreatePage() {
 
         {/* 오른쪽: 설정 패널 (스크롤 적용) */}
         <div className="lg:w-1/2 flex flex-col" style={{ maxHeight: '320px' }}>
-          <div 
-            className="space-y-4 overflow-y-auto scrollbar-hide pr-2 pb-2" 
-            style={{ 
+          <div
+            className="space-y-4 overflow-y-auto scrollbar-hide pr-2 pb-2"
+            style={{
               msOverflowStyle: 'none',
               scrollbarWidth: 'none'
             }}
@@ -1870,7 +1866,7 @@ function ProductCreatePage() {
                   const startDate = new Date(r.startRef).toLocaleDateString('ko-KR');
                   const endDate = new Date(r.endRef).toLocaleDateString('ko-KR');
                   const isSameDay = startDate === endDate;
-                  
+
                   return (
                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 border-2 border-gray-300 rounded-xl">
                       <span className="text-sm text-black">
@@ -1923,12 +1919,12 @@ function ProductCreatePage() {
             style={{ width: 200, height: 200 }}
           />
         </div>
-        
+
         <div className="space-y-3">
           <h2 className="text-2xl font-bold text-black">모든 설정이 완료되었습니다</h2>
           <p className="text-lg text-gray-700">지금 보이는 내용으로 바로 등록할까요?</p>
         </div>
-        
+
         <div className="pt-4">
           <p className="hidden lg:block text-sm text-gray-500">← 왼쪽 미리보기에서 입력하신 정보를 확인해주세요</p>
         </div>
@@ -1939,10 +1935,11 @@ function ProductCreatePage() {
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1: return renderStep2(); // 이미지를 가장 먼저
-      case 2: return renderStep1();
-      case 3: return renderStep3();
-      case 4: return renderStep4();
-      case 5: return renderStep5();
+      case 2: return renderStepBasicInfo(); // 기본 정보
+      case 3: return renderStepDescription(); // 상품 설명
+      case 4: return renderStep3(); // 지역
+      case 5: return renderStep4(); // 날짜
+      case 6: return renderStep5(); // 완료
       default: return renderStep2();
     }
   };
@@ -1986,7 +1983,7 @@ function ProductCreatePage() {
           <div className="hidden lg:block lg:col-span-4">
             <div className="bg-white border-2 border-gray-300 rounded-2xl p-3 shadow-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
               <div className="space-y-2 overflow-y-auto scrollbar-hide" style={{ maxHeight: '100%', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                <ImageGallery 
+                <ImageGallery
                   images={previewProduct.images}
                   productTitle={previewProduct.title}
                   isLiked={false}
@@ -1999,20 +1996,15 @@ function ProductCreatePage() {
                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium border border-gray-300 text-gray-900">
                     {enumRentMethods.find(r=>r.value===form.rentMethod)?.label || '대여 방법'}
                   </span>
-                  {form.videoNecessary && (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium bg-red-500 text-white">
-                      영상 필수
-                    </span>
-                  )}
                 </div>
-                <ProductInfo 
+                <ProductInfo
                   title={previewProduct.title}
                   hashtags={previewProduct.hashtags}
                   description={previewProduct.description}
                   compact
                   onRemoveHashtag={removeHashtag}
                 />
-                
+
                 <div className="p-2 bg-gray-50 rounded-xl border border-gray-300">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">일일 대여료</span>
@@ -2050,11 +2042,11 @@ function ProductCreatePage() {
           {/* 우측: 입력 폼 (모바일에서 전체 너비) */}
           <div className="lg:col-span-8 flex flex-col">
             {/* 스크롤 가능한 콘텐츠 영역 */}
-            <div 
-              ref={rightFormRef} 
-              className={`flex-1 scrollbar-hide overflow-y-auto pb-12 lg:pb-4 ${currentStep === 4 ? 'lg:overflow-hidden' : ''}`} 
-              style={{ 
-                msOverflowStyle: 'none', 
+            <div
+              ref={rightFormRef}
+              className={`flex-1 scrollbar-hide overflow-y-auto pb-12 lg:pb-4 ${currentStep === 4 ? 'lg:overflow-hidden' : ''}`}
+              style={{
+                msOverflowStyle: 'none',
                 scrollbarWidth: 'none',
                 maxHeight: 'calc(100vh - 200px)'
               }}
@@ -2075,7 +2067,7 @@ function ProductCreatePage() {
             </div>
 
             {/* 네비게이션 버튼 - 모바일: 진행도 바 위 고정, PC: 폼 하단에 자연스럽게 배치 */}
-            <div className="fixed lg:static bottom-16 sm:bottom-20 lg:bottom-auto left-0 right-0 lg:left-auto lg:right-auto flex-shrink-0 bg-white py-3 border-t-2 border-gray-300 z-30 lg:z-10">
+            <div className="fixed lg:static bottom-20 sm:bottom-24 lg:bottom-auto left-0 right-0 lg:left-auto lg:right-auto flex-shrink-0 bg-white py-3 border-t-2 border-gray-300 z-30 lg:z-10">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 lg:px-0">
                 <div className="flex items-center justify-between gap-4">
                 <button
@@ -2117,8 +2109,8 @@ function ProductCreatePage() {
                         : 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
                     }`}
                   >
-                    {submitting 
-                      ? (isEditMode ? '수정 중...' : '등록 중...') 
+                    {submitting
+                      ? (isEditMode ? '수정 중...' : '등록 중...')
                       : (isEditMode ? '상품 수정' : '상품 등록')}
                   </button>
                 )}
@@ -2154,7 +2146,7 @@ function ProductCreatePage() {
                     {name}
                   </span>
                 </div>
-                
+
                 {/* 연결선 */}
                 {index < STEP_NAMES.length - 1 && (
                   <div className={`h-0.5 w-4 sm:w-8 md:w-16 lg:w-24 flex-shrink-0 mb-5 transition-all ${
@@ -2172,11 +2164,11 @@ function ProductCreatePage() {
       {showCategoryPopover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center category-popover-container animate-fadeIn">
           {/* 백드롭 */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setShowCategoryPopover(false)}
           />
-          
+
           {/* 모달 콘텐츠 */}
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-slideUp">
             {/* 헤더 */}
@@ -2247,11 +2239,11 @@ function ProductCreatePage() {
       {showRegionPopover && (
         <div className="fixed inset-0 z-50 flex items-center justify-center category-popover-container animate-fadeIn">
           {/* 백드롭 */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setShowRegionPopover(false)}
           />
-          
+
           {/* 모달 콘텐츠 */}
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden animate-slideUp">
             {/* 헤더 */}
@@ -2340,11 +2332,11 @@ function ProductCreatePage() {
                         const selectedSido = sidos.find(s => (s.sidoId || s.id) === activeSidoId);
                         const selectedGungu = gungus.find(g => (g.gunguId || g.id) === activeGunguId);
                         const selectedDong = dong;
-                        
+
                         updateField('sidoId', activeSidoId);
                         updateField('gunguId', activeGunguId);
                         updateField('dongId', dong.dongId || dong.id);
-                        
+
                         setSelectedRegionName(
                           `${selectedSido?.sidoName || selectedSido?.name} ${selectedGungu?.gunguName || selectedGungu?.name} ${selectedDong?.dongName || selectedDong?.name}`
                         );

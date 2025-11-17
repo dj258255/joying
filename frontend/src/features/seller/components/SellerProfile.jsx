@@ -11,12 +11,12 @@ import { useAuth } from '@/features/auth/contexts/AuthContext';
 const SellerProfile = ({ seller = {}, sellerId, compact = false }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const {
     nickname = '판매자',
     profileImage,
-    rating = 4.9,
-    reviewCount = 128,
+    rating = 0,
+    reviewCount = 0,
     isPhoneVerified = true,
     isBusinessVerified = false
   } = seller;

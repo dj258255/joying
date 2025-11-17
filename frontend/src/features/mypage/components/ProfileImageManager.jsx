@@ -172,7 +172,7 @@ const ProfileImageManager = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   이미지 선택
                 </label>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:max-w-md">
                   <input
                     id="profile-image-input"
                     type="file"
@@ -182,20 +182,20 @@ const ProfileImageManager = () => {
                   />
                   <label
                     htmlFor="profile-image-input"
-                    className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 flex-1 py-3 px-6 cursor-pointer text-center font-semibold inline-block w-full rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                    className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 py-3 px-6 cursor-pointer text-center font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex-1 sm:flex-none sm:w-auto"
                   >
                     이미지 선택
                   </label>
                   {previewImage && (
                     <button
                       onClick={handleCancel}
-                      className="bg-white/80 text-gray-700 hover:bg-white flex-1 py-3 px-6 font-semibold inline-block w-full text-center rounded-lg transition-all duration-200 border border-gray-300"
+                      className="bg-white/80 text-gray-700 hover:bg-white py-3 px-6 font-semibold text-center rounded-lg transition-all duration-200 border border-gray-300 flex-1 sm:flex-none sm:w-auto"
                     >
                       취소
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-2">
                   PNG, JPEG, JPG, GIF 파일만 가능 (최대 10MB)
                 </p>
               </div>
@@ -207,20 +207,20 @@ const ProfileImageManager = () => {
               )}
 
               {/* 액션 버튼들 */}
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:max-w-md">
                 {previewImage ? (
                   <>
                     <button
                       onClick={handleUpload}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                      className="bg-gradient-to-r from-gray-900 to-gray-800 text-white hover:from-black hover:to-gray-900 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg flex-1 sm:flex-none sm:w-auto"
                     >
                       {isUploadingImage ? '업로드 중...' : '이미지 업로드'}
                     </button>
                     <button
                       onClick={handleCancel}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="bg-white/80 text-gray-700 hover:bg-white flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 border border-gray-300"
+                      className="bg-white/80 text-gray-700 hover:bg-white py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 border border-gray-300 flex-1 sm:flex-none sm:w-auto"
                     >
                       취소
                     </button>
@@ -230,7 +230,7 @@ const ProfileImageManager = () => {
                     <button
                       onClick={handleDelete}
                       disabled={isUploadingImage || isDeletingImage}
-                      className="bg-gradient-to-r from-gray-700 to-gray-600 text-white hover:from-gray-800 hover:to-gray-700 flex-1 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                      className="bg-gradient-to-r from-gray-700 to-gray-600 text-white hover:from-gray-800 hover:to-gray-700 py-3 px-6 font-semibold disabled:opacity-50 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg sm:w-auto"
                     >
                       {isDeletingImage ? '삭제 중...' : '이미지 삭제'}
                     </button>

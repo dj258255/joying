@@ -17,7 +17,8 @@ const UserProfilePage = () => {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
-  const [reviewTab, setReviewTab] = useState('borrowed'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
+  const [reviewTab, setReviewTab] = useState('lent'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
+  const [totalReviewCount, setTotalReviewCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pageInfo, setPageInfo] = useState({
     content: [],
@@ -28,9 +29,9 @@ const UserProfilePage = () => {
     content: [],
     totalPages: 1,
     currentPage: 0,
-    uploadType: 'BORROW'   // 기본값: 빌렸을 때
+    uploadType: 'RENT'   // 기본값: 빌려줬을 때
   });
-  
+
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
   const { user, isLoading, error } = useUserProfile(memberId ? parseInt(memberId) : null);
 
@@ -40,6 +41,33 @@ const UserProfilePage = () => {
       navigate('/404');
     }
   }, [error, navigate]);
+
+  // 전체 리뷰 개수 가져오기 (RENT + BORROW)
+  useEffect(() => {
+    if (!memberId) return;
+
+    const fetchReviewCount = async () => {
+      try {
+        const [rentRes, borrowRes] = await Promise.all([
+          axiosInstance.get(`/review/member/${memberId}`, {
+            params: { uploadType: 'RENT', page: 1, size: 1 }
+          }),
+          axiosInstance.get(`/review/member/${memberId}`, {
+            params: { uploadType: 'BORROW', page: 1, size: 1 }
+          })
+        ]);
+
+        const rentCount = rentRes.data.data.totalCount || 0;
+        const borrowCount = borrowRes.data.data.totalCount || 0;
+        setTotalReviewCount(rentCount + borrowCount);
+      } catch (err) {
+        console.error("리뷰 개수 로드 실패:", err);
+        setTotalReviewCount(0);
+      }
+    };
+
+    fetchReviewCount();
+  }, [memberId]);
 
   useEffect(() => {
     const fetchUserProducts = async () => {
@@ -76,7 +104,7 @@ const UserProfilePage = () => {
 
         setReviewPageInfo(prev => ({
           ...prev,
-          content: data.data,
+          content: data.content || [],
           totalPages: Math.ceil(data.totalCount / data.size),
           currentPage: data.page - 1
         }));
@@ -154,7 +182,7 @@ const UserProfilePage = () => {
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
               {/* 사용자 프로필 섹션 */}
               <div className="text-center mb-6">
-                <ProfileImage 
+                <ProfileImage
                   src={user.profileImageUrl}
                   alt={user.nickname}
                   size={80}
@@ -162,7 +190,7 @@ const UserProfilePage = () => {
                 />
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.nickname}</h2>
                 <p className="text-gray-500 text-sm mb-2">{user.bio || '소개가 없습니다.'}</p>
-                
+
                 {/* 평점 표시 */}
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <div className="flex gap-1">
@@ -221,7 +249,7 @@ const UserProfilePage = () => {
                   </div>
                   <span className="text-sm font-medium text-gray-600">{user.rating}</span>
                 </div>
-                
+
                 {/* 사용자 정보 */}
                 <div className="bg-gray-50 rounded-xl mb-4" style={{ padding: '14px' }}>
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -243,7 +271,7 @@ const UserProfilePage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
@@ -251,7 +279,7 @@ const UserProfilePage = () => {
                     <div className="text-xs text-gray-500">등록 상품</div>
                   </div>
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
-                    <div className="text-xl font-bold text-gray-900">{reviewPageInfo.content.length}</div>
+                    <div className="text-xl font-bold text-gray-900">{totalReviewCount}</div>
                     <div className="text-xs text-gray-500">리뷰</div>
                   </div>
                 </div>
@@ -272,9 +300,9 @@ const UserProfilePage = () => {
                   </svg>
                   <span className="font-medium">등록 상품</span>
                 </button>
-                
+
                 <button
-                  onClick={() => setActiveTab('reviews')}reviews
+                  onClick={() => setActiveTab('reviews')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                     activeTab === 'reviews'
                       ? 'bg-gray-100 text-gray-900 border border-gray-900 shadow-sm'
@@ -294,43 +322,6 @@ const UserProfilePage = () => {
           <div className="flex-1">
 
             {/* 등록 상품 섹션 */}
-            {/* {activeTab === 'products' && (
-              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-100px)] flex flex-col">
-                <h3 className="text-xl font-bold text-gray-900 mb-6 flex-shrink-0">등록 상품</h3>
-                {userProducts.length > 0 ? (
-                  <div className="flex-1 overflow-y-auto scrollbar-hide">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-2">
-                      {userProducts.map((product) => (
-                        <ProductCard
-                          key={product.id}
-                          product={{
-                            ...product,
-                            image: product.thumbnailUrl,
-                            name: product.title
-                          }}
-                          onClick={() => navigate(`/products/${product.id}`)}
-                          actionType="view"
-                          status="available"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                      </div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-2">등록된 상품이 없습니다</h4>
-                      <p className="text-gray-500">아직 등록한 상품이 없습니다.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )} */}
-
             {activeTab === 'products' && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-100px)] flex flex-col overflow-hidden">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex-shrink-0">등록 상품</h3>
@@ -354,24 +345,24 @@ const UserProfilePage = () => {
                   <h3 className="text-xl font-bold text-gray-900">리뷰</h3>
                   <div className="flex bg-gray-100 rounded-xl p-1">
                     <button
-                      onClick={() => handleReviewTabChange('borrowed')}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        reviewTab === 'borrowed'
-                          ? 'bg-gray-100 text-gray-900 shadow-sm border border-gray-900'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      빌렸을 때
-                    </button>
-                    <button
                       onClick={() => handleReviewTabChange('lent')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                         reviewTab === 'lent'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-800'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
                       빌려줬을 때
+                    </button>
+                    <button
+                      onClick={() => handleReviewTabChange('borrowed')}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        reviewTab === 'borrowed'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌렸을 때
                     </button>
                   </div>
                 </div>
@@ -480,7 +471,7 @@ const UserProfilePage = () => {
                     </svg>
                   </button>
                 </div>
-                
+
                 <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
                   {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
                     <div key={day} className="p-2">{day}</div>

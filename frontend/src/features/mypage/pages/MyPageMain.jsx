@@ -31,6 +31,8 @@ import LentHistoryList from '../components/LentHistoryList';
 import RegisteredProductList from '../components/RegisteredProductList';
 import LikedProductList from '../components/LikedProductList';
 import AccountVerifyForm from '../components/AccountVerifyForm';
+import ReviewCard from '@/features/review/components/ReviewCard';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 // 공통 네비게이션
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -57,8 +59,14 @@ const MyPageMain = () => {
     // location.state에서 전달된 productTab이 있으면 사용
     return location.state?.productTab || 'registered';
   });
-  const [reviewTab, setReviewTab] = useState('borrowed');
+  const [reviewTab, setReviewTab] = useState('received'); // received: 받은 리뷰, written: 작성한 리뷰
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [receivedReviews, setReceivedReviews] = useState([]);
+  const [writtenReviews, setWrittenReviews] = useState([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+
+  // currentUserId를 먼저 선언
+  const currentUserId = currentUser?.memberId || currentUser?.id;
 
   // location.state가 변경되면 탭 업데이트
   useEffect(() => {
@@ -80,11 +88,52 @@ const MyPageMain = () => {
       // window 스크롤도 맨 위로 이동
       window.scrollTo({ top: 0, behavior: 'instant' });
     }, 0);
-    
+
     return () => clearTimeout(timer);
   }, [productTab]);
-  
-  const currentUserId = currentUser?.memberId || currentUser?.id;
+
+  // 리뷰 데이터 로드 함수
+  const loadReviews = async () => {
+    if (!currentUserId) return;
+
+    setIsLoadingReviews(true);
+    try {
+      // 받은 리뷰 (RENT: 빌려줬을 때 받은 리뷰)
+      const receivedResponse = await axiosInstance.get(`/review/member/${currentUserId}`, {
+        params: {
+          uploadType: 'RENT',
+          page: 1,
+          size: 100
+        }
+      });
+
+      // 작성한 리뷰 (BORROW: 빌렸을 때 작성한 리뷰)
+      const writtenResponse = await axiosInstance.get(`/review/member/${currentUserId}`, {
+        params: {
+          uploadType: 'BORROW',
+          page: 1,
+          size: 100
+        }
+      });
+
+      setReceivedReviews(receivedResponse.data.data.content || []);
+      setWrittenReviews(writtenResponse.data.data.content || []);
+    } catch (error) {
+      console.error('리뷰 로드 실패:', error);
+      setReceivedReviews([]);
+      setWrittenReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  // 리뷰 탭이 활성화되면 리뷰 데이터 로드
+  useEffect(() => {
+    if (activeTab === 'reviews' && currentUserId) {
+      loadReviews();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, currentUserId]);
   
   // 등록한 상품 조회
   const { data: myProductsData, isLoading: isLoadingMyProducts } = useMyProducts({
@@ -292,7 +341,21 @@ const MyPageMain = () => {
                   </svg>
                   <span className="text-sm sm:text-base font-medium">상품 관리</span>
                 </button>
-                
+
+                <button
+                  onClick={() => setActiveTab('reviews')}
+                  className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all duration-200 ${
+                    activeTab === 'reviews'
+                      ? 'bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg'
+                      : 'text-gray-600 hover:bg-gray-100/50'
+                  }`}
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                  <span className="text-sm sm:text-base font-medium">내 리뷰</span>
+                </button>
+
                 <button
                   onClick={() => setActiveTab('account')}
                   className={`w-full flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all duration-200 ${
@@ -492,6 +555,106 @@ const MyPageMain = () => {
               </div>
             )}
 
+            {/* 리뷰 관리 섹션 */}
+            {activeTab === 'reviews' && (
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 pb-0 sm:px-6 sm:pt-6 sm:pb-0 h-[calc(100vh-80px)] lg:h-[calc(100vh-60px)] flex flex-col w-full">
+                {/* 모바일: 뒤로가기 버튼 */}
+                <div className="lg:hidden flex items-center mb-2 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveTab(null)}
+                    className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    <span className="text-xs font-medium">뒤로</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between mb-3 sm:mb-6 flex-shrink-0">
+                  <h3 className="text-base sm:text-xl font-bold text-gray-900">내 리뷰</h3>
+                  <div className="flex bg-gray-100 rounded-lg p-0.5 sm:p-1">
+                    <button
+                      onClick={() => setReviewTab('received')}
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
+                        reviewTab === 'received'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌려줬을 때
+                    </button>
+                    <button
+                      onClick={() => setReviewTab('written')}
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
+                        reviewTab === 'written'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌렸을 때
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto scrollbar-hide pb-4">
+                  {isLoadingReviews ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-gray-500">로딩 중...</div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 sm:space-y-4">
+                      {reviewTab === 'received' && (
+                        <>
+                          {receivedReviews.length > 0 ? (
+                            receivedReviews.map((review, index) => (
+                              <ReviewCard
+                                key={index}
+                                review={review}
+                                showProductInfo={true}
+                                showRating={true}
+                              />
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-64 text-center">
+                              <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                              <p className="text-gray-500 text-sm">아직 받은 리뷰가 없습니다</p>
+                              <p className="text-gray-400 text-xs mt-2">상품을 빌려주면 리뷰를 받을 수 있습니다</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {reviewTab === 'written' && (
+                        <>
+                          {writtenReviews.length > 0 ? (
+                            writtenReviews.map((review, index) => (
+                              <ReviewCard
+                                key={index}
+                                review={review}
+                                showProductInfo={true}
+                                showRating={true}
+                              />
+                            ))
+                          ) : (
+                            <div className="flex flex-col items-center justify-center h-64 text-center">
+                              <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              <p className="text-gray-500 text-sm">아직 작성한 리뷰가 없습니다</p>
+                              <p className="text-gray-400 text-xs mt-2">상품을 빌린 후 리뷰를 작성해보세요</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 계정 관리 섹션 */}
             {activeTab === 'account' && (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-3 sm:p-6 min-h-[calc(100vh-100px)] lg:h-[calc(100vh-80px)] flex flex-col w-full">
@@ -509,22 +672,6 @@ const MyPageMain = () => {
                 </div>
                 <h3 className="text-base sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4 flex-shrink-0">계정 관리</h3>
                 <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-2">
-          <button
-                    onClick={() => navigate('/mypage/profile')}
-                    className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
-          >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100">
-                        <FiUser className="w-5 h-5 text-gray-700" />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <h3 className="font-semibold text-base text-gray-900">회원 정보</h3>
-                        <p className="text-xs mt-0.5 text-gray-500">회원 정보 조회</p>
-              </div>
-                      <FiChevronRight className="w-4 h-4 text-gray-400" />
-              </div>
-                  </button>
-
                   <button
                     onClick={() => navigate('/mypage/edit')}
                     className="w-full bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200"
