@@ -312,6 +312,12 @@ const ProductDetailPage = () => {
         return;
       }
 
+      // 본인 상품 대여 요청 방지
+      if (user.memberId === product.sellerId || user.member_id === product.sellerId) {
+        alert('본인이 등록한 상품은 대여 요청할 수 없습니다.');
+        return;
+      }
+
       // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
       console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
       const chatRoomData = await chatApi.createChatRoom(product.id);
@@ -655,12 +661,17 @@ const ProductDetailPage = () => {
                   {product.hashtags && product.hashtags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-4">
                       {product.hashtags.map((tag, index) => (
-                        <span
+                        <button
                           key={index}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                          onClick={() => navigate('/products', {
+                            state: {
+                              filterByHashtag: { id: tag.id || index, name: tag.name || tag }
+                            }
+                          })}
+                          className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
                         >
-                          #{tag}
-                        </span>
+                          #{typeof tag === 'string' ? tag : tag.name}
+                        </button>
                       ))}
                     </div>
                   )}
@@ -864,12 +875,17 @@ const ProductDetailPage = () => {
                 {product.hashtags && product.hashtags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {product.hashtags.map((tag, index) => (
-                      <span
+                      <button
                         key={index}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                        onClick={() => navigate('/products', {
+                          state: {
+                            filterByHashtag: { id: tag.id || index, name: tag.name || tag }
+                          }
+                        })}
+                        className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
                       >
-                        #{tag}
-                      </span>
+                        #{typeof tag === 'string' ? tag : tag.name}
+                      </button>
                     ))}
                   </div>
                 )}

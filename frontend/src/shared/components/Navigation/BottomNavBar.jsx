@@ -26,8 +26,8 @@ const BottomNavBar = () => {
       id: 'home',
       icon: FiHome,
       label: '홈',
-      path: '/',
-      isActive: location.pathname === '/'
+      path: '/products',
+      isActive: location.pathname === '/products' || location.pathname === '/'
     },
     {
       id: 'products',
