@@ -55,6 +55,13 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
         )}
       </div>
 
+      {/* 리뷰 제목 */}
+      {review.title && (
+        <h4 className="font-semibold text-gray-900 mb-2 text-sm md:text-base">
+          {review.title}
+        </h4>
+      )}
+      
       {/* 리뷰 내용 */}
       <p className="text-gray-700 leading-relaxed text-sm md:text-base mb-3">
         {review.content}
