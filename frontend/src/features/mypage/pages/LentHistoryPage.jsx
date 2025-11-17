@@ -379,12 +379,12 @@ const LentHistoryPage = () => {
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.renter?.nickname || rental.renter?.name} 님 (Renter)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.renter?.nickname || rental.renter?.name} 님</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
-                  {renderPreciseStars(rental.renter?.rating || 0)}
+                  {renderPreciseStars(Number(rental.renter?.rating) || 0)}
                 </div>
-                <span className="text-sm text-gray-600">{rental.renter?.rating || 0}</span>
+                <span className="text-sm text-gray-600">{Number(rental.renter?.rating) || 0}</span>
               </div>
             </div>
 
@@ -735,14 +735,33 @@ const LentHistoryPage = () => {
                         uploadType: 'RENT' // 빌려준 내역이므로 RENT
                       });
                       
-                      // 리뷰 다시 불러오기 (모달 닫기 전에 먼저 로드)
-                      await loadReviews();
-                      
-                      // 리뷰 로드 완료 후 모달 닫기
+                      // 모달 닫기
                       setShowReviewModal(false);
                       setReviewRating(0);
                       setReviewContent('');
                       setReviewTitle('');
+                      
+                      // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 여러 번 시도)
+                      const retryLoadReviews = async (retries = 3) => {
+                        for (let i = 0; i < retries; i++) {
+                          try {
+                            await loadReviews();
+                            // 리뷰 조회 성공 시 종료
+                            break;
+                          } catch (err) {
+                            console.error(`리뷰 조회 시도 ${i + 1} 실패:`, err);
+                            if (i < retries - 1) {
+                              // 다음 시도 전 대기
+                              await new Promise(resolve => setTimeout(resolve, 500));
+                            }
+                          }
+                        }
+                      };
+                      
+                      // 약간의 지연 후 리뷰 조회 시작
+                      setTimeout(() => {
+                        retryLoadReviews();
+                      }, 300);
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
                       alert('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
