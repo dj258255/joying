@@ -21,8 +21,6 @@ services:
       - --max-connections=200
       - --innodb-buffer-pool-size=1536M
       - --innodb-log-file-size=256M
-      - --query-cache-size=0
-      - --query-cache-type=0
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
