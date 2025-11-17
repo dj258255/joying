@@ -5,7 +5,7 @@ import ProductCardLikeWrapper from '../components/ProductCardLikeWrapper';
 import HashtagFilter from '../components/HashtagFilter';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import ProfileImage from '@/shared/components/ProfileImage';
-import { PRODUCT_TYPES } from '../../../shared/constants/dummyData';
+import { PRODUCT_TYPES } from '../../../shared/constants/productTypes';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useAuth, kakaoLogin } from '@/features/auth';
 import { useProducts } from '../hooks/useProducts';
@@ -85,6 +85,18 @@ const ProductListMain = () => {
   React.useEffect(() => {
     if (q) {
       setSearchQuery(q);
+      // URL 파라미터에서 검색어를 받으면 appliedFilters에도 자동으로 반영
+      setAppliedFilters(prev => ({
+        ...prev,
+        searchQuery: q
+      }));
+    } else if (q === '') {
+      // q가 빈 문자열이면 검색어 초기화
+      setSearchQuery('');
+      setAppliedFilters(prev => ({
+        ...prev,
+        searchQuery: ''
+      }));
     }
   }, [q]);
 
@@ -178,7 +190,7 @@ const ProductListMain = () => {
     fetchNextPage,
     hasNextPage,
     refetch
-  } = useInfiniteSearch(q || '', apiFilters);
+  } = useInfiniteSearch(apiFilters.q || '', apiFilters);
 
   console.log('🎯 [ProductListMain] useInfiniteSearch 결과:', {
     productsCount: products?.length || 0,
@@ -579,7 +591,7 @@ const ProductListMain = () => {
                    : 'text-gray-600 hover:text-gray-900'
                }`}
              >
-               빌려줘
+               빌려드려요
              </button>
              <button
                onClick={() => setActiveTab('borrow')}
@@ -589,7 +601,7 @@ const ProductListMain = () => {
                    : 'text-gray-600 hover:text-gray-900'
                }`}
              >
-               구해요
+               빌려요
              </button>
            </div>
           </div>
@@ -1156,12 +1168,12 @@ const ProductListMain = () => {
                <div className="absolute inset-0 flex items-center pointer-events-none">
                  <div className="w-1/2 flex items-center justify-center">
                    <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'rent' ? 'text-white' : 'text-gray-600'}`}>
-                     빌려줘
+                     빌려드려요
                    </span>
                  </div>
                  <div className="w-1/2 flex items-center justify-center">
                    <span className={`text-xs font-bold transition-colors duration-300 ${activeTab === 'borrow' ? 'text-white' : 'text-gray-600'}`}>
-                     구해요
+                     빌려요
                    </span>
                  </div>
                </div>
@@ -1346,7 +1358,7 @@ const ProductListMain = () => {
                      boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
-                   빌려줘
+                   빌려드려요
                  </button>
                  <button
                    onClick={() => setActiveTab('borrow')}
@@ -1361,7 +1373,7 @@ const ProductListMain = () => {
                      boxShadow: '0 4px 16px rgba(31, 38, 135, 0.15)'
                    } : {}}
                  >
-                   구해요
+                   빌려요
                  </button>
                </div>
              </div>
