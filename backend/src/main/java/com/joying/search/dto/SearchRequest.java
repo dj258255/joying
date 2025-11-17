@@ -18,7 +18,9 @@ public record SearchRequest(
 	List<String> hashtags,
 	Integer rentalFee,
 	String sido,
+	Long sidoId,
 	String gugun,
+	Long gugunId,
 	String dong,
 	Long dongId,
 	String method,
@@ -35,7 +37,9 @@ public record SearchRequest(
 		List<String> hashtags,
 		Long thumbnailFileId,
 		String sido,
+		Long sidoId,
 		String gungu,
+		Long gunguId,
 		String dong,
 		Long dongId,
 		Long categoryId) {
@@ -48,7 +52,9 @@ public record SearchRequest(
 			.rentalFee(product.getRentalFee())
 			.deposit(product.getDeposit())
 			.sido(sido)
+			.sidoId(sidoId)
 			.gugun(gungu)
+			.gugunId(gunguId)
 			.dong(dong)
 			.dongId(dongId)
 			.method(product.getRentMethod().name())

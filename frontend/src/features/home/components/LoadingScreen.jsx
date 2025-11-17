@@ -6,24 +6,38 @@
 import React, { useState, useEffect } from 'react';
 import logo from '@/assets/icons/logo.png';
 
+// ⚡ 고정된 total 리소스 수 (로딩바 역행 방지)
+const EXPECTED_TOTAL_RESOURCES = 35;
+// 계산 근거:
+// - GLB 파일: 3개 (camera, gamepad, tent)
+// - GLB 내부: ~11개 (텍스처, 메시, 머티리얼)
+// - Environment: 2개 (HDRI)
+// - Section chunks: 7개 (lazy loading)
+// - 기타: 7개 (Draco decoder, 쉐이더, 컴파일 등)
+// - 안전 마진: +5개
+// = 총 35개 (실제 최대 32개 관찰됨)
+
 const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onLoadComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [smoothProgress, setSmoothProgress] = useState(0);
 
   // 부드러운 프로그레스 애니메이션
   useEffect(() => {
-    const minDisplayTime = 1500; // 최소 1.5초 동안 로딩 화면 표시
+    const minDisplayTime = 800; // ⚡ 최소 0.8초로 단축 (성능 개선)
     const startTime = Date.now();
     
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const minProgress = Math.min((elapsed / minDisplayTime) * 100, 100);
-      const targetProgress = Math.max(progress, minProgress);
+      
+      // ⚡ 고정된 total 사용 (로딩바 역행 방지)
+      const fixedProgress = (loaded / EXPECTED_TOTAL_RESOURCES) * 100;
+      const targetProgress = Math.max(fixedProgress, minProgress);
       
       setSmoothProgress(prev => {
         const diff = targetProgress - prev;
         if (Math.abs(diff) < 0.1) return targetProgress;
-        return prev + diff * 0.1; // 부드럽게 증가
+        return prev + diff * 0.05; // ⚡ 더 부드럽게 증가 (0.1 → 0.05)
       });
       
       if (elapsed < minDisplayTime || smoothProgress < 100) {
@@ -33,12 +47,11 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
     
     const animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [progress, smoothProgress]);
+  }, [loaded, smoothProgress]); // progress 대신 loaded 사용
 
   useEffect(() => {
     // 로딩이 완료되면 부모에게 알림
     if (!active && smoothProgress >= 99) {
-      console.log('✅ Loading Complete!');
       setSmoothProgress(100); // 100%로 강제 설정
       
       onLoadComplete?.();
@@ -57,7 +70,7 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
   return (
     <div 
       className={`fixed inset-0 bg-black z-[10000] flex flex-col items-center justify-center transition-opacity duration-500 ${
-        !active ? 'opacity-0' : 'opacity-100'
+        !active ? 'opacity-0 pointer-events-none' : 'opacity-100'
       }`}
     >
       {/* 로고 */}

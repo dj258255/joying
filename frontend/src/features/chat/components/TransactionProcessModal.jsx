@@ -54,9 +54,18 @@ const TransactionProcessModal = ({
 
   // 거래 생성 폼 상태
   const [dateRange, setDateRange] = useState(null);
-  const [rentMethod, setRentMethod] = useState('BOTH'); // BOTH, ONLY_OFFLINE, ONLY_ONLINE
-  const [rentalFee, setRentalFee] = useState(productData?.price || 0);
-  const [deposit, setDeposit] = useState(productData?.deposit || 0);
+  const [rentMethod, setRentMethod] = useState(() => {
+    // requestedDateRange에서 가져오거나 기본값
+    return requestedDateRange?.rentMethod ?? 'BOTH';
+  }); // BOTH, ONLY_OFFLINE, ONLY_ONLINE
+  const [rentalFee, setRentalFee] = useState(() => {
+    // requestedDateRange에서 가져오거나 productData에서 가져오기
+    return requestedDateRange?.rentalFee ?? productData?.price ?? productData?.rentalFee ?? productData?.dailyPrice ?? 0;
+  });
+  const [deposit, setDeposit] = useState(() => {
+    // requestedDateRange에서 가져오거나 productData에서 가져오기
+    return requestedDateRange?.deposit ?? productData?.deposit ?? 0;
+  });
   const [requireVideo, setRequireVideo] = useState(true);
 
   // 운송장 정보
@@ -99,10 +108,28 @@ const TransactionProcessModal = ({
 
       // 대여 요청된 날짜가 있으면 자동으로 설정
       if (requestedDateRange && requestedDateRange.start && requestedDateRange.end) {
+        const startDate = requestedDateRange.start instanceof Date 
+          ? requestedDateRange.start 
+          : new Date(requestedDateRange.start);
+        const endDate = requestedDateRange.end instanceof Date 
+          ? requestedDateRange.end 
+          : new Date(requestedDateRange.end);
+        
         setDateRange({
-          start: new Date(requestedDateRange.start),
-          end: new Date(requestedDateRange.end)
+          start: startDate,
+          end: endDate
         });
+        // 거래 방법도 기본값으로 설정
+        if (requestedDateRange.rentMethod) {
+          setRentMethod(requestedDateRange.rentMethod);
+        }
+        // 금액 정보가 있으면 기본값으로 설정
+        if (requestedDateRange.rentalFee !== undefined && requestedDateRange.rentalFee !== null) {
+          setRentalFee(requestedDateRange.rentalFee);
+        }
+        if (requestedDateRange.deposit !== undefined && requestedDateRange.deposit !== null) {
+          setDeposit(requestedDateRange.deposit);
+        }
       }
     }
   }, [rentalData, requestedDateRange, userRole]);
@@ -777,49 +804,71 @@ const TransactionProcessModal = ({
           {currentStep === 'create' && userRole === 'seller' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-900 mb-3">
                   대여 기간 선택 *
                 </label>
                 <DateRangeCalendar
                   onDateRangeChange={setDateRange}
                   disabledDates={unavailableDates}
+                  availableStartDate={productData?.startRent || null}
+                  availableEndDate={productData?.endRent || null}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     대여료 (1일) *
                   </label>
                   <input
                     type="number"
                     value={rentalFee}
-                    onChange={(e) => setRentalFee(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setRentalFee(value >= 0 ? value : 0);
+                    }}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value);
+                      if (value < 0 || isNaN(value)) {
+                        setRentalFee(0);
+                      }
+                    }}
+                    min="0"
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900"
                     placeholder="대여료 입력"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
                     보증금 *
                   </label>
                   <input
                     type="number"
                     value={deposit}
-                    onChange={(e) => setDeposit(Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setDeposit(value >= 0 ? value : 0);
+                    }}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value);
+                      if (value < 0 || isNaN(value)) {
+                        setDeposit(0);
+                      }
+                    }}
+                    min="0"
+                    className="w-full px-3 py-2 bg-white border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-gray-900"
                     placeholder="보증금 입력"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   거래 방법 *
                 </label>
                 <div className="space-y-2">
                   {['ONLY_ONLINE', 'ONLY_OFFLINE', 'BOTH'].map((method) => (
-                    <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <label key={method} className="flex items-center p-3 bg-white border-2 border-gray-300 rounded-lg cursor-pointer hover:border-gray-900 transition-colors">
                       <input
                         type="radio"
                         name="rentMethod"
@@ -832,7 +881,7 @@ const TransactionProcessModal = ({
                         <div className="font-medium text-gray-900">
                           {method === 'ONLY_ONLINE' ? '택배거래' : method === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능'}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-600">
                           {method === 'ONLY_ONLINE' ? '택배로 배송받습니다' :
                            method === 'ONLY_OFFLINE' ? '직접 만나서 받습니다' : '택배거래 또는 직거래 둘 다 가능합니다'}
                         </div>
@@ -842,7 +891,7 @@ const TransactionProcessModal = ({
                 </div>
               </div>
 
-              <div className="flex items-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center p-4 bg-white border-2 border-gray-300 rounded-lg">
                 <input
                   type="checkbox"
                   id="requireVideo"
@@ -850,20 +899,30 @@ const TransactionProcessModal = ({
                   onChange={(e) => setRequireVideo(e.target.checked)}
                   className="mr-3"
                 />
-                <label htmlFor="requireVideo" className="text-sm text-blue-800">
+                <label htmlFor="requireVideo" className="text-sm text-gray-900">
                   거래 시 영상 녹화 필수
                 </label>
               </div>
 
               {dateRange && dateRange.start && dateRange.end && (
-                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">거래 요약</h4>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <div>대여 기간: {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</div>
-                    <div>대여료: {rentalFee.toLocaleString()}원 x {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</div>
-                    <div>보증금: {deposit.toLocaleString()}원</div>
-                    <div className="pt-2 border-t font-medium text-lg">
-                      총 결제 금액: {((rentalFee * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + deposit).toLocaleString()}원
+                <div className="p-4 bg-white border-2 border-gray-300 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-3">거래 요약</h4>
+                  <div className="text-sm space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-700">대여 기간</span>
+                      <span className="text-gray-900 font-medium">{Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-700">대여료</span>
+                      <span className="text-gray-900 font-medium">{rentalFee.toLocaleString()}원 × {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-700">보증금</span>
+                      <span className="text-gray-900 font-medium">{deposit.toLocaleString()}원</span>
+                    </div>
+                    <div className="pt-2 border-t-2 border-gray-900 flex justify-between">
+                      <span className="font-semibold text-gray-900">총 결제 금액</span>
+                      <span className="font-bold text-lg text-gray-900">{((rentalFee * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + deposit).toLocaleString()}원</span>
                     </div>
                   </div>
                 </div>
@@ -873,14 +932,14 @@ const TransactionProcessModal = ({
                 <button
                   onClick={onClose}
                   disabled={isLoading}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="flex-1 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg text-gray-900 hover:bg-gray-50 disabled:opacity-50"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleCreateTransaction}
                   disabled={isLoading || !dateRange}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? '생성 중...' : '거래 생성하기'}
                 </button>

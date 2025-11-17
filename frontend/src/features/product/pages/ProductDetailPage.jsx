@@ -231,6 +231,12 @@ const ProductDetailPage = () => {
     };
   }, [productResponse, sellerUser]);
 
+  // 본인 상품 여부 확인 (모든 Hook은 조건부 return 전에 호출되어야 함)
+  const isOwnProduct = useMemo(() => {
+    if (!user || !product) return false;
+    return user.memberId === product.sellerId || user.member_id === product.sellerId;
+  }, [user, product]);
+
   // 로딩 상태
   if (isLoading) {
     return (
@@ -244,12 +250,28 @@ const ProductDetailPage = () => {
   }
 
   // 에러 또는 데이터 없음
-  if (error || !product) {
+  if (error || (!isLoading && !product)) {
     return (
       <>
         <SideNavbar />
         <div className="flex items-center justify-center h-screen bg-gray-50">
-          <div className="text-red-500">상품 정보를 불러올 수 없습니다.</div>
+          <div className="text-center">
+            <div className="text-red-500 mb-2">상품 정보를 불러올 수 없습니다.</div>
+            {error && <div className="text-sm text-gray-600">{error.message || '알 수 없는 오류가 발생했습니다.'}</div>}
+            {!productId && <div className="text-sm text-gray-600">상품 ID가 없습니다.</div>}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // productId가 없으면 로딩 표시
+  if (!productId) {
+    return (
+      <>
+        <SideNavbar />
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-gray-600">상품 정보를 불러오는 중...</div>
         </div>
       </>
     );
@@ -624,11 +646,11 @@ const ProductDetailPage = () => {
                       {/* 버튼 그룹 */}
                       <div className="flex gap-3 mt-auto">
                         <button
-                          disabled={!dateRange || !dateRange.start || !dateRange.end}
+                          disabled={isOwnProduct || !dateRange || !dateRange.start || !dateRange.end}
                           onClick={handleRentRequest}
                           className="flex-1 bg-gray-900 text-white py-4 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
-                          {product.uploadType === 'RENT' ? '대여 요청하기' : '빌려주기 제안'}
+                          {isOwnProduct ? '본인 상품입니다' : '대여 요청하기'}
                         </button>
                         <button
                           onClick={handleLikeClick}
@@ -1045,11 +1067,11 @@ const ProductDetailPage = () => {
                     취소
                   </button>
                   <button
-                    disabled={!dateRange || !dateRange.start || !dateRange.end}
+                    disabled={isOwnProduct || !dateRange || !dateRange.start || !dateRange.end}
                     onClick={handleRentRequest}
                     className="flex-1 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    {product.uploadType === 'RENT' ? '대여 요청하기' : '빌려주기 제안'}
+                    {isOwnProduct ? '본인 상품입니다' : '대여 요청하기'}
                   </button>
                 </div>
               </div>

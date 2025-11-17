@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
+import ProductCard from '../components/ProductCard';
 import ReviewCard from '../../review/components/ReviewCard';
 import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -17,8 +18,7 @@ const UserProfilePage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
   const [reviewTab, setReviewTab] = useState('borrowed'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
-  const [userProducts, setUserProducts] = useState([]);
-  const [userReviews, setUserReviews] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [pageInfo, setPageInfo] = useState({
     content: [],
     totalPages: 1,
@@ -38,17 +38,8 @@ const UserProfilePage = () => {
     if (error) {
       console.error('사용자 프로필 로드 실패:', error);
       navigate('/404');
-      return;
     }
-
-    // user 정보만 확인
-    if (user && memberId) {
-      // TODO: API 호출로 리뷰 조회
-      // const reviews = await reviewApi.getUserReviews(memberId);
-      // setUserReviews(reviews);
-      setUserReviews([]);
-    }
-  }, [user, memberId, error, navigate]);
+  }, [error, navigate]);
 
   useEffect(() => {
     const fetchUserProducts = async () => {
@@ -106,15 +97,6 @@ const UserProfilePage = () => {
       currentPage: 0
     }));
   };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('ko-KR');
-  };
-
-  const getReviewType = (review) => {
-    return review.reviewerId === parseInt(memberId) ? '빌려줬을 때' : '빌렸을 때';
-  };
-
 
   if (isLoading) {
     return (
@@ -265,11 +247,11 @@ const UserProfilePage = () => {
                 {/* 통계 */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
-                    <div className="text-xl font-bold text-gray-900">{userProducts.length}</div>
+                    <div className="text-xl font-bold text-gray-900">{pageInfo.content.length}</div>
                     <div className="text-xs text-gray-500">등록 상품</div>
                   </div>
                   <div className="text-center p-3 bg-gray-50 rounded-xl">
-                    <div className="text-xl font-bold text-gray-900">{userReviews.length}</div>
+                    <div className="text-xl font-bold text-gray-900">{reviewPageInfo.content.length}</div>
                     <div className="text-xs text-gray-500">리뷰</div>
                   </div>
                 </div>
@@ -480,6 +462,79 @@ const UserProfilePage = () => {
             )}
           </div>
 
+          {/* 오른쪽 위젯 영역 */}
+          <div className="lg:w-80 flex-shrink-0">
+            <div className="space-y-6">
+              {/* 달력 위젯 */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <h4 className="font-semibold text-gray-900">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}</h4>
+                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                  {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(day => (
+                    <div key={day} className="p-2">{day}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                    <div key={day} className={`p-2 text-center text-sm rounded-lg ${
+                      day === new Date().getDate() ? 'border border-gray-900 text-gray-900 font-semibold' :
+                      'text-gray-700 hover:bg-gray-100'
+                    }`}>
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 등록 상품 목록 */}
+              <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 h-[calc(100vh-450px)] flex flex-col">
+                <h4 className="font-semibold text-gray-900 mb-4 flex-shrink-0">등록 상품</h4>
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <div className="space-y-3 pr-2">
+                    {pageInfo.content.map((product, index) => (
+                      <button
+                        key={product.id}
+                        onClick={() => setSelectedProduct(selectedProduct?.id === product.id ? null : product)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-200 ${
+                          selectedProduct?.id === product.id
+                            ? 'bg-gray-100 text-gray-900 border border-gray-900'
+                            : 'hover:bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${
+                          index === 0 ? 'bg-gray-400' :
+                          index === 1 ? 'bg-gray-600' :
+                          index === 2 ? 'bg-gray-800' :
+                          'bg-gray-300'
+                        }`}></div>
+                        <span className="text-sm font-medium truncate">{product.title}</span>
+                      </button>
+                    ))}
+                    {pageInfo.content.length === 0 && (
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          등록된 상품이 없습니다
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
       </div>
     </>

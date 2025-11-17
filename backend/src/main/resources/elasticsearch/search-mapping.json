@@ -33,7 +33,7 @@
       }
     },
     "categoryId": {
-      "type": "integer"
+      "type": "long"
     },
     "hashtags": {
       "type": "keyword"
@@ -44,14 +44,23 @@
     "rentalFee": {
       "type": "integer"
     },
+    "sido": {
+      "type": "keyword"
+    },
     "sidoId": {
       "type": "integer"
     },
+    "gugun": {
+      "type": "keyword"
+    },
     "gugunId": {
-      "type": "integer"
+      "type": "long"
+    },
+    "dong": {
+      "type": "keyword"
     },
     "dongId": {
-      "type": "integer"
+      "type": "long"
     },
     "rentMethod": {
       "type": "keyword"

@@ -76,9 +76,9 @@ const Section1Hero = () => {
         />
       </div>
 
-      {/* 우측 상단 버튼 - 로그인 상태에서만 표시 */}
-      {isAuthenticated && (
-        <div className="absolute top-8 right-8 flex items-center gap-4">
+      {/* 우측 상단 버튼 */}
+      <div className="absolute top-8 right-8 flex items-center gap-4">
+        {isAuthenticated ? (
           <button
             onClick={() => navigate(ROUTE_PATHS.MYPAGE)}
             className="group relative w-9 h-9 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50 overflow-hidden"
@@ -91,8 +91,22 @@ const Section1Hero = () => {
               className="w-full h-full"
             />
           </button>
-        </div>
-      )}
+        ) : (
+          <button
+            onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+            className="px-6 py-2.5 rounded-full 
+                       bg-white/10 backdrop-blur-xl
+                       border-2 border-white/20 
+                       text-white font-semibold text-sm
+                       hover:bg-white hover:text-black
+                       transition-all duration-300 
+                       hover:scale-105 hover:shadow-lg
+                       active:scale-95"
+          >
+            로그인
+          </button>
+        )}
+      </div>
 
       <div className="container mx-auto px-8">
         {/* 로고 중앙 정렬 */}
