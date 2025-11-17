@@ -22,6 +22,7 @@ import { ROUTE_PATHS } from '../../../shared/constants';
 import { useProductLike } from '../hooks/useProductLike';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+import { axiosInstance } from '@/lib/axios/axiosInstance';
 
 const ProductDetailPage = () => {
   const { id: routeId } = useParams();
@@ -74,6 +75,36 @@ const ProductDetailPage = () => {
   // 판매자 정보 조회
   const sellerMemberId = productResponse?.writer?.memberId || productResponse?.writer?.member_id;
   const { user: sellerUser } = useUserProfile(sellerMemberId);
+
+  // 판매자의 총 리뷰 개수 상태
+  const [sellerReviewCount, setSellerReviewCount] = useState(0);
+
+  // 판매자의 총 리뷰 개수 조회
+  useEffect(() => {
+    if (!sellerMemberId) return;
+
+    const fetchSellerReviewCount = async () => {
+      try {
+        const [borrowRes, rentRes] = await Promise.all([
+          axiosInstance.get(`/review/member/${sellerMemberId}`, {
+            params: { uploadType: 'BORROW', page: 1, size: 1 }
+          }),
+          axiosInstance.get(`/review/member/${sellerMemberId}`, {
+            params: { uploadType: 'RENT', page: 1, size: 1 }
+          })
+        ]);
+
+        const borrowCount = borrowRes.data.data.totalCount || 0;
+        const rentCount = rentRes.data.data.totalCount || 0;
+        setSellerReviewCount(borrowCount + rentCount);
+      } catch (error) {
+        console.error('판매자 리뷰 개수 조회 실패:', error);
+        setSellerReviewCount(0);
+      }
+    };
+
+    fetchSellerReviewCount();
+  }, [sellerMemberId]);
 
   // 찜하기 기능
   const { toggleLike, isLoading: isLikeLoading } = useProductLike(productId);
@@ -209,7 +240,7 @@ const ProductDetailPage = () => {
         profileImage: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
         profile_image_url: productResponse?.writer?.profileImageUrl || productResponse?.writer?.profile_image_url || sellerUser?.profileImageUrl,
         rating: Number(productResponse?.writer?.rating) || 0,
-        reviewCount: Number(productResponse.totalReviewCount || productResponse.total_review_count) || 0,
+        reviewCount: sellerReviewCount,
       },
       hashtags: productResponse?.hashtags || [],
       reviews: reviews,
@@ -228,7 +259,7 @@ const ProductDetailPage = () => {
       endRent: productResponse?.endRent || null,
       uploadType: productResponse?.uploadType || 'RENT',
     };
-  }, [productResponse, sellerUser]);
+  }, [productResponse, sellerUser, sellerReviewCount]);
 
   // 본인 상품 여부 확인 (모든 Hook은 조건부 return 전에 호출되어야 함)
   const isOwnProduct = useMemo(() => {
