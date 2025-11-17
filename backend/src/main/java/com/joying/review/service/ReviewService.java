@@ -204,12 +204,14 @@ public class ReviewService {
 		reviewRepository.delete(review);
 	}
 
+	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getMemberReviews(Long memberId, UploadType uploadType, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
 		Page<Review> reviews = reviewRepository.findByReviewed_MemberIdAndUploadType(memberId, uploadType, pageRequest);
 		return reviews.map(this::toResponseDto);
 	}
 
+	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getReviewsByReviewer(Long memberId, UploadType uploadType, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
 		Page<Review> reviews = reviewRepository.findByReviewer_MemberIdAndUploadType(memberId, uploadType, pageRequest);
