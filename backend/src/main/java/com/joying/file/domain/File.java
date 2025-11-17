@@ -33,9 +33,8 @@ public class File extends BaseEntity {
     private String directory;
 
     @Comment("파일 정보")
-    @Lob
-    @Column(name = "metadata")
-    private String metadata; //json 자체를 기본 데이터 타입으로 저장할 수 없어서 우선 string으로 저장 후 변환
+    @Column(name = "metadata", columnDefinition = "JSON")
+    private String metadata;
 
     @Builder
     private File(String fileName, String directory, String metadata) {
