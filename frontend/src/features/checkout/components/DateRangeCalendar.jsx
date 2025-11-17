@@ -44,12 +44,9 @@ const DateRangeCalendar = ({
     } 
     // 2단계: 종료일 선택 (두 번째 클릭)
     else if (startDate && !endDate) {
-      // 최소 1박 2일 보장: 종료일은 시작일 + 1일 이후여야 함
-      const minEndDate = new Date(startDate);
-      minEndDate.setDate(startDate.getDate() + 1);
-      
-      if (date < minEndDate) {
-        return; // 시작일과 같은 날짜 또는 시작일 이전 날짜는 선택 불가
+      // 종료일은 시작일과 같거나 이후여야 함 (당일 대여 허용)
+      if (date < startDate) {
+        return; // 시작일 이전 날짜는 선택 불가
       }
       
       // 선택한 기간 내에 대여 불가 날짜가 있는지 확인
@@ -60,8 +57,8 @@ const DateRangeCalendar = ({
         setSelectedRange([]);
         return;
       }
-      
-      // 종료일이 시작일 + 1일 이후인 경우에만 선택
+
+      // 종료일 설정 (당일 대여 가능)
       setEndDate(date);
       const range = getDaysInRange(startDate, date);
       setSelectedRange(range);
