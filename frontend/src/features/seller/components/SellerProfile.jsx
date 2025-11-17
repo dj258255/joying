@@ -6,10 +6,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
-import { DUMMY_USERS } from '../../../shared/constants/dummyData';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 
 const SellerProfile = ({ seller = {}, sellerId, compact = false }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const {
     nickname = '판매자',
@@ -23,7 +24,7 @@ const SellerProfile = ({ seller = {}, sellerId, compact = false }) => {
   const handleProfileClick = () => {
     if (sellerId) {
       // 현재 사용자의 상품인 경우 마이페이지로 이동
-      if (sellerId === DUMMY_USERS.currentUser.id) {
+      if (user && sellerId === user.userId) {
         navigate('/mypage');
       } else {
         // 다른 사용자의 상품인 경우 상대방 프로필 페이지로 이동

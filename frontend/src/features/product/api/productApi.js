@@ -5,10 +5,6 @@
 
 import { axiosInstance } from '@/lib/axios/axiosInstance';
 import { API_ENDPOINTS } from '@/shared/constants';
-import { DUMMY_LEND_PRODUCTS, DUMMY_BORROW_PRODUCTS, PRODUCT_TYPES } from '@/shared/constants/dummyData';                                                       
-
-// 환경 변수로 Mock 모드 제어
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
 /**
  * 상품 목록 조회
@@ -29,93 +25,6 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
  * @returns {Promise<{items: Array, total: number, page: number, limit: number}>}
  */
 export const getProducts = async (params = {}) => {
-  if (USE_MOCK) {
-    // Mock 데이터 반환
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const {
-          type = PRODUCT_TYPES.LEND,
-          search = '',
-          category = '',
-          minPrice = 0,
-          maxPrice = Infinity,
-          location = '',
-          minRating = 0,
-          sameDayRental = false,
-          hashtags = [],
-          startDate = null,
-          endDate = null,
-          page = 1,
-          limit = 20
-        } = params;
-
-        // 타입에 따라 데이터 선택
-        let products = type === PRODUCT_TYPES.BORROW 
-          ? [...DUMMY_BORROW_PRODUCTS] 
-          : [...DUMMY_LEND_PRODUCTS];
-
-        // 필터링 로직
-        let filtered = products.filter(product => {
-          // 검색어 필터
-          if (search && !product.title.toLowerCase().includes(search.toLowerCase())) {
-            return false;
-          }
-
-          // 카테고리 필터
-          if (category && product.category !== category) {
-            return false;
-          }
-
-          // 가격 범위 필터
-          if (product.price < minPrice || product.price > maxPrice) {
-            return false;
-          }
-
-          // 지역 필터
-          if (location && !product.location.includes(location)) {
-            return false;
-          }
-
-          // 평점 필터
-          if (product.rating < minRating) {
-            return false;
-          }
-
-          // 당일 대여 필터 (Mock에서는 모두 가능하다고 가정)
-          if (sameDayRental) {
-            // 실제로는 API에서 처리
-          }
-
-          // 해시태그 필터 (Mock에서는 제목으로 간단히 처리)
-          if (hashtags.length > 0) {
-            const hasMatchingHashtag = hashtags.some(tag => 
-              product.title.toLowerCase().includes(tag.toLowerCase()) ||
-              product.category.toLowerCase().includes(tag.toLowerCase())
-            );
-            if (!hasMatchingHashtag) {
-              return false;
-            }
-          }
-
-          return true;
-        });
-
-        // 페이지네이션
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedProducts = filtered.slice(startIndex, endIndex);
-
-        resolve({
-          items: paginatedProducts,
-          total: filtered.length,
-          page,
-          limit,
-          totalPages: Math.ceil(filtered.length / limit)
-        });
-      }, 300); // 300ms 지연으로 로딩 상태 시뮬레이션
-    });
-  }
-
   // 실제 API 호출
   try {
     console.log('[API] 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.BASE, params });
@@ -174,26 +83,14 @@ export const getProducts = async (params = {}) => {
  * @returns {Promise<Object>}
  */
 export const getProductById = async (id) => {
-  if (USE_MOCK) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const allProducts = [...DUMMY_LEND_PRODUCTS, ...DUMMY_BORROW_PRODUCTS];
-        const product = allProducts.find(p => p.id === id);
-        
-        if (product) {
-          resolve(product);
-        } else {
-          reject(new Error('Product not found'));
-        }
-      }, 200);
-    });
-  }
-
   // 실제 API 호출
-  // const { data } = await axiosInstance.get(`/products/${id}`);
-  // return data;
-  
-  throw new Error('API not implemented yet. Set VITE_USE_MOCK=true in .env');
+  try {
+    const { data } = await axiosInstance.get(`/products/${id}`);
+    return data;
+  } catch (error) {
+    console.error('[API] 상품 상세 조회 실패:', error);
+    throw error;
+  }
 };
 
 /**
@@ -203,25 +100,14 @@ export const getProductById = async (id) => {
  * @returns {Promise<Object>}
  */
 export const createProduct = async (productData) => {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newProduct = {
-          id: `product_${Date.now()}`,
-          ...productData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        resolve(newProduct);
-      }, 500);
-    });
-  }
-
   // 실제 API 호출
-  // const { data } = await axiosInstance.post('/products', productData);
-  // return data;
-  
-  throw new Error('API not implemented yet. Set VITE_USE_MOCK=true in .env');
+  try {
+    const { data } = await axiosInstance.post('/products', productData);
+    return data;
+  } catch (error) {
+    console.error('[API] 상품 생성 실패:', error);
+    throw error;
+  }
 };
 
 /**
@@ -322,15 +208,6 @@ export const deleteProduct = async (productId) => {
  * @returns {Promise<Array<string>} 대여 불가 날짜 배열 (YYYY-MM-DD 형식)
  */
 export const getUnavailableDates = async (productId) => {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock 데이터: 빈 배열 반환
-        resolve({ data: [] });
-      }, 200);
-    });
-  }
-
   try {
     // 실제 API 호출
     const response = await axiosInstance.get(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId));
@@ -354,14 +231,6 @@ export const getUnavailableDates = async (productId) => {
  * @returns {Promise<Object>}
  */
 export const setUnavailableDates = async (productId, data) => {
-  if (USE_MOCK) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ data: { dates: data.dates } });
-      }, 300);
-    });
-  }
-
   // 실제 API 호출
   const response = await axiosInstance.post(API_ENDPOINTS.PRODUCT.UNAVAILABLE_DATES(productId), data);
   return response.data;
@@ -475,16 +344,6 @@ export const getMyProducts = async (params = {}) => {
  * @returns {Promise<void>}
  */
 export const likeProduct = async (productId) => {
-  if (USE_MOCK) {
-    // Mock: 찜하기 성공 시뮬레이션
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('[Mock] 찜하기 성공:', productId);
-        resolve({ success: true });
-      }, 300);
-    });
-  }
-
   // 실제 API 호출
   try {
     const { data } = await axiosInstance.post(API_ENDPOINTS.PRODUCT.LIKE(productId));
@@ -502,16 +361,6 @@ export const likeProduct = async (productId) => {
  * @returns {Promise<void>}
  */
 export const unlikeProduct = async (productId) => {
-  if (USE_MOCK) {
-    // Mock: 찜하기 취소 시뮬레이션
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('[Mock] 찜하기 취소 성공:', productId);
-        resolve({ success: true });
-      }, 300);
-    });
-  }
-
   // 실제 API 호출
   try {
     const { data } = await axiosInstance.delete(API_ENDPOINTS.PRODUCT.LIKE(productId));
@@ -531,35 +380,6 @@ export const unlikeProduct = async (productId) => {
  * @returns {Promise<{content: Array, totalElements: number, totalPages: number}>}
  */
 export const getLikedProducts = async (params = {}) => {
-  if (USE_MOCK) {
-    // Mock 데이터 반환
-    console.log('[Mock] 찜한 상품 목록 조회:', params);
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const { page = 0, size = 20 } = params;
-        const allLikedProducts = DUMMY_LEND_PRODUCTS.slice(0, 10);
-        const startIndex = page * size;
-        const endIndex = startIndex + size;
-        const paginatedProducts = allLikedProducts.slice(startIndex, endIndex);
-
-        const result = {
-          content: paginatedProducts,
-          pageable: {},
-          totalElements: allLikedProducts.length,
-          totalPages: Math.ceil(allLikedProducts.length / size),
-          size,
-          number: page,
-          first: page === 0,
-          last: endIndex >= allLikedProducts.length,
-          numberOfElements: paginatedProducts.length,
-          empty: paginatedProducts.length === 0
-        };
-        console.log('[Mock] 찜한 상품 목록 결과:', result);
-        resolve(result);
-      }, 300);
-    });
-  }
-
   // 실제 API 호출
   try {
     console.log('[API] 찜한 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.MY_LIKES, params });

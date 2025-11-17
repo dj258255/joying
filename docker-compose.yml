@@ -96,6 +96,26 @@ services:
       - joying-network
     restart: unless-stopped
 
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: joying-ai
+    env_file:
+      - ai/.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - joying-network
+    restart: unless-stopped
+
   nginx:
     build:
       context: .
@@ -103,6 +123,7 @@ services:
     container_name: joying-nginx
     depends_on:
       - backend
+      - ai
     ports:
       - "80:80"
       - "443:443"

@@ -1,5 +1,6 @@
 package com.joying.rental.service;
 
+import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
 import com.joying.file.repository.FileRepository;
@@ -296,6 +297,7 @@ public class RentalService {
 
         log.info("[수령 확인 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
+
         return ConfirmReceiveResponse.builder()
                 .rentalHisId(rental.getRentalHisId())
                 .status(rental.getStatus().name())
@@ -329,6 +331,19 @@ public class RentalService {
 
         // 반납 처리
         rental.returnItem(request.getCarrierCode(), request.getTrackingNo());
+
+        escrowRepository.findByRentalHistory_RentalHisId(rentalHisId)
+                .ifPresent(escrow -> {
+                    if (escrow.getStatus() != Status.RETURN_STARTED) {
+                        try {
+                            java.lang.reflect.Field statusField = Escrow.class.getDeclaredField("status");
+                            statusField.setAccessible(true);
+                            statusField.set(escrow, Status.RETURN_STARTED);
+                        } catch (Exception e) {
+                            throw new IllegalStateException("Escrow 상태 변경 실패", e);
+                        }
+                    }
+                });
 
         log.info("[반납 완료] rentalHisId={}, status={}", rentalHisId, rental.getStatus());
 
@@ -975,7 +990,7 @@ public class RentalService {
                 rentalHistoryRepository.findBorrowedHistoryByMember(memberId, pageable);
 
         // Entity -> DTO 변환
-        return rentalPage.map(this::convertToListResponse);
+        return rentalPage.map(r -> convertToListResponse(r, memberId));
     }
 
     /**
@@ -1010,7 +1025,8 @@ public class RentalService {
                 rentalHistoryRepository.findLendHistoryByOwner(ownerId, pageable);
 
         // Entity -> DTO 변환
-        return rentalPage.map(this::convertToListResponse);
+
+        return rentalPage.map(r -> convertToListResponse(r, ownerId));
     }
 
     /**
@@ -1020,10 +1036,27 @@ public class RentalService {
      * @param rental RentalHistory 엔티티
      * @return RentalHistoryListResponse DTO
      */
-    private com.joying.rental.dto.response.RentalHistoryListResponse convertToListResponse(RentalHistory rental) {
+    private com.joying.rental.dto.response.RentalHistoryListResponse convertToListResponse(RentalHistory rental, Long currentMemberId) {
         Product product = rental.getRentalProduct();
         Member owner = product.getWriter();
         Member renter = rental.getMember();
+
+        Member counterpartyEntity;
+        if (currentMemberId != null && currentMemberId.equals(owner.getMemberId())) {
+            // 현재 사용자가 상품 소유자(= 내가 '내가 빌려준 내역'을 보는 경우)
+            // → 상대방은 빌려간 사람 (renter)
+            counterpartyEntity = renter;
+        } else {
+            // 현재 사용자가 대여자이거나(= 내가 빌린 내역을 보는 경우) 또는 기타
+            // → 상대방은 상품 소유자(owner)
+            counterpartyEntity = owner;
+        }
+
+        String profileImagePath = null;
+        if (counterpartyEntity.getProfileImage() != null) {
+            profileImagePath = counterpartyEntity.getProfileImage().getDirectory() + "/" +
+                    counterpartyEntity.getProfileImage().getFileName();
+        }
 
         return com.joying.rental.dto.response.RentalHistoryListResponse.builder()
                 .rentalHisId(rental.getRentalHisId())
@@ -1031,21 +1064,21 @@ public class RentalService {
                 .rentMethod(rental.getRentMethod().name())
                 .fee(rental.getFee())
                 .deposit(rental.getDeposit())
-                .startRen(rental.getStartRen().toLocalDateTime())
-                .endRen(rental.getEndRen().toLocalDateTime())
+                .startRen(rental.getStartRen() != null ? rental.getStartRen().toLocalDateTime() : null)
+                .endRen(rental.getEndRen() != null ? rental.getEndRen().toLocalDateTime() : null)
                 .extensionCount(rental.getExtensionCount())
                 .product(com.joying.rental.dto.response.RentalHistoryListResponse.ProductSummary.builder()
                         .productId(product.getProductId())
                         .title(product.getTitle())
-                        .thumbnail(null)  // TODO: Product에 thumbnail 필드 추가 필요
+                        .thumbnail(null)
                         .category(product.getCategory() != null ? product.getCategory().getCategoryName() : null)
                         .build())
                 .counterparty(com.joying.rental.dto.response.RentalHistoryListResponse.MemberSummary.builder()
-                        .memberId(owner.getMemberId())
-                        .name(owner.getName())
-                        .nickname(owner.getNickname())
-                        .profileImage(owner.getProfileImage() != null ?
-                            owner.getProfileImage().getDirectory() + "/" + owner.getProfileImage().getFileName() : null)
+                        .memberId(counterpartyEntity.getMemberId())
+                        .name(counterpartyEntity.getName())
+                        .nickname(counterpartyEntity.getNickname())
+                        .profileImage(profileImagePath)
+                        .rating(counterpartyEntity.getRating())
                         .build())
                 .build();
     }

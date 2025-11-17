@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProductCard from './ProductCard';
+import ProductCardByProductId from './ProductCardByProductId';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useLentHistory } from '@/features/rental/hooks/useRentalHistory';
@@ -38,11 +38,17 @@ const LentHistoryList = ({
     return diffDays + 1; // 시작일과 종료일 포함
   };
 
-  // 상태 텍스트 변환
+  // 상태 텍스트 변환 (RentalStatus enum에 맞게)
   const getStatusText = (status) => {
     switch (status) {
+      case 'PENDING': return '결제 대기';
+      case 'ESCROW': return '보증금 보관';
+      case 'SHIPPED': return '발송 완료';
       case 'RENTING': return '대여 중';
-      case 'COMPLETED': return '거래 완료';
+      case 'RETURN_REQUESTED': return '반납 요청';
+      case 'RETURNED': return '회수 완료';
+      case 'DEPOSIT_RETURNED': return '거래 완료';
+      case 'COMPLETED': return '거래 완료'; // DEPOSIT_RETURNED와 동일 처리
       case 'CANCELLED': return '거래 취소';
       default: return '거래 대기';
     }
@@ -51,10 +57,16 @@ const LentHistoryList = ({
   // 상태 색상
   const getStatusColor = (status) => {
     switch (status) {
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'ESCROW': return 'bg-blue-100 text-blue-800';
+      case 'SHIPPED': return 'bg-indigo-100 text-indigo-800';
       case 'RENTING': return 'bg-blue-100 text-blue-800';
+      case 'RETURN_REQUESTED': return 'bg-purple-100 text-purple-800';
+      case 'RETURNED': return 'bg-teal-100 text-teal-800';
+      case 'DEPOSIT_RETURNED': return 'bg-green-100 text-green-800';
       case 'COMPLETED': return 'bg-green-100 text-green-800';
       case 'CANCELLED': return 'bg-red-100 text-red-800';
-      default: return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -96,7 +108,7 @@ const LentHistoryList = ({
     }
     
     return (
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
         <div className="text-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {currentYear}년 {currentMonth + 1}월
@@ -124,7 +136,7 @@ const LentHistoryList = ({
                 key={index}
                 className={`h-8 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
                   dateInfo.isInRange
-                    ? 'bg-blue-600 text-white font-bold shadow-md'
+                    ? 'bg-gray-900 text-white font-bold shadow-md'
                     : dateInfo.isToday
                     ? 'bg-gray-200 text-gray-800 font-semibold'
                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -139,7 +151,7 @@ const LentHistoryList = ({
         {/* 범례 */}
         <div className="flex items-center justify-center gap-4 mt-4 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-blue-600 rounded"></div>
+            <div className="w-3 h-3 bg-gray-900 rounded"></div>
             <span className="text-gray-600">대여 기간</span>
           </div>
           <div className="flex items-center gap-1">
@@ -199,7 +211,7 @@ const LentHistoryList = ({
              <div 
                key={rental.rentalHisId}
                className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200 cursor-pointer"
-               onClick={() => navigate(`/chats`)}
+               onClick={() => navigate(`/mypage/lent/${rental.rentalHisId}`)}
              >
                <div className="flex flex-col lg:flex-row gap-6">
                  {/* 상품 정보 */}
@@ -210,21 +222,15 @@ const LentHistoryList = ({
                        {getStatusText(rental.status)}
                      </span>
                    </div>
-                   <ProductCard
-                     product={{
-                       id: rental.product.productId,
-                       title: rental.product.title,
-                       thumbnailUrl: rental.product.thumbnail,
-                       category: rental.product.category,
-                       rentalFee: rental.fee
-                     }}
-                     onClick={() => navigate(`/products/${rental.product.productId}`)}
-                     actionType="view"
-                     status={rental.status === 'COMPLETED' ? 'completed' :
-                            rental.status === 'RENTING' ? 'rented' :
-                            rental.status === 'CANCELLED' ? 'unavailable' : 'pending'}
-                     showStats={false}
-                     showDate={false}
+                   <ProductCardByProductId
+                     productId={rental.product.productId}
+                     status={
+                       rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED' ? 'completed' :
+                       rental.status === 'RENTING' ? 'rented' :
+                       rental.status === 'CANCELLED' ? 'unavailable' :
+                       rental.status === 'PENDING' || rental.status === 'ESCROW' ? 'pending' :
+                       'available'
+                     }
                    />
                  </div>
 
@@ -234,12 +240,12 @@ const LentHistoryList = ({
                   <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <ProfileImage 
                       src={rental.counterparty.profileImage}
-                      alt={rental.counterparty.name}
+                      alt={rental.counterparty.nickname || rental.counterparty.name || '상대방'}
                       size={50}
                       className="w-12 h-12"
                     />
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{rental.counterparty.name} 님에게 빌려줌</h4>
+                      <h4 className="font-semibold text-gray-900">{(rental.counterparty.nickname || rental.counterparty.name || '알 수 없음')} 님에게 빌려줌</h4>
                       <p className="text-sm text-gray-600">거래 방식: {rental.rentMethod === 'ONLINE' ? '택배 거래' : '직거래'}</p>
                     </div>
                   </div>

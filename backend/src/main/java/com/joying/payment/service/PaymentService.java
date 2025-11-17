@@ -207,6 +207,8 @@ public class PaymentService {
                     request.getOrderId(),
                     request.getAmount()
             );
+
+
         } catch (TossPaymentException e) {
             // "이미 처리된 결제" 에러인 경우 토스 API로 결제 정보 조회
             if (e.getMessage() != null && e.getMessage().contains("ALREADY_PROCESSED_PAYMENT")) {
@@ -232,6 +234,12 @@ public class PaymentService {
 
         // 결제 완료 채팅 메시지 전송 (비동기)
         sendPaymentCompleteMessage(payment);
+
+        escrowRepository.findByPayment_PaymentId(payment.getPaymentId())
+                .ifPresent(escrow -> {
+                    escrow.startRental();
+                    log.info("Escrow 상태 변경: escrowId={}, status={}", escrow.getHoldId(), escrow.getStatus());
+                });
 
         return convertToResponse(payment);
     }
@@ -374,19 +382,21 @@ public class PaymentService {
 
             // Escrow 생성 (보증금 예치) - 중복 생성 방지
             if (escrowRepository.findByPayment_PaymentId(payment.getPaymentId()).isEmpty()) {
-                Integer rentalFee = rentalHistory.getFee();  // 대여료
                 Integer depositAmount = rentalHistory.getDeposit().intValue();  // 보증금
+                Integer totalRentalFee = payment.getTotalAmount() - depositAmount;  // 전체 대여료 (결제금액 - 보증금)
 
-                Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
+                Escrow escrow = Escrow.createHeld(rentalHistory, payment, totalRentalFee, depositAmount);
                 escrowRepository.save(escrow);
-                log.info("Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), payment.getPaymentId());
+                log.info("Escrow 생성 완료: escrowId={}, paymentId={}, rentalFee={}, deposit={}",
+                        escrow.getHoldId(), payment.getPaymentId(), totalRentalFee, depositAmount);
 
                 // 토스 결제 완료 후 Joying 에스크로 계좌로 입금 (SSAFY 금융망)
                 // 실제 돈은 토스에 있고, SSAFY 금융망에는 논리적으로만 입금
                 try {
                     String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
                     String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
-                    long totalAmount = rentalFee.longValue() + depositAmount.longValue();
+                    // 실제 결제 금액 = (일일요금 × 일수) + 보증금 (payment.getTotalAmount()에 저장됨)
+                    long totalAmount = payment.getTotalAmount().longValue();
 
                     // 에스크로 계좌에 입금 (출금 없이 입금만 수행)
                     String txNo = financeApiService.depositMoney(
@@ -399,10 +409,21 @@ public class PaymentService {
                     log.info("[에스크로 계좌 입금 완료] rentalHisId={}, txNo={}, amount={}, to={}",
                             rentalHistory.getRentalHisId(), txNo, totalAmount, escrowAccountNo);
                 } catch (Exception e) {
-                    log.error("[에스크로 계좌 입금 실패] rentalHisId={}, paymentId={}",
-                            rentalHistory.getRentalHisId(), payment.getPaymentId(), e);
-                    // 입금 실패해도 결제는 정상 처리 (별도 알림/재처리 필요)
-                    // 운영 환경에서는 알림 발송 or 재시도 로직 추가 필요
+                    log.error("[에스크로 입금 실패] orderId={}, paymentKey={}",
+                             payment.getOrderId(), payment.getPaymentKey(), e);
+
+                    // Toss 결제는 이미 승인되었으므로, 보상 트랜잭션으로 취소 시도
+                    try {
+                        log.info("[에스크로 입금 실패 - Toss 결제 자동 취소 시도] orderId={}", payment.getOrderId());
+                        tossClient.cancel(tossResponse.getPaymentKey(), "에스크로 계좌 입금 실패");
+                        log.info("[Toss 결제 취소 완료] orderId={}", payment.getOrderId());
+                    } catch (Exception cancelEx) {
+                        log.error("[Toss 결제 취소 실패 - 수동 처리 필요] orderId={}, paymentKey={}",
+                                 payment.getOrderId(), payment.getPaymentKey(), cancelEx);
+                    }
+
+                    // 트랜잭션 롤백을 위해 예외 재발생
+                    throw new IllegalStateException("에스크로 계좌 입금에 실패했습니다", e);
                 }
             }
 

@@ -53,7 +53,7 @@ const ReviewWriteForm = ({
   }, [review]);
 
   const handleRatingChange = (rating) => {
-    setFormData(prev => ({ ...prev, rating }));
+    setFormData(prev => ({ ...prev, rating: Math.max(0.5, Math.min(5, rating)) }));
   };
 
   const handleInputChange = (e) => {
@@ -138,7 +138,7 @@ const ReviewWriteForm = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (formData.rating === 0) {
+    if (formData.rating < 0.5) {
       alert('별점을 선택해주세요.');
       return;
     }
@@ -161,27 +161,27 @@ const ReviewWriteForm = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+    <div className="bg-white/40 backdrop-blur-sm rounded-lg border border-gray-200/60 p-4 md:p-6">
+      <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4">
         {review ? '리뷰 수정' : '리뷰 작성'}
       </h2>
 
       {/* 대상 정보 */}
       {(product || user) && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+        <div className="mb-6 p-4 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-lg">
           <div className="flex items-center space-x-3">
             {(product?.image || user?.profileImage) && (
               <img
                 src={product?.image || user?.profileImage}
                 alt={product?.title || user?.nickname}
-                className="w-12 h-12 object-cover rounded"
+                className="w-12 h-12 object-cover rounded-lg border border-gray-200/60"
               />
             )}
             <div>
               <div className="font-medium text-gray-900">
                 {product?.title || user?.nickname}
               </div>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-700">
                 {product?.category || user?.email}
               </div>
             </div>
@@ -192,7 +192,7 @@ const ReviewWriteForm = ({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* 별점 평가 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             별점 평가 *
           </label>
           <div className="flex items-center space-x-2">
@@ -200,10 +200,11 @@ const ReviewWriteForm = ({
               rating={formData.rating}
               onRatingChange={handleRatingChange}
               size="lg"
+              allowHalf={true}
             />
             {formData.rating > 0 && (
-              <span className="text-sm text-gray-600">
-                {getRatingText(formData.rating)}
+              <span className="text-sm text-gray-900 font-medium">
+                {getRatingText(Math.ceil(formData.rating))}
               </span>
             )}
           </div>
@@ -211,15 +212,15 @@ const ReviewWriteForm = ({
 
         {/* 이미지 업로드 섹션 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             이미지 업로드
           </label>
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition bg-gray-50"
+            className="w-full border-2 border-dashed border-gray-300/60 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-900/40 transition bg-white/40 backdrop-blur-sm"
           >
             <FiUpload className="w-8 h-8 text-gray-400 mb-1" />
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-900">
               클릭하여 이미지 추가 또는 드래그하여 업로드
             </p>
             <input
@@ -241,12 +242,12 @@ const ReviewWriteForm = ({
                   <img
                     src={src}
                     alt={`preview-${idx}`}
-                    className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                    className="w-full h-24 object-cover rounded-lg border border-gray-200/60"
                   />
                   <button
                     type="button"
                     onClick={() => removeImageAt(idx)}
-                    className="absolute top-1 right-1 bg-black/70 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                    className="absolute top-1 right-1 bg-gray-900/80 backdrop-blur-sm text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
                   >
                     <FiTrash2 className="w-3 h-3" />
                   </button>
@@ -259,7 +260,7 @@ const ReviewWriteForm = ({
 
         {/* 리뷰 내용 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             리뷰 내용 *
           </label>
           <textarea
@@ -268,10 +269,10 @@ const ReviewWriteForm = ({
             onChange={handleInputChange}
             rows={6}
             placeholder="상품이나 사용자에 대한 솔직한 리뷰를 작성해주세요."
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+            className="w-full border border-gray-300/60 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900/20 bg-white/60 backdrop-blur-sm text-gray-900"
             required
           />
-          <div className="mt-1 text-sm text-gray-500">
+          <div className="mt-1 text-sm text-gray-700">
             {formData.content.length}/1000자
           </div>
         </div>
@@ -296,14 +297,14 @@ const ReviewWriteForm = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="px-4 py-2 text-gray-900 bg-white/60 backdrop-blur-sm border border-gray-200/60 rounded-md hover:bg-white/80 transition"
           >
             취소
           </button>
           <button
             type="submit"
-            disabled={isLoading || formData.rating === 0 || !formData.content.trim()}
-            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading || formData.rating < 0.5 || !formData.content.trim()}
+            className="px-4 py-2 text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {isLoading ? '저장 중...' : review ? '수정하기' : '리뷰 작성'}
           </button>

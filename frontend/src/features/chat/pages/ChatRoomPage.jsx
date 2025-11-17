@@ -13,6 +13,7 @@ import ReturnMessageCard, { parseReturnMessage } from '../components/ReturnMessa
 import RentalRequestMessageCard, { parseRentalRequestMessage } from '../components/RentalRequestMessageCard';
 import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '../components/TransactionCreatedMessageCard';
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
+import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -26,6 +27,7 @@ import ReceiveModal from '../../../features/rental/components/ReceiveModal';
 import ReturnModal from '../../../features/rental/components/ReturnModal';
 import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
+import VideoListModal from '../../../features/rental/components/VideoListModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
@@ -403,6 +405,11 @@ const ChatRoomPage = () => {
   const [isCheckingTransaction, setIsCheckingTransaction] = useState(false);
   // 운송장 번호가 등록된 거래 ID 목록 (버튼 레이블 변경용)
   const [trackedRentalIds, setTrackedRentalIds] = useState(new Set());
+  // 드래그 앤 드롭 상태
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
+  // 거래 영상 조회 모달
+  const [showVideoListModal, setShowVideoListModal] = useState(false);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -815,6 +822,61 @@ const ChatRoomPage = () => {
       console.error('파일 전송 실패:', error);
       throw error;
     }
+  };
+
+  // 드래그 앤 드롭 핸들러 (카운터 방식으로 자식 요소 문제 해결)
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    const file = files[0];
+
+    // 파일 타입 검증
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (!isImage && !isVideo) {
+      alert('이미지 또는 영상 파일만 업로드할 수 있습니다.');
+      return;
+    }
+
+    // 파일 크기 검증
+    const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+      const maxSizeMB = isImage ? '10MB' : '50MB';
+      alert(`파일 크기가 너무 큽니다. ${isImage ? '이미지' : '영상'}는 최대 ${maxSizeMB}까지 업로드할 수 있습니다.`);
+      return;
+    }
+
+    await handleSendFile(file);
   };
 
   const handleReply = (message) => {
@@ -1842,7 +1904,32 @@ const ChatRoomPage = () => {
   return (
     <>
       <SideNavbar />
-      <div className="flex flex-col h-screen bg-gray-50">
+      <div
+        className="flex flex-col h-screen bg-gray-50 relative"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+      {/* 드래그 앤 드롭 오버레이 - 전체 화면 */}
+      {isDragging && (
+        <div className="fixed inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-[9999] pointer-events-none">
+          <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border-4 border-dashed border-blue-400 pointer-events-none">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 mb-3">이미지나 영상을 드래그하시면 파일이 전송됩니다</p>
+            <p className="text-base text-gray-600 mb-2">
+              파일을 놓아주세요
+            </p>
+            <p className="text-sm text-gray-500">
+              이미지: 최대 10MB, 영상: 최대 50MB
+            </p>
+          </div>
+        </div>
+      )}
       {/* 채팅방 헤더 */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 relative">
         <div className="flex items-center justify-between">
@@ -1914,6 +2001,19 @@ const ChatRoomPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
+            {/* 거래 영상 보기 버튼 */}
+            {currentRentalData?.rentalHisId && (
+              <button
+                onClick={() => setShowVideoListModal(true)}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="거래 영상 보기"
+                title="거래 영상 보기"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            )}
             {/* 설정 버튼 */}
             <button
               onClick={() => setShowSettings(true)}
@@ -1932,8 +2032,9 @@ const ChatRoomPage = () => {
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col"
+        className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide flex flex-col relative bg-white"
       >
+
         {isLoadingHistory && (
           <div className="flex justify-center py-2 text-xs text-gray-500">
             이전 메시지를 불러오는 중...
@@ -2834,6 +2935,35 @@ const ChatRoomPage = () => {
               );
             }
 
+            // 거래 완료 메시지 감지 (카드로 렌더링)
+            const completeInfo = parseTransactionCompleteMessage(message.content);
+            if (completeInfo) {
+              // 현재 사용자 ID 확인
+              const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
+              
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+              const isBuyer = !isSeller; // 판매자가 아니면 구매자
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <TransactionCompleteMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    isBuyer={isBuyer}
+                  />
+                </React.Fragment>
+              );
+            }
+
             // MessageBubble 렌더링
             return (
               <React.Fragment key={key}>
@@ -2879,7 +3009,7 @@ const ChatRoomPage = () => {
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
             <span>
-              {currentChatRoom?.otherMember?.nickname || currentChatRoom?.otherMember?.name || '상대방'}이 입력 중입니다...
+              {currentChatRoom?.otherMember?.nickname || currentChatRoom?.otherMember?.name || '상대방'}님이 입력 중입니다...
             </span>
           </div>
         )}
@@ -3395,6 +3525,15 @@ const ChatRoomPage = () => {
         onReject={handleCancelReject}
         isProcessing={isProcessingCancel}
       />
+
+      {/* 거래 영상 조회 모달 */}
+      {currentRentalData?.rentalHisId && (
+        <VideoListModal
+          isOpen={showVideoListModal}
+          onClose={() => setShowVideoListModal(false)}
+          rentalHisId={currentRentalData.rentalHisId}
+        />
+      )}
     </div>
     </>
   );

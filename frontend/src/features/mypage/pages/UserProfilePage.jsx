@@ -8,7 +8,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import ProductCard from '../components/ProductCard';
 import ReviewCard from '../../review/components/ReviewCard';
-import { DUMMY_PRODUCTS, DUMMY_REVIEWS, DUMMY_RESERVATIONS } from '../../../shared/constants/dummyData';
 import { useUserProfile } from '../../user/hooks/useUserProfile';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
@@ -46,12 +45,10 @@ const UserProfilePage = () => {
 
     // user 정보만 확인
     if (user && memberId) {
-      // 리뷰는 여기서 가져도 OK
-      const reviews = DUMMY_REVIEWS.filter(r =>
-        r.reviewerId === parseInt(memberId) ||
-        r.revieweeId === parseInt(memberId)
-      );
-      setUserReviews(reviews);
+      // TODO: API 호출로 리뷰 조회
+      // const reviews = await reviewApi.getUserReviews(memberId);
+      // setUserReviews(reviews);
+      setUserReviews([]);
     }
   }, [user, memberId, error, navigate]);
 
@@ -132,11 +129,11 @@ const UserProfilePage = () => {
 
   // 선택된 상품의 대여 예약 내역 가져오기
   const getProductReservations = () => {
-    if (!selectedProduct) return [];
-    return DUMMY_RESERVATIONS.filter(reservation => 
-      reservation.productId === selectedProduct.id && 
-      reservation.ownerId === parseInt(memberId)
-    );
+    // TODO: API 호출로 예약 내역 조회
+    // if (!selectedProduct) return [];
+    // const reservations = await reservationApi.getProductReservations(selectedProduct.id, memberId);
+    // return reservations;
+    return [];
   };
 
   // 특정 날짜에 예약이 있는지 확인

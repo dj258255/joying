@@ -20,6 +20,7 @@ export const userReviewApi = {
   getUserReviews: async (memberId, params = {}) => {
     return await axiosInstance.get(`/review/member/${memberId}`, {
       params: {
+        uploadType: "RENT",
         page: params.page || 1,
         size: params.size || 20
       }

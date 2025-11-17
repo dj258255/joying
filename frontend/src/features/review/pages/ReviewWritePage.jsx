@@ -76,20 +76,16 @@ const ReviewWritePage = ({ mode }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center py-10 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex justify-center py-10 px-4">
       <div
-        className="w-full max-w-3xl rounded-2xl border border-gray-200 bg-white/90 shadow-xl backdrop-blur-md p-8"
-        style={{
-          boxShadow:
-            '0 10px 30px rgba(0,0,0,0.08), inset 0 0 20px rgba(255,255,255,0.3)',
-        }}
+        className="w-full max-w-3xl rounded-2xl bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl p-6 md:p-8"
       >
         {/* 헤더 */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-extrabold text-gray-900 mb-3">
+        <div className="mb-6 md:mb-8 text-center">
+          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2 md:mb-3">
             {mode === 'edit' ? '리뷰 수정' : '리뷰 작성'}
           </h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-700 text-sm md:text-base">
             {mode === 'edit'
               ? '작성한 리뷰를 수정할 수 있습니다.'
               : '소중한 리뷰를 남겨주세요.'}
@@ -97,9 +93,7 @@ const ReviewWritePage = ({ mode }) => {
         </div>
 
         {/* 폼 영역 */}
-        <div
-          className="rounded-xl border border-gray-100 bg-white/80 shadow-sm p-6 transition-all hover:shadow-md"
-        >
+        <div className="rounded-xl bg-white/60 backdrop-blur-sm border border-gray-200/60 shadow-sm p-4 md:p-6">
           <ReviewWriteForm
             onSubmit={handleSubmit}
             onCancel={handleCancel}
@@ -110,7 +104,7 @@ const ReviewWritePage = ({ mode }) => {
 
         {/* 오류 메시지 */}
         {error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mt-6 p-4 bg-red-50/80 backdrop-blur-sm border border-red-200/60 rounded-lg">
             <div className="text-red-800 text-sm">
               오류가 발생했습니다. 다시 시도해주세요.
             </div>

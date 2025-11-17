@@ -151,6 +151,28 @@ public class SearchReindexService {
 
 		Map<String, Object> settings = Map.of(
 			"analysis", Map.of(
+				"filter", Map.of(
+					"my_synonyms", Map.of(
+						"type", "synonym",
+						"synonyms", List.of(
+							"카메라, camera, 미러리스, DSLR, 단렌즈, 렌즈, 액션캠, 고프로, 고화질 카메라",
+							"드론, drone, 항공촬영, 4K 드론",
+							"노트북, laptop, 맥북, macbook, 맥북 프로, 맥북에어",
+							"태블릿, tablet, 아이패드, 갤럭시탭",
+							"조명, 촬영조명, LED조명, 스튜디오조명",
+							"닌텐도, switch, 스위치, 휴대용게임기",
+							"보드게임, tabletop, 파티게임, 카드게임",
+							"캠핑, 캠핑장비, 텐트, 돔텐트",
+							"캠핑의자, 우드의자, 피크닉의자",
+							"캠핑조명, LED조명, 감성조명",
+							"커피머신, 에스프레소머신, 카페머신",
+							"기타, acoustic guitar, 어쿠스틱기타, 통기타",
+							"스피커, 블루투스스피커, 오디오",
+							"홈트, 운동기구, 피트니스, 요가매트",
+							"스키, 카빙스키, 스키장비"
+						)
+					)
+				),
 				"tokenizer", Map.of(
 					"nori_tokenizer", Map.of(
 						"type", "nori_tokenizer"
@@ -158,7 +180,7 @@ public class SearchReindexService {
 					"ngram_tokenizer", Map.of(
 						"type", "ngram",
 						"min_gram", 2,
-						"max_gram", 5,
+						"max_gram", 3,
 						"token_chars", List.of("letter", "digit")
 					)
 				),
@@ -172,6 +194,11 @@ public class SearchReindexService {
 						"type", "custom",
 						"tokenizer", "ngram_tokenizer",
 						"filter", List.of("lowercase")
+					),
+					"synonym_search", Map.of(
+						"type", "custom",
+						"tokenizer", "standard",
+						"filter", List.of("lowercase", "my_synonyms")
 					)
 				)
 			)

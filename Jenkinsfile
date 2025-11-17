@@ -7,6 +7,24 @@ pipeline {
   }
 
   stages {
+    stage('Check Branch') {
+      steps {
+        script {
+          def branchName = env.GIT_BRANCH ?: 'unknown'
+          echo "[INFO] Current branch: ${branchName}"
+
+          // develop 또는 master/main 브랜치만 빌드
+          if (!(branchName.contains('develop') || branchName.contains('master') || branchName.contains('main'))) {
+            echo "[SKIP] This pipeline only runs on 'develop', 'master', or 'main' branch."
+            echo "[SKIP] Current branch: ${branchName}"
+            currentBuild.result = 'NOT_BUILT'
+            error("Skipping build for branch: ${branchName}")
+          }
+          echo "[OK] Branch check passed. Proceeding with build..."
+        }
+      }
+    }
+
     stage('Checkout') {
       steps {
         deleteDir()
@@ -31,46 +49,73 @@ pipeline {
       }
     }
 
-    stage('Prepare frontend .env & Copy Host Files') {
-          steps {
-            sh '''
-              set -e
-              echo "[INFO] WORKSPACE=$(pwd)"
+    stage('Prepare frontend .env') {
+      steps {
+        sh '''
+          set -e
+          echo "[INFO] WORKSPACE=$(pwd)"
 
-              HOST_FRONTEND_PATH=/home/ubuntu/joying/frontend
+          HOST_FRONTEND_ENV=/home/ubuntu/joying/frontend/.env
 
-              # 1) 호스트에서 전체 frontend 폴더 복사
-              if [ -d "$HOST_FRONTEND_PATH" ]; then
-                echo "[INFO] copying host frontend -> workspace"
-                rm -rf frontend || true
-                mkdir -p frontend
-                cp -a "$HOST_FRONTEND_PATH/." ./frontend/
-                echo "[OK] copied $HOST_FRONTEND_PATH -> $(pwd)/frontend"
-              fi
+          # 호스트에서 frontend .env 파일만 복사 (코드는 Git에서 checkout한 것 사용)
+          if [ -f "$HOST_FRONTEND_ENV" ]; then
+            echo "[INFO] copying frontend .env from host"
+            cp "$HOST_FRONTEND_ENV" ./frontend/.env
+            echo "[OK] copied $HOST_FRONTEND_ENV -> $(pwd)/frontend/.env"
+          else
+            echo "[ERR] $HOST_FRONTEND_ENV not found"
+            exit 1
+          fi
 
-              # 복사 후 .env 확인 (프론트엔드 빌드에 사용됨)
-              [ -f frontend/.env ] || { echo "[WARN] frontend/.env missing. Build may fail."; ls -al frontend || true; }
-            '''
-          }
+          # .env 확인
+          echo "[INFO] preview frontend/.env (sensitive values hidden)"
+          grep -E '^VITE_' frontend/.env | sed 's/=.*/=***hidden***/' || true
+        '''
+      }
+    }
+
+    stage('Prepare AI .env') {
+      steps {
+        sh '''
+          set -e
+          HOST_AI_ENV=/home/ubuntu/joying/ai/.env
+
+          # 호스트에서 AI .env 파일 복사
+          if [ -f "$HOST_AI_ENV" ]; then
+            echo "[INFO] copying AI .env from host"
+            mkdir -p ai
+            cp "$HOST_AI_ENV" ./ai/.env
+            echo "[OK] copied $HOST_AI_ENV -> $(pwd)/ai/.env"
+          else
+            echo "[ERR] $HOST_AI_ENV not found"
+            exit 1
+          fi
+
+          # .env 확인 (민감 정보는 숨김)
+          echo "[INFO] preview ai/.env (API key hidden)"
+          grep -E '^(GMS|AI|HOST|PORT|ALLOWED)_' ai/.env | sed 's/=.*/=***hidden***/' || true
+        '''
+      }
+    }
+
+    stage('Build frontend') {
+      agent {
+        docker {
+          image 'node:20-alpine'
+          args '-u root:root'
         }
-
-            stage('Build frontend') {
-              agent {
-                docker {
-                  image 'node:20-alpine'
-                  args '-u root:root'
-                }
-              }
-              steps {
-                sh '''
-                  set -e
-                  cd frontend
-                  npm install
-                  npm run build
-                '''
-              }
-            }
-
+      }
+      steps {
+        sh '''
+          set -e
+          echo "[INFO] Starting frontend build inside node container..."
+          cd frontend
+          npm install
+          npm run build
+          echo "[OK] Frontend build completed. Output files are in: $(pwd)/dist (or build)"
+        '''
+      }
+    }
 
     stage('Preflight: nginx.conf 문법&볼륨 검사') {
       steps {
@@ -94,36 +139,14 @@ pipeline {
       }
     }
 
-
-
     stage('Build images') {
-          steps {
-            sh '''
-              set -e
-              # frontend 빌드 결과물이 local workspace에 있으므로,
-              # NGINX Dockerfile에서 이를 COPY할 수 있도록 다시 빌드합니다.
-              docker compose --env-file .env.prod build backend nginx
-            '''
-          }
-        }
-
-
       steps {
         sh '''
           set -e
-          echo "[INFO] Starting frontend build inside node container..."
-
-          # 1. 프론트엔드 폴더로 이동
-          cd frontend
-
-          # 2. 의존성 설치
-          # Jenkins 볼륨 마운트 시 권한 문제가 발생하면 --unsafe-perm을 사용합니다.
-          npm install
-
-          # 3. 빌드 실행
-          npm run build
-
-          echo "[OK] Frontend build completed. Output files are in: $(pwd)/dist (or build)"
+          # frontend 빌드 결과물이 local workspace에 있으므로,
+          # NGINX Dockerfile에서 이를 COPY할 수 있도록 다시 빌드합니다.
+          # AI 서버도 함께 빌드
+          docker compose --env-file .env.prod build backend nginx ai
         '''
       }
     }
@@ -135,17 +158,25 @@ pipeline {
           export COMPOSE_PROJECT_NAME=joying
 
           # 현재 실행 중 컨테이너가 사용하는 이미지 ID
-          OLD_IMG=$(docker inspect -f '{{.Image}}' joying-nginx 2>/dev/null || true)
+          OLD_NGINX_IMG=$(docker inspect -f '{{.Image}}' joying-nginx 2>/dev/null || true)
+          OLD_AI_IMG=$(docker inspect -f '{{.Image}}' joying-ai 2>/dev/null || true)
+
           # 로컬에 빌드된 최신 이미지 ID
-          NEW_IMG=$(docker images --no-trunc --quiet joying-nginx | head -n1 || true)
+          NEW_NGINX_IMG=$(docker images --no-trunc --quiet joying-nginx | head -n1 || true)
+          NEW_AI_IMG=$(docker images --no-trunc --quiet joying-ai | head -n1 || true)
 
-          echo "[INFO] old image=${OLD_IMG}"
-          echo "[INFO] new image=${NEW_IMG}"
+          echo "[INFO] nginx: old=${OLD_NGINX_IMG}, new=${NEW_NGINX_IMG}"
+          echo "[INFO] ai: old=${OLD_AI_IMG}, new=${NEW_AI_IMG}"
 
-          echo "[INFO] backend만 재배포"
+          echo "[INFO] backend 재배포"
           docker compose --env-file .env.prod up -d --force-recreate --remove-orphans backend
 
-          if [ -n "$NEW_IMG" ] && [ "$OLD_IMG" != "$NEW_IMG" ]; then
+          # AI 서버 배포 (이미지 변경 여부와 관계없이 항상 재배포)
+          echo "[INFO] AI 서버 배포"
+          docker compose --env-file .env.prod up -d --force-recreate ai
+
+          # nginx 배포 (이미지 변경 시에만)
+          if [ -n "$NEW_NGINX_IMG" ] && [ "$OLD_NGINX_IMG" != "$NEW_NGINX_IMG" ]; then
             echo "[INFO] nginx 이미지가 변경됨 → nginx만 무중단에 가깝게 교체"
             docker compose --env-file .env.prod up -d --no-deps --force-recreate nginx
           else
@@ -156,6 +187,10 @@ pipeline {
           echo "[INFO] nginx 설정 문법 확인 후 reload"
           docker compose --env-file .env.prod exec -T nginx nginx -t
           docker compose --env-file .env.prod exec -T nginx nginx -s reload || docker compose --env-file .env.prod restart nginx
+
+          echo "[INFO] AI 서버 헬스 체크"
+          sleep 5
+          docker compose --env-file .env.prod exec -T ai python -c "import requests; r=requests.get('http://localhost:8000/health'); print(r.json()); exit(0 if r.status_code==200 else 1)" || echo "[WARN] AI health check failed"
 
           echo "[INFO] compose ps"
           docker compose --env-file .env.prod ps
