@@ -63,12 +63,14 @@ export const reviewApi = {
   /**
    * 대여 내역별 리뷰 조회
    * @param {number} rentalId - 대여 내역 ID
-   * @param {string} type - 'rent' (빌려준 사람의 리뷰) 또는 'borrow' (빌린 사람의 리뷰)
+   * @param {string} type - 'rent' 또는 'borrow' (소문자로 받아서 대문자로 변환)
    * @returns {Promise<Object>}
    */
   getRentalReview: async (rentalId, type) => {
+    // 백엔드는 uploadType 파라미터를 기대하고, 값은 대문자 RENT 또는 BORROW여야 함
+    const uploadType = type.toUpperCase(); // 'rent' -> 'RENT', 'borrow' -> 'BORROW'
     return await axiosInstance.get(`/review/rental/${rentalId}`, {
-      params: { type }
+      params: { uploadType }
     });
   },
 };
