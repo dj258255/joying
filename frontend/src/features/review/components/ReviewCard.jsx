@@ -11,7 +11,16 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
   const navigate = useNavigate();
   
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('ko-KR');
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      return date.toLocaleDateString('ko-KR');
+    } catch (error) {
+      return '';
+    }
   };
 
   const renderStars = (rating) => {
