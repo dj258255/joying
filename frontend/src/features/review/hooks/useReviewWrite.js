@@ -25,8 +25,8 @@ export const useReviewWrite = (type = 'general', targetId = null) => {
 
   // 리뷰 수정
   const updateReviewMutation = useMutation({
-    mutationFn: ({ reviewId, reviewData }) => 
-      reviewApi.updateReview(reviewId, reviewData),
+    mutationFn: (reviewData) => 
+      reviewApi.updateReview(reviewData),
     onSuccess: () => {
       queryClient.invalidateQueries([QUERY_KEYS.REVIEWS]);
     }
