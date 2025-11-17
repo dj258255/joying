@@ -6,24 +6,43 @@
 import React, { useState, useEffect } from 'react';
 import logo from '@/assets/icons/logo.png';
 
+// ⚡ 고정된 total 리소스 수 (로딩바 역행 방지)
+const EXPECTED_TOTAL_RESOURCES = 30;
+// 계산 근거:
+// - GLB 파일: 3개 (camera, gamepad, tent)
+// - GLB 내부: ~11개 (텍스처, 메시, 머티리얼)
+// - Environment: 2개 (HDRI)
+// - Section chunks: 7개 (lazy loading)
+// - 기타: 4개 (Draco decoder, 쉐이더 등)
+// - 안전 마진: +3개
+// = 총 30개
+
 const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onLoadComplete }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [smoothProgress, setSmoothProgress] = useState(0);
 
   // 부드러운 프로그레스 애니메이션
   useEffect(() => {
-    const minDisplayTime = 1500; // 최소 1.5초 동안 로딩 화면 표시
+    const minDisplayTime = 800; // ⚡ 최소 0.8초로 단축 (성능 개선)
     const startTime = Date.now();
     
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const minProgress = Math.min((elapsed / minDisplayTime) * 100, 100);
-      const targetProgress = Math.max(progress, minProgress);
+      
+      // ⚡ 고정된 total 사용 (로딩바 역행 방지)
+      const fixedProgress = (loaded / EXPECTED_TOTAL_RESOURCES) * 100;
+      const targetProgress = Math.max(fixedProgress, minProgress);
+      
+      // 디버깅: 로딩 진행 상황 로그 (개발 모드에서만)
+      if (process.env.NODE_ENV === 'development' && loaded > 0 && Math.random() < 0.1) {
+        console.log(`📦 로딩 중: ${loaded}/${total} (실제) | ${loaded}/${EXPECTED_TOTAL_RESOURCES} (고정) | ${Math.round(fixedProgress)}%`);
+      }
       
       setSmoothProgress(prev => {
         const diff = targetProgress - prev;
         if (Math.abs(diff) < 0.1) return targetProgress;
-        return prev + diff * 0.1; // 부드럽게 증가
+        return prev + diff * 0.05; // ⚡ 더 부드럽게 증가 (0.1 → 0.05)
       });
       
       if (elapsed < minDisplayTime || smoothProgress < 100) {
@@ -33,7 +52,7 @@ const LoadingScreen = ({ progress = 0, active = true, loaded = 0, total = 0, onL
     
     const animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [progress, smoothProgress]);
+  }, [loaded, smoothProgress]); // progress 대신 loaded 사용
 
   useEffect(() => {
     // 로딩이 완료되면 부모에게 알림
