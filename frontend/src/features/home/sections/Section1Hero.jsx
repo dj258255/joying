@@ -155,40 +155,53 @@ const Section1Hero = () => {
 
             {/* 자동완성 드롭다운 */}
           {isFocused && suggestions.length > 0 && (
-            <ul
-              className="absolute left-0 right-0 mt-2 
-                bg-white/95 backdrop-blur-xl 
-                rounded-2xl shadow-xl border border-white/20 
-                z-50 overflow-hidden animate-fadeIn max-h-60 overflow-y-auto"
-            >
-              {suggestions.map((item, idx) => (
-                <li
-                  key={idx}
-                  onMouseDown={() => handleSelectSuggestion(item)}
-                  className="flex items-center gap-2 px-5 py-3 
-                            text-gray-800 text-sm font-medium 
-                            hover:bg-gray-200 cursor-pointer
-                            transition-all duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-4 h-4 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                  <span className="truncate">{item}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul
+            className="absolute left-0 right-0 mt-2 
+              bg-white/95 backdrop-blur-xl 
+              rounded-2xl shadow-xl border border-white/20 
+              z-50 overflow-hidden animate-fadeIn max-h-60 overflow-y-auto"
+          >
+            {suggestions.map((item, idx) => (
+              <li
+                key={idx}
+                onMouseDown={() => router.push(`/products/${item.productId}`)}
+                className="flex items-center gap-3 px-5 py-3 
+                          text-gray-800 text-sm font-medium 
+                          hover:bg-gray-200 cursor-pointer
+                          transition-all duration-200"
+              >
+                {/* 상품 이미지 */}
+                {item.url ? (
+                  <img
+                    src={item.url}
+                    alt={item.title}
+                    className="w-8 h-8 object-cover rounded-md"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-gray-200 rounded-md flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {/* 상품 제목 */}
+                <span className="truncate">{item.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
             {/* 검색 버튼 */}
             <button
