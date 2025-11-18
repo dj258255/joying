@@ -16,6 +16,8 @@ import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 import { fileApi } from '@/shared/api/fileApi';
 import { useRef } from 'react';
+import CustomAlert from '../../../shared/components/CustomAlert';
+import CustomConfirm from '../../../shared/components/CustomConfirm';
 
 const LentHistoryPage = () => {
   const { rentalId } = useParams();
@@ -97,21 +99,34 @@ const LentHistoryPage = () => {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
 
-  const getStatusText = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return '완료';
-      case 'pending': return '대기중';
-      case 'cancelled': return '취소됨';
-      default: return status;
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'ESCROW': return 'bg-blue-100 text-blue-800';
+      case 'SHIPPED': return 'bg-indigo-100 text-indigo-800';
+      case 'RENTING': return 'bg-blue-100 text-blue-800';
+      case 'RETURN_REQUESTED': return 'bg-purple-100 text-purple-800';
+      case 'RETURNED': return 'bg-teal-100 text-teal-800';
+      case 'DEPOSIT_RETURNED': return 'bg-green-100 text-green-800';
+      case 'COMPLETED': return 'bg-green-100 text-green-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusColor = (status) => {
+  // 상태 텍스트 변환 (RentalStatus enum에 맞게)
+  const getStatusText = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'PENDING': return '결제 대기';
+      case 'ESCROW': return '보증금 보관';
+      case 'SHIPPED': return '발송 완료';
+      case 'RENTING': return '대여 중';
+      case 'RETURN_REQUESTED': return '반납 요청';
+      case 'RETURNED': return '회수 완료';
+      case 'DEPOSIT_RETURNED': return '거래 완료';
+      case 'COMPLETED': return '거래 완료';
+      case 'CANCELLED': return '거래 취소';
+      default: return '거래 대기';
     }
   };
 
@@ -306,17 +321,17 @@ const LentHistoryPage = () => {
     const days = getDaysInMonth(new Date(displayYear, displayMonth));
 
     return (
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-200">
+        <div className="text-center mb-2">
+          <h3 className="text-base font-semibold text-gray-900">
             {displayYear}년 {displayMonth + 1}월
           </h3>
         </div>
         
         {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 gap-1 mb-3">
+        <div className="grid grid-cols-7 gap-1 mb-2">
           {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
-            <div key={day} className="text-center text-sm font-semibold text-gray-700 py-2">
+            <div key={day} className="text-center text-xs font-semibold text-gray-700 py-1">
               {day}
             </div>
           ))}
@@ -326,7 +341,7 @@ const LentHistoryPage = () => {
         <div className="grid grid-cols-7 gap-1">
           {days.map((date, index) => {
             if (!date) {
-              return <div key={index} className="h-10"></div>;
+              return <div key={index} className="h-8"></div>;
             }
             
             const isSelected = isInRange(date);
@@ -335,7 +350,7 @@ const LentHistoryPage = () => {
             return (
               <div
                 key={index}
-                className={`h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
+                className={`h-8 flex items-center justify-center text-xs rounded-lg transition-all duration-200 ${
                   isSelected
                     ? 'bg-gray-900 text-white font-bold shadow-md'
                     : isToday
@@ -350,13 +365,13 @@ const LentHistoryPage = () => {
         </div>
         
         {/* 범례 */}
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs">
+        <div className="flex items-center justify-center gap-3 mt-2 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-900 rounded"></div>
+            <div className="w-2 h-2 bg-gray-900 rounded"></div>
             <span className="text-gray-600">대여 기간</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-200 rounded"></div>
+            <div className="w-2 h-2 bg-gray-200 rounded"></div>
             <span className="text-gray-600">오늘</span>
           </div>
         </div>
@@ -435,8 +450,8 @@ const LentHistoryPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 상단 왼쪽: 상품 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">상품 정보</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">상품 정보</h2>
             
             <ProductCardByProductId
               productId={rental.product?.productId}
@@ -452,44 +467,46 @@ const LentHistoryPage = () => {
           </div>
 
           {/* 상단 오른쪽: 대여자 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">대여자 정보</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4 flex flex-col">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여자 정보</h2>
             
-            <div className="text-center mb-4">
-              <ProfileImage
-                src={renterUser?.profileImageUrl || renterUser?.profile_image_url || rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
-                alt={renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name || '대여자'}
-                size={80}
-                className="w-20 h-20 mx-auto mb-4"
-              />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name} 님</h3>
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="flex gap-1">
-                  {renderPreciseStars(Number(renterRating) || 0)}
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="text-center mb-3">
+                <ProfileImage
+                  src={renterUser?.profileImageUrl || renterUser?.profile_image_url || rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
+                  alt={renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name || '대여자'}
+                  size={64}
+                  className="w-16 h-16 mx-auto mb-2"
+                />
+                <h3 className="text-base font-semibold text-gray-900 mb-1">{renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name} 님</h3>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <div className="flex gap-1">
+                    {renderPreciseStars(Number(renterRating) || 0)}
+                  </div>
+                  <span className="text-sm text-gray-600">{Number(renterRating) || 0}</span>
                 </div>
-                <span className="text-sm text-gray-600">{Number(renterRating) || 0}</span>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <button
-                onClick={() => navigate(`/members/${rental.renter?.memberId}`)}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                프로필 보기
-              </button>
+              <div className="space-y-2 flex flex-col items-center">
+                <button
+                  onClick={() => navigate(`/members/${rental.renter?.memberId}`)}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  프로필 보기
+                </button>
+              </div>
             </div>
           </div>
 
           {/* 중간 왼쪽: 대여 기간 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">대여 기간</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여 기간</h2>
             {renderCalendar()}
           </div>
 
           {/* 하단 왼쪽: 결제 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">결제 정보</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">결제 정보</h2>
             
             <div className="space-y-3 mb-4">
               <div className="flex justify-between">
@@ -511,59 +528,85 @@ const LentHistoryPage = () => {
           </div>
 
           {/* 중간 오른쪽: 대여자가 남긴 리뷰 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">대여자가 남긴 리뷰</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여자가 남긴 리뷰</h2>
             
             {loadingReviews ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                <p className="text-gray-600">로딩 중...</p>
+                <p className="text-gray-600 text-sm">로딩 중...</p>
               </div>
             ) : renterReview ? (
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="flex">
                     {renderPreciseStars(renterReview.rating || 0)}
                   </div>
                   <span className="text-sm text-gray-600">{renterReview.rating || 0}</span>
                 </div>
                 {renterReview.title && (
-                  <h4 className="font-semibold text-gray-900 mb-2">{renterReview.title}</h4>
+                  <h4 className="font-semibold text-gray-900 mb-1.5 text-sm">{renterReview.title}</h4>
                 )}
-                <p className="text-gray-700 mb-3">"{renterReview.content}"</p>
-                <div className="text-sm text-gray-500">
+                <p className="text-gray-700 mb-2 text-sm">"{renterReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {renterReview.imageUrls && renterReview.imageUrls.length > 0 && (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {renterReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="text-xs text-gray-500">
                   {renterReview.reviewerName || '대여자'} • {renterReview.createdAt ? formatDate(renterReview.createdAt) : ''}
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600">대여자가 아직 리뷰를 작성하지 않았습니다.</p>
+              <div className="text-center py-6">
+                <p className="text-gray-600 text-sm">대여자가 아직 리뷰를 작성하지 않았습니다.</p>
               </div>
             )}
           </div>
 
           {/* 하단 오른쪽: 내가 남긴 리뷰 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">내가 남긴 리뷰</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">내가 남긴 리뷰</h2>
             
             {loadingReviews ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                <p className="text-gray-600">로딩 중...</p>
+                <p className="text-gray-600 text-sm">로딩 중...</p>
               </div>
             ) : myReview ? (
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="flex">
                     {renderPreciseStars(myReview.rating || 0)}
                   </div>
                   <span className="text-sm text-gray-600">{myReview.rating || 0}</span>
                 </div>
                 {myReview.title && (
-                  <h4 className="font-semibold text-gray-900 mb-2">{myReview.title}</h4>
+                  <h4 className="font-semibold text-gray-900 mb-1.5 text-sm">{myReview.title}</h4>
                 )}
-                <p className="text-gray-700 mb-3">"{myReview.content}"</p>
-                <div className="text-sm text-gray-500 mb-4">
+                <p className="text-gray-700 mb-2 text-sm">"{myReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {myReview.imageUrls && myReview.imageUrls.length > 0 && (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {myReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="text-xs text-gray-500 mb-3">
                   {formatDate(myReview.createdAt || new Date())}
                 </div>
                 <div className="flex gap-2">
@@ -702,20 +745,6 @@ const LentHistoryPage = () => {
                   <div className="flex justify-between font-bold text-lg text-gray-900">
                     <span>총 결제금액</span>
                     <span>{((rental.fee || 0) + (rental.deposit || 0)).toLocaleString()}원</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-3">결제 방법</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">결제 수단</span>
-                    <span className="font-medium text-gray-900">카드 결제</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">카드 번호</span>
-                    <span className="font-medium text-gray-900">****-****-****-1234</span>
                   </div>
                 </div>
               </div>
