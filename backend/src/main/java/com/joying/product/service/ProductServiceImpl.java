@@ -538,10 +538,11 @@ public class ProductServiceImpl implements ProductService {
         // 해시태그 히스토리 삭제
         hashtagHistoryRepository.deleteByProduct_ProductId(productId);
 
-        // 상품 자체 삭제
-        productRepository.delete(product);
         entityManager.flush();
         entityManager.clear();
+
+        // 상품 자체 삭제
+        productRepository.delete(product);
 
         searchService.delete(productId);
     }
