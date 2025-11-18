@@ -42,7 +42,7 @@ public class Payment {
 
     @Comment("상품ID")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="product_id", nullable = false)
+    @JoinColumn(name="product_id", nullable = true)
     private Product product;
 
     @Comment("대여받는 사람ID")
@@ -157,5 +157,9 @@ public class Payment {
             throw new IllegalStateException("READY 또는 DONE 상태에서만 취소할 수 있습니다. 현재 상태: " + this.status);
         }
         this.status = PaymentStatus.CANCELED;
+    }
+
+    public void detachProductReference() {
+        this.product = null;
     }
 }

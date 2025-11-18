@@ -2,6 +2,7 @@ package com.joying.product.service;
 
 import com.joying.category.domain.Category;
 import com.joying.category.repository.CategoryRepository;
+import com.joying.chat.repository.ChatRoomRepository;
 import com.joying.file.domain.File;
 import com.joying.file.domain.ProductFile;
 import com.joying.file.repository.FileRepository;
@@ -12,6 +13,7 @@ import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.hashtag.repository.HashtagRepository;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
+import com.joying.payment.repository.PaymentRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import com.joying.product.domain.RentalRefuse;
@@ -22,6 +24,9 @@ import com.joying.product.repository.*;
 import com.joying.region.repository.DongRepository;
 import com.joying.region.repository.GunguRepository;
 import com.joying.region.repository.SidoRepository;
+import com.joying.rental.domain.RentalHistory;
+import com.joying.rental.domain.RentalStatus;
+import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.review.repository.ReviewRepository;
 import com.joying.region.domain.Sido;
 import com.joying.region.domain.Gungu;
@@ -39,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -61,6 +67,9 @@ public class ProductServiceImpl implements ProductService {
     private final FileRepository fileRepository;
     private final HashtagRepository hashtagRepository;
     private final SearchService searchService;
+    private final RentalHistoryRepository rentalHistoryRepository;
+    private final PaymentRepository paymentRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
     @Override
     public ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId) {
@@ -478,6 +487,22 @@ public class ProductServiceImpl implements ProductService {
         if (!product.getWriter().getMemberId().equals(memberId)) {
             throw new SecurityException("해당 상품을 삭제할 권한이 없습니다.");
         }
+
+        List<RentalHistory> rentals = rentalHistoryRepository.findAllByRentalProduct_ProductId(productId);
+
+        List<Long> bad = rentals.stream()
+                .filter(r -> r.getStatus() != RentalStatus.DEPOSIT_RETURNED)
+                .map(RentalHistory::getRentalHisId)
+                .collect(Collectors.toList());
+
+        if (!bad.isEmpty()) {
+            throw new IllegalStateException("다음 대여 기록들이 완료되지 않아 상품을 삭제할 수 없습니다: " + bad);
+        }
+
+        rentalHistoryRepository.detachProductFromRentalHistories(productId);
+        paymentRepository.detachProductFromPayments(productId);
+        reviewRepository.detachProductFromReviews(productId);
+        chatRoomRepository.detachProductFromChatRooms(productId);
 
         // 찜삭제
         productLikeRepository.deleteByProduct_ProductId(productId);

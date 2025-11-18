@@ -59,7 +59,7 @@ public class Review extends BaseEntity {
     private Member reviewer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", referencedColumnName = "product_id")
+    @JoinColumn(name = "product_id", referencedColumnName = "product_id", nullable = true)
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
@@ -101,5 +101,9 @@ public class Review extends BaseEntity {
     public void addReviewFile(ReviewFile reviewFile) {
         this.reviewFiles.add(reviewFile);
         reviewFile.addReview(this);
+    }
+
+    public void detachProductReference() {
+        this.product = null;
     }
 }

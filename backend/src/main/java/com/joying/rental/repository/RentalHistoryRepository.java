@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -23,7 +24,11 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
     /**
      * 상품의 거래 내역 조회
      */
-    List<RentalHistory> findByRentalProduct_ProductId(Long productId);
+    List<RentalHistory> findAllByRentalProduct_ProductId(Long productId);
+
+    @Modifying
+    @Query("UPDATE RentalHistory rh SET rh.rentalProduct = NULL WHERE rh.rentalProduct.productId = :productId")
+    int detachProductFromRentalHistories(@Param("productId") Long productId);
 
     /**
      * 상태별 거래 내역 조회

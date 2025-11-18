@@ -39,9 +39,9 @@ class ChatRoom(
     var chatRoomId: Long? = null,
 
     @Comment("대여 상품")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
-    var product: Product,
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "product_id", nullable = true)
+    var product: Product? = null,
 
     @Comment("구매자 (대여자)")
     @ManyToOne(fetch = FetchType.LAZY)
@@ -119,5 +119,9 @@ class ChatRoom(
 
     override fun hashCode(): Int {
         return chatRoomId?.hashCode() ?: 0
+    }
+
+    fun detachProductReference() {
+        this.product = null
     }
 }

@@ -29,7 +29,7 @@ public class RentalHistory {
 
     @Comment("상품ID")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id", nullable = true)
     private Product rentalProduct;
 
     @Comment("대여받는 사람ID")
@@ -207,5 +207,12 @@ public class RentalHistory {
         this.endRen = newEndRen;
         this.fee += additionalFee;
         this.extensionCount++;
+    }
+
+    /**
+     * 상품 id null로 변경
+     */
+    public void detachProductReference() {
+        this.rentalProduct = null;
     }
 }

@@ -7,7 +7,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -63,4 +65,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     WHERE r.reviewId = :reviewId
 """)
     Optional<Review> findByIdWithWriterAndProduct(Long reviewId);
+
+    @Modifying
+    @Query("UPDATE Review r SET r.product = NULL WHERE r.product.productId = :productId")
+    int detachProductFromReviews(@Param("productId") Long productId);
 }

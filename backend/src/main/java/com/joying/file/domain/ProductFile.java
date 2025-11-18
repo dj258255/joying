@@ -29,7 +29,7 @@ public class ProductFile extends BaseEntity {
 
     @Comment("물품")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "productId", referencedColumnName = "product_id", nullable = false)
+    @JoinColumn(name = "productId", referencedColumnName = "product_id", nullable = true)
     private Product product;
 
     @Comment("파일")
