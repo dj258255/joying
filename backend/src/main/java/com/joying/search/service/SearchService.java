@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -44,6 +45,7 @@ import com.joying.search.dto.HashtagInfo;
 import com.joying.search.dto.SearchRequest;
 import com.joying.search.dto.SearchDto;
 import com.joying.search.dto.SearchResponseDto;
+import com.joying.search.dto.SearchSuggestionResponse;
 import com.joying.search.exception.ElasticsearchSearchException;
 import com.joying.search.repository.SearchRepository;
 
@@ -539,7 +541,7 @@ public class SearchService {
 		searchRepository.deleteById(productId);
 	}
 
-	public List<String> getAutocompleteSuggestions(String keyword) {
+	public List<SearchSuggestionResponse> getAutocompleteSuggestions(String keyword) {
 		if (keyword == null || keyword.isBlank()) {
 			return List.of();
 		}
@@ -584,11 +586,28 @@ public class SearchService {
 			throw new ElasticsearchSearchException("자동완성 검색 중 오류가 발생했습니다.", e);
 		}
 
-		return response.hits().hits().stream()
-			.map(Hit::source).filter(Objects::nonNull)
-			.map(SearchDocument::getTitle)
+		List<SearchDocument> documents = response.hits().hits().stream()
+			.map(Hit::source)
+			.filter(Objects::nonNull)
+			.toList();
+
+		List<Long> fileIds = documents.stream()
+			.map(SearchDocument::getThumbnailFileId)
+			.filter(Objects::nonNull)
 			.distinct()
-			.collect(Collectors.toList());
+			.toList();
+
+		Map<Long, File> fileMap = fileRepository.findAllById(fileIds).stream()
+			.collect(Collectors.toMap(File::getFileId, f -> f));
+
+		return documents.stream()
+			.map(doc -> {
+				File file = fileMap.get(doc.getThumbnailFileId());
+				if (file == null) return SearchSuggestionResponse.fromDocument(doc, null);
+				return SearchSuggestionResponse.fromDocument(doc, fileUrlResolver.toPublicUrl(file));
+			})
+			.filter(Objects::nonNull)
+			.toList();
 	}
 
 	private List<String> analyzeText(String text) {
