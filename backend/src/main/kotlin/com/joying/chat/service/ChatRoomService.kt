@@ -339,9 +339,9 @@ class ChatRoomService(
 
                 ChatRoomResponse(
                     chatRoomId = chatRoom.chatRoomId!!,
-                    productId = chatRoom.product?.getProductId()!!,
-                    productTitle = chatRoom.product!!.getTitle(),
-                    productImageUrl = thumbnailMap[chatRoom.product!!.getProductId()],
+                    productId = chatRoom.product?.getProductId() ?: 0L,
+                    productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
+                    productImageUrl = chatRoom.product?.getProductId()?.let { thumbnailMap[it] },
                     otherMemberId = otherMember.getMemberId()!!,
                     otherMemberNickname = otherMember.getNickname(),
                     otherMemberProfileUrl = profileUrl,
