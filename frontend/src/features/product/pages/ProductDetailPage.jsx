@@ -797,8 +797,23 @@ const ProductDetailPage = () => {
                           }
                           try {
                             const chatRoomData = await chatApi.createChatRoom(product.id);
+
+                            // BORROW 상품의 경우 희망 조건 정보를 전달
+                            const navigationState = {
+                              productId: product.id,
+                              chatRoomData,
+                              isBorrowRequest: true,
+                              borrowInfo: {
+                                desiredStartDate: product.startRent,
+                                desiredEndDate: product.endRent,
+                                desiredRentalFee: product.price,
+                                desiredDeposit: product.deposit,
+                                rentMethod: product.rentMethod
+                              }
+                            };
+
                             navigate(`/chats/${chatRoomData.chatRoomId}`, {
-                              state: { productId: product.id, chatRoomData }
+                              state: navigationState
                             });
                           } catch (error) {
                             console.error('채팅방 생성 실패:', error);
@@ -1133,8 +1148,23 @@ const ProductDetailPage = () => {
                   }
                   try {
                     const chatRoomData = await chatApi.createChatRoom(product.id);
+
+                    // BORROW 상품의 경우 희망 조건 정보를 전달
+                    const navigationState = {
+                      productId: product.id,
+                      chatRoomData,
+                      isBorrowRequest: true,
+                      borrowInfo: {
+                        desiredStartDate: product.startRent,
+                        desiredEndDate: product.endRent,
+                        desiredRentalFee: product.price,
+                        desiredDeposit: product.deposit,
+                        rentMethod: product.rentMethod
+                      }
+                    };
+
                     navigate(`/chats/${chatRoomData.chatRoomId}`, {
-                      state: { productId: product.id, chatRoomData }
+                      state: navigationState
                     });
                   } catch (error) {
                     console.error('채팅방 생성 실패:', error);

@@ -104,11 +104,25 @@ public class RentalService {
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다: " + renterId));
 
         // 3. 본인 상품 대여 검증 (개발 모드에서는 허용)
-        if (!devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
-            throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
+        // BORROW 상품의 경우: 상품 주인이 빌리는 사람이므로 검증 로직이 반대
+        boolean isProductOwner = product.getWriter().getMemberId().equals(renterId);
+        boolean isBorrowProduct = "BORROW".equals(product.getUploadType() != null ? product.getUploadType().name() : null);
+
+        if (!devModeProperties.isAllowSelfRental()) {
+            if (isBorrowProduct) {
+                // BORROW 상품: 상품 주인이 빌리는 사람이어야 함 (상대방이 빌려줌)
+                if (!isProductOwner) {
+                    throw new IllegalArgumentException("BORROW 상품은 상품 주인만 빌릴 수 있습니다");
+                }
+            } else {
+                // RENT 상품: 상품 주인이 아닌 사람이 빌려야 함 (기존 로직)
+                if (isProductOwner) {
+                    throw new IllegalArgumentException("본인의 상품은 빌릴 수 없습니다");
+                }
+            }
         }
 
-        if (devModeProperties.isAllowSelfRental() && product.getWriter().getMemberId().equals(renterId)) {
+        if (devModeProperties.isAllowSelfRental() && isProductOwner && !isBorrowProduct) {
             log.warn("[개발 모드] 본인 상품 대여 허용: productId={}, memberId={}", productId, renterId);
         }
 

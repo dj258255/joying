@@ -693,6 +693,75 @@ const ChatRoomPage = () => {
     }
   }, [location.state, isConnected, currentChatRoom, sendMessage, navigate, location.pathname]);
 
+  // BORROW 상품에서 채팅방 진입 시 거래 모달 자동 열기
+  useEffect(() => {
+    const isBorrowRequest = location.state?.isBorrowRequest;
+    const borrowInfo = location.state?.borrowInfo;
+
+    if (isBorrowRequest && borrowInfo && isConnected && currentChatRoom && productData && user) {
+      // BORROW 상품의 경우: 상품 주인이 아닌 사람(빌려줄 사람)만 거래 모달을 볼 수 있음
+      const sellerId = productData?.sellerId
+        || productData?.writer?.memberId
+        || productData?.writer?.member_id
+        || productData?.seller?.id
+        || productData?.seller?.memberId
+        || productData?.seller?.member_id;
+      const currentUserId = user?.id || user?.memberId;
+      const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+      if (isProductOwner) {
+        // 상품 주인(빌리고 싶은 사람)은 모달을 보지 않음
+        console.log('[ChatRoomPage] BORROW 상품 주인은 거래 모달을 보지 않음');
+
+        // location.state 초기화만 수행
+        navigate(location.pathname, {
+          replace: true,
+          state: {
+            ...location.state,
+            isBorrowRequest: false,
+            borrowInfo: null
+          }
+        });
+        return;
+      }
+
+      console.log('[ChatRoomPage] BORROW 상품 감지 - 거래 모달 자동 열기 (빌려줄 사람):', borrowInfo);
+
+      // borrowInfo에서 날짜 정보 추출
+      const startDate = borrowInfo.desiredStartDate ? new Date(borrowInfo.desiredStartDate) : null;
+      const endDate = borrowInfo.desiredEndDate ? new Date(borrowInfo.desiredEndDate) : null;
+
+      if (startDate && endDate) {
+        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        // requestedDateRange 설정 (TransactionProcessModal이 새 거래 생성 모드로 작동)
+        setRequestedDateRange({
+          start: startDate,
+          end: endDate,
+          days: days,
+          rentMethod: borrowInfo.rentMethod || 'BOTH',
+          defaultRentalFee: borrowInfo.desiredRentalFee || 0,
+          defaultDeposit: borrowInfo.desiredDeposit || 0
+        });
+
+        // 거래 모달 열기
+        setTimeout(() => {
+          setShowTransactionModal(true);
+        }, 300); // 채팅방 로드 후 약간의 딜레이
+
+        // location.state 초기화 (중복 모달 방지)
+        navigate(location.pathname, {
+          replace: true,
+          state: {
+            ...location.state,
+            isBorrowRequest: false,
+            borrowInfo: null
+          }
+        });
+      }
+    }
+  }, [location.state, isConnected, currentChatRoom, productData, user, navigate, location.pathname]);
+
   // 대여 요청 메시지 찾기
   useEffect(() => {
     if (messages && messages.length > 0) {
@@ -3570,7 +3639,18 @@ const ChatRoomPage = () => {
             || productData?.seller?.id
             || productData?.seller?.memberId
             || productData?.seller?.member_id;
-          return sellerId && Number(sellerId) === Number(currentUserId) ? 'seller' : 'buyer';
+          const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+          // BORROW 상품인 경우 역할 반대로 설정
+          const isBorrowProduct = productData?.uploadType === 'BORROW';
+
+          if (isBorrowProduct) {
+            // BORROW: 상품 주인(빌리고 싶은 사람) = buyer, 상대방(빌려줄 사람) = seller
+            return isProductOwner ? 'buyer' : 'seller';
+          } else {
+            // RENT: 상품 주인(빌려줄 사람) = seller, 상대방(빌리고 싶은 사람) = buyer
+            return isProductOwner ? 'seller' : 'buyer';
+          }
         })()}
         requestedDateRange={requestedDateRange || (() => {
           // state에 requestedDateRange가 없으면 최근 대여 요청 메시지에서 날짜 가져오기
