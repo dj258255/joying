@@ -164,7 +164,7 @@ const Section1Hero = () => {
             {suggestions.map((item, idx) => (
               <li
                 key={idx}
-                onMouseDown={() => router.push(`/products/${item.productId}`)}
+                onMouseDown={() => navigate(`/products/${item.productId}`)}
                 className="flex items-center gap-3 px-5 py-3 
                           text-gray-800 text-sm font-medium 
                           hover:bg-gray-200 cursor-pointer
