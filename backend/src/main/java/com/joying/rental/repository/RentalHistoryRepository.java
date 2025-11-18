@@ -27,6 +27,16 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
     List<RentalHistory> findAllByRentalProduct_ProductId(Long productId);
 
     /**
+     * 상품의 특정 상태 거래 내역 조회
+     * 제품 상세 페이지에서 진행 중인 거래의 날짜를 블록 처리하기 위해 사용
+     */
+    List<RentalHistory> findByRentalProduct_ProductIdAndStatusIn(Long productId, List<RentalStatus> statuses);
+
+    @Modifying
+    @Query("UPDATE RentalHistory rh SET rh.rentalProduct = NULL WHERE rh.rentalProduct.productId = :productId")
+    int detachProductFromRentalHistories(@Param("productId") Long productId);
+
+    /**
      * 상태별 거래 내역 조회
      */
     List<RentalHistory> findByStatus(RentalStatus status);
