@@ -24,6 +24,7 @@ import { useProductLike } from '../hooks/useProductLike';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 import { axiosInstance } from '@/lib/axios/axiosInstance';
+import { productReviewApi } from '@/features/review/api/productReviewApi';
 
 const ProductDetailPage = () => {
   const { id: routeId } = useParams();
@@ -79,6 +80,9 @@ const ProductDetailPage = () => {
 
   // 판매자의 총 리뷰 개수 상태
   const [sellerReviewCount, setSellerReviewCount] = useState(0);
+  
+  // 리뷰 이미지 데이터 상태
+  const [reviewsWithImages, setReviewsWithImages] = useState([]);
 
   // 판매자의 총 리뷰 개수 조회
   useEffect(() => {
@@ -106,6 +110,43 @@ const ProductDetailPage = () => {
 
     fetchSellerReviewCount();
   }, [sellerMemberId]);
+
+  // 리뷰 이미지 조회
+  useEffect(() => {
+    const fetchReviewImages = async () => {
+      if (!productId || !productResponse) return;
+
+      try {
+        // 상품 리뷰 API로 리뷰 이미지 포함 데이터 가져오기
+        const reviewResponse = await productReviewApi.getProductReviews(productId, {
+          page: 1,
+          size: 100 // 충분히 큰 값으로 모든 리뷰 가져오기
+        });
+
+        // 응답 구조 확인
+        const reviewData = reviewResponse?.data?.data || reviewResponse?.data || reviewResponse?.body?.data || [];
+        const reviews = Array.isArray(reviewData) ? reviewData : (reviewData?.data || []);
+
+        // reviewId를 키로 하는 맵 생성
+        const reviewImageMap = {};
+        reviews.forEach(review => {
+          if (review.reviewId) {
+            reviewImageMap[review.reviewId] = {
+              imageUrls: review.imageUrls || review.image_urls || review.images || [],
+              fileIds: review.fileIds || review.file_ids || []
+            };
+          }
+        });
+
+        setReviewsWithImages(reviewImageMap);
+      } catch (error) {
+        console.error('리뷰 이미지 조회 실패:', error);
+        setReviewsWithImages({});
+      }
+    };
+
+    fetchReviewImages();
+  }, [productId, productResponse]);
 
   // 찜하기 기능
   const { toggleLike, isLoading: isLikeLoading } = useProductLike(productId);
@@ -203,22 +244,27 @@ const ProductDetailPage = () => {
         })
       : [];
 
-    // 리뷰 데이터 매핑
+    // 리뷰 데이터 매핑 (이미지 정보 병합)
     const reviews = Array.isArray(productResponse.reviews)
-      ? productResponse.reviews.map(review => ({
-          id: review.review_id,
-          reviewId: review.review_id,
-          title: review.title,
-          content: review.content,
-          rating: review.rating,
-          createdAt: review.created_at || review.createdAt,
-          imageUrls: review.imageUrls || review.image_urls || review.images || [],
-          reviewer: {
-            memberId: review.reviewer?.memberId,
-            nickname: review.reviewer?.nickname,
-            profileImageUrl: review.reviewer?.profileImageUrl || review.reviewer?.profile_image_url,
-          },
-        }))
+      ? productResponse.reviews.map(review => {
+          const reviewId = review.review_id || review.reviewId;
+          const imageData = reviewsWithImages[reviewId] || {};
+          
+          return {
+            id: reviewId,
+            reviewId: reviewId,
+            title: review.title,
+            content: review.content,
+            rating: review.rating,
+            createdAt: review.created_at || review.createdAt,
+            imageUrls: imageData.imageUrls || review.imageUrls || review.image_urls || review.images || [],
+            reviewer: {
+              memberId: review.reviewer?.memberId,
+              nickname: review.reviewer?.nickname,
+              profileImageUrl: review.reviewer?.profileImageUrl || review.reviewer?.profile_image_url,
+            },
+          };
+        })
       : [];
 
     return {
@@ -259,7 +305,7 @@ const ProductDetailPage = () => {
       endRent: productResponse?.endRent || null,
       uploadType: productResponse?.uploadType || 'RENT',
     };
-  }, [productResponse, sellerUser, sellerReviewCount]);
+  }, [productResponse, sellerUser, sellerReviewCount, reviewsWithImages]);
 
   // 본인 상품 여부 확인 (모든 Hook은 조건부 return 전에 호출되어야 함)
   const isOwnProduct = useMemo(() => {
