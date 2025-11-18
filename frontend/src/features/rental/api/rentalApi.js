@@ -372,5 +372,51 @@ export const rentalApi = {
       });
       throw error;
     }
+  },
+
+  /**
+   * 대여 기간 연장
+   * @param {number} rentalHisId - 대여 이력 ID
+   * @param {Object} data - 연장 데이터
+   * @param {string} data.newEndRen - 새로운 종료 일시 (ISO-8601)
+   * @param {number} data.additionalFee - 추가 대여료
+   * @returns {Promise<Object>} 연장 결과
+   */
+  extendRental: async (rentalHisId, data) => {
+    const requestBody = {
+      newEndRen: typeof data.newEndRen === 'string'
+        ? data.newEndRen
+        : new Date(data.newEndRen).toISOString(),
+      additionalFee: Number(data.additionalFee)
+    };
+
+    console.log('[rentalApi] 대여 기간 연장 요청:', {
+      rentalHisId,
+      requestBody
+    });
+
+    try {
+      const response = await axiosInstance.patch(
+        `/rentals/rental-histories/${rentalHisId}/extend`,
+        requestBody
+      );
+
+      console.log('[rentalApi] 대여 기간 연장 성공:', response.data);
+
+      // 응답 구조: { status, message, data: {...}, timestamp }
+      if (response.data?.data) {
+        return response.data.data;
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('[rentalApi] 대여 기간 연장 실패:', {
+        rentalHisId,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      throw error;
+    }
   }
 };

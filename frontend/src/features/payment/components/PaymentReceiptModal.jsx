@@ -60,20 +60,20 @@ const PaymentReceiptModal = ({ isOpen, onClose, payment }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="결제 영수증">
       <div className="space-y-6">
         {/* 결제 정보 */}
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl p-4">
           <h3 className="font-semibold text-gray-900 mb-3">결제 정보</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">결제 ID</span>
-              <span className="font-mono">{id}</span>
+              <span className="font-mono text-gray-900">{id}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">결제 금액</span>
-              <span className="font-semibold">{formatCurrency(amount)}</span>
+              <span className="font-semibold text-gray-900">{formatCurrency(amount)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">결제 방법</span>
-              <span>{method}</span>
+              <span className="text-gray-900">{method}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">결제 상태</span>
@@ -83,25 +83,25 @@ const PaymentReceiptModal = ({ isOpen, onClose, payment }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">결제 시간</span>
-              <span>{formatDate(createdAt)}</span>
+              <span className="text-gray-900">{formatDate(createdAt)}</span>
             </div>
           </div>
         </div>
 
         {/* 상품 정보 */}
         {product && (
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl p-4">
             <h3 className="font-semibold text-gray-900 mb-3">상품 정보</h3>
             <div className="flex items-center space-x-3">
               {product.image && (
                 <img
                   src={product.image}
                   alt={product.title}
-                  className="w-16 h-16 object-cover rounded"
+                  className="w-16 h-16 object-cover rounded-lg"
                 />
               )}
               <div>
-                <div className="font-medium">{product.title}</div>
+                <div className="font-medium text-gray-900">{product.title}</div>
                 <div className="text-sm text-gray-600">{product.category}</div>
               </div>
             </div>
@@ -110,16 +110,16 @@ const PaymentReceiptModal = ({ isOpen, onClose, payment }) => {
 
         {/* 사용자 정보 */}
         {user && (
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl p-4">
             <h3 className="font-semibold text-gray-900 mb-3">대여자 정보</h3>
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                <span className="text-gray-600 font-medium">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full flex items-center justify-center">
+                <span className="text-gray-900 font-medium">
                   {user.nickname?.charAt(0) || '?'}
                 </span>
               </div>
               <div>
-                <div className="font-medium">{user.nickname || '알 수 없음'}</div>
+                <div className="font-medium text-gray-900">{user.nickname || '알 수 없음'}</div>
                 <div className="text-sm text-gray-600">{user.email}</div>
               </div>
             </div>
@@ -130,13 +130,13 @@ const PaymentReceiptModal = ({ isOpen, onClose, payment }) => {
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="px-4 py-2 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base hover:bg-white/30 transition-colors"
           >
             닫기
           </button>
           <button
             onClick={() => window.print()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 glass-button text-white rounded-2xl font-semibold text-base hover:bg-gray-900/90 transition-colors"
           >
             인쇄
           </button>
