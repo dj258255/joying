@@ -3,7 +3,7 @@
  * 통합 거래 프로세스 모달 - 모든 거래 단계를 하나의 모달에서 처리
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '../../../shared/components/Modal/Modal';
 import ErrorAlert from '../../../shared/components/ErrorAlert';
 import CourierSelect from '../../../shared/components/CourierSelect';
@@ -84,6 +84,9 @@ const TransactionProcessModal = ({
   // 취소 요청 모달
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // 송장 번호 등록 모달
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
 
   // 초기화: rentalData가 있으면 상태 복원
   useEffect(() => {
@@ -286,7 +289,7 @@ const TransactionProcessModal = ({
         });
       }
 
-      alert('거래가 생성되었습니다. 구매자가 결제할 때까지 기다려주세요.');
+      // alert 제거 - 채팅 메시지로 충분
     } catch (err) {
       console.error('[TransactionProcessModal] 거래 생성 실패:', err);
       console.error('[TransactionProcessModal] 에러 상세:', {
@@ -295,10 +298,20 @@ const TransactionProcessModal = ({
         message: err.message
       });
 
-      // 백엔드 에러 메시지 추출
+      // 에러 메시지 개선
       let errorMessage = '거래 생성에 실패했습니다.';
-
-      if (err.response?.data) {
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 요청입니다. 입력 정보를 확인해주세요.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '상품 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '거래 생성 권한이 없습니다.';
+      } else if (err.response?.status === 409) {
+        errorMessage = err.response?.data?.message || '이미 진행 중인 거래가 있습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data) {
         // 백엔드 에러 응답 구조에 따라 메시지 추출
         if (err.response.data.message) {
           errorMessage = err.response.data.message;
@@ -313,7 +326,6 @@ const TransactionProcessModal = ({
       }
 
       setError(errorMessage);
-      alert(errorMessage); // 사용자에게 바로 알림
     } finally {
       setIsLoading(false);
     }
@@ -465,12 +477,33 @@ const TransactionProcessModal = ({
       setShowPaymentModal(false);
       setCurrentStep('delivery');
 
-      alert('결제가 완료되었습니다. 판매자가 물건을 발송할 때까지 기다려주세요.');
+      // alert 제거 - 채팅 메시지로 충분
     } catch (err) {
       console.error('[TransactionProcessModal] 결제 승인 실패:', err);
-      const errorMessage = err.response?.data?.message || err.message || '결제 승인에 실패했습니다.';
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 에러 메시지 개선
+      let errorMessage = '결제 승인에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 결제 정보입니다.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 402) {
+        errorMessage = '결제에 실패했습니다. 카드 정보를 확인해주세요.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -491,7 +524,12 @@ const TransactionProcessModal = ({
   // 발송 처리 (판매자) - 운송장 번호는 영상 촬영 후 입력
   const handleShipItem = async () => {
     if (!trackingNumber || !courier) {
-      setError('택배사와 운송장 번호를 입력해주세요.');
+      setError('택배사와 운송장 번호를 모두 입력해주세요.');
+      return;
+    }
+
+    if (trackingNumber.length < 10) {
+      setError('운송장 번호를 정확히 입력해주세요. (최소 10자리)');
       return;
     }
 
@@ -499,18 +537,67 @@ const TransactionProcessModal = ({
       setIsLoading(true);
       setError(null);
 
+      console.log('[TransactionProcessModal] 발송 처리 시작:', {
+        rentalHisId: transactionData.rentalHisId,
+        carrierCode: courier,
+        trackingNo: trackingNumber
+      });
+
       await rentalApi.shipItem(transactionData.rentalHisId, {
         carrierCode: courier,
         trackingNo: trackingNumber
       });
 
+      console.log('[TransactionProcessModal] 발송 처리 성공');
+
+      // 채팅방에 발송 완료 메시지 전송
+      if (sendMessage) {
+        const messageContent = `🚚 물건이 발송되었습니다!\n\n택배사: ${courierOptions.find(c => c.value === courier)?.label || courier}\n운송장 번호: ${trackingNumber}\n\n배송 조회를 통해 물건 위치를 확인할 수 있습니다.\n\nrentalHisId:${transactionData.rentalHisId}\nMESSAGE_TYPE:SHIPPING_COMPLETE`;
+        
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent,
+          metadata: {
+            messageType: 'SHIPPING_COMPLETE',
+            rentalHisId: transactionData.rentalHisId,
+            trackingNumber: trackingNumber,
+            courier: courier
+          }
+        });
+      }
+
+      // 거래 데이터 새로고침
+      const updatedData = await rentalApi.getRentalDetail(transactionData.rentalHisId);
+      setTransactionData(updatedData.data || updatedData);
+      
+      setShowTrackingModal(false);
       setCurrentStep('delivery');
-      alert('발송 처리가 완료되었습니다.');
     } catch (err) {
       console.error('[TransactionProcessModal] 발송 처리 실패:', err);
-      const errorMessage = err.response?.data?.message || err.message || '발송 처리에 실패했습니다.';
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 에러 메시지 개선
+      let errorMessage = '발송 처리에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 요청입니다. 택배사와 운송장 번호를 확인해주세요.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '발송 권한이 없습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -573,23 +660,59 @@ const TransactionProcessModal = ({
       }
 
       if (currentStep === 'shipping') {
-        // 영상 업로드 완료 - 모달 닫고 운송장 입력 UI로
-        alert('영상 업로드가 완료되었습니다. 운송장 번호는 나중에 입력할 수 있습니다.');
-        // currentStep은 'shipping' 유지
-      } else if (currentStep === 'receive') {
+        // 영상 업로드 완료 - 채팅 메시지 전송 후 송장 번호 등록 모달 열기
+        if (sendMessage) {
+          const messageContent = `✅ 발송 전 영상이 촬영되었습니다!\n\n영상을 확인하시고, 물건을 포장한 후 운송장 번호를 등록해주세요.\n\nrentalHisId:${transactionData.rentalHisId}\nMESSAGE_TYPE:SHIPPING_VIDEO_UPLOADED`;
+          
+          await sendMessage({
+            type: 'TEXT',
+            content: messageContent,
+            metadata: {
+              messageType: 'SHIPPING_VIDEO_UPLOADED',
+              rentalHisId: transactionData.rentalHisId
+            }
+          });
+        }
+        
+        // 송장 번호 등록 모달 열기
+        setShowVideoRecorder(false);
+        setShowTrackingModal(true);
+      } else       if (currentStep === 'receive') {
         setCurrentStep('rental');
         setHasVideo(true);
-        alert('대여가 시작되었습니다.');
+        // alert 제거
       } else if (currentStep === 'return') {
         setHasVideo(true);
-        alert('영상 업로드가 완료되었습니다. 운송장 번호를 입력해주세요.');
+        // alert 제거
         // currentStep은 'return' 유지
       }
     } catch (err) {
       console.error('[TransactionProcessModal] 영상 업로드 실패:', err);
-      const errorMessage = err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.';
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 에러 메시지 개선
+      let errorMessage = '영상 업로드에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 영상 파일입니다.';
+      } else if (err.response?.status === 413) {
+        errorMessage = '영상 파일 크기가 너무 큽니다. (최대 50MB)';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      alert(errorMessage);
+      setShowVideoRecorder(false); // 에러 발생 시 모달 닫기
     } finally {
       setIsLoading(false);
     }
@@ -655,13 +778,34 @@ const TransactionProcessModal = ({
         });
       }
 
-      alert('반납 처리가 완료되었습니다.');
+      // alert 제거
       onClose();
     } catch (err) {
       console.error('[TransactionProcessModal] 반납 처리 실패:', err);
-      const errorMessage = err.response?.data?.message || err.message || '반납 처리에 실패했습니다.';
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 에러 메시지 개선
+      let errorMessage = '반납 처리에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 요청입니다. 운송장 번호를 확인해주세요.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '반납 권한이 없습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -676,12 +820,33 @@ const TransactionProcessModal = ({
       await rentalApi.confirmReturn(transactionData.rentalHisId);
 
       setCurrentStep('complete');
-      alert('거래가 완료되었습니다.');
+      // alert 제거
     } catch (err) {
       console.error('[TransactionProcessModal] 회수 확인 실패:', err);
-      const errorMessage = err.response?.data?.message || err.message || '회수 확인에 실패했습니다.';
+      console.error('[TransactionProcessModal] 에러 상세:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+
+      // 에러 메시지 개선
+      let errorMessage = '회수 확인에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 요청입니다.';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 403) {
+        errorMessage = '회수 확인 권한이 없습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
-      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -730,7 +895,7 @@ const TransactionProcessModal = ({
         console.log('[TransactionProcessModal] 취소 요청 메시지 전송 완료');
       }
 
-      alert('취소 요청이 전송되었습니다. 상대방의 응답을 기다려주세요.');
+      // alert 제거
       setShowCancelModal(false);
       onClose();
     } catch (err) {
@@ -770,6 +935,19 @@ const TransactionProcessModal = ({
     { value: 'logen', label: '로젠택배' },
   ];
 
+  // 거래 생성자 확인 (owner가 거래를 생성했는지)
+  const isTransactionCreator = useMemo(() => {
+    if (!transactionData || !user) return false;
+    const currentUserId = user?.id || user?.memberId;
+    const ownerId = transactionData.owner?.memberId 
+      || transactionData.owner?.id 
+      || transactionData.ownerId
+      || productData?.sellerId
+      || productData?.writer?.memberId;
+    
+    return ownerId && Number(ownerId) === Number(currentUserId);
+  }, [transactionData, user, productData]);
+
   // 렌더링
   // 모달 닫기 핸들러 (비디오 레코더도 함께 닫기)
   const handleCloseModal = () => {
@@ -781,28 +959,34 @@ const TransactionProcessModal = ({
 
   return (
     <>
-      <Modal isOpen={isOpen && !showVideoRecorder} onClose={handleCloseModal} title={getModalTitle()} className="max-w-2xl">
-        <div className="space-y-6 p-1">
+      <Modal 
+        isOpen={isOpen && !showVideoRecorder} 
+        onClose={handleCloseModal} 
+        title={getModalTitle()} 
+        className="max-w-2xl"
+        hideCloseButton={true}
+      >
+        <div className="space-y-6">
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/50 rounded-lg p-4">
-              <p className="text-sm text-red-800 font-medium">{error}</p>
+            <div className="bg-red-500/20 backdrop-blur-md border border-red-400/50 rounded-2xl p-4">
+              <p className="text-sm text-red-900 font-semibold">{error}</p>
             </div>
           )}
 
           {/* 거래 없음 안내 (구매자) */}
           {currentStep === 'no_transaction' && userRole === 'buyer' && (
-            <div className="space-y-4">
-              <div className="p-6 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl text-center">
-                <div className="text-4xl mb-3">📦</div>
-                <p className="text-gray-900 font-bold text-lg mb-2">아직 거래가 생성되지 않았습니다</p>
-                <p className="text-gray-700 text-sm">소유자가 거래를 생성할 때까지 기다려주세요.</p>
-                <p className="text-gray-700 text-sm mt-2">채팅 하단의 "대여 요청하기" 버튼으로 대여를 요청할 수 있습니다.</p>
+            <div className="space-y-6">
+              <div className="p-8 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl text-center shadow-lg">
+                <div className="text-5xl mb-4">📦</div>
+                <p className="text-gray-900 font-bold text-xl mb-3">아직 거래가 생성되지 않았습니다</p>
+                <p className="text-gray-700 text-base leading-relaxed">소유자가 거래를 생성할 때까지 기다려주세요.</p>
+                <p className="text-gray-700 text-base mt-3 leading-relaxed">채팅 하단의 "대여 요청하기" 버튼으로 대여를 요청할 수 있습니다.</p>
               </div>
 
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 glass-button text-white rounded-lg font-medium"
+                className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
               >
                 닫기
               </button>
@@ -821,6 +1005,8 @@ const TransactionProcessModal = ({
                   disabledDates={unavailableDates}
                   availableStartDate={productData?.startRent || null}
                   availableEndDate={productData?.endRent || null}
+                  initialStartDate={dateRange?.start || null}
+                  initialEndDate={dateRange?.end || null}
                 />
               </div>
 
@@ -915,85 +1101,208 @@ const TransactionProcessModal = ({
 
           {/* 결제 확인 단계 (구매자 - PENDING 상태) */}
           {currentStep === 'payment_confirm' && userRole === 'buyer' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-                <p className="text-gray-900 font-semibold mb-1">💳 소유자가 거래를 생성했습니다</p>
-                <p className="text-gray-700 text-sm mt-1">결제를 진행하거나 거래를 취소할 수 있습니다</p>
-              </div>
-
-              {transactionData && (
-                <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-                  <h4 className="font-medium text-gray-900 mb-2">거래 정보</h4>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <div>상품: {productData.title || productData.name}</div>
-                    <div>
-                      대여 기간: {new Date(transactionData.startRen).toLocaleDateString('ko-KR')} ~ {new Date(transactionData.endRen).toLocaleDateString('ko-KR')}
-                    </div>
-                    <div>
-                      일수: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
-                    </div>
-                    <div className="pt-2 border-t border-white/50 font-medium text-lg text-gray-900">
-                      결제 금액: {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
-                    </div>
+            <div className="space-y-6">
+              {isTransactionCreator ? (
+                // 거래 생성자는 결제 상태만 확인
+                <>
+                  <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg text-center">
+                    <div className="text-5xl mb-4">💳</div>
+                    <p className="text-gray-900 font-bold text-xl mb-3">결제 대기 중입니다</p>
+                    <p className="text-gray-700 text-base leading-relaxed">
+                      대여자가 결제를 완료할 때까지 기다려주세요
+                    </p>
                   </div>
-                </div>
-              )}
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 glass-button-danger text-white rounded-lg font-medium disabled:opacity-50"
-                >
-                  거래 취소하기
-                </button>
-                <button
-                  onClick={handleProceedPayment}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
-                >
-                  결제하러 가기
-                </button>
-              </div>
+                  {transactionData && (
+                    <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">거래 정보</h4>
+                      <div className="text-base text-gray-700 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">상품</span>
+                          <span className="font-semibold text-gray-900">{productData.title || productData.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">대여 기간</span>
+                          <span className="font-semibold text-gray-900">
+                            {new Date(transactionData.startRen).toLocaleDateString('ko-KR')} ~ {new Date(transactionData.endRen).toLocaleDateString('ko-KR')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">일수</span>
+                          <span className="font-semibold text-gray-900">
+                            {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t border-white/50 flex justify-between">
+                          <span className="font-semibold text-gray-900 text-lg">결제 금액</span>
+                          <span className="font-bold text-xl text-gray-900">
+                            {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
+                  >
+                    확인
+                  </button>
+                </>
+              ) : (
+                // 대여자(구매자)는 결제 가능
+                <>
+                  <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                    <p className="text-gray-900 font-bold text-xl mb-3">💳 소유자가 거래를 생성했습니다</p>
+                    <p className="text-gray-700 text-base leading-relaxed">결제를 진행하거나 거래를 취소할 수 있습니다</p>
+                  </div>
+
+                  {transactionData && (
+                    <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">거래 정보</h4>
+                      <div className="text-base text-gray-700 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">상품</span>
+                          <span className="font-semibold text-gray-900">{productData.title || productData.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">대여 기간</span>
+                          <span className="font-semibold text-gray-900">
+                            {new Date(transactionData.startRen).toLocaleDateString('ko-KR')} ~ {new Date(transactionData.endRen).toLocaleDateString('ko-KR')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">일수</span>
+                          <span className="font-semibold text-gray-900">
+                            {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t border-white/50 flex justify-between">
+                          <span className="font-semibold text-gray-900 text-lg">결제 금액</span>
+                          <span className="font-bold text-xl text-gray-900">
+                            {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowCancelModal(true)}
+                      disabled={isLoading}
+                      className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      거래 취소하기
+                    </button>
+                    <button
+                      onClick={handleProceedPayment}
+                      disabled={isLoading}
+                      className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      결제하러 가기
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
           {/* 결제 대기 단계 (구매자) */}
           {currentStep === 'payment_waiting' && userRole === 'buyer' && (
-            <div className="space-y-4">
-              <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-                <p className="text-gray-900 font-semibold mb-1">소유자가 거래를 생성했습니다</p>
-                <p className="text-gray-700 text-sm mt-1">결제를 진행하거나 조건이 맞지 않으면 소유자와 대화를 더 진행해주세요</p>
-              </div>
-
-              {transactionData && (
-                <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-                  <h4 className="font-medium text-gray-900 mb-2">거래 정보</h4>
-                  <div className="text-sm text-gray-700 space-y-1">
-                    <div>상품: {productData.title || productData.name}</div>
-                    <div>대여 기간: {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일</div>
-                    <div className="pt-2 border-t border-white/50 font-medium text-lg text-gray-900">
-                      결제 금액: {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
-                    </div>
+            <div className="space-y-6">
+              {isTransactionCreator ? (
+                // 거래 생성자는 결제 상태만 확인
+                <>
+                  <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg text-center">
+                    <div className="text-5xl mb-4">⏳</div>
+                    <p className="text-gray-900 font-bold text-xl mb-3">결제 대기 중입니다</p>
+                    <p className="text-gray-700 text-base leading-relaxed">
+                      대여자가 결제를 완료할 때까지 기다려주세요
+                    </p>
                   </div>
-                </div>
-              )}
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleNeedMoreTalk}
-                  className="flex-1 px-4 py-2 glass-button-ghost text-gray-900 rounded-lg font-medium"
-                >
-                  대화가 더 필요해요
-                </button>
-                <button
-                  onClick={handleProceedPayment}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
-                >
-                  결제하러 가기
-                </button>
-              </div>
+                  {transactionData && (
+                    <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">거래 정보</h4>
+                      <div className="text-base text-gray-700 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">상품</span>
+                          <span className="font-semibold text-gray-900">{productData.title || productData.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">대여 기간</span>
+                          <span className="font-semibold text-gray-900">
+                            {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t border-white/50 flex justify-between">
+                          <span className="font-semibold text-gray-900 text-lg">결제 금액</span>
+                          <span className="font-bold text-xl text-gray-900">
+                            {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={onClose}
+                    className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
+                  >
+                    확인
+                  </button>
+                </>
+              ) : (
+                // 대여자(구매자)는 결제 가능
+                <>
+                  <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                    <p className="text-gray-900 font-bold text-xl mb-3">소유자가 거래를 생성했습니다</p>
+                    <p className="text-gray-700 text-base leading-relaxed">결제를 진행하거나 조건이 맞지 않으면 소유자와 대화를 더 진행해주세요</p>
+                  </div>
+
+                  {transactionData && (
+                    <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">거래 정보</h4>
+                      <div className="text-base text-gray-700 space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">상품</span>
+                          <span className="font-semibold text-gray-900">{productData.title || productData.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">대여 기간</span>
+                          <span className="font-semibold text-gray-900">
+                            {Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1}일
+                          </span>
+                        </div>
+                        <div className="pt-3 border-t border-white/50 flex justify-between">
+                          <span className="font-semibold text-gray-900 text-lg">결제 금액</span>
+                          <span className="font-bold text-xl text-gray-900">
+                            {((transactionData.fee * (Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1)) + transactionData.deposit).toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleNeedMoreTalk}
+                      className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
+                    >
+                      대화가 더 필요해요
+                    </button>
+                    <button
+                      onClick={handleProceedPayment}
+                      disabled={isLoading}
+                      className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      결제하러 가기
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1027,15 +1336,15 @@ const TransactionProcessModal = ({
           {/* 발송 처리 단계 (판매자) */}
           {currentStep === 'shipping' && userRole === 'seller' && (
             <div className="space-y-4">
-              <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-                <p className="text-gray-900 font-semibold text-lg mb-2">✅ 결제가 완료되었습니다</p>
-                <p className="text-gray-700 text-sm">
+              <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+                <p className="text-gray-900 font-bold text-xl mb-3">✅ 결제가 완료되었습니다</p>
+                <p className="text-gray-700 text-base leading-relaxed">
                   물건을 포장하고 발송해주세요. 영상 촬영과 운송장 등록은 각각 독립적으로 진행할 수 있습니다.
                 </p>
               </div>
 
               {/* 영상 촬영 섹션 */}
-              <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
+              <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-gray-900 font-semibold mb-1">📹 발송 전 영상 촬영</h3>
@@ -1046,9 +1355,9 @@ const TransactionProcessModal = ({
                 </div>
                 
                 {hasVideo && recordedVideos.length > 0 && (
-                  <div className="mb-3 p-3 bg-green-50/50 border border-green-200/50 rounded-lg">
-                    <p className="text-sm text-green-800 font-medium mb-2">✅ 영상이 등록되어 있습니다</p>
-                    <div className="flex gap-2">
+                  <div className="mb-4 p-4 bg-green-500/20 backdrop-blur-md border border-green-400/50 rounded-2xl">
+                    <p className="text-sm text-green-900 font-semibold mb-3">✅ 영상이 등록되어 있습니다</p>
+                    <div className="flex gap-3">
                       <button
                         onClick={() => {
                           const rentalHisId = transactionData?.rentalHisId;
@@ -1057,14 +1366,14 @@ const TransactionProcessModal = ({
                             window.dispatchEvent(new CustomEvent('openVideoListModal', { detail: { rentalHisId } }));
                           }
                         }}
-                        className="flex-1 px-3 py-2 text-sm bg-white/80 border border-gray-300 rounded-lg text-gray-900 hover:bg-white transition-colors"
+                        className="flex-1 px-4 py-2.5 text-sm glass-button-ghost text-gray-900 rounded-2xl font-medium transition-colors"
                       >
                         영상 보기
                       </button>
                       <button
                         onClick={handleStartVideoRecording}
                         disabled={isLoading}
-                        className="flex-1 px-3 py-2 text-sm bg-white/80 border border-gray-300 rounded-lg text-gray-900 hover:bg-white transition-colors"
+                        className="flex-1 px-4 py-2.5 text-sm glass-button-ghost text-gray-900 rounded-2xl font-medium transition-colors disabled:opacity-50"
                       >
                         다시 촬영
                       </button>
@@ -1075,16 +1384,16 @@ const TransactionProcessModal = ({
                 <button
                   onClick={handleStartVideoRecording}
                   disabled={isLoading}
-                  className="w-full px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
+                  className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {hasVideo ? '영상 다시 촬영하기' : '영상 촬영하기'}
                 </button>
               </div>
 
               {/* 운송장 등록 섹션 */}
-              <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
+              <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
                 <h3 className="text-gray-900 font-semibold mb-2">📦 운송장 번호 등록</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-base text-gray-700 mb-4 leading-relaxed">
                   물건을 포장하고 택배사에 맡긴 후 운송장 번호를 입력하세요.
                 </p>
 
@@ -1097,44 +1406,12 @@ const TransactionProcessModal = ({
                     />
                   </>
                 ) : (
-                  <>
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
-                        택배사 선택 *
-                      </label>
-                      <select
-                        value={courier}
-                        onChange={(e) => setCourier(e.target.value)}
-                        className="glass-input w-full"
-                      >
-                        <option value="">택배사를 선택하세요</option>
-                        {courierOptions.map((c) => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-900 mb-2">
-                        운송장 번호 *
-                      </label>
-                      <input
-                        type="text"
-                        value={trackingNumber}
-                        onChange={(e) => setTrackingNumber(e.target.value.replace(/\D/g, ''))}
-                        placeholder="숫자만 입력하세요"
-                        className="glass-input w-full"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleShipItem}
-                      disabled={isLoading || !courier || !trackingNumber}
-                      className="w-full px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? '처리 중...' : '발송 완료'}
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setShowTrackingModal(true)}
+                    className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
+                  >
+                    운송장 번호 등록하기
+                  </button>
                 )}
               </div>
             </div>
@@ -1355,12 +1632,122 @@ const TransactionProcessModal = ({
 
       {/* 영상 녹화 모달 */}
       {showVideoRecorder && (
-        <Modal isOpen={showVideoRecorder} onClose={() => setShowVideoRecorder(false)} title="영상 촬영" className="max-w-2xl">
-          <div>
+        <Modal 
+          isOpen={showVideoRecorder} 
+          onClose={() => setShowVideoRecorder(false)} 
+          title="발송 전 영상 촬영" 
+          className="max-w-2xl"
+          hideCloseButton={true}
+        >
+          <div className="space-y-6">
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-2">
+                📹 발송 전 영상을 촬영해주세요
+              </p>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                물건을 포장하기 전 상태를 촬영하세요. 여러 번 재촬영할 수 있습니다.
+              </p>
+            </div>
+            
             <VideoRecorder
               onRecordComplete={handleVideoUploadComplete}
               purpose={currentStep === 'shipping' || currentStep === 'return' ? 'delivery' : 'return'}
             />
+          </div>
+        </Modal>
+      )}
+
+      {/* 송장 번호 등록 모달 */}
+      {showTrackingModal && (
+        <Modal
+          isOpen={showTrackingModal}
+          onClose={() => {
+            setShowTrackingModal(false);
+            setError(null);
+            setTrackingNumber('');
+            setCourier('');
+          }}
+          title="운송장 번호 등록"
+          className="max-w-2xl"
+          hideCloseButton={true}
+        >
+          <div className="space-y-6">
+            {error && (
+              <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-6 shadow-lg">
+                <div className="flex items-start">
+                  <svg className="w-6 h-6 text-red-900 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-base text-red-900 font-semibold leading-relaxed">{error}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-2">📦 운송장 번호 등록</p>
+              <p className="text-sm text-gray-700 leading-relaxed mb-4">
+                물건을 포장하고 택배사에 맡긴 후 운송장 번호를 입력하세요.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-base font-semibold text-gray-900 mb-3">
+                  택배사 선택 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={courier}
+                  onChange={(e) => {
+                    setCourier(e.target.value);
+                    setError(null);
+                  }}
+                  className="glass-input w-full text-base"
+                  style={{ color: '#111827' }}
+                >
+                  <option value="" style={{ color: '#6B7280' }}>택배사를 선택하세요</option>
+                  {courierOptions.map((c) => (
+                    <option key={c.value} value={c.value} style={{ color: '#111827' }}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-base font-semibold text-gray-900 mb-3">
+                  운송장 번호 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => {
+                    setTrackingNumber(e.target.value.replace(/\D/g, ''));
+                    setError(null);
+                  }}
+                  placeholder="숫자만 입력하세요"
+                  className="glass-input w-full text-base"
+                  style={{ color: '#111827' }}
+                />
+                <p className="text-xs text-gray-600 mt-2">운송장 번호는 숫자만 입력 가능합니다. (최소 10자리)</p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowTrackingModal(false);
+                    setError(null);
+                    setTrackingNumber('');
+                    setCourier('');
+                  }}
+                  className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleShipItem}
+                  disabled={isLoading || !courier || !trackingNumber || trackingNumber.length < 10}
+                  className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? '처리 중...' : '발송 완료'}
+                </button>
+              </div>
+            </div>
           </div>
         </Modal>
       )}

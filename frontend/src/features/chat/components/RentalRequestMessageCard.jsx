@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
 
 /**
  * 대여 요청 메시지 내용 파싱
@@ -18,12 +19,22 @@ export const parseRentalRequestMessage = (content) => {
     return null;
   }
 
+  // JSON 형식인지 확인
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.type === 'RENTAL_REQUEST' || parsed.productId) {
+      return parsed;
+    }
+  } catch (e) {
+    // JSON이 아니면 텍스트 파싱
+  }
+
   // 상품명 추출
   const productMatch = content.match(/상품[:\s]+([^\n]+)/i);
   // 날짜 추출
   const dateMatch = content.match(/날짜[:\s]+([^\n]+)/i);
-  // 거래 방법 추출
-  const methodMatch = content.match(/거래 방법[:\s]+([^\n]+)/i);
+  // productId 추출
+  const productIdMatch = content.match(/productId[:\s]*(\d+)/i);
 
   if (!productMatch || !dateMatch) {
     return null;
@@ -31,12 +42,12 @@ export const parseRentalRequestMessage = (content) => {
 
   const productTitle = productMatch[1].trim();
   const dateRange = dateMatch[1].trim();
-  const rentMethod = methodMatch ? methodMatch[1].trim() : '둘 다 가능';
+  const productId = productIdMatch ? Number(productIdMatch[1]) : null;
 
   return {
     productTitle,
     dateRange,
-    rentMethod
+    productId
   };
 };
 
@@ -47,6 +58,7 @@ export const parseRentalRequestMessage = (content) => {
  * @param {boolean} props.isOwn - 자신의 메시지 여부
  * @param {boolean} props.isRequester - 요청자 여부
  * @param {boolean} props.isSeller - 판매자 여부
+ * @param {number|string} props.productId - 상품 ID (선택)
  * @param {Function} props.onRentalRequestAgain - 대여 다시 요청하기 핸들러
  * @param {Function} props.onCreateTransaction - 거래 생성하기 핸들러
  */
@@ -55,35 +67,23 @@ const RentalRequestMessageCard = ({
   isOwn = false, 
   isRequester = false, 
   isSeller = false,
+  productId: productIdProp = null,
   onRentalRequestAgain,
   onCreateTransaction
 }) => {
   // 메시지에서 대여 정보 추출 (rentalInfo 객체 또는 content 파싱)
   let rentalInfoFromMessage = null;
-  let priceInfo = null;
 
   // rentalInfo 객체가 있는 경우 (JSON 형식 메시지)
   if (message.rentalInfo) {
     rentalInfoFromMessage = message.rentalInfo;
-    priceInfo = {
-      dailyPrice: rentalInfoFromMessage.dailyPrice || 0,
-      deposit: rentalInfoFromMessage.deposit || 0,
-      totalPrice: rentalInfoFromMessage.totalPrice || 0,
-      days: rentalInfoFromMessage.days || 0
-    };
   } 
   // content가 JSON 문자열인 경우 파싱
   else if (message.content) {
     try {
       const parsed = JSON.parse(message.content);
-      if (parsed.type === 'RENTAL_REQUEST' || parsed.productTitle) {
+      if (parsed.type === 'RENTAL_REQUEST' || parsed.productTitle || parsed.productId) {
         rentalInfoFromMessage = parsed;
-        priceInfo = {
-          dailyPrice: parsed.dailyPrice || 0,
-          deposit: parsed.deposit || 0,
-          totalPrice: parsed.totalPrice || 0,
-          days: parsed.days || 0
-        };
       }
     } catch (e) {
       // JSON이 아니면 텍스트 파싱
@@ -98,16 +98,46 @@ const RentalRequestMessageCard = ({
     return null;
   }
 
-  // 날짜로부터 일수 계산 (priceInfo에 days가 없는 경우)
-  if (!priceInfo?.days && rentalInfo.dateRange) {
+  // productId 추출 (우선순위: prop > message.productId > rentalInfo > message.rentalInfo)
+  const productId = productIdProp 
+    || message.productId 
+    || rentalInfo.productId 
+    || rentalInfoFromMessage?.productId 
+    || message.rentalInfo?.productId
+    || null;
+
+  // 상품 정보 조회 (productId가 있는 경우)
+  const { product: productData } = useProductDetail(productId);
+  
+  // 상품 이미지 URL 결정 (우선순위: rentalInfo > productData > null)
+  // API 응답 구조: productData.files[0].url 또는 productData.images[0] (정규화된 경우)
+  const productImageUrl = rentalInfo.productImageUrl 
+    || rentalInfoFromMessage?.productImageUrl 
+    || message.rentalInfo?.productImageUrl
+    || (productData?.files && Array.isArray(productData.files) && productData.files.length > 0 
+        ? (productData.files[0]?.url || productData.files[0]?.fileUrl || productData.files[0]?.path)
+        : null)
+    || productData?.imageUrl 
+    || (productData?.images && Array.isArray(productData.images) && productData.images.length > 0 
+        ? productData.images[0]
+        : null)
+    || productData?.mainImageUrl
+    || null;
+
+  // 날짜 범위에서 일수 계산
+  let days = 0;
+  if (rentalInfo.dateRange) {
     const dateMatch = rentalInfo.dateRange.match(/([0-9.\s년월일]+)\s*~\s*([0-9.\s년월일]+)/);
     if (dateMatch) {
       const parseKoreanDate = (dateStr) => {
         if (!dateStr) return null;
+        // "2025년 11월 12일" 형식
         let match = dateStr.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
         if (match) return new Date(+match[1], +match[2] - 1, +match[3]);
+        // "2025. 11. 12." 또는 "2025.11.12" 형식
         match = dateStr.match(/(\d{4})[.\s]*(\d{1,2})[.\s]*(\d{1,2})/);
         if (match) return new Date(+match[1], +match[2] - 1, +match[3]);
+        // "2025-11-12" 형식 (ISO fallback)
         match = dateStr.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
         if (match) return new Date(+match[1], +match[2] - 1, +match[3]);
         return null;
@@ -115,15 +145,30 @@ const RentalRequestMessageCard = ({
       const startDate = parseKoreanDate(dateMatch[1]);
       const endDate = parseKoreanDate(dateMatch[2]);
       if (startDate && endDate) {
-        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-        if (priceInfo) {
-          priceInfo.days = days;
-        } else {
-          priceInfo = { days };
-        }
+        days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
       }
     }
   }
+
+  // 금액 정보 추출 (우선순위: rentalInfo > productData)
+  const dailyPrice = rentalInfo.dailyPrice 
+    || rentalInfoFromMessage?.dailyPrice 
+    || message.rentalInfo?.dailyPrice
+    || productData?.price
+    || productData?.rentalFee
+    || productData?.dailyPrice
+    || 0;
+  
+  const deposit = rentalInfo.deposit 
+    || rentalInfoFromMessage?.deposit 
+    || message.rentalInfo?.deposit
+    || productData?.deposit
+    || 0;
+
+  const totalPrice = rentalInfo.totalPrice 
+    || rentalInfoFromMessage?.totalPrice 
+    || message.rentalInfo?.totalPrice
+    || (dailyPrice > 0 && days > 0 ? dailyPrice * days + deposit : 0);
 
   // 한글 날짜를 Date 객체로 변환하는 함수
   const parseKoreanDate = (dateStr) => {
@@ -162,17 +207,15 @@ const RentalRequestMessageCard = ({
       return;
     }
 
-    // 거래 방법 추출
-    let rentMethod = 'BOTH';
-    if (rentalInfo.rentMethod.includes('택배거래')) rentMethod = 'ONLY_ONLINE';
-    else if (rentalInfo.rentMethod.includes('직거래')) rentMethod = 'ONLY_OFFLINE';
+    // 거래 방법은 BOTH로 고정 (UI에서 제거했으므로)
+    const rentMethod = 'BOTH';
 
     await onCreateTransaction({
       startDate,
       endDate,
       rentMethod,
-      rentalFee: priceInfo?.dailyPrice || 0,
-      deposit: priceInfo?.deposit || 0
+      rentalFee: dailyPrice,
+      deposit: deposit
     });
   };
 
@@ -199,47 +242,49 @@ const RentalRequestMessageCard = ({
               {/* 상품 이미지 및 상품명 */}
               <div className="flex items-start gap-3">
                 {/* 상품 대표 이미지 */}
-                {(rentalInfoFromMessage?.productImageUrl || message.rentalInfo?.productImageUrl) && (
+                {productImageUrl && (
                   <img
-                    src={rentalInfoFromMessage?.productImageUrl || message.rentalInfo?.productImageUrl}
-                    alt={rentalInfo.productTitle}
+                    src={productImageUrl}
+                    alt={rentalInfo.productTitle || productData?.title || productData?.name || '상품'}
                     className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
                   />
                 )}
                 <div className="flex-1 min-w-0">
                   <span className="text-xs text-gray-500 font-medium block mb-1">상품</span>
-                  <span className="text-sm text-gray-900 font-semibold block">{rentalInfo.productTitle}</span>
+                  <span className="text-sm text-gray-900 font-semibold block">
+                    {rentalInfo.productTitle || productData?.title || productData?.name || '상품'}
+                  </span>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-xs text-gray-500 font-medium w-16 flex-shrink-0">날짜</span>
                 <span className="text-sm text-gray-900 font-semibold flex-1">{rentalInfo.dateRange}</span>
               </div>
-              <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-500 font-medium w-16 flex-shrink-0">거래 방법</span>
-                <span className="text-sm text-gray-900 font-semibold flex-1">{rentalInfo.rentMethod || rentalInfoFromMessage?.rentMethod || '둘 다 가능'}</span>
-              </div>
+              
               {/* 대여 금액 표시 */}
-              {(priceInfo?.totalPrice > 0 || priceInfo?.dailyPrice > 0 || priceInfo?.deposit > 0) && (
+              {(totalPrice > 0 || dailyPrice > 0 || deposit > 0) && (
                 <div className="pt-2 border-t border-gray-200">
                   <div className="space-y-1.5">
-                    {priceInfo?.dailyPrice > 0 && priceInfo?.days > 0 && (
+                    {dailyPrice > 0 && days > 0 && (
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600">일일 대여료</span>
-                        <span className="text-gray-900 font-medium">{priceInfo.dailyPrice.toLocaleString()}원 × {priceInfo.days}일</span>
+                        <span className="text-gray-900 font-medium">{dailyPrice.toLocaleString()}원 × {days}일</span>
                       </div>
                     )}
-                    {priceInfo?.deposit > 0 && (
+                    {deposit > 0 && (
                       <div className="flex justify-between text-xs">
                         <span className="text-gray-600">보증금</span>
-                        <span className="text-gray-900 font-medium">{priceInfo.deposit.toLocaleString()}원</span>
+                        <span className="text-gray-900 font-medium">{deposit.toLocaleString()}원</span>
                       </div>
                     )}
-                    {priceInfo && (priceInfo.totalPrice > 0 || (priceInfo.dailyPrice > 0 && priceInfo.days > 0)) && (
+                    {totalPrice > 0 && (
                       <div className="flex justify-between pt-1 border-t border-gray-200">
                         <span className="text-sm font-semibold text-gray-900">총 금액</span>
                         <span className="text-base font-bold text-gray-900">
-                          {(priceInfo.totalPrice > 0 ? priceInfo.totalPrice : (priceInfo.dailyPrice * priceInfo.days + (priceInfo.deposit || 0))).toLocaleString()}원
+                          {totalPrice.toLocaleString()}원
                         </span>
                       </div>
                     )}
@@ -298,4 +343,3 @@ const RentalRequestMessageCard = ({
 };
 
 export default RentalRequestMessageCard;
-

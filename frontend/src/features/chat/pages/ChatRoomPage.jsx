@@ -14,6 +14,7 @@ import RentalRequestMessageCard, { parseRentalRequestMessage } from '../componen
 import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '../components/TransactionCreatedMessageCard';
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
+import TrackingNumberCard, { parseTrackingNumberMessage } from '../components/TrackingNumberCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -28,6 +29,7 @@ import ReturnModal from '../../../features/rental/components/ReturnModal';
 import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
 import VideoListModal from '../../../features/rental/components/VideoListModal';
+import TransactionFlowModal from '../../../features/rental/components/TransactionFlowModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
@@ -385,6 +387,7 @@ const ChatRoomPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showRentalRequestModal, setShowRentalRequestModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [showTransactionFlowModal, setShowTransactionFlowModal] = useState(false);
   const [currentRentalData, setCurrentRentalData] = useState(null);
   const [requestedDateRange, setRequestedDateRange] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
@@ -2019,6 +2022,7 @@ const ChatRoomPage = () => {
               onCreateTransaction={() => setShowTransactionModal(true)}
               onRentalRequest={() => setShowTransactionModal(true)}
               onTransactionProcess={() => setShowTransactionModal(true)}
+              onTransactionView={() => setShowTransactionFlowModal(true)}
               onShipping={() => setShowShippingModal(true)}
             />
             {/* 검색 버튼 (돋보기 아이콘) */}
@@ -2715,6 +2719,7 @@ const ChatRoomPage = () => {
                     isOwn={isOwn}
                     isRequester={isRequester}
                     isSeller={isSeller}
+                    productId={productId || productData?.productId || productData?.product_id}
                     onRentalRequestAgain={() => {
                       setShowRentalRequestModal(true);
                     }}
@@ -2873,7 +2878,38 @@ const ChatRoomPage = () => {
               );
             }
 
-            // 발송 메시지 감지 (카드로 렌더링)
+            // 송장 번호 등록 메시지 감지 (카드로 렌더링)
+            const trackingInfo = parseTrackingNumberMessage(message.content);
+            if (trackingInfo) {
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <TrackingNumberCard
+                    message={message}
+                    isOwn={isOwn}
+                    sendMessage={sendMessage}
+                    onShippingComplete={async ({ rentalHisId, trackingNo, courier }) => {
+                      console.log('[ChatRoomPage] 발송 완료:', { rentalHisId, trackingNo, courier });
+                      
+                      // 거래 상태 업데이트
+                      if (currentRentalData) {
+                        const updatedData = {
+                          ...currentRentalData,
+                          status: 'SHIPPED',
+                          trackingNo: trackingNo,
+                          courier: courier
+                        };
+                        setCurrentRentalData(updatedData);
+                        // 운송장 번호 등록 상태 업데이트 (버튼 레이블 변경용)
+                        setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
+                      }
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 발송 메시지 또는 발송 전 영상 메시지 감지 (카드로 렌더링)
             const shippingInfo = parseShippingMessage(message.content);
             if (shippingInfo) {
               return (
@@ -3417,34 +3453,11 @@ const ChatRoomPage = () => {
           isOpen={showShippingModal}
           onClose={() => setShowShippingModal(false)}
           rentalHisId={currentRentalData.rentalHisId}
-          onShippingComplete={async ({ videoUrl, trackingNo, courier }) => {
-            console.log('[ChatRoomPage] 발송 완료:', { videoUrl, trackingNo, courier });
-
-            // 채팅방에 발송 완료 메시지 전송
-            const messageContent = `📦 물품을 발송했습니다!\n\n택배사: ${courier}\n운송장 번호: ${trackingNo}\n\n${videoUrl ? `[동영상 보기](${videoUrl})` : ''}\nrentalHisId:${currentRentalData.rentalHisId}`;
-
-            await sendMessage({
-              type: 'TEXT',
-              content: messageContent
-            });
-
-            // 모달 닫기
-            setShowShippingModal(false);
-
-            // 거래 상태 업데이트
-            if (currentRentalData) {
-              const updatedData = {
-                ...currentRentalData,
-                status: 'SHIPPED',
-                trackingNo: trackingNo,
-                courier: courier
-              };
-              setCurrentRentalData(updatedData);
-              // 운송장 번호 등록 상태 업데이트 (버튼 레이블 변경용)
-              setTrackedRentalIds(prev => new Set([...prev, currentRentalData.rentalHisId]));
-            }
-
-            alert('물품 발송이 완료되었습니다!');
+          sendMessage={sendMessage}
+          onVideoUploaded={({ videoUrl, rentalHisId }) => {
+            console.log('[ChatRoomPage] 영상 업로드 완료:', { videoUrl, rentalHisId });
+            // 영상 업로드 완료 후 추가 작업이 필요하면 여기에 작성
+            // 채팅 메시지는 ShippingModal 내부에서 전송됨
           }}
         />
       )}
@@ -3489,20 +3502,9 @@ const ChatRoomPage = () => {
           isOpen={showReturnModal}
           onClose={() => setShowReturnModal(false)}
           rentalHisId={currentRentalData.rentalHisId}
-          onReturnComplete={async ({ videoUrl, trackingNo, courier }) => {
-            console.log('[ChatRoomPage] 반납 완료:', { videoUrl, trackingNo, courier });
-
-            // 채팅방에 반납 완료 메시지 전송
-            const messageContent = `📦 반납을 완료했습니다!\n\n택배사: ${courier}\n운송장 번호: ${trackingNo}\n\n${videoUrl ? `[동영상 보기](${videoUrl})` : ''}\n\nrentalHisId:${currentRentalData.rentalHisId}`;
-
-            await sendMessage({
-              type: 'TEXT',
-              content: messageContent
-            });
-
-            // 모달 닫기
-            setShowReturnModal(false);
-
+          onVideoUploaded={async ({ videoUrl, rentalHisId }) => {
+            console.log('[ChatRoomPage] 반납 영상 업로드 완료:', { videoUrl, rentalHisId });
+            
             // 거래 상태 업데이트
             if (currentRentalData) {
               const updatedData = {
@@ -3511,9 +3513,8 @@ const ChatRoomPage = () => {
               };
               setCurrentRentalData(updatedData);
             }
-
-            alert('반납이 완료되었습니다!');
           }}
+          sendMessage={sendMessage}
         />
       )}
 
@@ -3621,6 +3622,15 @@ const ChatRoomPage = () => {
           setVideoListModalRentalHisId(null);
         }}
         rentalHisId={videoListModalRentalHisId || currentRentalData?.rentalHisId}
+      />
+
+      {/* 거래 플로우 모달 */}
+      <TransactionFlowModal
+        isOpen={showTransactionFlowModal}
+        onClose={() => setShowTransactionFlowModal(false)}
+        rentalHisId={currentRentalData?.rentalHisId}
+        rentalData={currentRentalData}
+        productData={productData}
       />
     </div>
     </>

@@ -1,14 +1,14 @@
 /**
  * ReturnModal Component
- * 구매자가 물품 반납할 때 사용하는 모달
- * - 영상 녹화 (반납 전 물건 상태)
- * - 운송장 번호 입력
- * - 반납 완료 처리
+ * 대여자가 물품 반납 전 영상을 촬영할 때 사용하는 모달
+ * - ReturnReceiveModal과 동일한 디자인 구조
+ * - 영상 녹화만 처리
+ * - 영상 업로드 후 채팅 메시지 전송하고 모달 닫기
+ * - 송장 번호 등록은 별도로 처리 (TrackingNumberCard)
  */
 
 import React, { useState, useRef } from 'react';
 import Modal from '../../../shared/components/Modal/Modal';
-import CourierSelect from '../../../shared/components/CourierSelect';
 import ErrorAlert from '../../../shared/components/ErrorAlert';
 import { fileApi } from '../../../shared/api/fileApi';
 import { rentalApi } from '../api/rentalApi';
@@ -18,11 +18,11 @@ import { rentalApi } from '../api/rentalApi';
  * @param {boolean} props.isOpen - 모달 열림 상태
  * @param {Function} props.onClose - 모달 닫기 핸들러
  * @param {number} props.rentalHisId - 대여 이력 ID
- * @param {Function} props.onReturnComplete - 반납 완료 콜백 (videoUrl, trackingNo, courier)
+ * @param {Function} props.onVideoUploaded - 영상 업로드 완료 콜백 (videoUrl, sendMessage)
+ * @param {Function} props.sendMessage - 채팅 메시지 전송 함수
  */
-const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
+const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessage }) => {
   // 상태 관리
-  const [currentStep, setCurrentStep] = useState('video'); // video, tracking, complete
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -30,70 +30,19 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState(null);
   const [recordedVideoUrl, setRecordedVideoUrl] = useState(null);
-  const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
   const videoRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
+  const chunksRef = useRef(null);
   const streamRef = useRef(null);
-
-  // 운송장 정보
-  const [courier, setCourier] = useState('');
-  const [trackingNumber, setTrackingNumber] = useState('');
-
-  // 모달이 열릴 때 기존 영상 확인
-  React.useEffect(() => {
-    const checkExistingVideo = async () => {
-      if (!isOpen || !rentalHisId) return;
-
-      try {
-        console.log('[ReturnModal] 기존 영상 확인 중...');
-        const response = await rentalApi.getRentalDetail(rentalHisId);
-        console.log('[ReturnModal] API 응답 전체:', response);
-
-        const rentalData = response.data || response.body || response;
-        console.log('[ReturnModal] 렌탈 데이터:', rentalData);
-
-        // RENTER_RETURN 영상이 이미 있는지 확인 (여러 경로 시도)
-        const videos = rentalData.rentalVideos
-          || rentalData.videos
-          || rentalData.rentalVideoList
-          || [];
-
-        console.log('[ReturnModal] 영상 목록:', videos);
-
-        const renterReturnVideo = videos.find(
-          video => video.videoType === 'RENTER_RETURN' || video.type === 'RENTER_RETURN'
-        );
-
-        console.log('[ReturnModal] RENTER_RETURN 영상:', renterReturnVideo);
-
-        if (renterReturnVideo) {
-          console.log('[ReturnModal] 기존 영상 발견. 운송장 입력 단계로 이동');
-          setUploadedVideoUrl(renterReturnVideo.videoUrl || renterReturnVideo.url || renterReturnVideo.filePath);
-          setCurrentStep('tracking');
-        } else {
-          console.log('[ReturnModal] 기존 영상 없음. 촬영 단계로 시작');
-          setCurrentStep('video');
-        }
-      } catch (err) {
-        console.error('[ReturnModal] 기존 영상 확인 실패:', err);
-        // 에러가 나도 촬영 단계로 시작
-        setCurrentStep('video');
-      }
-    };
-
-    checkExistingVideo();
-  }, [isOpen, rentalHisId]);
 
   // 영상 녹화 시작
   const startRecording = async () => {
     try {
       setError(null);
 
-      // 모바일과 웹 모두 지원하는 getUserMedia
       const constraints = {
         video: {
-          facingMode: 'environment', // 후면 카메라 (모바일)
+          facingMode: 'environment',
           width: { ideal: 1920 },
           height: { ideal: 1080 }
         },
@@ -103,16 +52,12 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
-      // 비디오 미리보기
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
 
-      // MediaRecorder 설정
       const options = { mimeType: 'video/webm;codecs=vp9' };
-
-      // 브라우저가 vp9를 지원하지 않으면 기본값 사용
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         options.mimeType = 'video/webm';
       }
@@ -133,14 +78,11 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         console.log('[ReturnModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
 
         const url = URL.createObjectURL(blob);
-        console.log('[ReturnModal] Blob URL 생성:', url);
-
         setRecordedVideoBlob(blob);
         setRecordedVideoUrl(url);
 
-        // 비디오 요소의 srcObject 제거 (녹화된 영상 재생을 위해)
+        // 비디오 요소의 srcObject 제거
         if (videoRef.current) {
-          console.log('[ReturnModal] videoRef srcObject 제거');
           videoRef.current.srcObject = null;
         }
 
@@ -148,7 +90,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
-          console.log('[ReturnModal] 스트림 정리 완료');
         }
       };
 
@@ -177,10 +118,10 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
     setRecordedVideoUrl(null);
   };
 
-  // 영상 업로드 및 다음 단계
+  // 영상 업로드 및 완료 처리
   const handleVideoConfirm = async () => {
-    if (!recordedVideoBlob) {
-      setError('녹화된 영상이 없습니다.');
+    if (!recordedVideoBlob || !rentalHisId) {
+      setError('영상을 녹화해주세요.');
       return;
     }
 
@@ -190,12 +131,10 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
 
       console.log('[ReturnModal] 영상 업로드 시작');
 
-      // 1. 파일 업로드 (fileApi)
+      // 1. 파일 업로드
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
       console.log('[ReturnModal] 파일 업로드 응답:', uploadResult);
-      console.log('[ReturnModal] body 내용:', uploadResult.body);
 
-      // fileId 추출 (여러 경로 시도)
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
         || uploadResult.body?.id
@@ -205,22 +144,20 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ReturnModal] fileId를 찾을 수 없음. 전체 응답:', uploadResult);
-        console.error('[ReturnModal] body:', uploadResult.body);
+        console.error('[ReturnModal] fileId를 찾을 수 없음:', uploadResult);
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
       console.log('[ReturnModal] 파일 업로드 성공. fileId:', fileId);
 
-      // 2. 대여 이력에 영상 등록 (rentalApi)
+      // 2. 대여 이력에 영상 등록
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
         fileId: fileId,
-        videoType: 'RENTER_RETURN' // 구매자 반납 영상
+        videoType: 'RENTER_RETURN'
       });
 
       console.log('[ReturnModal] 영상 등록 성공:', videoResult);
 
-      // videoUrl 추출 (여러 경로 시도)
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
         || videoResult.body?.videoUrl
@@ -229,55 +166,86 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         || uploadResult.data?.url
         || null;
 
-      console.log('[ReturnModal] 추출된 videoUrl:', videoUrl);
-      setUploadedVideoUrl(videoUrl);
-      setCurrentStep('tracking');
-    } catch (err) {
-      console.error('[ReturnModal] 영상 업로드 실패:', err);
-      setError(err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // 3. 영상 목록에서 최신 URL 가져오기
+      let finalVideoUrl = videoUrl;
+      try {
+        const videosResponse = await rentalApi.getVideos(rentalHisId);
+        const videos = videosResponse?.data?.data?.videos
+          || videosResponse?.data?.videos
+          || videosResponse?.videos
+          || videosResponse?.data
+          || [];
 
-  // 반납 완료 처리
-  const handleReturnComplete = async () => {
-    if (!courier || !trackingNumber) {
-      setError('택배사와 운송장 번호를 입력해주세요.');
-      return;
-    }
+        const renterReturnVideo = videos.find(
+          v => v.videoType === 'RENTER_RETURN' || v.type === 'RENTER_RETURN'
+        );
 
-    try {
-      setIsLoading(true);
-      setError(null);
+        if (renterReturnVideo) {
+          finalVideoUrl = renterReturnVideo.fileUrl
+            || renterReturnVideo.videoUrl
+            || renterReturnVideo.url
+            || renterReturnVideo.filePath
+            || videoUrl;
+        }
+      } catch (err) {
+        console.error('[ReturnModal] 영상 목록 조회 실패:', err);
+      }
 
-      console.log('[ReturnModal] 반납 처리 시작:', {
-        rentalHisId,
-        courier,
-        trackingNumber
-      });
+      console.log('[ReturnModal] 최종 videoUrl:', finalVideoUrl);
 
-      // 반납 API 호출
-      await rentalApi.returnItem(rentalHisId, {
-        carrierCode: courier,
-        trackingNo: trackingNumber
-      });
+      // 4. 채팅방에 영상 촬영 완료 메시지 전송
+      if (sendMessage) {
+        const messageContent = `📹 반납 전 영상을 촬영했습니다!\n\n${finalVideoUrl ? `[동영상 보기](${finalVideoUrl})` : ''}\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:RETURN_VIDEO_UPLOADED`;
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
+        console.log('[ReturnModal] 채팅 메시지 전송 완료');
+      }
 
-      console.log('[ReturnModal] 반납 완료');
+      // 5. 송장 번호 등록 안내 메시지 전송
+      if (sendMessage) {
+        const trackingMessageContent = `운송장 번호를 등록해주세요.\n\n영상 촬영이 완료되었습니다. 물건을 포장한 후 운송장 번호를 등록해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:RETURN_TRACKING_NUMBER_REGISTRATION`;
+        setTimeout(async () => {
+          await sendMessage({
+            type: 'TEXT',
+            content: trackingMessageContent
+          });
+          console.log('[ReturnModal] 송장 번호 등록 안내 메시지 전송 완료');
+        }, 500);
+      }
 
-      // 부모 컴포넌트에 완료 알림
-      if (onReturnComplete) {
-        onReturnComplete({
-          videoUrl: uploadedVideoUrl,
-          trackingNo: trackingNumber,
-          courier: courier
+      // 6. 부모 컴포넌트에 완료 알림
+      if (onVideoUploaded) {
+        onVideoUploaded({
+          videoUrl: finalVideoUrl,
+          rentalHisId: rentalHisId
         });
       }
 
-      setCurrentStep('complete');
+      // 7. 모달 닫기
+      onClose();
     } catch (err) {
-      console.error('[ReturnModal] 반납 처리 실패:', err);
-      setError(err.response?.data?.message || err.message || '반납 처리에 실패했습니다.');
+      console.error('[ReturnModal] 영상 업로드 실패:', err);
+      
+      // 에러 메시지 개선
+      let errorMessage = '영상 업로드에 실패했습니다.';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.message || '잘못된 영상 파일입니다.';
+      } else if (err.response?.status === 413) {
+        errorMessage = '영상 파일 크기가 너무 큽니다. (최대 50MB)';
+      } else if (err.response?.status === 404) {
+        errorMessage = '거래 정보를 찾을 수 없습니다.';
+      } else if (err.response?.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -285,7 +253,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
 
   // 완료 후 닫기
   const handleClose = () => {
-    // 정리
     if (recordedVideoUrl) {
       URL.revokeObjectURL(recordedVideoUrl);
     }
@@ -293,42 +260,33 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
       streamRef.current.getTracks().forEach(track => track.stop());
     }
 
-    // 상태 초기화
-    setCurrentStep('video');
     setRecordedVideoBlob(null);
     setRecordedVideoUrl(null);
-    setUploadedVideoUrl(null);
-    setCourier('');
-    setTrackingNumber('');
     setError(null);
 
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="물품 반납하기" className="max-w-2xl">
-      <div className="space-y-6 p-1">
-        {/* 에러 메시지 */}
-        {error && (
-          <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/50 rounded-lg p-4">
-            <p className="text-sm text-red-800 font-medium">{error}</p>
-          </div>
-        )}
+    <Modal isOpen={isOpen} onClose={handleClose} title="반납 전 영상 촬영" className="max-w-2xl" hideCloseButton={true}>
+      <div className="space-y-6">
+        {error && <ErrorAlert message={error} />}
 
         {/* Step 1: 영상 녹화 */}
-        {currentStep === 'video' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-              <p className="text-sm text-gray-900 font-semibold mb-1">
-                📹 반납 전 물건 상태를 영상으로 촬영해주세요
-              </p>
-              <p className="text-xs text-gray-700 mt-1">
-                물건의 상태를 명확히 보여주는 영상을 촬영하면 분쟁 시 증거로 사용됩니다
-              </p>
-            </div>
+        <div className="space-y-6">
+          <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+            <p className="text-base text-gray-900 font-semibold mb-2">
+              📹 반납 전 물건 상태를 영상으로 촬영해주세요
+            </p>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              물품의 상태를 확인하고 촬영하면 분쟁 시 증거로 사용됩니다
+            </p>
+          </div>
 
             {/* 비디오 프리뷰 */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-contain"
@@ -358,114 +316,45 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
               )}
             </div>
 
-            {/* 녹화 버튼 */}
-            <div className="flex gap-3">
-              {!isRecording && !recordedVideoUrl && (
-                <button
-                  onClick={startRecording}
-                  className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium"
-                >
-                  📹 촬영 시작
-                </button>
-              )}
-
-              {isRecording && (
-                <button
-                  onClick={stopRecording}
-                  className="flex-1 px-4 py-3 glass-button-danger text-white rounded-lg font-medium"
-                >
-                  ⏹ 촬영 중지
-                </button>
-              )}
-
-              {recordedVideoUrl && (
-                <>
-                  <button
-                    onClick={retakeVideo}
-                    className="flex-1 px-4 py-3 glass-button-ghost text-gray-900 rounded-lg font-medium"
-                  >
-                    다시 촬영
-                  </button>
-                  <button
-                    onClick={handleVideoConfirm}
-                    disabled={isLoading}
-                    className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium disabled:opacity-50"
-                  >
-                    {isLoading ? '업로드 중...' : '다음 단계'}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: 운송장 번호 입력 */}
-        {currentStep === 'tracking' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-              <p className="text-sm text-gray-900 font-semibold mb-1">
-                ✅ 영상 업로드 완료!
-              </p>
-              <p className="text-xs text-gray-700 mt-1">
-                이제 운송장 번호를 입력하고 반납을 완료해주세요
-              </p>
-            </div>
-
-            {/* 택배사 및 운송장 번호 입력 */}
-            <CourierSelect
-              courier={courier}
-              onCourierChange={setCourier}
-              trackingNumber={trackingNumber}
-              onTrackingNumberChange={setTrackingNumber}
-              type="return"
-            />
-
-            {/* 버튼 */}
-            <div className="flex gap-3">
+          {/* 녹화 버튼 */}
+          <div className="flex gap-3">
+            {!isRecording && !recordedVideoUrl && (
               <button
-                onClick={() => setCurrentStep('video')}
-                className="flex-1 px-4 py-3 glass-button-ghost text-gray-900 rounded-lg font-medium"
+                onClick={startRecording}
+                className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
               >
-                이전
+                📹 촬영 시작
               </button>
+            )}
+
+            {isRecording && (
               <button
-                onClick={handleReturnComplete}
-                disabled={isLoading || !courier || !trackingNumber}
-                className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium disabled:opacity-50"
+                onClick={stopRecording}
+                className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base"
               >
-                {isLoading ? '처리 중...' : '반납 완료'}
+                ⏹ 촬영 중지
               </button>
-            </div>
+            )}
+
+            {recordedVideoUrl && (
+              <>
+                <button
+                  onClick={retakeVideo}
+                  className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
+                >
+                  다시 촬영
+                </button>
+                <button
+                  onClick={handleVideoConfirm}
+                  disabled={isLoading}
+                  className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? '업로드 중...' : '다음 단계'}
+                </button>
+              </>
+            )}
           </div>
-        )}
-
-        {/* Step 3: 완료 */}
-        {currentStep === 'complete' && (
-          <div className="space-y-4">
-            <div className="p-6 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl text-center">
-              <div className="text-4xl mb-3">✅</div>
-              <p className="text-gray-900 font-bold text-lg">반납이 완료되었습니다!</p>
-              <p className="text-gray-700 text-sm mt-2">
-                소유자가 물건을 확인할 때까지 기다려주세요
-              </p>
-            </div>
-
-            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
-              <h4 className="font-medium text-gray-900 mb-2">반납 정보</h4>
-              <div className="text-sm text-gray-700 space-y-1">
-                <div>택배사: {courier}</div>
-                <div>운송장 번호: {trackingNumber}</div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleClose}
-              className="w-full px-4 py-3 glass-button text-white rounded-lg font-medium"
-            >
-              확인
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </Modal>
   );

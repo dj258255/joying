@@ -596,6 +596,17 @@
     @apply bg-white/20 backdrop-blur-sm border border-white/40 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900/50 focus:border-gray-900/50 transition-all duration-300;
   }
   
+  /* number 타입 input의 스피너 버튼 숨김 */
+  .glass-input[type="number"]::-webkit-inner-spin-button,
+  .glass-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .glass-input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  
   /* 메인 컬러 버튼 */
   .glass-button {
     @apply bg-gray-900/80 backdrop-blur-sm border border-gray-900/50 rounded-lg px-4 py-2 text-white hover:bg-black/95 hover:shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-900/50;

@@ -84,7 +84,7 @@ export const rentalApi = {
    */
   getRentalDetail: async (rentalHisId) => {
     try {
-      const response = await axiosInstance.get(`/rentals/rental-histories/${rentalHisId}`);
+    const response = await axiosInstance.get(`/rentals/rental-histories/${rentalHisId}`);
       
       console.log('[rentalApi] 거래 상세 조회 성공:', response.data);
       
@@ -94,7 +94,7 @@ export const rentalApi = {
         return response.data.data;
       }
       
-      return response.data;
+    return response.data;
     } catch (error) {
       console.error('[rentalApi] 거래 상세 조회 실패:', {
         rentalHisId,
