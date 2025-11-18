@@ -15,6 +15,7 @@ import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '.
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
 import TrackingNumberCard, { parseTrackingNumberMessage } from '../components/TrackingNumberCard';
+import ReturnReceiveConfirmMessageCard, { parseReturnReceiveConfirmMessage } from '../components/ReturnReceiveConfirmMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -2857,95 +2858,11 @@ const ChatRoomPage = () => {
                 return buttons.length > 0 ? buttons : null;
               }
 
-              // 반납 수령 확인 선택 메시지 - 판매자에게 "최종 수령 확인" / "거래 중단" 버튼 표시
+              // 반납 수령 확인 선택 메시지는 카드로 렌더링 (getActionButtons에서는 제외)
               const isReturnReceiveConfirm = message.type === 'return_receive_confirm' || (message.type === 'text' && content?.includes('MESSAGE_TYPE:RETURN_RECEIVE_CONFIRM'));
               if (isReturnReceiveConfirm) {
-                console.log('[ChatRoomPage] 반납 수령 확인 선택 메시지 감지:', {
-                  messageType: message.type,
-                  content: content.substring(0, 100),
-                  currentUserId,
-                  senderId: message.sender?.id
-                });
-
-                const buttons = [];
-                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
-                const rentalHisId = rentalHisIdMatch ? parseInt(rentalHisIdMatch[1]) : null;
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                // 메시지 발신자가 판매자이고, 현재 사용자도 판매자인 경우 버튼 표시
-                const senderId = message.sender?.id;
-                const isOwn = Number(currentUserId) === Number(senderId);
-
-                console.log('[ChatRoomPage] 버튼 표시 조건 체크:', {
-                  isOwn,
-                  isSeller,
-                  rentalHisId,
-                  shouldShowButton: isOwn && isSeller && rentalHisId
-                });
-
-                if (isOwn && isSeller && rentalHisId) {
-                  buttons.push(
-                    {
-                      label: '✅ 최종 수령 확인',
-                      className: 'bg-green-600 text-white hover:bg-green-700',
-                      onClick: async () => {
-                        try {
-                          console.log('[ChatRoomPage] 최종 수령 확인 클릭:', { rentalHisId });
-
-                          if (!window.confirm('반납품을 최종 확인하고 거래를 완료하시겠습니까?')) {
-                            return;
-                          }
-
-                          // 반납 수령 확인 API 호출
-                          await rentalApi.confirmReturnReceive(rentalHisId);
-
-                          // 채팅방에 완료 메시지 전송
-                          await sendMessage({
-                            type: 'TEXT',
-                            content: `✅ 반납 수령을 최종 확인했습니다!\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nrentalHisId:${rentalHisId}`
-                          });
-
-                          alert('반납 수령이 확인되었습니다! 정산이 진행됩니다.');
-                        } catch (err) {
-                          console.error('[ChatRoomPage] 최종 수령 확인 실패:', err);
-                          alert(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
-                        }
-                      }
-                    },
-                    {
-                      label: '🚫 거래 중단',
-                      className: 'bg-red-600 text-white hover:bg-red-700',
-                      onClick: async () => {
-                        try {
-                          console.log('[ChatRoomPage] 거래 중단 클릭:', { rentalHisId });
-
-                          // rentalHisId로 거래 상세 조회
-                          const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                          const rentalData = rentalResponse.data;
-
-                          setCurrentRentalData(rentalData);
-
-                          // 취소 모달 열기
-                          setShowTransactionModal(true);
-                        } catch (err) {
-                          console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                          alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                        }
-                      }
-                    }
-                  );
-                }
-
-                console.log('[ChatRoomPage] 반환할 버튼:', buttons);
-                return buttons.length > 0 ? buttons : null;
+                // 카드로 렌더링되므로 버튼은 반환하지 않음
+                return null;
               }
 
               return null;
@@ -3493,6 +3410,48 @@ const ChatRoomPage = () => {
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     } : undefined}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 반납 수령 확인 선택 메시지 감지 (카드로 렌더링)
+            const returnReceiveConfirmInfo = parseReturnReceiveConfirmMessage(message.content);
+            if (returnReceiveConfirmInfo) {
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
+              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <ReturnReceiveConfirmMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    onConfirmComplete={async (rentalHisId) => {
+                      try {
+                        // 거래 데이터 갱신
+                        const updatedRentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const updatedRentalData = updatedRentalResponse.data || updatedRentalResponse;
+                        setCurrentRentalData(updatedRentalData);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+                      }
+                    }}
+                    onCancelRequest={(rentalData) => {
+                      setCurrentRentalData(rentalData);
+                      setTimeout(() => {
+                        setShowTransactionModal(true);
+                      }, 50);
+                    }}
+                    sendMessage={sendMessage}
                   />
                 </React.Fragment>
               );
