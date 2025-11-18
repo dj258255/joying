@@ -592,46 +592,6 @@ const ProductDetailPage = () => {
                         />
 
                         {/* 대여 방식 선택 */}
-                        <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            대여 방식
-                          </label>
-                          <div className="space-y-2">
-                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                              <input
-                                type="radio"
-                                name="rentMethod"
-                                value="ONLY_ONLINE"
-                                checked={rentMethod === 'ONLY_ONLINE'}
-                                onChange={(e) => setRentMethod(e.target.value)}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-900">택배거래</span>
-                            </label>
-                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                              <input
-                                type="radio"
-                                name="rentMethod"
-                                value="ONLY_OFFLINE"
-                                checked={rentMethod === 'ONLY_OFFLINE'}
-                                onChange={(e) => setRentMethod(e.target.value)}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-900">직거래</span>
-                            </label>
-                            <label className="flex items-center p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                              <input
-                                type="radio"
-                                name="rentMethod"
-                                value="BOTH"
-                                checked={rentMethod === 'BOTH'}
-                                onChange={(e) => setRentMethod(e.target.value)}
-                                className="mr-2"
-                              />
-                              <span className="text-sm text-gray-900">둘 다 가능</span>
-                            </label>
-                          </div>
-                        </div>
                       </div>
 
                       {/* 오른쪽: 가격 정보 및 버튼 */}
@@ -1153,56 +1113,6 @@ const ProductDetailPage = () => {
                   />
                 </div>
 
-                {/* 대여 방식 선택 (모바일) */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    대여 방식
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input
-                        type="radio"
-                        name="rentMethod-mobile"
-                        value="ONLY_ONLINE"
-                        checked={rentMethod === 'ONLY_ONLINE'}
-                        onChange={(e) => setRentMethod(e.target.value)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">택배거래</div>
-                        <div className="text-xs text-gray-500">택배로 배송받습니다</div>
-                      </div>
-                    </label>
-                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input
-                        type="radio"
-                        name="rentMethod-mobile"
-                        value="ONLY_OFFLINE"
-                        checked={rentMethod === 'ONLY_OFFLINE'}
-                        onChange={(e) => setRentMethod(e.target.value)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">직거래</div>
-                        <div className="text-xs text-gray-500">직접 만나서 받습니다</div>
-                      </div>
-                    </label>
-                    <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input
-                        type="radio"
-                        name="rentMethod-mobile"
-                        value="BOTH"
-                        checked={rentMethod === 'BOTH'}
-                        onChange={(e) => setRentMethod(e.target.value)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">둘 다 가능</div>
-                        <div className="text-xs text-gray-500">택배거래 또는 직거래 가능</div>
-                      </div>
-                    </label>
-                  </div>
-                </div>
 
                 {/* 가격 계산 */}
                 {dateRange && dateRange.start && dateRange.end && (

@@ -410,6 +410,23 @@ const ChatRoomPage = () => {
   const dragCounterRef = useRef(0);
   // 거래 영상 조회 모달
   const [showVideoListModal, setShowVideoListModal] = useState(false);
+  const [videoListModalRentalHisId, setVideoListModalRentalHisId] = useState(null);
+
+  // VideoListModal 열기 이벤트 리스너 (TransactionProcessModal에서 호출)
+  useEffect(() => {
+    const handleOpenVideoListModal = (e) => {
+      const rentalHisId = e.detail?.rentalHisId;
+      if (rentalHisId) {
+        setVideoListModalRentalHisId(rentalHisId);
+        setShowVideoListModal(true);
+      }
+    };
+
+    window.addEventListener('openVideoListModal', handleOpenVideoListModal);
+    return () => {
+      window.removeEventListener('openVideoListModal', handleOpenVideoListModal);
+    };
+  }, []);
 
   // productId는 여러 경로에서 가져오기: URL 쿼리 파라미터 > location.state > 채팅방 정보 > 메시지에서
   const productIdFromUrl = searchParams.get('productId') || location.state?.productId || currentChatRoom?.productId || null;
@@ -718,11 +735,15 @@ const ChatRoomPage = () => {
   }, [sortedMessages, isNearBottom, scrollToBottom, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
 
   useEffect(() => {
+    // 채팅방이 실제로 표시되고 있는지 확인 (messagesContainerRef가 존재하고 화면에 보이는 경우)
+    const isChatRoomVisible = messagesContainerRef.current && 
+      messagesContainerRef.current.offsetParent !== null;
+
     // 메시지 점프 후 일정 시간 동안은 자동 스크롤 완전히 비활성화
     const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
     if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
-      // 읽음 처리만 실행
-      if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
+      // 읽음 처리: 채팅방이 실제로 표시되고 있을 때만
+      if (isChatRoomVisible && (currentChatRoom?.chatRoomId || currentChatRoom?.id)) {
         sendReadReceipt();
       }
       return;
@@ -730,8 +751,8 @@ const ChatRoomPage = () => {
 
     // 메시지 점프 중이거나 대기 중이면 자동 스크롤하지 않음
     if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
-      // 읽음 처리만 실행
-      if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
+      // 읽음 처리: 채팅방이 실제로 표시되고 있을 때만
+      if (isChatRoomVisible && (currentChatRoom?.chatRoomId || currentChatRoom?.id)) {
         sendReadReceipt();
       }
       return;
@@ -742,8 +763,8 @@ const ChatRoomPage = () => {
       scrollToBottom('auto', true);
     }, 300);
 
-    // 채팅방 진입 시 읽음 처리
-    if (currentChatRoom?.chatRoomId || currentChatRoom?.id) {
+    // 채팅방 진입 시 읽음 처리: 채팅방이 실제로 표시되고 있을 때만
+    if (isChatRoomVisible && (currentChatRoom?.chatRoomId || currentChatRoom?.id)) {
       sendReadReceipt();
     }
   }, [currentChatRoom?.chatRoomId, scrollToBottom, sendReadReceipt, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
@@ -3593,13 +3614,14 @@ const ChatRoomPage = () => {
       />
 
       {/* 거래 영상 조회 모달 */}
-      {currentRentalData?.rentalHisId && (
-        <VideoListModal
-          isOpen={showVideoListModal}
-          onClose={() => setShowVideoListModal(false)}
-          rentalHisId={currentRentalData.rentalHisId}
-        />
-      )}
+      <VideoListModal
+        isOpen={showVideoListModal}
+        onClose={() => {
+          setShowVideoListModal(false);
+          setVideoListModalRentalHisId(null);
+        }}
+        rentalHisId={videoListModalRentalHisId || currentRentalData?.rentalHisId}
+      />
     </div>
     </>
   );
