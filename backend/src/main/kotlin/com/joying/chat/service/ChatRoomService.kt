@@ -212,9 +212,9 @@ class ChatRoomService(
         // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
         return ChatRoomResponse(
             chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product?.getProductId()!!,
-            productTitle = chatRoom.product!!.getTitle(),
-            productImageUrl = getProductThumbnailUrl(chatRoom.product!!),
+            productId = chatRoom.product?.getProductId() ?: 0L,
+            productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
+            productImageUrl = chatRoom.product?.let { getProductThumbnailUrl(it) },
             otherMemberId =
                 if (chatRoom.buyer.getMemberId() == buyerId) {
                     chatRoom.seller.getMemberId()!!
@@ -431,9 +431,9 @@ class ChatRoomService(
 
             ChatRoomResponse(
                 chatRoomId = chatRoom.chatRoomId!!,
-                productId = chatRoom.product?.getProductId()!!,
-                productTitle = chatRoom.product!!.getTitle(),
-                productImageUrl = getProductThumbnailUrl(chatRoom.product),
+                productId = chatRoom.product?.getProductId() ?: 0L,
+                productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
+                productImageUrl = chatRoom.product?.let { getProductThumbnailUrl(it) },
                 otherMemberId = otherMember.getMemberId()!!,
                 otherMemberNickname = otherMember.getNickname(),
                 otherMemberProfileUrl = getProfileImageUrl(otherMember),
@@ -727,8 +727,8 @@ class ChatRoomService(
             isMuted = mySettings.isMuted,
             lastReadAt = mySettings.lastReadAt,
             chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product?.getProductId()!!,
-            productTitle = chatRoom.product!!.getTitle(),
+            productId = chatRoom.product?.getProductId() ?: 0L,
+            productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
         )
     }
 
@@ -741,7 +741,8 @@ class ChatRoomService(
      * @return 썸네일 이미지 URL (없으면 null)
      */
     private fun getProductThumbnailUrl(product: Product?): String? {
-        val productFiles = productFileRepository.findByProduct_ProductId(product?.getProductId()!!)
+        val productId = product?.getProductId() ?: return null
+        val productFiles = productFileRepository.findByProduct_ProductId(productId)
 
         // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
         val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
