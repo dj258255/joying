@@ -62,7 +62,7 @@ const Modal = ({
       
       {/* 모달 컨테이너 */}
       <div 
-        className={`relative bg-white/90 backdrop-blur-xl border border-white/40 rounded-3xl shadow-2xl max-w-md lg:max-w-7xl w-full max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden ${className}`} 
+        className={`relative bg-white/90 backdrop-blur-xl border border-white/40 rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden ${className}`} 
         onClick={(e) => e.stopPropagation()}
       >
         {/* 커스텀 닫기 버튼 */}

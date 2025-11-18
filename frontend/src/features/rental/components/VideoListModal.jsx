@@ -155,7 +155,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="!max-w-[256rem]" hideCloseButton={true}>
+    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="max-w-[50rem]" hideCloseButton={true}>
       <div className="space-y-4 lg:space-y-3">
         {/* 에러 메시지 */}
         {error && (
@@ -189,9 +189,9 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
 
         {/* 영상이 있을 때 */}
         {!isLoading && videos.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-3">
             {/* 왼쪽: 영상 목록 */}
-            <div className="lg:col-span-1 space-y-2 lg:space-y-1.5 max-h-[500px] lg:max-h-[80vh] overflow-y-auto scrollbar-hide">
+            <div className="lg:col-span-1 space-y-2 lg:space-y-1.5 max-h-[500px] lg:max-h-[75vh] overflow-y-auto scrollbar-hide">
               <h3 className="text-sm lg:text-xs font-bold text-gray-900 mb-3 lg:mb-2">영상 목록 ({videos.length}개)</h3>
               {videos.map((video, index) => {
                 const videoType = video.videoType || video.type;
@@ -237,7 +237,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
             </div>
 
             {/* 오른쪽: 선택된 영상 재생 */}
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-3">
               {selectedVideo ? (
                 <div className="space-y-4 lg:space-y-2">
                   {/* 영상 정보 */}
@@ -264,7 +264,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
 
                   {/* 영상 플레이어 */}
                   <div className="flex justify-center">
-                    <div className="relative bg-black rounded-2xl lg:rounded-xl overflow-hidden shadow-2xl w-full max-w-[640px] lg:max-w-[560px] aspect-video">
+                    <div className="relative bg-black rounded-2xl lg:rounded-xl overflow-hidden shadow-2xl w-full max-w-[640px] lg:max-w-[480px] aspect-video">
                       <video
                         key={selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url}
                         className="absolute inset-0 w-full h-full object-contain"
