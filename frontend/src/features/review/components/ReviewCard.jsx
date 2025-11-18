@@ -37,10 +37,6 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
     ));
   };
 
-  console.log("review", review);
-  console.log("reviewer", review.reviewer);
-  console.log("reviewer nickname", review.reviewer.nickname);
-
   return (
     <div className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
       {/* 리뷰어 정보 */}
