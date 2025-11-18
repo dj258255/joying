@@ -342,6 +342,31 @@ export const websocketApi = {
     }
   },
 
+  refreshChatRoomActivity(chatRoomId) {
+    const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
+    if (!client || !client.connected) {
+      console.warn('[websocketApi] 채팅방 활성 상태 갱신 실패: WebSocket이 연결되지 않았습니다.');
+      return false;
+    }
+    if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
+      console.warn('[websocketApi] 채팅방 활성 상태 갱신 실패: 유효하지 않은 채팅방 ID입니다.');
+      return false;
+    }
+
+    try {
+      // enterChatRoom과 동일한 엔드포인트 사용 (TTL 갱신)
+      client.publish({
+        destination: '/app/chat/enter',
+        body: JSON.stringify({ chatRoomId: chatRoomIdNum })
+      });
+      console.log('[websocketApi] 채팅방 활성 상태 갱신:', chatRoomIdNum);
+      return true;
+    } catch (error) {
+      console.warn('[websocketApi] 채팅방 활성 상태 갱신 오류:', error);
+      return false;
+    }
+  },
+
   isConnected() {
     return Boolean(client?.connected);
   }
