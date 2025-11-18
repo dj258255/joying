@@ -83,6 +83,7 @@ public class ProductResponseDto {
         private String title;
         private String content;
         private float rating;
+        private Instant createdAt;
         private ReviewerDto reviewer;
     }
 

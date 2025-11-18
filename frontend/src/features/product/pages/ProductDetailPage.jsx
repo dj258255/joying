@@ -206,17 +206,15 @@ const ProductDetailPage = () => {
     const reviews = Array.isArray(productResponse.reviews)
       ? productResponse.reviews.map(review => ({
           id: review.review_id,
-          review_id: review.review_id,
+          reviewId: review.review_id,
           title: review.title,
           content: review.content,
           rating: review.rating,
           createdAt: review.created_at || review.createdAt,
           reviewer: {
-            member_id: review.reviewer?.member_id,
-            username: review.reviewer?.nickname,
-            name: review.reviewer?.nickname,
-            profileImageUrl: review.reviewer?.profile_image_url,
-            profile_image_url: review.reviewer?.profile_image_url,
+            memberId: review.reviewer?.memberId,
+            nickname: review.reviewer?.nickname,
+            profileImageUrl: review.reviewer?.profileImageUrl,
           },
         }))
       : [];
