@@ -9,7 +9,7 @@
 
 import React, { Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, Environment, useProgress } from '@react-three/drei';
+import { useGLTF, useProgress } from '@react-three/drei';
 import { useNavigate } from 'react-router-dom';
 
 import * as THREE from 'three';
@@ -530,8 +530,11 @@ const Scene3DCanvas = ({ animationState, currentModel, onProgressChange, current
         <ambientLight intensity={2} />
         <directionalLight position={[5, 5, 5]} intensity={1.5} />
         <pointLight position={[-5, 5, -5]} intensity={0.8} />
-        {/* ⚡ 성능 최적화: 'city' → 'sunset' (더 가벼운 프리셋) */}
-        <Environment preset="sunset" />
+        {/* ⚡ CORS 에러 방지: Environment 제거 및 조명 강화 */}
+        {/* Environment preset="sunset" 제거 - 외부 CDN CORS 문제로 인해 제거 */}
+        {/* 대신 추가 조명으로 환경 조명 효과 대체 */}
+        <directionalLight position={[-5, -5, -5]} intensity={0.5} />
+        <hemisphereLight intensity={0.3} />
         
         {/* Suspense로 감싸서 로딩 추적 */}
         <Suspense fallback={null}>
