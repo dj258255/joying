@@ -7,18 +7,25 @@ import React, { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiHome, FiSearch, FiPlusCircle, FiMessageSquare, FiUser } from 'react-icons/fi';
 import NavButton from './NavButton';
+import { useChatRooms } from '@/features/chat/hooks/useChatRooms';
 
 const BottomNavBar = () => {
   const location = useLocation();
+  const { totalUnreadCount } = useChatRooms();
 
   // 네비게이션 바를 숨길 경로들
-  const hideNavRoutes = ['/login', '/signup', '/checkout', '/chats'];
-  
+  const hideNavRoutes = ['/login', '/signup', '/checkout'];
+
   // 프로덕트 디테일 페이지 체크 (/products/:id 형태)
-  const isProductDetail = /^\/products\/[^/]+$/.test(location.pathname) && 
+  const isProductDetail = /^\/products\/[^/]+$/.test(location.pathname) &&
                           location.pathname !== '/products/create';
-  
-  const shouldShow = !hideNavRoutes.some(route => location.pathname.startsWith(route)) && !isProductDetail;
+
+  // 채팅방 내부 페이지 체크 (/chats/:id 형태)
+  const isChatRoomPage = /^\/chats\/[^/]+$/.test(location.pathname);
+
+  const shouldShow = !hideNavRoutes.some(route => location.pathname.startsWith(route)) &&
+                     !isProductDetail &&
+                     !isChatRoomPage;
 
   // 네비게이션 아이템 정의
   const navItems = useMemo(() => [
@@ -26,8 +33,8 @@ const BottomNavBar = () => {
       id: 'home',
       icon: FiHome,
       label: '홈',
-      path: '/products',
-      isActive: location.pathname === '/products' || location.pathname === '/'
+      path: '/',
+      isActive: location.pathname === '/'
     },
     {
       id: 'products',
@@ -49,7 +56,8 @@ const BottomNavBar = () => {
       icon: FiMessageSquare,
       label: '채팅',
       path: '/chats',
-      isActive: location.pathname.startsWith('/chats')
+      isActive: location.pathname.startsWith('/chats'),
+      badge: totalUnreadCount > 0 ? totalUnreadCount : undefined
     },
     {
       id: 'mypage',
@@ -58,7 +66,7 @@ const BottomNavBar = () => {
       path: '/mypage',
       isActive: location.pathname.startsWith('/mypage')
     }
-  ], [location.pathname]);
+  ], [location.pathname, totalUnreadCount]);
 
   if (!shouldShow) return null;
 
