@@ -1548,30 +1548,53 @@ const ProductListMain = () => {
 
             {/* 자동완성 드롭다운 */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSearchQuery(suggestion);
-                      setShowSuggestions(false);
-                      setSelectedIndex(-1);
-                      setAppliedFilters(prev => ({ ...prev, searchQuery: suggestion }));
-                    }}
-                    className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors ${
-                      index === selectedIndex ? 'bg-gray-100' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                      <span className="text-gray-900">{suggestion}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="absolute w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto z-50">
+              {suggestions.map((item, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    // 상품 페이지로 바로 이동
+                    navigate(`/products/${item.productId}`);
+                  }}
+                  className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 transition-colors ${
+                    index === selectedIndex ? 'bg-gray-100' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    
+                    {/* 상품 이미지가 있으면 표시 */}
+                    {item.url ? (
+                      <img
+                        src={item.url}
+                        alt={item.title}
+                        className="w-10 h-10 object-cover rounded-md"
+                      />
+                    ) : (
+                      // 이미지 없으면 기본 아이콘
+                      <div className="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
+                        <svg
+                          className="h-5 w-5 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* 상품명 */}
+                    <span className="text-gray-900 truncate">{item.title}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
           </div>
         </div>
 

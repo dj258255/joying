@@ -579,7 +579,10 @@ public class SearchService {
 					.size(5)
 					.query(bool._toQuery())
 					.source(src -> src
-							.filter(f -> f.includes("title"))
+							.filter(f -> f.includes(
+								"title",
+								"productId",
+								"thumbnailFileId"))
 					),
 				SearchDocument.class);
 		} catch (IOException e) {
