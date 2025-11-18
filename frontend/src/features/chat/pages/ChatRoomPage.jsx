@@ -30,6 +30,7 @@ import ReturnModal from '../../../features/rental/components/ReturnModal';
 import ReturnReceiveModal from '../../../features/rental/components/ReturnReceiveModal';
 import CancelDetailModal from '../../../features/rental/components/CancelDetailModal';
 import VideoListModal from '../../../features/rental/components/VideoListModal';
+import ExtendRentalModal from '../../../features/rental/components/ExtendRentalModal';
 import TransactionFlowModal from '../../../features/rental/components/TransactionFlowModal';
 import Modal from '../../../shared/components/Modal/Modal';
 import { rentalApi } from '../../../features/rental/api/rentalApi';
@@ -402,6 +403,7 @@ const ChatRoomPage = () => {
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showReturnReceiveModal, setShowReturnReceiveModal] = useState(false);
   const [showCancelDetailModal, setShowCancelDetailModal] = useState(false);
+  const [showExtendRentalModal, setShowExtendRentalModal] = useState(false);
   const [cancelDetailInfo, setCancelDetailInfo] = useState(null);
   const [isProcessingCancel, setIsProcessingCancel] = useState(false);
   const [showTransactionCheckModal, setShowTransactionCheckModal] = useState(false);
@@ -3338,6 +3340,27 @@ const ChatRoomPage = () => {
                     message={message}
                     isOwn={isOwn}
                     isBuyer={isBuyer}
+                    onExtendClick={async (rentalHisId) => {
+                      try {
+                        console.log('[ChatRoomPage] 거래 연장하기 클릭:', rentalHisId);
+                        
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data || rentalResponse;
+                        
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
+                        setCurrentRentalData(rentalData);
+                        
+                        // 거래 연장 모달 열기
+                        setTimeout(() => {
+                          setShowExtendRentalModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }}
                     onReturnClick={async (rentalHisId) => {
                       try {
                         console.log('[ChatRoomPage] 반납하기 클릭:', rentalHisId);
@@ -3905,6 +3928,36 @@ const ChatRoomPage = () => {
             }
           }}
           sendMessage={sendMessage}
+        />
+      )}
+
+      {/* 거래 연장 모달 */}
+      {showExtendRentalModal && currentRentalData && (
+        <ExtendRentalModal
+          isOpen={showExtendRentalModal}
+          onClose={() => setShowExtendRentalModal(false)}
+          rentalData={currentRentalData}
+          onExtendSuccess={async (result) => {
+            console.log('[ChatRoomPage] 거래 연장 성공:', result);
+
+            // 채팅방에 연장 완료 메시지 전송
+            const messageContent = `⏰ 대여 기간이 연장되었습니다!\n\n기존 종료일: ${new Date(result.originalEndRen).toLocaleDateString('ko-KR')}\n새 종료일: ${new Date(result.newEndRen).toLocaleDateString('ko-KR')}\n추가 대여료: ${result.additionalFee.toLocaleString()}원\n\n${result.message || '추가 대여료를 결제해주세요.'}\n\nrentalHisId:${result.rentalHisId}`;
+
+            await sendMessage({
+              type: 'TEXT',
+              content: messageContent
+            });
+
+            // 거래 데이터 갱신
+            try {
+              const updatedRentalData = await rentalApi.getRentalDetail(result.rentalHisId);
+              setCurrentRentalData(updatedRentalData.data || updatedRentalData);
+            } catch (err) {
+              console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+            }
+
+            alert('대여 기간이 연장되었습니다. 추가 대여료를 결제해주세요.');
+          }}
         />
       )}
 

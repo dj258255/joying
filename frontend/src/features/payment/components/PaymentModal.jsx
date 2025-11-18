@@ -221,14 +221,14 @@ const PaymentModal = ({
     <Modal isOpen={isOpen} onClose={onClose} title="결제하기">
       <div className="space-y-6 p-4">
         {/* 주문 정보 */}
-        <div className="bg-gray-50 rounded-lg p-4">
+        <div className="bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">주문번호</span>
-            <span className="text-sm font-medium">{orderId}</span>
+            <span className="text-sm font-medium text-gray-900">{orderId}</span>
           </div>
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">주문명</span>
-            <span className="text-sm font-medium">{orderName}</span>
+            <span className="text-sm font-medium text-gray-900">{orderName}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">결제 금액</span>
@@ -240,7 +240,7 @@ const PaymentModal = ({
 
         {/* 결제 수단 선택 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-900 mb-3">
             결제 수단 선택
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -252,7 +252,7 @@ const PaymentModal = ({
                 className={`py-3 px-4 rounded-lg border-2 transition-all ${
                   selectedMethod === method.value
                     ? 'border-blue-600 bg-blue-50 text-blue-700 font-medium'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    : 'border-white/40 bg-white/20 backdrop-blur-sm text-gray-700 hover:border-white/60'
                 }`}
               >
                 {method.label}
@@ -263,12 +263,12 @@ const PaymentModal = ({
 
         {/* 에러 메시지 */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-sm text-red-600 font-medium mb-2">{error}</p>
+          <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-6 shadow-lg">
+            <p className="text-sm text-red-900 font-semibold mb-2">{error}</p>
             {error.includes('클라이언트 키') && (
-              <div className="text-xs text-red-500 space-y-1 mt-3">
+              <div className="text-xs text-red-900 space-y-1 mt-3">
                 <p className="font-semibold mb-2 text-base">🔧 해결 방법:</p>
-                <div className="bg-white rounded p-3 mt-2 space-y-2">
+                <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 mt-2 space-y-2">
                   <p className="font-semibold">1. 토스 페이먼츠 대시보드 확인</p>
                   <p className="pl-2">→ https://developers.tosspayments.com 로그인</p>
                   <p className="pl-2">→ "개발자센터" → "API 키" 메뉴</p>
@@ -294,8 +294,8 @@ const PaymentModal = ({
 
         {/* 안내 메시지 */}
         {!error && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-700">
+          <div className="bg-blue-500/20 backdrop-blur-xl border border-blue-400/50 rounded-3xl p-4 shadow-lg">
+            <p className="text-xs text-blue-900">
               💡 결제하기 버튼을 클릭하면 토스 페이먼츠 결제창이 열립니다.
             </p>
           </div>
@@ -306,14 +306,14 @@ const PaymentModal = ({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 py-3 px-4 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             취소
           </button>
           <button
             onClick={handlePayment}
             disabled={isLoading || !!error}
-            className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 px-4 glass-button text-white rounded-2xl font-semibold text-base hover:bg-gray-900/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
