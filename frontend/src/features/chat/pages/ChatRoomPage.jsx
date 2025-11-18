@@ -43,6 +43,7 @@ import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
 import { chatApi } from '../api/chatApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
+import { fileApi } from '../../../shared/api/fileApi';
 
 
 // ddd
@@ -422,6 +423,10 @@ const ChatRoomPage = () => {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewContent, setReviewContent] = useState('');
+  const [reviewFileIds, setReviewFileIds] = useState([]);
+  const [reviewImagePreviews, setReviewImagePreviews] = useState([]);
+  const [reviewUploading, setReviewUploading] = useState(false);
+  const reviewFileInputRef = useRef(null);
   
   // 리뷰 작성 훅
   const { createReview, isCreating: isCreatingReview } = useReviewWrite();
@@ -3685,6 +3690,8 @@ const ChatRoomPage = () => {
                   setReviewRating(0);
                   setReviewTitle('');
                   setReviewContent('');
+                  setReviewFileIds([]);
+                  setReviewImagePreviews([]);
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -3761,6 +3768,90 @@ const ChatRoomPage = () => {
                 />
               </div>
 
+              {/* 이미지 업로드 섹션 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">이미지 업로드 (선택)</label>
+                <div
+                  onClick={() => reviewFileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition bg-gray-50"
+                >
+                  <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-sm text-gray-600">
+                    클릭하여 이미지 추가
+                  </p>
+                  <input
+                    ref={reviewFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      
+                      setReviewUploading(true);
+                      const localUrls = files.map(f => URL.createObjectURL(f));
+                      setReviewImagePreviews(prev => [...prev, ...localUrls]);
+                      
+                      try {
+                        const uploadPromises = files.map(async (file) => {
+                          const uploadResult = await fileApi.uploadFile(file);
+                          const fileId = uploadResult.body?.data?.fileId
+                            || uploadResult.data?.fileId
+                            || uploadResult.body?.fileId
+                            || uploadResult.fileId
+                            || uploadResult.data?.id;
+                          return fileId;
+                        });
+                        
+                        const uploadedFileIds = await Promise.all(uploadPromises);
+                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                      } catch (err) {
+                        console.error('이미지 업로드 실패:', err);
+                        alert('이미지 업로드에 실패했습니다.');
+                      } finally {
+                        setReviewUploading(false);
+                      }
+                      
+                      e.target.value = '';
+                    }}
+                    disabled={reviewUploading}
+                  />
+                </div>
+
+                {/* 미리보기 */}
+                {reviewImagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {reviewImagePreviews.map((src, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={src}
+                          alt={`preview-${idx}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                            setReviewFileIds(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-1 right-1 bg-gray-900/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reviewUploading && (
+                  <p className="text-sm text-gray-500 mt-2">이미지 업로드 중...</p>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
                   onClick={() => {
@@ -3769,6 +3860,8 @@ const ChatRoomPage = () => {
                     setReviewRating(0);
                     setReviewTitle('');
                     setReviewContent('');
+                    setReviewFileIds([]);
+                    setReviewImagePreviews([]);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -3787,17 +3880,26 @@ const ChatRoomPage = () => {
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
-                        uploadType: reviewUploadType
+                        uploadType: reviewUploadType,
+                        fileIds: reviewFileIds
                       });
                       
-                      // 모달 닫기
+                      // 리뷰 작성 완료 시스템 메시지 전송
+                      if (sendMessage) {
+                        await sendMessage({
+                          type: 'SYSTEM',
+                          content: '✅ 리뷰가 작성되었습니다'
+                        });
+                      }
+                      
+                      // 모달 닫기 및 상태 초기화
                       setShowReviewModal(false);
                       setReviewRentalHisId(null);
                       setReviewRating(0);
                       setReviewTitle('');
                       setReviewContent('');
-                      
-                      alert('리뷰가 작성되었습니다.');
+                      setReviewFileIds([]);
+                      setReviewImagePreviews([]);
                     } catch (error) {
                       console.error('리뷰 작성 실패:', error);
                       alert(error.response?.data?.message || '리뷰 작성에 실패했습니다. 다시 시도해주세요.');
