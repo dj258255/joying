@@ -64,6 +64,7 @@ const MyPageMain = () => {
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [writtenReviews, setWrittenReviews] = useState([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [totalReviewCount, setTotalReviewCount] = useState(0); // 전체 리뷰 개수 (받은 리뷰 + 작성한 리뷰)
 
   // currentUserId를 먼저 선언
   const currentUserId = currentUser?.memberId || currentUser?.id;
@@ -118,20 +119,42 @@ const MyPageMain = () => {
         })
       ]);
 
-      // 받은 리뷰 합치기
+      // 받은 리뷰 합치기 (API 응답 구조 확인)
+      const receivedBorrowData = receivedBorrowRes.data?.data?.data || receivedBorrowRes.data?.data || receivedBorrowRes.data || [];
+      const receivedRentData = receivedRentRes.data?.data?.data || receivedRentRes.data?.data || receivedRentRes.data || [];
+      
       const allReceivedReviews = [
-        ...(receivedBorrowRes.data.data.data || []),
-        ...(receivedRentRes.data.data.data || [])
+        ...(Array.isArray(receivedBorrowData) ? receivedBorrowData : []),
+        ...(Array.isArray(receivedRentData) ? receivedRentData : [])
       ];
 
-      // 작성한 리뷰 합치기
+      // 작성한 리뷰 합치기 (API 응답 구조 확인)
+      const writtenBorrowData = writtenBorrowRes.data?.data?.data || writtenBorrowRes.data?.data || writtenBorrowRes.data || [];
+      const writtenRentData = writtenRentRes.data?.data?.data || writtenRentRes.data?.data || writtenRentRes.data || [];
+      
       const allWrittenReviews = [
-        ...(writtenBorrowRes.data.data.data || []),
-        ...(writtenRentRes.data.data.data || [])
+        ...(Array.isArray(writtenBorrowData) ? writtenBorrowData : []),
+        ...(Array.isArray(writtenRentData) ? writtenRentData : [])
       ];
+      
+      console.log('[MyPageMain] 리뷰 로드 완료:', {
+        receivedCount: allReceivedReviews.length,
+        writtenCount: allWrittenReviews.length,
+        total: allReceivedReviews.length + allWrittenReviews.length
+      });
 
       setReceivedReviews(allReceivedReviews);
       setWrittenReviews(allWrittenReviews);
+      
+      // 리뷰 탭에서 상세 로드 후 실제 개수로 업데이트
+      const actualTotalCount = allReceivedReviews.length + allWrittenReviews.length;
+      setTotalReviewCount(actualTotalCount);
+      
+      console.log('[MyPageMain] 리뷰 상세 로드 완료:', {
+        receivedCount: allReceivedReviews.length,
+        writtenCount: allWrittenReviews.length,
+        actualTotalCount
+      });
     } catch (error) {
       console.error('리뷰 로드 실패:', error);
       setReceivedReviews([]);
@@ -140,6 +163,62 @@ const MyPageMain = () => {
       setIsLoadingReviews(false);
     }
   };
+
+  // 전체 리뷰 개수 조회 (마운트 시 즉시 실행)
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const fetchTotalReviewCount = async () => {
+      try {
+        // 받은 리뷰 개수 (빌려줬을 때 + 빌렸을 때)
+        const [receivedBorrowRes, receivedRentRes] = await Promise.all([
+          axiosInstance.get(`/review/member/${currentUserId}`, {
+            params: { uploadType: 'BORROW', page: 1, size: 1 }
+          }),
+          axiosInstance.get(`/review/member/${currentUserId}`, {
+            params: { uploadType: 'RENT', page: 1, size: 1 }
+          })
+        ]);
+
+        // 작성한 리뷰 개수 (빌려줬을 때 + 빌렸을 때)
+        const [writtenBorrowRes, writtenRentRes] = await Promise.all([
+          axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
+            params: { uploadType: 'BORROW', page: 1, size: 1 }
+          }),
+          axiosInstance.get(`/review/my-reviews/${currentUserId}`, {
+            params: { uploadType: 'RENT', page: 1, size: 1 }
+          })
+        ]);
+
+        // API 응답 구조 확인
+        const receivedBorrowData = receivedBorrowRes.data?.data || receivedBorrowRes.data || {};
+        const receivedRentData = receivedRentRes.data?.data || receivedRentRes.data || {};
+        const writtenBorrowData = writtenBorrowRes.data?.data || writtenBorrowRes.data || {};
+        const writtenRentData = writtenRentRes.data?.data || writtenRentRes.data || {};
+
+        const receivedBorrowCount = receivedBorrowData.totalCount || receivedBorrowData.total_count || receivedBorrowData.totalElements || 0;
+        const receivedRentCount = receivedRentData.totalCount || receivedRentData.total_count || receivedRentData.totalElements || 0;
+        const writtenBorrowCount = writtenBorrowData.totalCount || writtenBorrowData.total_count || writtenBorrowData.totalElements || 0;
+        const writtenRentCount = writtenRentData.totalCount || writtenRentData.total_count || writtenRentData.totalElements || 0;
+
+        const totalCount = receivedBorrowCount + receivedRentCount + writtenBorrowCount + writtenRentCount;
+        setTotalReviewCount(totalCount);
+
+        console.log('[MyPageMain] 리뷰 개수 조회 완료:', {
+          receivedBorrowCount,
+          receivedRentCount,
+          writtenBorrowCount,
+          writtenRentCount,
+          totalCount
+        });
+      } catch (err) {
+        console.error('[MyPageMain] 리뷰 개수 조회 실패:', err);
+        setTotalReviewCount(0);
+      }
+    };
+
+    fetchTotalReviewCount();
+  }, [currentUserId]);
 
   // 리뷰 탭이 활성화되면 리뷰 데이터 로드
   useEffect(() => {
@@ -337,7 +416,7 @@ const MyPageMain = () => {
                     onClick={() => setActiveTab('reviews')}
                     className="text-center p-2 sm:p-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
                   >
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{receivedReviews.length + writtenReviews.length}</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{totalReviewCount}</div>
                     <div className="text-xs text-gray-600">리뷰</div>
                   </button>
             </div>

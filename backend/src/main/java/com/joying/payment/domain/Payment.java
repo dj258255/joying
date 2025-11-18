@@ -158,8 +158,4 @@ public class Payment {
         }
         this.status = PaymentStatus.CANCELED;
     }
-
-    public void detachProductReference() {
-        this.product = null;
-    }
 }

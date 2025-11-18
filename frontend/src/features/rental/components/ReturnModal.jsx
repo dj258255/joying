@@ -307,18 +307,22 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="물품 반납하기" className="max-w-2xl">
-      <div className="space-y-6">
+      <div className="space-y-6 p-1">
         {/* 에러 메시지 */}
-        {error && <ErrorAlert message={error} />}
+        {error && (
+          <div className="bg-red-500/20 backdrop-blur-sm border border-red-400/50 rounded-lg p-4">
+            <p className="text-sm text-red-800 font-medium">{error}</p>
+          </div>
+        )}
 
         {/* Step 1: 영상 녹화 */}
         {currentStep === 'video' && (
           <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
+            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
+              <p className="text-sm text-gray-900 font-semibold mb-1">
                 📹 반납 전 물건 상태를 영상으로 촬영해주세요
               </p>
-              <p className="text-xs text-yellow-600 mt-1">
+              <p className="text-xs text-gray-700 mt-1">
                 물건의 상태를 명확히 보여주는 영상을 촬영하면 분쟁 시 증거로 사용됩니다
               </p>
             </div>
@@ -359,7 +363,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
               {!isRecording && !recordedVideoUrl && (
                 <button
                   onClick={startRecording}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                  className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium"
                 >
                   📹 촬영 시작
                 </button>
@@ -368,7 +372,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
               {isRecording && (
                 <button
                   onClick={stopRecording}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                  className="flex-1 px-4 py-3 glass-button-danger text-white rounded-lg font-medium"
                 >
                   ⏹ 촬영 중지
                 </button>
@@ -378,14 +382,14 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
                 <>
                   <button
                     onClick={retakeVideo}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                    className="flex-1 px-4 py-3 glass-button-ghost text-gray-900 rounded-lg font-medium"
                   >
                     다시 촬영
                   </button>
                   <button
                     onClick={handleVideoConfirm}
                     disabled={isLoading}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium disabled:opacity-50"
                   >
                     {isLoading ? '업로드 중...' : '다음 단계'}
                   </button>
@@ -398,11 +402,11 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         {/* Step 2: 운송장 번호 입력 */}
         {currentStep === 'tracking' && (
           <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
+            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
+              <p className="text-sm text-gray-900 font-semibold mb-1">
                 ✅ 영상 업로드 완료!
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-xs text-gray-700 mt-1">
                 이제 운송장 번호를 입력하고 반납을 완료해주세요
               </p>
             </div>
@@ -420,14 +424,14 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
             <div className="flex gap-3">
               <button
                 onClick={() => setCurrentStep('video')}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                className="flex-1 px-4 py-3 glass-button-ghost text-gray-900 rounded-lg font-medium"
               >
                 이전
               </button>
               <button
                 onClick={handleReturnComplete}
                 disabled={isLoading || !courier || !trackingNumber}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-3 glass-button text-white rounded-lg font-medium disabled:opacity-50"
               >
                 {isLoading ? '처리 중...' : '반납 완료'}
               </button>
@@ -438,15 +442,15 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
         {/* Step 3: 완료 */}
         {currentStep === 'complete' && (
           <div className="space-y-4">
-            <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+            <div className="p-6 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl text-center">
               <div className="text-4xl mb-3">✅</div>
-              <p className="text-green-800 font-bold text-lg">반납이 완료되었습니다!</p>
-              <p className="text-green-600 text-sm mt-2">
-                판매자가 물건을 확인할 때까지 기다려주세요
+              <p className="text-gray-900 font-bold text-lg">반납이 완료되었습니다!</p>
+              <p className="text-gray-700 text-sm mt-2">
+                소유자가 물건을 확인할 때까지 기다려주세요
               </p>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
               <h4 className="font-medium text-gray-900 mb-2">반납 정보</h4>
               <div className="text-sm text-gray-700 space-y-1">
                 <div>택배사: {courier}</div>
@@ -456,7 +460,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
 
             <button
               onClick={handleClose}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              className="w-full px-4 py-3 glass-button text-white rounded-lg font-medium"
             >
               확인
             </button>
@@ -468,5 +472,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onReturnComplete }) => {
 };
 
 export default ReturnModal;
+
 
 
