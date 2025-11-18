@@ -155,18 +155,18 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="max-w-[50rem]" hideCloseButton={true}>
-      <div className="space-y-4">
+    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="!max-w-[90vw] w-full" hideCloseButton={true}>
+      <div className="space-y-4 overflow-hidden flex flex-col h-full">
         {/* 에러 메시지 */}
         {error && (
-          <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-6 shadow-lg">
+          <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-6 shadow-lg flex-shrink-0">
             <p className="text-sm text-red-900 font-semibold">{error}</p>
           </div>
         )}
 
         {/* 로딩 중 */}
         {isLoading && (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-16 flex-shrink-0">
             <div className="text-center">
               <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-900 font-semibold text-base">영상을 불러오는 중...</p>
@@ -176,7 +176,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
 
         {/* 영상이 없을 때 */}
         {!isLoading && videos.length === 0 && (
-          <div className="text-center py-16 p-8 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+          <div className="text-center py-16 p-8 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg flex-shrink-0">
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -189,9 +189,9 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
 
         {/* 영상이 있을 때 */}
         {!isLoading && videos.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 overflow-hidden">
             {/* 왼쪽: 영상 목록 (1 column) */}
-            <div className="space-y-3 max-h-[500px] lg:max-h-[75vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+            <div className="space-y-3 max-h-[500px] lg:max-h-[75vh] overflow-y-auto scrollbar-hide">
               <div className="sticky top-0 bg-white/80 backdrop-blur-xl z-10 pb-3 border-b border-white/30">
                 <h3 className="text-sm lg:text-xs font-bold text-gray-900 flex items-center gap-2">
                   <svg className="w-4 h-4 lg:w-3 lg:h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,7 +348,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
         )}
 
         {/* 닫기 버튼 */}
-        <div className="flex justify-end pt-4 border-t border-white/30">
+        <div className="flex justify-end pt-4 border-t border-white/30 flex-shrink-0">
           <button
             onClick={handleClose}
             className="px-6 py-3 lg:px-4 lg:py-2 glass-button text-white rounded-xl lg:rounded-lg font-bold text-sm lg:text-xs hover:bg-gray-900/90 transition-colors shadow-lg"

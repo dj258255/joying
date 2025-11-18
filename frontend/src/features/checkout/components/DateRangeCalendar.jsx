@@ -8,10 +8,12 @@ import React, { useState, useEffect } from 'react';
 const DateRangeCalendar = ({ 
   onDateRangeChange, 
   disabledDates = [], 
+  bookedDates = [],
   availableStartDate = null, 
   availableEndDate = null,
   initialStartDate = null,
-  initialEndDate = null
+  initialEndDate = null,
+  readOnly = false
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [startDate, setStartDate] = useState(null);
@@ -81,7 +83,7 @@ const DateRangeCalendar = ({
   };
 
   const handleDateClick = (date) => {
-    if (!date || isDisabled(date)) return;
+    if (!date || isDisabled(date) || readOnly) return;
 
     // 1단계: 시작일 선택 (처음 클릭)
     if (!startDate && !endDate) {
@@ -149,11 +151,18 @@ const DateRangeCalendar = ({
     return checkDate < today;
   };
 
-  // 대여 불가 날짜 체크 (빨간색)
+  // 대여 불가 날짜 체크 (불가 기간)
   const isDisabledByRentalRefuse = (date) => {
     if (!date) return false;
     const dateStr = date.toISOString().split('T')[0];
     return disabledDates.includes(dateStr);
+  };
+
+  // 다른 사람이 대여한 날짜 체크
+  const isBookedDate = (date) => {
+    if (!date) return false;
+    const dateStr = date.toISOString().split('T')[0];
+    return bookedDates.includes(dateStr);
   };
 
   // 대여 가능 기간 외의 날짜 체크 (회색)
@@ -181,7 +190,7 @@ const DateRangeCalendar = ({
 
   // 전체 disabled 여부 (선택 불가)
   const isDisabled = (date) => {
-    return isPastDate(date) || isDisabledByRentalRefuse(date) || isOutOfRange(date);
+    return isPastDate(date) || isDisabledByRentalRefuse(date) || isBookedDate(date) || isOutOfRange(date) || readOnly;
   };
 
   // 선택한 기간 내에 대여 불가 날짜가 있는지 확인
@@ -253,25 +262,26 @@ const DateRangeCalendar = ({
             const inRange = isDateInRange(date);
             const disabled = isDisabled(date);
             const past = isPastDate(date); // 오늘 이전 날짜
-            const isRefused = isDisabledByRentalRefuse(date); // 대여 불가 날짜
-            const outOfRange = isOutOfRange(date); // 기간 외
+            const isRefused = isDisabledByRentalRefuse(date); // 불가 기간
+            const isBooked = isBookedDate(date); // 다른 사람이 대여한 날짜
+            const outOfRange = isOutOfRange(date); // 대여 기간 외
             const isStart = startDate && date.getTime() === startDate.getTime();
             const isEnd = endDate && date.getTime() === endDate.getTime();
             const isSelected = inRange || isStart || isEnd;
 
             let buttonStyle = '';
-            if (past || isRefused) {
-              // 오늘 이전 날짜 또는 대여 불가 날짜: 빨간 배경 + 흰 글씨
-              buttonStyle = 'bg-red-500 text-white font-bold cursor-not-allowed';
-            } else if (outOfRange) {
-              // 기간 외: 회색 배경 + 회색 글씨
-              buttonStyle = 'bg-gray-200 text-gray-400 cursor-not-allowed';
-            } else if (isSelected) {
+            if (isSelected) {
               // 선택된 날짜: 검정 배경 + 흰 글씨
               buttonStyle = 'bg-black text-white font-bold';
+            } else if (isRefused || isBooked) {
+              // 불가 기간 또는 다른 사람이 대여한 날짜: 투명한 붉은 색 배경
+              buttonStyle = 'bg-red-500/30 text-red-900 font-medium cursor-not-allowed';
+            } else if (past || outOfRange) {
+              // 과거 날짜 또는 대여 기간 외: 회색 배경 + 회색 글씨
+              buttonStyle = 'bg-gray-200 text-gray-400 cursor-not-allowed';
             } else {
               // 일반 날짜
-              buttonStyle = 'text-gray-700 hover:bg-gray-100';
+              buttonStyle = readOnly ? 'text-gray-700' : 'text-gray-700 hover:bg-gray-100';
             }
 
             return (
