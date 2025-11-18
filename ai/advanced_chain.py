@@ -292,7 +292,7 @@ class AdvancedProductChain:
 **응답 형식 (JSON):**
 {{{{
   "title": "간결하고 매력적인 제목 (20자 이내)",
-  "description": "상세하고 친근한 설명 (200-500자)",
+  "description": "상세하고 친근한 설명 (최대 250자, 한국어 기준 띄어쓰기 포함)",
   "hashtags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
   "confidence": 0.95
 }}}}
@@ -303,8 +303,9 @@ class AdvancedProductChain:
    - 일반 명사 사용 금지 (❌ "휴대용 게임 콘솔 {posting_type}" → ✅ "닌텐도 스위치 {posting_type}")
    - 상태나 특징을 간결하게 추가 가능 (예: "새것같은 닌텐도 스위치 {posting_type}")
 2. 설명:
+   - **중요: 반드시 250자 이내로 작성 (한국어 기준, 띄어쓰기 포함)**
    - 인사말로 시작
-   - 상품의 특징과 상태 상세히 설명
+   - 상품의 특징과 상태 간결하게 설명
    - {'추천 대여료/보증금과 산정 근거 제시' if upload_type == 'RENT' else '희망하는 대여 조건과 기간 제시'}
    - {'대여 시 장점 강조' if upload_type == 'RENT' else '필요한 이유와 용도 설명'}
    - 친근한 마무리
@@ -349,6 +350,13 @@ class AdvancedProductChain:
                     logger.info(f"JSON 추출 완료 (3단계)")
 
         parsed_result = json.loads(result)
+
+        # description을 250자로 제한 (한국어 기준)
+        description = parsed_result.get("description", "")
+        if len(description) > 250:
+            description = description[:250]
+            logger.warning(f"설명이 250자를 초과하여 자름: {len(parsed_result.get('description', ''))}자 → 250자")
+            parsed_result["description"] = description
 
         # 모든 정보 통합 (카테고리는 제외, 4단계에서 추가)
         return {
