@@ -13,8 +13,9 @@ public record ReviewResponseDto (
 	String title,
 	String content,
 	float rating,
-	String reviewerName,
+	String nickname,
 	Long reviewerId,
+	Long rentalHistoryId,
 	Instant createdAt,
 	String profileImageUrl,
 	List<String> imageUrls,
@@ -26,8 +27,9 @@ public record ReviewResponseDto (
 			.title(review.getTitle())
 			.content(review.getContent())
 			.rating(review.getRating())
-			.reviewerName(review.getReviewer() != null ? review.getReviewer().getNickname() : null)
+			.nickname(review.getReviewer() != null ? review.getReviewer().getNickname() : null)
 			.reviewerId(review.getReviewer().getMemberId())
+			.rentalHistoryId(review.getRentalHistory().getRentalHisId())
 			.createdAt(review.getCreatedAt())
 			.profileImageUrl(profileImageUrl)
 			.imageUrls(urls)

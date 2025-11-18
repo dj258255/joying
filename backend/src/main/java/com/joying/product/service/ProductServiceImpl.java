@@ -2,7 +2,6 @@ package com.joying.product.service;
 
 import com.joying.category.domain.Category;
 import com.joying.category.repository.CategoryRepository;
-import com.joying.chat.repository.ChatRoomRepository;
 import com.joying.file.domain.File;
 import com.joying.file.domain.ProductFile;
 import com.joying.file.repository.FileRepository;
@@ -13,7 +12,6 @@ import com.joying.hashtag.repository.HashtagHistoryRepository;
 import com.joying.hashtag.repository.HashtagRepository;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
-import com.joying.payment.repository.PaymentRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.domain.RentMethod;
 import com.joying.product.domain.RentalRefuse;
@@ -34,15 +32,18 @@ import com.joying.region.domain.Dong;
 import com.joying.search.dto.SearchRequest;
 import com.joying.search.service.SearchService;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -68,8 +69,6 @@ public class ProductServiceImpl implements ProductService {
     private final HashtagRepository hashtagRepository;
     private final SearchService searchService;
     private final RentalHistoryRepository rentalHistoryRepository;
-    private final PaymentRepository paymentRepository;
-    private final ChatRoomRepository chatRoomRepository;
 
     @Override
     public ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId) {
@@ -119,13 +118,37 @@ public class ProductServiceImpl implements ProductService {
 
         int totalReviewCount = reviewRepository.countByProduct_ProductId(productId);
 
-        // 대여불가 기간
+        // 대여불가 기간 (판매자가 직접 설정한 기간)
         var refuseDtos = rentalRefuseRepository.findByProduct_ProductId(productId).stream()
                 .map(r -> ProductResponseDto.RentalRefuseDto.builder()
                         .startRef(r.getStartRef())
                         .endRef(r.getEndRef())
                         .build())
                 .toList();
+
+        // 진행 중인 거래의 날짜 범위도 블록 처리
+        List<RentalHistory> activeRentals = rentalHistoryRepository.findByRentalProduct_ProductIdAndStatusIn(
+                productId,
+                Arrays.asList(
+                        RentalStatus.PENDING,
+                        RentalStatus.ESCROW,
+                        RentalStatus.SHIPPED,
+                        RentalStatus.RENTING,
+                        RentalStatus.RETURN_REQUESTED
+                )
+        );
+
+        // 진행 중인 거래의 날짜를 RentalRefuseDto 형태로 변환 (Timestamp -> Instant)
+        List<ProductResponseDto.RentalRefuseDto> activeRentalDates = activeRentals.stream()
+                .map(r -> ProductResponseDto.RentalRefuseDto.builder()
+                        .startRef(r.getStartRen().toInstant())
+                        .endRef(r.getEndRen().toInstant())
+                        .build())
+                .toList();
+
+        // 판매자가 설정한 불가 기간 + 진행 중인 거래 날짜 합치기
+        List<ProductResponseDto.RentalRefuseDto> allBlockedDates = new ArrayList<>(refuseDtos);
+        allBlockedDates.addAll(activeRentalDates);
 
         // 카테고리
         Category category = product.getCategory();
@@ -181,7 +204,7 @@ public class ProductServiceImpl implements ProductService {
                 .liked(liked)
                 .files(fileDtos)
                 .hashtags(hashtags)
-                .rentalRefuses(refuseDtos)
+                .rentalRefuses(allBlockedDates)  // 판매자 설정 + 진행 중인 거래 날짜 모두 포함
                 .Reviews(reviewDtos)
                 .totalReviewCount(totalReviewCount)
                 .build();
@@ -476,12 +499,15 @@ public class ProductServiceImpl implements ProductService {
         return product.getProductId();
     }
 
+    @Autowired
+    private EntityManager entityManager;
+
     @Override
     @Transactional
     public void deleteProduct(Long productId, Long memberId) {
 
         // 상품 조회
-        Product product = productRepository.findByProductId(productId)
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
         // 권한 체크
@@ -494,16 +520,11 @@ public class ProductServiceImpl implements ProductService {
         List<Long> bad = rentals.stream()
                 .filter(r -> r.getStatus() != RentalStatus.DEPOSIT_RETURNED)
                 .map(RentalHistory::getRentalHisId)
-                .collect(Collectors.toList());
+                .toList();
 
         if (!bad.isEmpty()) {
             throw new IllegalStateException("다음 대여 기록들이 완료되지 않아 상품을 삭제할 수 없습니다: " + bad);
         }
-
-        rentalHistoryRepository.detachProductFromRentalHistories(productId);
-        paymentRepository.detachProductFromPayments(productId);
-        reviewRepository.detachProductFromReviews(productId);
-        chatRoomRepository.detachProductFromChatRooms(productId);
 
         // 찜삭제
         productLikeRepository.deleteByProduct_ProductId(productId);
@@ -516,6 +537,9 @@ public class ProductServiceImpl implements ProductService {
 
         // 해시태그 히스토리 삭제
         hashtagHistoryRepository.deleteByProduct_ProductId(productId);
+
+        entityManager.flush();
+        entityManager.clear();
 
         // 상품 자체 삭제
         productRepository.delete(product);

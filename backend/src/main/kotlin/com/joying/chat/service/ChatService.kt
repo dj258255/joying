@@ -64,6 +64,11 @@ class ChatService(
         senderId: Long,
         request: SendMessageRequest,
     ): ChatMessageResponse {
+        // 0. 메시지 길이 검증 (TEXT 타입만, 500자 제한)
+        if (request.type == MessageType.TEXT && request.content.length > 500) {
+            throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "메시지는 500자를 초과할 수 없습니다")
+        }
+
         // 1. 권한 확인 (Redis 캐시 우선) - 30-50ms → 1-2ms
         if (!permissionCache.hasPermission(chatRoomId, senderId)) {
             throw BusinessException(ErrorCode.FORBIDDEN, "메시지 전송 권한이 없습니다")

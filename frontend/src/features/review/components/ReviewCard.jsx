@@ -163,7 +163,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
           onClick={handleProfileClick}
         >
           <div className="font-medium text-gray-900 text-sm md:text-base">
-            {reviewer.nickname || reviewer.name || '익명'}
+            {review?.nickname || review?.reviewer?.nickname || '익명'}
           </div>
           <div className="text-xs text-gray-500">
             {formatDate(review.createdAt)}
