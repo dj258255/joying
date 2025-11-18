@@ -1051,7 +1051,13 @@ function ProductCreatePage() {
     }
 
     // 불가 기간 모드: 하루씩 개별 선택
+    // 빌려요 모드에서는 불가 기간 설정 불가
     if (calendarMode === 'refuse') {
+      if (form.uploadType === 'BORROW') {
+        // 빌려요 모드에서는 불가 기간 모드로 전환 불가
+        setCalendarMode('available');
+        return;
+      }
       // 가능 기간이 설정되어 있을 때, 가능 기간 범위 내에서만 선택 가능
       if (form.startRent) {
         const startRentDate = new Date(form.startRent);
@@ -1763,8 +1769,14 @@ function ProductCreatePage() {
   const renderStep4 = () => (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-black mb-1">대여 가능 기간</h2>
-        <p className="text-gray-600 text-sm">대여 가능한 기간과 불가 기간을 설정해주세요</p>
+        <h2 className="text-xl font-bold text-black mb-1">
+          {form.uploadType === 'BORROW' ? '대여 희망 기간' : '대여 가능 기간'}
+        </h2>
+        <p className="text-gray-600 text-sm">
+          {form.uploadType === 'BORROW' 
+            ? '빌리고 싶은 기간을 설정해주세요' 
+            : '대여 가능한 기간과 불가 기간을 설정해주세요'}
+        </p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -1844,24 +1856,26 @@ function ProductCreatePage() {
                     : 'bg-white text-black border-gray-300 hover:border-black'
                 }`}
               >
-                가능 기간
+                {form.uploadType === 'BORROW' ? '희망 기간' : '가능 기간'}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setCalendarMode('refuse');
-                  setCalStart(null);
-                  setCalEnd(null);
-                  setCalClickState('none');
-                }}
-                className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
-                  calendarMode === 'refuse'
-                    ? 'bg-red-500 text-white border-red-500'
-                    : 'bg-white text-black border-gray-300 hover:border-red-500'
-                }`}
-              >
-                불가 기간
-              </button>
+              {form.uploadType === 'RENT' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCalendarMode('refuse');
+                    setCalStart(null);
+                    setCalEnd(null);
+                    setCalClickState('none');
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all border-2 ${
+                    calendarMode === 'refuse'
+                      ? 'bg-red-500 text-white border-red-500'
+                      : 'bg-white text-black border-gray-300 hover:border-red-500'
+                  }`}
+                >
+                  불가 기간
+                </button>
+              )}
             </div>
 
             {calendarMode === 'available' && (
@@ -1890,7 +1904,7 @@ function ProductCreatePage() {
               </div>
             )}
 
-            {calendarMode === 'refuse' && rentalRefs.length > 0 && (
+            {calendarMode === 'refuse' && form.uploadType === 'RENT' && rentalRefs.length > 0 && (
               <div className="space-y-2">
                 <div className="text-sm font-medium text-black mb-2">불가 날짜 목록</div>
                 {rentalRefs.map((r, i) => {
