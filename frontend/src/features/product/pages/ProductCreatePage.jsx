@@ -533,6 +533,55 @@ function ProductCreatePage() {
 
   // 파일 업로드 로직
   /**
+   * 이미지 리사이즈 (AI 업로드용 - 용량 제한: 800KB)
+   */
+  const resizeImageForAI = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // 최대 크기 제한 (1024px)
+          const MAX_SIZE = 1024;
+          if (width > height && width > MAX_SIZE) {
+            height = (height * MAX_SIZE) / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width = (width * MAX_SIZE) / height;
+            height = MAX_SIZE;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // JPEG 품질 조절 (0.7 = 70% 품질)
+          canvas.toBlob((blob) => {
+            if (blob.size > 800 * 1024) {
+              // 여전히 800KB 초과시 품질 더 낮춤
+              canvas.toBlob((blob2) => {
+                resolve(new File([blob2], file.name, { type: 'image/jpeg' }));
+              }, 'image/jpeg', 0.5);
+            } else {
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+            }
+          }, 'image/jpeg', 0.7);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  /**
    * AI로 게시글 제목과 내용 자동 생성 (GPT-4o 기반)
    */
   const generateWithAI = async (imageFile) => {
@@ -542,8 +591,15 @@ function ProductCreatePage() {
       setAiGenerating(true);
       console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', aiUploadType);
 
+      // 이미지 리사이즈 (용량 줄이기)
+      const resizedImage = await resizeImageForAI(imageFile);
+      console.log('[ProductCreatePage] 이미지 리사이즈 완료:', {
+        original: (imageFile.size / 1024).toFixed(2) + 'KB',
+        resized: (resizedImage.size / 1024).toFixed(2) + 'KB'
+      });
+
       // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
-      const result = await aiApi.generateProductDescription(imageFile, aiUploadType);
+      const result = await aiApi.generateProductDescription(resizedImage, aiUploadType);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
       console.log('[ProductCreatePage] 🔍 보증금 확인:', {
@@ -1562,7 +1618,7 @@ function ProductCreatePage() {
             <textarea
               value={form.content}
               onChange={(e) => updateField('content', e.target.value.slice(0, 255))}
-              rows={5}
+              rows={3}
               placeholder="상세 내용을 입력하세요"
               className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black resize-none"
             />
@@ -2124,7 +2180,7 @@ function ProductCreatePage() {
 
       {/* 하단 진행도 - 항상 표시 */}
       {(!isEditMode || !isProductLoading) && (
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t-2 border-gray-300">
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t-2 border-gray-300">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-1.5 sm:py-2">
           <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 lg:gap-6">
             {STEP_NAMES.map((name, index) => (
