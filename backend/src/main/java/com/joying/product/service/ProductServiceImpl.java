@@ -43,6 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -119,13 +120,37 @@ public class ProductServiceImpl implements ProductService {
 
         int totalReviewCount = reviewRepository.countByProduct_ProductId(productId);
 
-        // 대여불가 기간
+        // 대여불가 기간 (판매자가 직접 설정한 기간)
         var refuseDtos = rentalRefuseRepository.findByProduct_ProductId(productId).stream()
                 .map(r -> ProductResponseDto.RentalRefuseDto.builder()
                         .startRef(r.getStartRef())
                         .endRef(r.getEndRef())
                         .build())
                 .toList();
+
+        // 진행 중인 거래의 날짜 범위도 블록 처리
+        List<RentalHistory> activeRentals = rentalHistoryRepository.findByRentalProduct_ProductIdAndStatusIn(
+                productId,
+                Arrays.asList(
+                        RentalStatus.PENDING,
+                        RentalStatus.ESCROW,
+                        RentalStatus.SHIPPED,
+                        RentalStatus.RENTING,
+                        RentalStatus.RETURN_REQUESTED
+                )
+        );
+
+        // 진행 중인 거래의 날짜를 RentalRefuseDto 형태로 변환 (Timestamp -> Instant)
+        List<ProductResponseDto.RentalRefuseDto> activeRentalDates = activeRentals.stream()
+                .map(r -> ProductResponseDto.RentalRefuseDto.builder()
+                        .startRef(r.getStartRen().toInstant())
+                        .endRef(r.getEndRen().toInstant())
+                        .build())
+                .toList();
+
+        // 판매자가 설정한 불가 기간 + 진행 중인 거래 날짜 합치기
+        List<ProductResponseDto.RentalRefuseDto> allBlockedDates = new ArrayList<>(refuseDtos);
+        allBlockedDates.addAll(activeRentalDates);
 
         // 카테고리
         Category category = product.getCategory();
@@ -181,7 +206,7 @@ public class ProductServiceImpl implements ProductService {
                 .liked(liked)
                 .files(fileDtos)
                 .hashtags(hashtags)
-                .rentalRefuses(refuseDtos)
+                .rentalRefuses(allBlockedDates)  // 판매자 설정 + 진행 중인 거래 날짜 모두 포함
                 .Reviews(reviewDtos)
                 .totalReviewCount(totalReviewCount)
                 .build();
