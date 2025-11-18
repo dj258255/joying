@@ -3100,15 +3100,17 @@ const ChatRoomPage = () => {
                         requesterId,
                         otherMemberId,
                         currentUserId,
-                        messageSenderId: message.senderId
+                        messageSenderId: message.senderId,
+                        isSeller
                       });
 
-                      // requesterId와 currentUserId가 일치하는지 검증 (대여 요청을 한 본인만 거래 생성 가능)
-                      if (requesterId && currentUserId && Number(requesterId) !== Number(currentUserId)) {
-                        alert('대여 요청을 한 사람만 거래를 생성할 수 있습니다.');
-                        console.error('[ChatRoomPage] 권한 검증 실패:', {
-                          requesterId,
-                          currentUserId
+                      // 판매자만 거래를 생성할 수 있도록 검증
+                      if (!isSeller) {
+                        alert('판매자만 거래를 생성할 수 있습니다.');
+                        console.error('[ChatRoomPage] 권한 검증 실패: 판매자가 아님', {
+                          currentUserId,
+                          sellerId,
+                          isSeller
                         });
                         return;
                       }
