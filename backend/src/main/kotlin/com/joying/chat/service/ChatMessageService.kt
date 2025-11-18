@@ -45,6 +45,26 @@ class ChatMessageService(
     }
 
     /**
+     * ChatMessage에 isRead 값 설정
+     *
+     * 본인이 보낸 메시지가 아닌 경우에만 isRead를 설정
+     * (본인 메시지는 항상 읽은 것으로 간주)
+     *
+     * @param message 메시지
+     * @param memberId 현재 조회하는 회원 ID
+     * @return isRead가 설정된 메시지
+     */
+    private fun ChatMessage.withIsReadStatus(memberId: Long): ChatMessage {
+        // 본인이 보낸 메시지는 항상 읽은 것으로 처리
+        if (this.senderId == memberId) {
+            return this.copy(isRead = true)
+        }
+
+        // 상대방이 보낸 메시지는 isRead 필드 그대로 반환
+        return this
+    }
+
+    /**
      * 채팅방의 메시지 목록 조회 (페이징)
      *
      * @param chatRoomId 채팅방 ID
