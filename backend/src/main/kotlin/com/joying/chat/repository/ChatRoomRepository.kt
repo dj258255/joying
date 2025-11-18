@@ -23,7 +23,7 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
      * (중복 채팅방 방지용)
      */
     fun findByProductAndBuyerAndSeller(
-        product: Product,
+        product: Product?,
         buyer: Member,
         seller: Member
     ): Optional<ChatRoom>
