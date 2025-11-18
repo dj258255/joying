@@ -753,7 +753,8 @@ const ChatRoomPage = () => {
       const sendBorrowRequest = async () => {
         try {
           const productTitle = productData?.title || productData?.name || '상품';
-          const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.`;
+          // MESSAGE_TYPE 마커 추가하여 MessageBubble에서 식별 가능하도록
+          const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.\nMESSAGE_TYPE:BORROW_PROPOSAL`;
 
           console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
             type: 'TEXT',
@@ -3059,18 +3060,22 @@ const ChatRoomPage = () => {
                         requesterId = message.senderId || message.memberId;
                       }
 
+                      // otherMemberId 정의
+                      const otherMemberId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
+
                       console.log('[ChatRoomPage] 거래 생성 권한 검증:', {
                         requesterId,
                         otherMemberId,
+                        currentUserId,
                         messageSenderId: message.senderId
                       });
 
-                      // requesterId와 otherMemberId가 일치하는지 검증
-                      if (requesterId && otherMemberId && Number(requesterId) !== Number(otherMemberId)) {
+                      // requesterId와 currentUserId가 일치하는지 검증 (대여 요청을 한 본인만 거래 생성 가능)
+                      if (requesterId && currentUserId && Number(requesterId) !== Number(currentUserId)) {
                         alert('대여 요청을 한 사람만 거래를 생성할 수 있습니다.');
                         console.error('[ChatRoomPage] 권한 검증 실패:', {
                           requesterId,
-                          otherMemberId
+                          currentUserId
                         });
                         return;
                       }

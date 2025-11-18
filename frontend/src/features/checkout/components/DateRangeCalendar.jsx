@@ -81,7 +81,7 @@ const DateRangeCalendar = ({
   };
 
   const handleDateClick = (date) => {
-    if (!date || disabledDates.includes(date.toISOString().split('T')[0])) return;
+    if (!date || isDisabled(date)) return;
 
     // 1단계: 시작일 선택 (처음 클릭)
     if (!startDate && !endDate) {
@@ -139,6 +139,16 @@ const DateRangeCalendar = ({
     return date >= startDate && date <= endDate;
   };
 
+  // 오늘 이전 날짜 체크 (빨간색)
+  const isPastDate = (date) => {
+    if (!date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate < today;
+  };
+
   // 대여 불가 날짜 체크 (빨간색)
   const isDisabledByRentalRefuse = (date) => {
     if (!date) return false;
@@ -171,7 +181,7 @@ const DateRangeCalendar = ({
 
   // 전체 disabled 여부 (선택 불가)
   const isDisabled = (date) => {
-    return isDisabledByRentalRefuse(date) || isOutOfRange(date);
+    return isPastDate(date) || isDisabledByRentalRefuse(date) || isOutOfRange(date);
   };
 
   // 선택한 기간 내에 대여 불가 날짜가 있는지 확인
@@ -242,6 +252,7 @@ const DateRangeCalendar = ({
 
             const inRange = isDateInRange(date);
             const disabled = isDisabled(date);
+            const past = isPastDate(date); // 오늘 이전 날짜
             const isRefused = isDisabledByRentalRefuse(date); // 대여 불가 날짜
             const outOfRange = isOutOfRange(date); // 기간 외
             const isStart = startDate && date.getTime() === startDate.getTime();
@@ -249,8 +260,8 @@ const DateRangeCalendar = ({
             const isSelected = inRange || isStart || isEnd;
 
             let buttonStyle = '';
-            if (isRefused) {
-              // 대여 불가 날짜: 빨간 배경 + 흰 글씨
+            if (past || isRefused) {
+              // 오늘 이전 날짜 또는 대여 불가 날짜: 빨간 배경 + 흰 글씨
               buttonStyle = 'bg-red-500 text-white font-bold cursor-not-allowed';
             } else if (outOfRange) {
               // 기간 외: 회색 배경 + 회색 글씨
