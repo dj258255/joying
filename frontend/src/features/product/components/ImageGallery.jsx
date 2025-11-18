@@ -10,15 +10,21 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
   const [isZoomed, setIsZoomed] = useState(false);
   const [showMagnifier, setShowMagnifier] = useState(false);
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
+  const [imageErrors, setImageErrors] = useState({});
 
-  const defaultImages = [
-    'https://via.placeholder.com/800x800/E5E7EB/9CA3AF?text=Product+Image',
-    'https://via.placeholder.com/800x800/E5E7EB/9CA3AF?text=Detail+1',
-    'https://via.placeholder.com/800x800/E5E7EB/9CA3AF?text=Detail+2',
-    'https://via.placeholder.com/800x800/E5E7EB/9CA3AF?text=Detail+3'
-  ];
+  const placeholderImage = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"%3E%3Crect fill="%23E5E7EB" width="800" height="800"/%3E%3Cg fill="%239CA3AF"%3E%3Cpath d="M320 320h160v160H320z" opacity="0.3"/%3E%3Ccircle cx="360" cy="360" r="20"/%3E%3Cpath d="M320 480l40-60 30 45 50-75 40 90H320z"/%3E%3C/g%3E%3Ctext x="400" y="550" text-anchor="middle" fill="%239CA3AF" font-family="Arial" font-size="24"%3E이미지 없음%3C/text%3E%3C/svg%3E';
+
+  const defaultImages = [placeholderImage];
 
   const displayImages = images.length > 0 ? images : defaultImages;
+
+  const handleImageError = (index) => {
+    setImageErrors(prev => ({ ...prev, [index]: true }));
+  };
+
+  const getImageSrc = (src, index) => {
+    return imageErrors[index] ? placeholderImage : src;
+  };
 
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -33,14 +39,15 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
         /* Compact 모드: 왼쪽에 대표 이미지, 오른쪽에 서브 이미지 */
         <div className="flex gap-2">
           {/* 왼쪽: 대표 이미지 (정사각형, 작은 크기) */}
-          <div 
+          <div
             className="relative w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden cursor-pointer"
             onClick={() => setIsZoomed(true)}
           >
             <img
-              src={displayImages[selectedImage]}
+              src={getImageSrc(displayImages[selectedImage], selectedImage)}
               alt={`${productTitle} - 이미지 ${selectedImage + 1}`}
               className="w-full h-full object-cover"
+              onError={() => handleImageError(selectedImage)}
             />
           </div>
           
@@ -58,9 +65,10 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
                   }`}
                 >
                   <img
-                    src={image}
+                    src={getImageSrc(image, index)}
                     alt={`썸네일 ${index + 1}`}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(index)}
                   />
                 </button>
               ))}
@@ -71,7 +79,7 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
         /* 일반 모드: 기존 레이아웃 */
         <>
           {/* 메인 이미지 */}
-          <div 
+          <div
             className="relative w-full aspect-[4/3] bg-gray-100 rounded-2xl overflow-hidden max-h-[600px] cursor-crosshair group"
             onMouseEnter={() => setShowMagnifier(true)}
             onMouseLeave={() => setShowMagnifier(false)}
@@ -79,9 +87,10 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
             onClick={() => setIsZoomed(true)}
           >
             <img
-              src={displayImages[selectedImage]}
+              src={getImageSrc(displayImages[selectedImage], selectedImage)}
               alt={`${productTitle} - 이미지 ${selectedImage + 1}`}
               className="w-full h-full object-cover"
+              onError={() => handleImageError(selectedImage)}
             />
             
             {/* 마우스 호버 시 확대된 부분 표시 */}
@@ -138,9 +147,10 @@ const ImageGallery = ({ images = [], productTitle = '', isLiked = false, onLikeC
                   }`}
                 >
                   <img
-                    src={image}
+                    src={getImageSrc(image, index)}
                     alt={`썸네일 ${index + 1}`}
                     className="w-full h-full object-cover"
+                    onError={() => handleImageError(index)}
                   />
                 </button>
               ))}

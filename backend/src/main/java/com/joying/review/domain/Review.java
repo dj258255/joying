@@ -102,8 +102,4 @@ public class Review extends BaseEntity {
         this.reviewFiles.add(reviewFile);
         reviewFile.addReview(this);
     }
-
-    public void detachProductReference() {
-        this.product = null;
-    }
 }

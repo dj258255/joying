@@ -7,9 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,10 +48,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     """)
     Review findRentalReview(Long rentalId, String uploadType);
 
-    @EntityGraph(attributePaths = {"reviewer", "reviewer.profileImage", "product", "reviewFiles", "reviewFiles.file"})
+    @EntityGraph(attributePaths = {"reviewer", "reviewer.profileImage", "reviewFiles", "reviewFiles.file"})
     Page<Review> findByReviewed_MemberIdAndUploadType(Long memberId, UploadType uploadType, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"reviewed", "reviewer", "reviewer.profileImage", "product", "reviewFiles", "reviewFiles.file"})
+    @EntityGraph(attributePaths = {"reviewed", "reviewer", "reviewer.profileImage", "reviewFiles", "reviewFiles.file"})
     Page<Review> findByReviewer_MemberIdAndUploadType(Long memberId, UploadType uploadType, Pageable pageable);
 
     @EntityGraph(attributePaths = {"reviewFiles", "reviewFiles.file"})
@@ -66,7 +64,4 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 """)
     Optional<Review> findByIdWithWriterAndProduct(Long reviewId);
 
-    @Modifying
-    @Query("UPDATE Review r SET r.product = NULL WHERE r.product.productId = :productId")
-    int detachProductFromReviews(@Param("productId") Long productId);
 }

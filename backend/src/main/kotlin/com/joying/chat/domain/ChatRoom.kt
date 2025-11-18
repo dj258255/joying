@@ -120,8 +120,4 @@ class ChatRoom(
     override fun hashCode(): Int {
         return chatRoomId?.hashCode() ?: 0
     }
-
-    fun detachProductReference() {
-        this.product = null
-    }
 }

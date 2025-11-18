@@ -691,8 +691,26 @@ const LentHistoryPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 상태</span>
-                    <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(rental.status)}`}>
-                      {getStatusText(rental.status)}
+                    <span className={`px-2 py-1 rounded-full text-sm ${
+                      rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                      rental.status === 'RENTING' ? 'bg-blue-100 text-blue-800' :
+                      rental.status === 'RETURNED' ? 'bg-teal-100 text-teal-800' :
+                      rental.status === 'RETURN_REQUESTED' ? 'bg-purple-100 text-purple-800' :
+                      rental.status === 'SHIPPED' ? 'bg-indigo-100 text-indigo-800' :
+                      rental.status === 'ESCROW' ? 'bg-cyan-100 text-cyan-800' :
+                      rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      rental.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {rental.status === 'DEPOSIT_RETURNED' ? '거래 완료' :
+                       rental.status === 'COMPLETED' ? '거래 완료' :
+                       rental.status === 'RETURNED' ? '회수 완료' :
+                       rental.status === 'RETURN_REQUESTED' ? '반납 요청' :
+                       rental.status === 'RENTING' ? '대여 중' :
+                       rental.status === 'SHIPPED' ? '발송 완료' :
+                       rental.status === 'ESCROW' ? '보증금 보관' :
+                       rental.status === 'PENDING' ? '결제 대기' :
+                       rental.status === 'CANCELLED' ? '거래 취소' : rental.status}
                     </span>
                   </div>
                   <div className="flex justify-between">

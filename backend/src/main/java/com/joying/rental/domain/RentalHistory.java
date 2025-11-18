@@ -209,10 +209,4 @@ public class RentalHistory {
         this.extensionCount++;
     }
 
-    /**
-     * 상품 id null로 변경
-     */
-    public void detachProductReference() {
-        this.rentalProduct = null;
-    }
 }

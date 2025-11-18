@@ -5,7 +5,6 @@ import com.joying.chat.domain.ChatRoomStatus
 import com.joying.member.domain.Member
 import com.joying.product.domain.Product
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
@@ -102,9 +101,5 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
         WHERE cr.chatRoomId = :chatRoomId
     """)
     fun findByIdWithProfileImages(@Param("chatRoomId") chatRoomId: Long): Optional<ChatRoom>
-
-    @Modifying
-    @Query("UPDATE ChatRoom cr SET cr.product = NULL WHERE cr.product.productId = :productId")
-    fun detachProductFromChatRooms(@Param("productId") productId: Long): Int
 
 }

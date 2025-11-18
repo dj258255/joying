@@ -127,14 +127,14 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage
-          src={reviewer.profileImageUrl || reviewer.profile_image_url}
-          alt={reviewer.nickname || reviewer.name || '익명'}
+          src={review?.profileImageUrl || review?.reviewer?.profileImageUrl}
+          alt={review?.nickname || review?.reviewer?.nickname || '익명'}
           size={40}
           className="w-8 h-8 md:w-10 md:h-10"
         />
         <div className="flex-1">
           <div className="font-medium text-gray-900 text-sm md:text-base">
-            {reviewer.nickname || reviewer.name || '익명'}
+            {review?.nickname || review?.reviewer?.nickname || '익명'}
           </div>
           <div className="text-xs text-gray-500">
             {formatDate(review.createdAt)}
