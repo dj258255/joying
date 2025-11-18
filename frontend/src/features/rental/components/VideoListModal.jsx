@@ -155,44 +155,51 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="max-w-[50rem]" hideCloseButton={true}>
-      <div className="space-y-4 lg:space-y-3">
+    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="max-w-6xl" hideCloseButton={true}>
+      <div className="space-y-4">
         {/* 에러 메시지 */}
         {error && (
-          <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-4 lg:p-3 shadow-lg">
-            <p className="text-sm lg:text-xs text-red-900 font-semibold">{error}</p>
+          <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 shadow-lg">
+            <p className="text-sm text-red-900 font-semibold">{error}</p>
           </div>
         )}
 
         {/* 로딩 중 */}
         {isLoading && (
-          <div className="flex items-center justify-center py-12 lg:py-8">
+          <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 lg:h-10 lg:w-10 border-b-3 border-gray-900 mx-auto mb-3 lg:mb-2"></div>
-              <p className="text-gray-900 font-semibold text-sm lg:text-xs">영상을 불러오는 중...</p>
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-900 font-semibold text-base">영상을 불러오는 중...</p>
             </div>
           </div>
         )}
 
         {/* 영상이 없을 때 */}
         {!isLoading && videos.length === 0 && (
-          <div className="text-center py-12 lg:py-8 p-6 lg:p-4 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
-            <div className="w-14 h-14 lg:w-12 lg:h-12 bg-gray-900/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-2">
-              <svg className="w-7 h-7 lg:w-6 lg:h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-center py-16 p-8 bg-gray-50 border-2 border-gray-200 rounded-2xl shadow-lg">
+            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </div>
-            <p className="text-gray-900 font-semibold mb-1 lg:mb-0.5 text-sm lg:text-xs">아직 촬영된 영상이 없습니다</p>
-            <p className="text-gray-600 text-xs lg:text-[10px]">거래 진행 중에 영상이 추가됩니다</p>
+            <p className="text-gray-900 font-bold text-lg mb-2">아직 촬영된 영상이 없습니다</p>
+            <p className="text-gray-600 text-sm">거래 진행 중에 영상이 추가됩니다</p>
           </div>
         )}
 
         {/* 영상이 있을 때 */}
         {!isLoading && videos.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-3">
-            {/* 왼쪽: 영상 목록 */}
-            <div className="lg:col-span-1 space-y-2 lg:space-y-1.5 max-h-[500px] lg:max-h-[75vh] overflow-y-auto scrollbar-hide">
-              <h3 className="text-sm lg:text-xs font-bold text-gray-900 mb-3 lg:mb-2">영상 목록 ({videos.length}개)</h3>
+          <div className="grid grid-cols-12 gap-6">
+            {/* 왼쪽: 영상 목록 (4 columns) */}
+            <div className="col-span-4 space-y-3 max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+              <div className="sticky top-0 bg-white z-10 pb-3 border-b border-gray-200">
+                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  영상 목록 ({videos.length}개)
+                </h3>
+              </div>
               {videos.map((video, index) => {
                 const videoType = video.videoType || video.type;
                 const info = VIDEO_TYPE_INFO[videoType] || {
@@ -202,7 +209,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   icon: <VideoIcon />
                 };
 
-                const isSelected = selectedVideo?.rentalVideoId === video.rentalVideoId 
+                const isSelected = selectedVideo?.rentalVideoId === video.rentalVideoId
                   || selectedVideo?.videoId === video.videoId
                   || selectedVideo?.id === video.id;
 
@@ -210,23 +217,24 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   <button
                     key={video.rentalVideoId || video.videoId || video.id || index}
                     onClick={() => setSelectedVideo(video)}
-                    className={`w-full text-left p-3 lg:p-2 rounded-xl lg:rounded-lg border-2 transition-all ${
+                    className={`w-full text-left p-4 rounded-xl border-2 transition-all transform hover:scale-[1.02] ${
                       isSelected
-                        ? 'bg-gray-900/80 backdrop-blur-xl border-gray-900 shadow-xl text-white'
-                        : 'bg-white/80 backdrop-blur-xl border-white/40 hover:bg-white/90 hover:border-gray-900/30 shadow-lg text-gray-900'
+                        ? 'bg-blue-600 border-blue-600 shadow-xl text-white'
+                        : 'bg-white border-gray-200 hover:bg-gray-50 hover:border-blue-300 shadow-md text-gray-900'
                     }`}
                   >
-                    <div className="flex items-start gap-2 lg:gap-1.5">
-                      <div className={`flex-shrink-0 w-10 h-10 lg:w-8 lg:h-8 rounded-lg lg:rounded-md bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center ${isSelected ? 'bg-white/30 text-white' : 'text-gray-900'}`}>
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="w-5 h-5 lg:w-4 lg:h-4 flex items-center justify-center">
-                            {info.icon || <VideoIcon />}
-                          </div>
+                    <div className="flex items-start gap-3">
+                      <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${isSelected ? 'bg-white/20' : 'bg-blue-50'}`}>
+                        <div className={`w-6 h-6 ${isSelected ? 'text-white' : 'text-blue-600'}`}>
+                          {info.icon || <VideoIcon />}
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm lg:text-xs font-bold truncate mb-0.5 ${isSelected ? 'text-white' : 'text-gray-900'}`}>{info.label}</p>
-                        <p className={`text-xs lg:text-[10px] leading-relaxed ${isSelected ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <p className={`text-sm font-bold mb-1 ${isSelected ? 'text-white' : 'text-gray-900'}`}>{info.label}</p>
+                        <p className={`text-xs leading-relaxed line-clamp-2 ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {info.description}
+                        </p>
+                        <p className={`text-xs mt-2 pt-2 border-t ${isSelected ? 'border-white/20 text-blue-100' : 'border-gray-200 text-gray-500'}`}>
                           {formatDate(video.uploadedAt || video.createdAt)}
                         </p>
                       </div>
@@ -236,35 +244,38 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
               })}
             </div>
 
-            {/* 오른쪽: 선택된 영상 재생 */}
-            <div className="lg:col-span-3">
+            {/* 오른쪽: 선택된 영상 재생 (8 columns) */}
+            <div className="col-span-8">
               {selectedVideo ? (
-                <div className="space-y-4 lg:space-y-2">
+                <div className="space-y-4">
                   {/* 영상 정보 */}
-                  <div className="p-4 lg:p-3 bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg">
-                    <div className="flex items-start gap-2 lg:gap-1.5 mb-3 lg:mb-2">
-                      <div className="flex-shrink-0 text-gray-900 w-6 h-6 lg:w-5 lg:h-5 flex items-center justify-center">
+                  <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl shadow-lg">
+                    <div className="flex items-start gap-3 mb-4">
+                      <div className="flex-shrink-0 text-blue-600 w-8 h-8 flex items-center justify-center">
                         {VIDEO_TYPE_INFO[selectedVideo.videoType || selectedVideo.type]?.icon || <VideoIcon />}
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg lg:text-sm font-bold text-gray-900 mb-1 lg:mb-0.5">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
                           {VIDEO_TYPE_INFO[selectedVideo.videoType || selectedVideo.type]?.label || '영상'}
                         </h3>
-                        <p className="text-sm lg:text-xs text-gray-700 leading-relaxed">
+                        <p className="text-sm text-gray-700 leading-relaxed">
                           {VIDEO_TYPE_INFO[selectedVideo.videoType || selectedVideo.type]?.description || '거래 영상'}
                         </p>
                       </div>
                     </div>
-                    <div className="pt-3 lg:pt-2 border-t border-white/30">
-                      <p className="text-xs lg:text-[10px] text-gray-600">
-                        촬영일: <span className="font-semibold text-gray-900">{formatDate(selectedVideo.uploadedAt || selectedVideo.createdAt)}</span>
+                    <div className="pt-4 border-t border-blue-200">
+                      <p className="text-sm text-gray-600 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        촬영일: <span className="font-bold text-gray-900">{formatDate(selectedVideo.uploadedAt || selectedVideo.createdAt)}</span>
                       </p>
                     </div>
                   </div>
 
                   {/* 영상 플레이어 */}
-                  <div className="flex justify-center">
-                    <div className="relative bg-black rounded-2xl lg:rounded-xl overflow-hidden shadow-2xl w-full max-w-[640px] lg:max-w-[480px] aspect-video">
+                  <div className="bg-black rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-200">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                       <video
                         key={selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url}
                         className="absolute inset-0 w-full h-full object-contain"
@@ -277,16 +288,16 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   </div>
 
                   {/* 영상 다운로드 버튼 */}
-                  <div className="flex gap-2 lg:gap-1.5">
+                  <div className="flex gap-3">
                     {(() => {
                       // URL이 상대 경로인 경우 절대 경로로 변환
                       const videoUrl = selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url;
-                      const absoluteUrl = videoUrl?.startsWith('http') 
-                        ? videoUrl 
+                      const absoluteUrl = videoUrl?.startsWith('http')
+                        ? videoUrl
                         : videoUrl?.startsWith('/')
                           ? `${window.location.origin}${videoUrl}`
                           : videoUrl;
-                      
+
                       return (
                         <>
                           <a
@@ -294,9 +305,9 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                             download
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 px-4 py-2.5 lg:px-3 lg:py-1.5 glass-button-ghost text-gray-900 rounded-xl lg:rounded-lg font-semibold text-sm lg:text-xs transition-colors text-center flex items-center justify-center gap-1.5 lg:gap-1"
+                            className="flex-1 px-5 py-3 bg-white border-2 border-gray-300 text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-50 hover:border-gray-400 transition-all text-center flex items-center justify-center gap-2 shadow-md"
                           >
-                            <svg className="w-4 h-4 lg:w-3.5 lg:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                             <span>다운로드</span>
@@ -305,9 +316,9 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                             href={absoluteUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 px-4 py-2.5 lg:px-3 lg:py-1.5 glass-button text-white rounded-xl lg:rounded-lg font-semibold text-sm lg:text-xs transition-colors text-center flex items-center justify-center gap-1.5 lg:gap-1"
+                            className="flex-1 px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all text-center flex items-center justify-center gap-2 shadow-md"
                           >
-                            <svg className="w-4 h-4 lg:w-3.5 lg:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
                             <span>새 창에서 열기</span>
@@ -318,15 +329,15 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full min-h-[400px] lg:min-h-[300px] bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg">
+                <div className="flex items-center justify-center h-full min-h-[500px] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl shadow-lg">
                   <div className="text-center">
-                    <div className="w-16 h-16 lg:w-12 lg:h-12 bg-gray-900/10 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-2">
-                      <svg className="w-8 h-8 lg:w-6 lg:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-gray-900 font-bold text-base lg:text-sm mb-1 lg:mb-0.5">영상을 선택해주세요</p>
-                    <p className="text-gray-600 text-sm lg:text-xs">왼쪽 목록에서 영상을 선택하면 재생됩니다</p>
+                    <p className="text-gray-900 font-bold text-lg mb-2">영상을 선택해주세요</p>
+                    <p className="text-gray-600 text-sm">왼쪽 목록에서 영상을 선택하면 재생됩니다</p>
                   </div>
                 </div>
               )}
@@ -335,10 +346,10 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
         )}
 
         {/* 닫기 버튼 */}
-        <div className="flex justify-end pt-3 lg:pt-2 border-t border-white/30">
+        <div className="flex justify-end pt-4 border-t border-gray-200">
           <button
             onClick={handleClose}
-            className="px-6 py-2.5 lg:px-4 lg:py-1.5 glass-button text-white rounded-xl lg:rounded-lg font-semibold text-sm lg:text-xs"
+            className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-lg"
           >
             닫기
           </button>
