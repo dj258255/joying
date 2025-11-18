@@ -3,7 +3,7 @@
  * 송장 번호 등록 메시지 카드 컴포넌트
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../../shared/components/Modal/Modal';
 import CourierSelect from '../../../shared/components/CourierSelect';
 import { rentalApi } from '../../rental/api/rentalApi';
@@ -46,14 +46,52 @@ export const parseTrackingNumberMessage = (content) => {
 /**
  * 송장 번호 등록 메시지 카드 컴포넌트
  */
-const TrackingNumberCard = ({ message, isOwn = false, onShippingComplete, sendMessage }) => {
+const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShippingComplete, sendMessage }) => {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [courier, setCourier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isTrackingRegistered, setIsTrackingRegistered] = useState(false);
 
   const trackingInfo = parseTrackingNumberMessage(message.content);
+
+  // 운송장 번호 등록 여부 확인
+  useEffect(() => {
+    const checkTrackingStatus = async () => {
+      if (!trackingInfo?.rentalHisId) {
+        return;
+      }
+
+      try {
+        // rentalData가 없으면 조회
+        let currentRentalData = rentalData;
+        if (!currentRentalData && trackingInfo.rentalHisId) {
+          const rentalResponse = await rentalApi.getRentalDetail(trackingInfo.rentalHisId);
+          currentRentalData = rentalResponse.data || rentalResponse;
+        }
+
+        if (!currentRentalData) {
+          return;
+        }
+
+        // 운송장 번호 확인
+        if (trackingInfo.isReturn) {
+          // 반납 운송장 번호
+          const returnTracking = currentRentalData?.returnTrackingNo || currentRentalData?.returnTrackingNumber;
+          setIsTrackingRegistered(!!returnTracking);
+        } else {
+          // 발송 운송장 번호
+          const outboundTracking = currentRentalData?.outboundTrackingNo || currentRentalData?.outboundTrackingNumber || currentRentalData?.trackingNo || currentRentalData?.trackingNumber;
+          setIsTrackingRegistered(!!outboundTracking);
+        }
+      } catch (err) {
+        console.error('[TrackingNumberCard] 운송장 번호 상태 확인 실패:', err);
+      }
+    };
+
+    checkTrackingStatus();
+  }, [trackingInfo?.rentalHisId, rentalData, trackingInfo?.isReturn]);
 
   if (!trackingInfo) {
     // 송장 번호 등록 메시지가 아니면 null 반환 (기본 MessageBubble로 렌더링)
@@ -140,6 +178,9 @@ const TrackingNumberCard = ({ message, isOwn = false, onShippingComplete, sendMe
         });
       }
 
+      // 운송장 번호 등록 상태 업데이트
+      setIsTrackingRegistered(true);
+
       // 모달 닫기
       setShowTrackingModal(false);
       setCourier('');
@@ -204,17 +245,28 @@ const TrackingNumberCard = ({ message, isOwn = false, onShippingComplete, sendMe
               </div>
 
               {/* 운송장 번호 등록하기 버튼 */}
-              <button
-                onClick={() => setShowTrackingModal(true)}
-                className="glass-button w-full text-sm mt-3 py-2.5"
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>운송장 등록</span>
+              {isTrackingRegistered ? (
+                <div className="w-full text-sm mt-3 py-2.5 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50 rounded-xl text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>운송장 등록 완료</span>
+                  </div>
                 </div>
-              </button>
+              ) : (
+                <button
+                  onClick={() => setShowTrackingModal(true)}
+                  className="glass-button w-full text-sm mt-3 py-2.5"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span>운송장 등록</span>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
 
