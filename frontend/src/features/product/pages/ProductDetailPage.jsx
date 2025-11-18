@@ -312,12 +312,17 @@ const ProductDetailPage = () => {
     setDateRange(range);
   };
 
-  // 뒤로가기 핸들러: 물품 등록 직후라면 마이페이지 등록 물품 탭으로, 아니면 이전 페이지로
+  // 뒤로가기 핸들러: 직전 페이지로 이동
   const handleBackClick = () => {
     if (location.state?.fromCreate) {
       // 물품 등록 직후: 마이페이지 등록 물품 탭으로 이동
       navigate(ROUTE_PATHS.MYPAGE, {
         state: { activeTab: 'products', productTab: 'registered' }
+      });
+    } else if (location.state?.fromMyPage) {
+      // 마이페이지에서 온 경우: 마이페이지로 돌아가기
+      navigate(ROUTE_PATHS.MYPAGE, {
+        state: location.state?.myPageState || {}
       });
     } else {
       // 일반적인 경우: 프로덕트 목록 페이지로 (URL 파라미터 없이 깨끗하게)
