@@ -14,6 +14,8 @@ import { useReviewWrite } from '@/features/review/hooks/useReviewWrite';
 import { reviewApi } from '@/features/review/api/reviewApi';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
+import { fileApi } from '@/shared/api/fileApi';
+import { useRef } from 'react';
 
 const LentHistoryPage = () => {
   const { rentalId } = useParams();
@@ -49,6 +51,10 @@ const LentHistoryPage = () => {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState('');
   const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewFileIds, setReviewFileIds] = useState([]);
+  const [reviewImagePreviews, setReviewImagePreviews] = useState([]);
+  const [reviewUploading, setReviewUploading] = useState(false);
+  const reviewFileInputRef = useRef(null);
 
   useEffect(() => {
     loadRentalHistory();
@@ -451,12 +457,12 @@ const LentHistoryPage = () => {
             
             <div className="text-center mb-4">
               <ProfileImage
-                src={rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
-                alt={rental.renter?.nickname || rental.renter?.name || '대여자'}
+                src={renterUser?.profileImageUrl || renterUser?.profile_image_url || rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
+                alt={renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name || '대여자'}
                 size={80}
                 className="w-20 h-20 mx-auto mb-4"
               />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{rental.renter?.nickname || rental.renter?.name} 님</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name} 님</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
                 <div className="flex gap-1">
                   {renderPreciseStars(Number(renterRating) || 0)}
@@ -801,9 +807,98 @@ const LentHistoryPage = () => {
                 />
               </div>
 
+              {/* 이미지 업로드 섹션 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">이미지 업로드 (선택)</label>
+                <div
+                  onClick={() => reviewFileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition bg-gray-50"
+                >
+                  <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-sm text-gray-600">
+                    클릭하여 이미지 추가
+                  </p>
+                  <input
+                    ref={reviewFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      
+                      setReviewUploading(true);
+                      const localUrls = files.map(f => URL.createObjectURL(f));
+                      setReviewImagePreviews(prev => [...prev, ...localUrls]);
+                      
+                      try {
+                        const uploadPromises = files.map(async (file) => {
+                          const uploadResult = await fileApi.uploadFile(file);
+                          const fileId = uploadResult.body?.data?.fileId
+                            || uploadResult.data?.fileId
+                            || uploadResult.body?.fileId
+                            || uploadResult.fileId
+                            || uploadResult.data?.id;
+                          return fileId;
+                        });
+                        
+                        const uploadedFileIds = await Promise.all(uploadPromises);
+                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                      } catch (err) {
+                        console.error('이미지 업로드 실패:', err);
+                        setAlertMessage('이미지 업로드에 실패했습니다.');
+                        setAlertType('error');
+                      } finally {
+                        setReviewUploading(false);
+                      }
+                      
+                      e.target.value = '';
+                    }}
+                    disabled={reviewUploading}
+                  />
+                </div>
+
+                {/* 미리보기 */}
+                {reviewImagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {reviewImagePreviews.map((src, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={src}
+                          alt={`preview-${idx}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                            setReviewFileIds(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-1 right-1 bg-gray-900/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reviewUploading && (
+                  <p className="text-sm text-gray-500 mt-2">이미지 업로드 중...</p>
+                )}
+              </div>
+
               <div className="flex gap-3">
                 <button
-                  onClick={() => setShowReviewModal(false)}
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    setReviewFileIds([]);
+                    setReviewImagePreviews([]);
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   취소
@@ -822,14 +917,17 @@ const LentHistoryPage = () => {
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
-                        uploadType: 'RENT' // 빌려준 내역이므로 RENT
+                        uploadType: 'RENT', // 빌려준 내역이므로 RENT
+                        fileIds: reviewFileIds
                       });
                       
-                      // 모달 닫기
+                      // 모달 닫기 및 상태 초기화
                       setShowReviewModal(false);
                       setReviewRating(0);
                       setReviewContent('');
                       setReviewTitle('');
+                      setReviewFileIds([]);
+                      setReviewImagePreviews([]);
                       
                       // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 재시도)
                       setTimeout(async () => {

@@ -9,6 +9,54 @@ import ProductCardByProductId from './ProductCardByProductId';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import { ROUTE_PATHS } from '../../../shared/constants/routePaths';
 import { useLentHistory } from '@/features/rental/hooks/useRentalHistory';
+import { useUserProfile } from '@/features/user/hooks/useUserProfile';
+
+/**
+ * 상대방 프로필 카드 컴포넌트
+ */
+const CounterpartyProfileCard = ({ rental, type }) => {
+  // counterparty memberId 찾기
+  const counterpartyId = rental.counterparty?.memberId 
+    || rental.renter?.memberId 
+    || rental.renter?.member_id
+    || rental.counterparty?.id;
+  
+  // useUserProfile로 프로필 정보 가져오기
+  const { user: counterpartyUser } = useUserProfile(counterpartyId);
+  
+  const profileImageUrl = counterpartyUser?.profileImageUrl 
+    || counterpartyUser?.profile_image_url 
+    || rental.counterparty?.profileImage
+    || rental.counterparty?.profileImageUrl
+    || rental.renter?.profileImage
+    || rental.renter?.profileImageUrl
+    || null;
+  
+  const nickname = counterpartyUser?.nickname 
+    || counterpartyUser?.name 
+    || rental.counterparty?.nickname 
+    || rental.counterparty?.name 
+    || rental.renter?.nickname 
+    || rental.renter?.name 
+    || '알 수 없음';
+  
+  return (
+    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+      <ProfileImage 
+        src={profileImageUrl}
+        alt={nickname}
+        size={50}
+        className="w-12 h-12"
+      />
+      <div className="flex-1">
+        <h4 className="font-semibold text-gray-900">
+          {nickname} 님에게 빌려줌
+        </h4>
+        <p className="text-sm text-gray-600">거래 방식: {rental.rentMethod === 'ONLINE' ? '택배 거래' : '직거래'}</p>
+      </div>
+    </div>
+  );
+};
 
 /**
  * @param {Object} props
@@ -236,19 +284,10 @@ const LentHistoryList = ({
 
                 {/* 대여 정보 */}
                 <div className="lg:w-2/3 space-y-4">
-                  {/* 빌린 사람 정보 */}
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                    <ProfileImage 
-                      src={rental.counterparty.profileImage}
-                      alt={rental.counterparty.nickname || rental.counterparty.name || '상대방'}
-                      size={50}
-                      className="w-12 h-12"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{(rental.counterparty.nickname || rental.counterparty.name || '알 수 없음')} 님에게 빌려줌</h4>
-                      <p className="text-sm text-gray-600">거래 방식: {rental.rentMethod === 'ONLINE' ? '택배 거래' : '직거래'}</p>
-                    </div>
-                  </div>
+                  <CounterpartyProfileCard 
+                    rental={rental}
+                    type="lent"
+                  />
 
                   {/* 대여 기간 캘린더 및 결제 정보 */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -60,9 +60,12 @@ const MyPageMain = () => {
     return location.state?.productTab || 'registered';
   });
   const [reviewTab, setReviewTab] = useState('received'); // received: 받은 리뷰, written: 작성한 리뷰
+  const [reviewSubTab, setReviewSubTab] = useState('all'); // all: 전체, borrow: 빌렸을 때, rent: 빌려줬을 때
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [receivedReviews, setReceivedReviews] = useState([]);
-  const [writtenReviews, setWrittenReviews] = useState([]);
+  const [receivedBorrowReviews, setReceivedBorrowReviews] = useState([]); // 받은 리뷰 - 빌렸을 때
+  const [receivedRentReviews, setReceivedRentReviews] = useState([]); // 받은 리뷰 - 빌려줬을 때
+  const [writtenBorrowReviews, setWrittenBorrowReviews] = useState([]); // 내가 쓴 리뷰 - 빌렸을 때
+  const [writtenRentReviews, setWrittenRentReviews] = useState([]); // 내가 쓴 리뷰 - 빌려줬을 때
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [totalReviewCount, setTotalReviewCount] = useState(0); // 전체 리뷰 개수 (받은 리뷰 + 작성한 리뷰)
 
@@ -93,6 +96,18 @@ const MyPageMain = () => {
     return () => clearTimeout(timer);
   }, [productTab]);
 
+  // reviewTab 또는 reviewSubTab 변경 시 스크롤을 맨 위로 이동
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [reviewTab, reviewSubTab]);
+
   // 리뷰 데이터 로드 함수
   const loadReviews = async () => {
     if (!currentUserId) return;
@@ -119,46 +134,69 @@ const MyPageMain = () => {
         })
       ]);
 
-      // 받은 리뷰 합치기 (API 응답 구조 확인)
+      // 받은 리뷰 분리 (API 응답 구조 확인)
       const receivedBorrowData = receivedBorrowRes.data?.data?.data || receivedBorrowRes.data?.data || receivedBorrowRes.data || [];
       const receivedRentData = receivedRentRes.data?.data?.data || receivedRentRes.data?.data || receivedRentRes.data || [];
       
-      const allReceivedReviews = [
-        ...(Array.isArray(receivedBorrowData) ? receivedBorrowData : []),
-        ...(Array.isArray(receivedRentData) ? receivedRentData : [])
-      ];
-
-      // 작성한 리뷰 합치기 (API 응답 구조 확인)
+      // 작성한 리뷰 분리 (API 응답 구조 확인)
       const writtenBorrowData = writtenBorrowRes.data?.data?.data || writtenBorrowRes.data?.data || writtenBorrowRes.data || [];
       const writtenRentData = writtenRentRes.data?.data?.data || writtenRentRes.data?.data || writtenRentRes.data || [];
       
-      const allWrittenReviews = [
-        ...(Array.isArray(writtenBorrowData) ? writtenBorrowData : []),
-        ...(Array.isArray(writtenRentData) ? writtenRentData : [])
-      ];
+      // 각 리뷰에 uploadType 및 rentalHistoryId 추가
+      const receivedBorrowReviews = Array.isArray(receivedBorrowData) 
+        ? receivedBorrowData.map(r => ({ 
+            ...r, 
+            uploadType: 'BORROW',
+            rentalHistoryId: r.rentalHistoryId || r.rentalHisId || r.rentalHistory?.rentalHisId || r.rentalHistory?.rentalHistoryId
+          }))
+        : [];
+      const receivedRentReviews = Array.isArray(receivedRentData)
+        ? receivedRentData.map(r => ({ 
+            ...r, 
+            uploadType: 'RENT',
+            rentalHistoryId: r.rentalHistoryId || r.rentalHisId || r.rentalHistory?.rentalHisId || r.rentalHistory?.rentalHistoryId
+          }))
+        : [];
+      const writtenBorrowReviews = Array.isArray(writtenBorrowData)
+        ? writtenBorrowData.map(r => ({ 
+            ...r, 
+            uploadType: 'BORROW',
+            rentalHistoryId: r.rentalHistoryId || r.rentalHisId || r.rentalHistory?.rentalHisId || r.rentalHistory?.rentalHistoryId
+          }))
+        : [];
+      const writtenRentReviews = Array.isArray(writtenRentData)
+        ? writtenRentData.map(r => ({ 
+            ...r, 
+            uploadType: 'RENT',
+            rentalHistoryId: r.rentalHistoryId || r.rentalHisId || r.rentalHistory?.rentalHisId || r.rentalHistory?.rentalHistoryId
+          }))
+        : [];
       
       console.log('[MyPageMain] 리뷰 로드 완료:', {
-        receivedCount: allReceivedReviews.length,
-        writtenCount: allWrittenReviews.length,
-        total: allReceivedReviews.length + allWrittenReviews.length
+        receivedBorrowCount: receivedBorrowReviews.length,
+        receivedRentCount: receivedRentReviews.length,
+        writtenBorrowCount: writtenBorrowReviews.length,
+        writtenRentCount: writtenRentReviews.length
       });
 
-      setReceivedReviews(allReceivedReviews);
-      setWrittenReviews(allWrittenReviews);
+      setReceivedBorrowReviews(receivedBorrowReviews);
+      setReceivedRentReviews(receivedRentReviews);
+      setWrittenBorrowReviews(writtenBorrowReviews);
+      setWrittenRentReviews(writtenRentReviews);
       
-      // 리뷰 탭에서 상세 로드 후 실제 개수로 업데이트
-      const actualTotalCount = allReceivedReviews.length + allWrittenReviews.length;
+      // 전체 리뷰 개수 계산
+      const actualTotalCount = receivedBorrowReviews.length + receivedRentReviews.length + writtenBorrowReviews.length + writtenRentReviews.length;
       setTotalReviewCount(actualTotalCount);
       
       console.log('[MyPageMain] 리뷰 상세 로드 완료:', {
-        receivedCount: allReceivedReviews.length,
-        writtenCount: allWrittenReviews.length,
-        actualTotalCount
+        totalCount: actualTotalCount
       });
     } catch (error) {
       console.error('리뷰 로드 실패:', error);
-      setReceivedReviews([]);
-      setWrittenReviews([]);
+      setReceivedBorrowReviews([]);
+      setReceivedRentReviews([]);
+      setWrittenBorrowReviews([]);
+      setWrittenRentReviews([]);
     } finally {
       setIsLoadingReviews(false);
     }
@@ -667,28 +705,70 @@ const MyPageMain = () => {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between mb-3 sm:mb-6 flex-shrink-0">
-                  <h3 className="text-base sm:text-xl font-bold text-gray-900">내 리뷰</h3>
+                <div className="mb-3 sm:mb-6 flex-shrink-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base sm:text-xl font-bold text-gray-900">내 리뷰</h3>
+                    <div className="flex bg-gray-100 rounded-lg p-0.5 sm:p-1">
+                      <button
+                        onClick={() => {
+                          setReviewTab('received');
+                          setReviewSubTab('all');
+                        }}
+                        className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
+                          reviewTab === 'received'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        받은 리뷰
+                      </button>
+                      <button
+                        onClick={() => {
+                          setReviewTab('written');
+                          setReviewSubTab('all');
+                        }}
+                        className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
+                          reviewTab === 'written'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        내가 쓴 리뷰
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* 서브 탭 */}
                   <div className="flex bg-gray-100 rounded-lg p-0.5 sm:p-1">
                     <button
-                      onClick={() => setReviewTab('received')}
+                      onClick={() => setReviewSubTab('all')}
                       className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
-                        reviewTab === 'received'
+                        reviewSubTab === 'all'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
                       }`}
                     >
-                      빌려줬을 때
+                      전체
                     </button>
                     <button
-                      onClick={() => setReviewTab('written')}
+                      onClick={() => setReviewSubTab('borrow')}
                       className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
-                        reviewTab === 'written'
+                        reviewSubTab === 'borrow'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
                       }`}
                     >
                       빌렸을 때
+                    </button>
+                    <button
+                      onClick={() => setReviewSubTab('rent')}
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium rounded-md sm:rounded-lg transition-colors whitespace-nowrap ${
+                        reviewSubTab === 'rent'
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      빌려줬을 때
                     </button>
                   </div>
                 </div>
@@ -700,51 +780,75 @@ const MyPageMain = () => {
                     </div>
                   ) : (
                     <div className="space-y-3 sm:space-y-4">
-                      {reviewTab === 'received' && (
-                        <>
-                          {receivedReviews.length > 0 ? (
-                            receivedReviews.map((review, index) => (
-                              <ReviewCard
-                                key={index}
-                                review={review}
-                                showProductInfo={true}
-                                showRating={true}
-                              />
-                            ))
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-center px-4">
-                              <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                              </svg>
-                              <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 받은 리뷰가 없습니다</p>
-                              <p className="text-gray-400 text-xs sm:text-sm">상품을 빌려주면 리뷰를 받을 수 있습니다</p>
-                            </div>
-                          )}
-                        </>
-                      )}
+                      {reviewTab === 'received' && (() => {
+                        // 받은 리뷰 필터링
+                        let filteredReviews = [];
+                        if (reviewSubTab === 'all') {
+                          filteredReviews = [...receivedBorrowReviews, ...receivedRentReviews];
+                        } else if (reviewSubTab === 'borrow') {
+                          filteredReviews = receivedBorrowReviews; // 빌렸을 때 받은 리뷰
+                        } else if (reviewSubTab === 'rent') {
+                          filteredReviews = receivedRentReviews; // 빌려줬을 때 받은 리뷰
+                        }
+                        
+                        return (
+                          <>
+                            {filteredReviews.length > 0 ? (
+                              filteredReviews.map((review, index) => (
+                                <ReviewCard
+                                  key={review.reviewId || index}
+                                  review={review}
+                                  showProductInfo={true}
+                                  showRating={true}
+                                />
+                              ))
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                                <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                                <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 받은 리뷰가 없습니다</p>
+                                <p className="text-gray-400 text-xs sm:text-sm">상품을 빌려주면 리뷰를 받을 수 있습니다</p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
 
-                      {reviewTab === 'written' && (
-                        <>
-                          {writtenReviews.length > 0 ? (
-                            writtenReviews.map((review, index) => (
-                              <ReviewCard
-                                key={index}
-                                review={review}
-                                showProductInfo={true}
-                                showRating={true}
-                              />
-                            ))
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-center px-4">
-                              <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                              <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 작성한 리뷰가 없습니다</p>
-                              <p className="text-gray-400 text-xs sm:text-sm">상품을 빌린 후 리뷰를 작성해보세요</p>
-                            </div>
-                          )}
-                        </>
-                      )}
+                      {reviewTab === 'written' && (() => {
+                        // 내가 쓴 리뷰 필터링
+                        let filteredReviews = [];
+                        if (reviewSubTab === 'all') {
+                          filteredReviews = [...writtenBorrowReviews, ...writtenRentReviews];
+                        } else if (reviewSubTab === 'borrow') {
+                          filteredReviews = writtenBorrowReviews; // 빌렸을 때 작성한 리뷰
+                        } else if (reviewSubTab === 'rent') {
+                          filteredReviews = writtenRentReviews; // 빌려줬을 때 작성한 리뷰
+                        }
+                        
+                        return (
+                          <>
+                            {filteredReviews.length > 0 ? (
+                              filteredReviews.map((review, index) => (
+                                <ReviewCard
+                                  key={review.reviewId || index}
+                                  review={review}
+                                  showProductInfo={true}
+                                  showRating={true}
+                                />
+                              ))
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-64 text-center px-4">
+                                <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">아직 작성한 리뷰가 없습니다</p>
+                                <p className="text-gray-400 text-xs sm:text-sm">상품을 빌린 후 리뷰를 작성해보세요</p>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
