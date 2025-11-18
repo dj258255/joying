@@ -454,7 +454,7 @@ const ChatRoomPage = () => {
   // 상품 정보 조회 (판매자 확인용)
   const { product: productData } = useProductDetail(productId);
 
-  // rentalRefuses를 disabledDates 형식으로 변환 (ProductDetailPage와 동일한 방식)
+  // rentalRefuses를 disabledDates 형식으로 변환 (문자열 배열로 변환)
   const unavailableDates = useMemo(() => {
     if (!productData?.rentalRefuses || !Array.isArray(productData.rentalRefuses)) {
       return [];
@@ -471,7 +471,8 @@ const ChatRoomPage = () => {
       const currentDate = new Date(start);
 
       while (currentDate <= end) {
-        dates.push(new Date(currentDate));
+        // YYYY-MM-DD 형식의 문자열로 저장 (DateRangeCalendar가 문자열 배열을 기대함)
+        dates.push(currentDate.toISOString().split('T')[0]);
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
@@ -746,75 +747,45 @@ const ChatRoomPage = () => {
         return;
       }
 
-      console.log('[ChatRoomPage] BORROW 상품 감지 - 대여 요청 메시지 자동 전송 (빌려줄 사람):', borrowInfo);
+      console.log('[ChatRoomPage] BORROW 상품 감지 - 간단한 제안 메시지 전송 (빌려줄 사람):', borrowInfo);
 
-      // borrowInfo에서 날짜 정보 추출
-      const startDate = borrowInfo.desiredStartDate ? new Date(borrowInfo.desiredStartDate) : null;
-      const endDate = borrowInfo.desiredEndDate ? new Date(borrowInfo.desiredEndDate) : null;
+      // 간단한 제안 메시지 전송 (날짜 선택 없이)
+      const sendBorrowRequest = async () => {
+        try {
+          const productTitle = productData?.title || productData?.name || '상품';
+          const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.`;
 
-      if (startDate && endDate) {
-        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+          console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
+            type: 'TEXT',
+            content: messageContent
+          });
 
-        // 대여 요청 메시지 전송
-        const sendBorrowRequest = async () => {
-          try {
-            // 대여 요청 정보 객체 생성 (RentalRequestMessageCard와 동일한 형식)
-            const rentalInfo = {
-              type: 'RENTAL_REQUEST',
-              productId: Number(productData.id || productData.productId),
-              productTitle: productData.title || productData.name || '상품',
-              productImageUrl: productData.imageUrl || productData.images?.[0] || productData.mainImageUrl || null,
-              startDate: startDate.toISOString(),
-              endDate: endDate.toISOString(),
-              dateRange: `${startDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })} ~ ${endDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`,
-              days: days,
-              rentMethod: borrowInfo.rentMethod || 'BOTH',
-              dailyPrice: borrowInfo.desiredRentalFee || 0,
-              deposit: borrowInfo.desiredDeposit || 0,
-              totalPrice: (borrowInfo.desiredRentalFee || 0) * days + (borrowInfo.desiredDeposit || 0),
-              requesterId: user?.id || user?.memberId || user?.member_id,
-              requesterName: user?.nickname || user?.name || '사용자',
-              requesterProfileUrl: user?.profileImage || user?.profileImageUrl || null,
-              status: 'pending'
-            };
+          // 간단한 텍스트 메시지만 전송
+          await sendMessage({
+            type: 'TEXT',
+            content: messageContent
+          });
 
-            const rentalRequestContent = JSON.stringify(rentalInfo);
+          console.log('[ChatRoomPage] BORROW 제안 메시지 전송 완료');
 
-            console.log('[ChatRoomPage] BORROW 대여 요청 메시지 전송:', {
-              type: 'TEXT',
-              content: rentalRequestContent,
-              rentalInfo
-            });
+          // location.state 초기화 (중복 전송 방지)
+          navigate(location.pathname, {
+            replace: true,
+            state: {
+              ...location.state,
+              isBorrowRequest: false,
+              borrowInfo: null
+            }
+          });
+        } catch (error) {
+          console.error('[ChatRoomPage] BORROW 제안 메시지 전송 실패:', error);
+        }
+      };
 
-            // 대여 요청 메시지를 WebSocket을 통해 전송
-            await sendMessage({
-              type: 'TEXT',
-              content: rentalRequestContent,
-              productId: Number(productData.id || productData.productId),
-              rentalInfo: rentalInfo
-            });
-
-            console.log('[ChatRoomPage] BORROW 대여 요청 메시지 전송 완료');
-
-            // location.state 초기화 (중복 전송 방지)
-            navigate(location.pathname, {
-              replace: true,
-              state: {
-                ...location.state,
-                isBorrowRequest: false,
-                borrowInfo: null
-              }
-            });
-          } catch (error) {
-            console.error('[ChatRoomPage] BORROW 대여 요청 메시지 전송 실패:', error);
-          }
-        };
-
-        // WebSocket 연결 후 약간의 지연을 두어 전송
-        setTimeout(() => {
-          sendBorrowRequest();
-        }, 1000);
-      }
+      // WebSocket 연결 후 약간의 지연을 두어 전송
+      setTimeout(() => {
+        sendBorrowRequest();
+      }, 1000);
     }
   }, [location.state, isConnected, currentChatRoom, productData, user, sendMessage, navigate, location.pathname]);
 
@@ -2325,6 +2296,75 @@ const ChatRoomPage = () => {
             // 메시지 내용에 따라 액션 버튼 생성 (MessageBubble에서 사용)
             const getActionButtons = () => {
               const content = message.content || '';
+
+              // BORROW 상품 '채팅으로 제안하기' 메시지 - 거래 생성하기 버튼 표시
+              if (content.includes('💡') && content.includes('빌려드릴 수 있습니다') && content.includes('거래를 원하시면')) {
+                // BORROW 상품 주인(빌리고 싶은 사람) 확인
+                const sellerId = productData?.sellerId
+                  || productData?.writer?.memberId
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+                // 상품 주인(빌리고 싶은 사람)에게만 버튼 표시
+                if (isProductOwner) {
+                  return [{
+                    text: '✅ 거래 생성하기',
+                    style: 'primary',
+                    onClick: async () => {
+                      // 상품 ID 추출
+                      const productIdToUse = productId || productData?.productId || productData?.product_id;
+                      if (!productIdToUse) {
+                        alert('상품 정보를 찾을 수 없습니다.');
+                        return;
+                      }
+
+                      // BORROW 상품의 희망 날짜 추출
+                      const startDate = productData?.startRent ? new Date(productData.startRent) : null;
+                      const endDate = productData?.endRent ? new Date(productData.endRent) : null;
+
+                      if (!startDate || !endDate) {
+                        alert('희망 대여 기간이 설정되어 있지 않습니다.\n날짜를 직접 선택해주세요.');
+                      }
+
+                      // 거래 방법 (기본값: BOTH)
+                      const rentMethod = productData?.rentMethod || 'BOTH';
+
+                      // 기간 계산
+                      const days = startDate && endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1 : 0;
+
+                      console.log('[ChatRoomPage] BORROW 거래 생성하기 버튼 클릭:', {
+                        productId: productIdToUse,
+                        startDate,
+                        endDate,
+                        rentMethod,
+                        days
+                      });
+
+                      // 상품 정보에서 기본 금액 가져오기
+                      const defaultRentalFee = productData?.price || productData?.rentalFee || productData?.dailyPrice || 0;
+                      const defaultDeposit = productData?.deposit || 0;
+
+                      setRequestedDateRange({
+                        start: startDate,
+                        end: endDate,
+                        rentMethod,
+                        rentalFee: defaultRentalFee,
+                        deposit: defaultDeposit
+                      });
+
+                      setCurrentRentalData(null);
+                      setTimeout(() => {
+                        setShowTransactionModal(true);
+                      }, 50);
+                    }
+                  }];
+                }
+
+                return null;
+              }
 
               // 대여 요청 메시지 - 두 가지 버튼 추가
               if (content.includes('📦 대여를 요청했습니다') || content.includes('📦 대여 요청')) {
