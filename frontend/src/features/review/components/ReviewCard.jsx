@@ -42,8 +42,8 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage
-          src={review.profileImageUrl}
-          alt={review.reviewerName || '익명'}
+          src={review.profileImage}
+          alt={review.nickname || '익명'}
           size={40}
           className="w-8 h-8 md:w-10 md:h-10"
         />
