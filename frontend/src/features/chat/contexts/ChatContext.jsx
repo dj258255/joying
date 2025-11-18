@@ -1060,13 +1060,23 @@ export const ChatProvider = ({ children }) => {
               return;
             }
           }
-          
+
             // 새 메시지 추가
             dispatch({ type: 'ADD_MESSAGE', payload: normalized });
             // 채팅 목록 업데이트
             // 채팅방 안에 있으면 자동 읽음 처리, 밖에 있으면 안읽음으로 표시
             const isInThisChatRoom = activeRoomIdRef.current === roomId;
             updateChatRoomList(normalized, isInThisChatRoom);
+
+            // 채팅방 안에 있고 상대방이 보낸 메시지면 즉시 읽음 처리
+            if (isInThisChatRoom && !isOwnMessage) {
+              try {
+                websocketApi.sendReadReceipt(roomId);
+                console.log('[ChatContext] 새 메시지 수신 후 자동 읽음 처리 전송:', roomId);
+              } catch (error) {
+                console.warn('[ChatContext] 자동 읽음 처리 전송 실패:', error);
+              }
+            }
         }
       },
       onError: (errorLike) => {
