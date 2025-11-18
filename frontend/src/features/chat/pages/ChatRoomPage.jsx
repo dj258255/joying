@@ -699,7 +699,7 @@ const ChatRoomPage = () => {
     const borrowInfo = location.state?.borrowInfo;
 
     if (isBorrowRequest && borrowInfo && isConnected && currentChatRoom && productData && user) {
-      // BORROW 상품의 경우: 상품 주인(빌리려는 사람)만 메시지를 전송
+      // BORROW 상품의 경우: 빌려줄 사람(채팅으로 제안하기 클릭한 사람)이 메시지를 전송
       const sellerId = productData?.sellerId
         || productData?.writer?.memberId
         || productData?.writer?.member_id
@@ -709,9 +709,9 @@ const ChatRoomPage = () => {
       const currentUserId = user?.id || user?.memberId;
       const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
 
-      if (!isProductOwner) {
-        // 상품 주인이 아닌 사람(빌려줄 사람)은 메시지를 전송하지 않음
-        console.log('[ChatRoomPage] BORROW 상품 - 빌려줄 사람은 메시지를 전송하지 않음');
+      if (isProductOwner) {
+        // 상품 주인(빌리려는 사람)은 메시지를 전송하지 않음 (수동적)
+        console.log('[ChatRoomPage] BORROW 상품 - 빌리려는 사람(상품 주인)은 메시지를 전송하지 않음');
 
         // location.state 초기화만 수행
         navigate(location.pathname, {
@@ -725,7 +725,7 @@ const ChatRoomPage = () => {
         return;
       }
 
-      console.log('[ChatRoomPage] BORROW 상품 감지 - 대여 요청 메시지 자동 전송 (빌리려는 사람):', borrowInfo);
+      console.log('[ChatRoomPage] BORROW 상품 감지 - 대여 요청 메시지 자동 전송 (빌려줄 사람):', borrowInfo);
 
       // borrowInfo에서 날짜 정보 추출
       const startDate = borrowInfo.desiredStartDate ? new Date(borrowInfo.desiredStartDate) : null;
