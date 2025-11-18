@@ -31,13 +31,13 @@ const CourierSelect = ({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           택배사 선택 *
         </label>
         <select
           value={courier}
           onChange={(e) => onCourierChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
         >
           <option value="">택배사를 선택하세요</option>
           {courierOptions.map((c) => (
@@ -49,7 +49,7 @@ const CourierSelect = ({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           운송장 번호 *
         </label>
         <input
@@ -57,9 +57,9 @@ const CourierSelect = ({
           value={trackingNumber}
           onChange={(e) => onTrackingNumberChange(e.target.value.replace(/\D/g, ''))}
           placeholder="숫자만 입력하세요"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white placeholder-gray-500"
         />
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-600 mt-1">
           {type === 'outbound' ? '발송' : '반납'} 송장번호를 정확히 입력해주세요
         </p>
       </div>

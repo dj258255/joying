@@ -264,24 +264,24 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="반납 수령 확인" className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="반납 수령 확인" className="max-w-2xl" hideCloseButton={true}>
       <div className="space-y-6">
         {error && <ErrorAlert message={error} />}
 
         {/* Step 1: 영상 녹화 */}
         {currentStep === 'video' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
+          <div className="space-y-6">
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-2">
                 📹 반납품 수령 영상을 촬영해주세요
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="text-sm text-gray-700 leading-relaxed">
                 물품의 상태를 확인하고 촬영하면 분쟁 시 증거로 사용됩니다
               </p>
             </div>
 
             {/* 비디오 프리뷰 */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-contain"
@@ -316,7 +316,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
               {!isRecording && !recordedVideoUrl && (
                 <button
                   onClick={startRecording}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                  className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
                 >
                   📹 촬영 시작
                 </button>
@@ -325,7 +325,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
               {isRecording && (
                 <button
                   onClick={stopRecording}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                  className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base"
                 >
                   ⏹ 촬영 중지
                 </button>
@@ -335,14 +335,14 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
                 <>
                   <button
                     onClick={retakeVideo}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                    className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
                   >
                     다시 촬영
                   </button>
                   <button
                     onClick={handleVideoConfirm}
                     disabled={isLoading}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? '업로드 중...' : '다음 단계'}
                   </button>
@@ -354,44 +354,59 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
 
         {/* Step 2: 보증금 확인 */}
         {currentStep === 'confirm' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
+          <div className="space-y-6">
+            <div className="p-6 bg-green-500/20 backdrop-blur-xl border border-green-400/50 rounded-3xl shadow-lg">
+              <p className="text-base text-green-900 font-bold mb-2">
                 ✅ 영상 업로드 완료!
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-sm text-gray-700 leading-relaxed">
                 반납품을 확인하고 정산을 진행해주세요
               </p>
             </div>
 
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-2">💡 확인 사항</p>
-              <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                <li>물품이 대여 시와 동일한 상태인지 확인</li>
-                <li>손상되거나 파손된 부분이 있는지 확인</li>
-                <li>모든 구성품이 반납되었는지 확인</li>
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-3">💡 확인 사항</p>
+              <ul className="text-sm text-gray-700 space-y-2 leading-relaxed">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>물품이 대여 시와 동일한 상태인지 확인</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>손상되거나 파손된 부분이 있는지 확인</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>모든 구성품이 반납되었는지 확인</span>
+                </li>
               </ul>
             </div>
 
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 font-medium mb-2">⚠️ 선택 사항</p>
-              <ul className="text-xs text-yellow-700 space-y-1">
-                <li>• <strong>확인하기</strong>: 보증금을 그대로 반환하고 거래 완료</li>
-                <li>• <strong>거래 중단하기</strong>: 물품 손상 등으로 보증금 조정이 필요한 경우</li>
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-3">⚠️ 선택 사항</p>
+              <ul className="text-sm text-gray-700 space-y-2 leading-relaxed">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span><strong className="text-gray-900">확인하기</strong>: 보증금을 그대로 반환하고 거래 완료</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span><strong className="text-gray-900">거래 중단하기</strong>: 물품 손상 등으로 보증금 조정이 필요한 경우</span>
+                </li>
               </ul>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={handleCancelRequest}
-                className="flex-1 px-4 py-3 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50"
+                className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base"
               >
                 거래 중단하기
               </button>
               <button
                 onClick={handleConfirmReturn}
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                className="flex-1 px-6 py-3 bg-green-600/90 backdrop-blur-sm border border-green-600/50 text-white rounded-2xl font-semibold text-base hover:bg-green-700/95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? '처리 중...' : '확인하기'}
               </button>
@@ -401,18 +416,18 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
 
         {/* Step 3: 완료 */}
         {currentStep === 'complete' && (
-          <div className="space-y-4">
-            <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
-              <div className="text-4xl mb-3">✅</div>
-              <p className="text-green-800 font-bold text-lg">거래가 완료되었습니다!</p>
-              <p className="text-green-600 text-sm mt-2">
+          <div className="space-y-6">
+            <div className="p-8 bg-green-500/20 backdrop-blur-xl border border-green-400/50 rounded-3xl text-center shadow-lg">
+              <div className="text-5xl mb-4">✅</div>
+              <p className="text-gray-900 font-bold text-xl mb-2">거래가 완료되었습니다!</p>
+              <p className="text-gray-700 text-base leading-relaxed">
                 정산이 완료되었습니다
               </p>
             </div>
 
             <button
               onClick={handleClose}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
             >
               확인
             </button>

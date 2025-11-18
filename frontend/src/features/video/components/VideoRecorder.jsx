@@ -118,7 +118,6 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
   // 녹화 시작
   const handleStartRecording = () => {
     console.log('[VideoRecorder] 녹화 시작 버튼 클릭 - stream:', stream);
-    alert('녹화 시작!');
     if (stream) {
       startRecording(stream);
     } else {
@@ -131,7 +130,6 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
     console.log('[VideoRecorder] 녹화 중지 버튼 클릭');
     console.log('recordedBlob 상태:', recordedBlob);
     console.log('isRecording 상태:', isRecording);
-    alert(`녹화 중지! recordedBlob: ${!!recordedBlob}, isRecording: ${isRecording}`);
     stopRecording();
   };
 
@@ -170,14 +168,14 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <div className="text-red-600 mb-4">
-          <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-red-500/20 backdrop-blur-xl border border-red-400/50 rounded-3xl p-8 text-center shadow-lg">
+        <div className="text-red-900 mb-4">
+          <svg className="w-16 h-16 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
         </div>
-        <p className="text-red-700 font-medium">{error}</p>
-        <p className="text-red-600 text-sm mt-2">
+        <p className="text-red-900 font-bold text-lg mb-2">{error}</p>
+        <p className="text-gray-700 text-base leading-relaxed">
           브라우저 설정에서 카메라 권한을 허용해주세요
         </p>
       </div>
@@ -185,54 +183,46 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* 헤더 */}
-      <div className="bg-primary-500 text-white p-4">
-        <h3 className="text-lg font-semibold">{purposeText[purpose]}</h3>
-        <p className="text-primary-100 text-sm mt-1">
-          ⚠️ 물건의 모든 면을 천천히 촬영해주세요
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {/* 비디오 영역 */}
-      <div className="relative bg-black">
+      <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
         <video
           ref={videoRef}
           autoPlay={!recordedBlob}
           muted={!recordedBlob}
           controls={!!recordedBlob}
           playsInline
-          className="w-full h-64 object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
         />
         
         {/* 녹화 중 오버레이 */}
         {isRecording && (
-          <div className="absolute top-4 left-4 flex items-center bg-red-500 text-white px-3 py-1 rounded-full">
-            <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
-            <span className="text-sm font-medium">REC {formatTime(recordingTime)}</span>
+          <div className="absolute top-4 left-4 flex items-center bg-red-600/90 backdrop-blur-sm border border-red-500/50 text-white px-4 py-2 rounded-full shadow-lg">
+            <div className="w-3 h-3 bg-white rounded-full mr-2 animate-pulse"></div>
+            <span className="text-base font-semibold">REC {formatTime(recordingTime)}</span>
           </div>
         )}
 
         {/* 가이드 텍스트 */}
         {!isRecording && !recordedBlob && (
-          <div className="absolute bottom-4 left-4 right-4 bg-black bg-opacity-50 text-white p-3 rounded-lg">
-            <p className="text-sm">
-              📦 택배 박스 외부 → 개봉 과정 → 물건 전체 → 손상 부위 (있다면)
+          <div className="absolute bottom-4 left-4 right-4 bg-black/70 backdrop-blur-md text-white p-4 rounded-2xl border border-white/20">
+            <p className="text-sm font-medium leading-relaxed">
+              물건의 모든 면을 천천히 촬영해주세요
             </p>
           </div>
         )}
       </div>
 
       {/* 컨트롤 버튼 */}
-      <div className="p-4">
+      <div>
         {!recordedBlob ? (
           <div className="flex justify-center">
             {!isRecording ? (
               <button
                 onClick={handleStartRecording}
-                className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-semibold transition-colors flex items-center"
+                className="px-8 py-4 glass-button text-white rounded-2xl font-semibold text-base transition-all flex items-center gap-2"
               >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                   <circle cx="10" cy="10" r="8" />
                 </svg>
                 녹화 시작
@@ -240,9 +230,9 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
             ) : (
               <button
                 onClick={handleStopRecording}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-8 py-3 rounded-full font-semibold transition-colors flex items-center"
+                className="px-8 py-4 glass-button-danger text-white rounded-2xl font-semibold text-base transition-all flex items-center gap-2"
               >
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                   <rect x="6" y="6" width="8" height="8" />
                 </svg>
                 녹화 완료
@@ -250,27 +240,28 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
             )}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* 녹화 완료 메시지 */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-green-700 font-medium text-center">
-                ✅ 영상이 녹화되었습니다 ({formatTime(recordingTime)})
+            <div className="bg-green-500/20 backdrop-blur-xl border border-green-400/50 rounded-3xl p-6 shadow-lg text-center">
+              <p className="text-green-900 font-bold text-lg mb-1">
+                영상이 녹화되었습니다
               </p>
+              <p className="text-gray-700 text-base">촬영 시간: {formatTime(recordingTime)}</p>
             </div>
 
             {/* 버튼 그룹 */}
             <div className="flex gap-3">
               <button
                 onClick={handleRetake}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base transition-colors"
               >
-                재촬영
+                다시 촬영
               </button>
               <button
                 onClick={handleUpload}
-                className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base transition-colors"
               >
-                업로드
+                업로드하기
               </button>
             </div>
           </div>
@@ -278,13 +269,25 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
       </div>
 
       {/* 주의사항 */}
-      <div className="bg-yellow-50 border-t border-yellow-200 p-4">
-        <h4 className="font-medium text-yellow-800 mb-2">📋 촬영 가이드</h4>
-        <ul className="text-sm text-yellow-700 space-y-1">
-          <li>• 최소 30초 이상 촬영해주세요</li>
-          <li>• 물건의 앞, 뒤, 옆면을 모두 촬영해주세요</li>
-          <li>• 손상이나 결함이 있다면 클로즈업으로 촬영해주세요</li>
-          <li>• 부속품이 있다면 함께 촬영해주세요</li>
+      <div className="bg-yellow-500/20 backdrop-blur-xl border border-yellow-400/50 rounded-3xl p-6 shadow-lg">
+        <h4 className="font-bold text-gray-900 mb-3 text-lg">촬영 가이드</h4>
+        <ul className="text-sm text-gray-700 space-y-2 leading-relaxed">
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>최소 30초 이상 촬영해주세요</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>물건의 앞, 뒤, 옆면을 모두 촬영해주세요</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>손상이나 결함이 있다면 클로즈업으로 촬영해주세요</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-2">•</span>
+            <span>부속품이 있다면 함께 촬영해주세요</span>
+          </li>
         </ul>
       </div>
     </div>

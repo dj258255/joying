@@ -14,6 +14,7 @@ const TransactionActionButton = ({
   onCreateTransaction,
   onRentalRequest,
   onTransactionProcess,
+  onTransactionView,
   onShipping
 }) => {
   // productId가 없으면 버튼 표시 안함
@@ -34,12 +35,25 @@ const TransactionActionButton = ({
 
   return (
     <div className="flex gap-2">
-      <button
-        onClick={onTransactionProcess}
-        className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
-      >
-        거래 보기
-      </button>
+      {/* 거래 보기 버튼 - 전체 플로우 모달 */}
+      {currentRentalData?.rentalHisId && onTransactionView && (
+        <button
+          onClick={onTransactionView}
+          className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
+        >
+          거래 보기
+        </button>
+      )}
+
+      {/* 거래 처리 버튼 - 거래는 있지만 거래 보기 버튼이 표시되지 않을 때 */}
+      {currentRentalData?.rentalHisId && !onTransactionView && onTransactionProcess && (
+        <button
+          onClick={onTransactionProcess}
+          className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
+        >
+          거래 보기
+        </button>
+      )}
 
       {showShippingButton && (
         <button

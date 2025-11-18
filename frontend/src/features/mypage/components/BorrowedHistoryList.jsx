@@ -225,7 +225,7 @@ const BorrowedHistoryList = ({
                      productId={rental.product.productId}
                      status={
                        rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED' ? 'completed' :
-                       rental.status === 'RENTING' ? 'rented' :
+                            rental.status === 'RENTING' ? 'rented' : 
                        rental.status === 'CANCELLED' ? 'unavailable' :
                        rental.status === 'PENDING' || rental.status === 'ESCROW' ? 'pending' :
                        'available'
