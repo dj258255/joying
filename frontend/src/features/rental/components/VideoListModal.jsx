@@ -191,7 +191,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
         {!isLoading && videos.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 overflow-hidden">
             {/* 왼쪽: 영상 목록 (1 column) */}
-            <div className="space-y-3 max-h-[500px] lg:max-h-[75vh] overflow-y-auto scrollbar-hide">
+            <div className="space-y-3 overflow-y-auto scrollbar-hide flex flex-col h-full">
               {videos.map((video, index) => {
                 const videoType = video.videoType || video.type;
                 const info = VIDEO_TYPE_INFO[videoType] || {
@@ -239,11 +239,11 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
             </div>
 
             {/* 오른쪽: 선택된 영상 재생 (3 columns) */}
-            <div className="col-span-1 lg:col-span-3">
+            <div className="col-span-1 lg:col-span-3 flex flex-col h-full">
               {selectedVideo ? (
-                <div className="space-y-4">
+                <div className="flex flex-col h-full space-y-4">
                   {/* 영상 정보 */}
-                  <div className="p-4 lg:p-3 bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg">
+                  <div className="p-4 lg:p-3 bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg flex-shrink-0">
                     <div className="flex items-start gap-3 mb-4">
                       <div className="flex-shrink-0 text-gray-900 w-8 h-8 lg:w-6 lg:h-6 flex items-center justify-center">
                         {VIDEO_TYPE_INFO[selectedVideo.videoType || selectedVideo.type]?.icon || <VideoIcon />}
@@ -267,12 +267,12 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                     </div>
                   </div>
 
-                  {/* 영상 플레이어 */}
-                  <div className="bg-black rounded-2xl lg:rounded-xl overflow-hidden shadow-2xl">
-                    <div className="relative w-full max-w-md mx-auto" style={{ paddingBottom: '40%' }}>
+                  {/* 영상 플레이어 - 검정 영역 제거, 크기 확대 */}
+                  <div className="flex-1 min-h-0 flex items-center justify-center">
+                    <div className="relative w-full h-full">
                       <video
                         key={selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url}
-                        className="absolute inset-0 w-full h-full object-contain"
+                        className="w-full h-full object-contain rounded-2xl lg:rounded-xl"
                         src={selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url}
                         controls
                         playsInline
@@ -282,7 +282,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   </div>
 
                   {/* 영상 다운로드 버튼 */}
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 flex-shrink-0">
                     {(() => {
                       // URL이 상대 경로인 경우 절대 경로로 변환
                       const videoUrl = selectedVideo.fileUrl || selectedVideo.videoUrl || selectedVideo.url;
@@ -323,7 +323,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full min-h-[500px] bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg">
+                <div className="flex items-center justify-center h-full bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl lg:rounded-xl shadow-lg">
                   <div className="text-center">
                     <div className="w-20 h-20 lg:w-16 lg:h-16 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full flex items-center justify-center mx-auto mb-4">
                       <svg className="w-10 h-10 lg:w-8 lg:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,16 +338,6 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
             </div>
           </div>
         )}
-
-        {/* 닫기 버튼 */}
-        <div className="flex justify-end pt-4 border-t border-white/30 flex-shrink-0">
-          <button
-            onClick={handleClose}
-            className="px-6 py-3 lg:px-4 lg:py-2 glass-button text-white rounded-xl lg:rounded-lg font-bold text-sm lg:text-xs hover:bg-gray-900/90 transition-colors shadow-lg"
-          >
-            닫기
-          </button>
-        </div>
       </div>
     </Modal>
   );

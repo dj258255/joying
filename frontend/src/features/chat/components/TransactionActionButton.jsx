@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { getTransactionButtonStyle } from '../../../shared/utils/transactionUtils';
+import { checkStepCompleted, TRANSACTION_STEPS } from '../../../shared/utils/transactionStepUtils';
 
 const TransactionActionButton = ({
   productId,
@@ -17,6 +18,11 @@ const TransactionActionButton = ({
   onTransactionView,
   onShipping
 }) => {
+  const [buttonStates, setButtonStates] = React.useState({
+    create: { enabled: true },
+    shipping: { enabled: false }
+  });
+
   // productId가 없으면 버튼 표시 안함
   if (!productId) return null;
 
@@ -24,6 +30,44 @@ const TransactionActionButton = ({
   const isSeller = productData?.sellerId === user?.id ||
                    productData?.writer?.memberId === user?.id ||
                    productData?.seller?.id === user?.id;
+
+  // 버튼 활성화 여부 확인
+  React.useEffect(() => {
+    const checkButtons = async () => {
+      if (!currentRentalData) {
+        setButtonStates({
+          create: { enabled: true },
+          shipping: { enabled: false }
+        });
+        return;
+      }
+
+      const rentalHisId = currentRentalData.rentalHisId;
+
+      // 거래 생성 버튼: 거래가 없을 때만 활성화
+      const createEnabled = !rentalHisId;
+
+      // 발송 버튼: 판매자이고 결제 완료 후, 발송 전에만 활성화
+      const isPaymentCompleted = await checkStepCompleted(
+        TRANSACTION_STEPS.PAYMENT,
+        currentRentalData,
+        rentalHisId
+      );
+      const isShippingCompleted = await checkStepCompleted(
+        TRANSACTION_STEPS.SHIPPING_TRACKING,
+        currentRentalData,
+        rentalHisId
+      );
+      const shippingEnabled = isSeller && isPaymentCompleted && !isShippingCompleted && onShipping;
+
+      setButtonStates({
+        create: { enabled: createEnabled },
+        shipping: { enabled: shippingEnabled }
+      });
+    };
+
+    checkButtons();
+  }, [currentRentalData, isSeller, onShipping]);
 
   // 결제 완료 상태인지 확인 (ESCROW 또는 PAYMENT_COMPLETED)
   const isPaymentCompleted = currentRentalData?.status === 'ESCROW' ||
@@ -58,7 +102,13 @@ const TransactionActionButton = ({
       {showShippingButton && (
         <button
           onClick={onShipping}
-          className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
+          disabled={!buttonStates.shipping.enabled}
+          title={!buttonStates.shipping.enabled ? '이미 발송이 완료되었습니다' : ''}
+          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm ${
+            buttonStates.shipping.enabled
+              ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+          }`}
         >
           📦 물품 보내기
         </button>
