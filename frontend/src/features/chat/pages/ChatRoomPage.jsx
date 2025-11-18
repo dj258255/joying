@@ -354,7 +354,7 @@ const ChatRoomPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, jumpToMessage, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus, isChatRoomDisabled } = useChatContext();
+  const { currentChatRoom, messages, sendMessage, sendTyping, sendReadReceipt, enterChatRoom, leaveChatRoom, refreshChatRoomActivity, isConnected, setCurrentChatRoom, isLoading, error, loadOlderMessages, hasMorePast, searchMessages, jumpToMessage, deleteMessage, updateMessage, uploadFile, addMessage, setMessages, typingMemberId, updateOpponentOnlineStatus, isChatRoomDisabled } = useChatContext();
   const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -693,13 +693,13 @@ const ChatRoomPage = () => {
     }
   }, [location.state, isConnected, currentChatRoom, sendMessage, navigate, location.pathname]);
 
-  // BORROW 상품에서 채팅방 진입 시 거래 모달 자동 열기
+  // BORROW 상품에서 채팅방 진입 시 대여 요청 메시지 자동 전송
   useEffect(() => {
     const isBorrowRequest = location.state?.isBorrowRequest;
     const borrowInfo = location.state?.borrowInfo;
 
     if (isBorrowRequest && borrowInfo && isConnected && currentChatRoom && productData && user) {
-      // BORROW 상품의 경우: 상품 주인이 아닌 사람(빌려줄 사람)만 거래 모달을 볼 수 있음
+      // BORROW 상품의 경우: 상품 주인(빌리려는 사람)만 메시지를 전송
       const sellerId = productData?.sellerId
         || productData?.writer?.memberId
         || productData?.writer?.member_id
@@ -709,9 +709,9 @@ const ChatRoomPage = () => {
       const currentUserId = user?.id || user?.memberId;
       const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
 
-      if (isProductOwner) {
-        // 상품 주인(빌리고 싶은 사람)은 모달을 보지 않음
-        console.log('[ChatRoomPage] BORROW 상품 주인은 거래 모달을 보지 않음');
+      if (!isProductOwner) {
+        // 상품 주인이 아닌 사람(빌려줄 사람)은 메시지를 전송하지 않음
+        console.log('[ChatRoomPage] BORROW 상품 - 빌려줄 사람은 메시지를 전송하지 않음');
 
         // location.state 초기화만 수행
         navigate(location.pathname, {
@@ -725,7 +725,7 @@ const ChatRoomPage = () => {
         return;
       }
 
-      console.log('[ChatRoomPage] BORROW 상품 감지 - 거래 모달 자동 열기 (빌려줄 사람):', borrowInfo);
+      console.log('[ChatRoomPage] BORROW 상품 감지 - 대여 요청 메시지 자동 전송 (빌리려는 사람):', borrowInfo);
 
       // borrowInfo에서 날짜 정보 추출
       const startDate = borrowInfo.desiredStartDate ? new Date(borrowInfo.desiredStartDate) : null;
@@ -734,33 +734,68 @@ const ChatRoomPage = () => {
       if (startDate && endDate) {
         const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
-        // requestedDateRange 설정 (TransactionProcessModal이 새 거래 생성 모드로 작동)
-        setRequestedDateRange({
-          start: startDate,
-          end: endDate,
-          days: days,
-          rentMethod: borrowInfo.rentMethod || 'BOTH',
-          defaultRentalFee: borrowInfo.desiredRentalFee || 0,
-          defaultDeposit: borrowInfo.desiredDeposit || 0
-        });
+        // 대여 요청 메시지 전송
+        const sendBorrowRequest = async () => {
+          try {
+            // 대여 요청 정보 객체 생성 (RentalRequestMessageCard와 동일한 형식)
+            const rentalInfo = {
+              type: 'RENTAL_REQUEST',
+              productId: Number(productData.id || productData.productId),
+              productTitle: productData.title || productData.name || '상품',
+              productImageUrl: productData.imageUrl || productData.images?.[0] || productData.mainImageUrl || null,
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
+              dateRange: `${startDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })} ~ ${endDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+              days: days,
+              rentMethod: borrowInfo.rentMethod || 'BOTH',
+              dailyPrice: borrowInfo.desiredRentalFee || 0,
+              deposit: borrowInfo.desiredDeposit || 0,
+              totalPrice: (borrowInfo.desiredRentalFee || 0) * days + (borrowInfo.desiredDeposit || 0),
+              requesterId: user?.id || user?.memberId || user?.member_id,
+              requesterName: user?.nickname || user?.name || '사용자',
+              requesterProfileUrl: user?.profileImage || user?.profileImageUrl || null,
+              status: 'pending'
+            };
 
-        // 거래 모달 열기
-        setTimeout(() => {
-          setShowTransactionModal(true);
-        }, 300); // 채팅방 로드 후 약간의 딜레이
+            const rentalRequestContent = JSON.stringify(rentalInfo);
 
-        // location.state 초기화 (중복 모달 방지)
-        navigate(location.pathname, {
-          replace: true,
-          state: {
-            ...location.state,
-            isBorrowRequest: false,
-            borrowInfo: null
+            console.log('[ChatRoomPage] BORROW 대여 요청 메시지 전송:', {
+              type: 'TEXT',
+              content: rentalRequestContent,
+              rentalInfo
+            });
+
+            // 대여 요청 메시지를 WebSocket을 통해 전송
+            await sendMessage({
+              type: 'TEXT',
+              content: rentalRequestContent,
+              productId: Number(productData.id || productData.productId),
+              rentalInfo: rentalInfo
+            });
+
+            console.log('[ChatRoomPage] BORROW 대여 요청 메시지 전송 완료');
+
+            // location.state 초기화 (중복 전송 방지)
+            navigate(location.pathname, {
+              replace: true,
+              state: {
+                ...location.state,
+                isBorrowRequest: false,
+                borrowInfo: null
+              }
+            });
+          } catch (error) {
+            console.error('[ChatRoomPage] BORROW 대여 요청 메시지 전송 실패:', error);
           }
-        });
+        };
+
+        // WebSocket 연결 후 약간의 지연을 두어 전송
+        setTimeout(() => {
+          sendBorrowRequest();
+        }, 1000);
       }
     }
-  }, [location.state, isConnected, currentChatRoom, productData, user, navigate, location.pathname]);
+  }, [location.state, isConnected, currentChatRoom, productData, user, sendMessage, navigate, location.pathname]);
 
   // 대여 요청 메시지 찾기
   useEffect(() => {
@@ -856,6 +891,35 @@ const ChatRoomPage = () => {
       sendReadReceipt();
     }
   }, [currentChatRoom?.chatRoomId, scrollToBottom, sendReadReceipt, isJumpingToMessage, pendingScrollMessageId, isScrollingToMessage]);
+
+  // 채팅방 입장/퇴장 알림
+  useEffect(() => {
+    const roomId = currentChatRoom?.chatRoomId || currentChatRoom?.id;
+    if (!roomId) return;
+
+    // 채팅방 입장 알림
+    enterChatRoom(roomId);
+
+    // 컴포넌트 언마운트 시 채팅방 퇴장 알림
+    return () => {
+      leaveChatRoom();
+    };
+  }, [currentChatRoom?.chatRoomId, currentChatRoom?.id, enterChatRoom, leaveChatRoom]);
+
+  // 채팅방 활성 상태 주기적 갱신 (30초마다)
+  useEffect(() => {
+    const roomId = currentChatRoom?.chatRoomId || currentChatRoom?.id;
+    if (!roomId) return;
+
+    // 주기적으로 채팅방 활성 상태 갱신 (30초마다)
+    const refreshInterval = setInterval(() => {
+      refreshChatRoomActivity(roomId);
+    }, 30000); // 30초
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [currentChatRoom?.chatRoomId, currentChatRoom?.id, refreshChatRoomActivity]);
 
   // 메시지 전송 시 자동 스크롤 (메시지 점프 중이 아니면)
   useEffect(() => {

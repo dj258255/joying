@@ -2266,10 +2266,39 @@ export const ChatProvider = ({ children }) => {
 
   // 온라인 상태 업데이트 함수
   const updateOpponentOnlineStatus = useCallback((isOnline, lastSeenAt) => {
-    dispatch({ 
-      type: 'UPDATE_OPPONENT_ONLINE_STATUS', 
-      payload: { isOnline, lastSeenAt } 
+    dispatch({
+      type: 'UPDATE_OPPONENT_ONLINE_STATUS',
+      payload: { isOnline, lastSeenAt }
     });
+  }, []);
+
+  // 채팅방 입장 알림
+  const enterChatRoom = useCallback((chatRoomId) => {
+    if (!chatRoomId) return;
+    try {
+      websocketApi.enterChatRoom(chatRoomId);
+    } catch (error) {
+      console.warn('[ChatContext] 채팅방 입장 알림 실패:', error);
+    }
+  }, []);
+
+  // 채팅방 퇴장 알림
+  const leaveChatRoom = useCallback(() => {
+    try {
+      websocketApi.leaveChatRoom();
+    } catch (error) {
+      console.warn('[ChatContext] 채팅방 퇴장 알림 실패:', error);
+    }
+  }, []);
+
+  // 채팅방 활성 상태 갱신
+  const refreshChatRoomActivity = useCallback((chatRoomId) => {
+    if (!chatRoomId) return;
+    try {
+      websocketApi.refreshChatRoomActivity(chatRoomId);
+    } catch (error) {
+      console.warn('[ChatContext] 채팅방 활성 상태 갱신 실패:', error);
+    }
   }, []);
 
   const value = {
@@ -2282,6 +2311,9 @@ export const ChatProvider = ({ children }) => {
     sendMessage,
     sendTyping,
     sendReadReceipt,
+    enterChatRoom,
+    leaveChatRoom,
+    refreshChatRoomActivity,
     deleteMessage,
     updateMessage,
     uploadFile,
@@ -2290,9 +2322,9 @@ export const ChatProvider = ({ children }) => {
     searchMessages,
     jumpToMessage,
     updateOpponentOnlineStatus,
-    addMessage: (message) => 
+    addMessage: (message) =>
       dispatch({ type: 'ADD_MESSAGE', payload: message }),
-    setMessages: (messages) => 
+    setMessages: (messages) =>
       dispatch({ type: 'SET_MESSAGES', payload: sortMessagesAscending(messages) }),
     setLoading: (loading) =>
       dispatch({ type: 'SET_LOADING', payload: loading })
