@@ -155,7 +155,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="max-w-[128rem]" hideCloseButton={true}>
+    <Modal isOpen={isOpen} onClose={handleClose} title="거래 영상 보기" className="!max-w-[256rem]" hideCloseButton={true}>
       <div className="space-y-4 lg:space-y-3">
         {/* 에러 메시지 */}
         {error && (
