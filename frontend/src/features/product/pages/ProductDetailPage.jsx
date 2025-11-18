@@ -221,12 +221,37 @@ const ProductDetailPage = () => {
       ? productResponse.files.map(f => f.url)
       : [];
 
-    // rentalRefuses를 disabledDates 형식으로 변환
-    const disabledDates = Array.isArray(productResponse.rentalRefuses)
+    // rentalRefuses를 unavailableDates 형식으로 변환 (불가 기간)
+    const unavailableDates = Array.isArray(productResponse.rentalRefuses)
       ? productResponse.rentalRefuses.flatMap(refuse => {
           // ISO 문자열을 YYYY-MM-DD 형식으로 직접 추출 (타임존 문제 방지)
           const startDateStr = refuse.startRef.split('T')[0];
           const endDateStr = refuse.endRef.split('T')[0];
+          
+          const start = new Date(startDateStr + 'T00:00:00');
+          const end = new Date(endDateStr + 'T00:00:00');
+          const dates = [];
+          const currentDate = new Date(start);
+          
+          while (currentDate <= end) {
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+          return dates;
+        })
+      : [];
+
+    // 다른 사람이 대여한 날짜 (bookedDates)
+    // TODO: 백엔드 API에서 다른 사람이 대여한 날짜 정보를 제공하면 연동
+    const bookedDates = Array.isArray(productResponse.bookedDates)
+      ? productResponse.bookedDates.flatMap(booking => {
+          const startDateStr = booking.startRen?.split('T')[0] || booking.startRen;
+          const endDateStr = booking.endRen?.split('T')[0] || booking.endRen;
+          
+          if (!startDateStr || !endDateStr) return [];
           
           const start = new Date(startDateStr + 'T00:00:00');
           const end = new Date(endDateStr + 'T00:00:00');
@@ -295,7 +320,9 @@ const ProductDetailPage = () => {
         : (productResponse?.isLiked !== undefined 
           ? productResponse.isLiked 
           : (productResponse?.isLike !== undefined ? productResponse.isLike : false)),
-      disabledDates: disabledDates,
+      unavailableDates: unavailableDates,
+      bookedDates: bookedDates,
+      disabledDates: [...unavailableDates, ...bookedDates], // 하위 호환성을 위해 유지
       category: productResponse?.category?.name || productResponse?.category || '',
       rating: Number(productResponse?.rating) || 0,
       totalReviewCount: Number(productResponse?.totalReviewCount || productResponse?.total_review_count) || 0,
@@ -705,7 +732,8 @@ const ProductDetailPage = () => {
                       <div className="flex-shrink-0">
                         <DateRangeCalendar
                           onDateRangeChange={handleDateRangeChange}
-                          disabledDates={product.disabledDates || []}
+                          disabledDates={product.unavailableDates || []}
+                          bookedDates={product.bookedDates || []}
                           availableStartDate={product.startRent}
                           availableEndDate={product.endRent}
                         />
@@ -774,70 +802,88 @@ const ProductDetailPage = () => {
                     </div>
                   </div>
                 ) : (
-                  // 빌려요 (BORROW): 새로운 UI - 희망 조건만 표시 + 채팅 버튼
+                  // 빌려요 (BORROW): 새로운 UI - 캘린더 + 희망 조건 표시 + 채팅 버튼
                   <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-base font-semibold text-gray-900 mb-4">희망 조건</h3>
+                    <h3 className="text-base font-semibold text-gray-900 mb-4">대여 기간 선택</h3>
 
-                    <div className="bg-gray-50 rounded-lg p-6 space-y-4 mb-6">
-                      {/* 필요한 기간 */}
-                      {(product.startRent || product.endRent) && (
-                        <div className="flex items-start gap-3">
-                          <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-gray-700 mb-1">필요한 기간</div>
-                            <div className="text-base text-gray-900">
-                              {product.startRent && (() => {
-                                const dateStr = product.startRent.split('T')[0];
-                                const [year, month, day] = dateStr.split('-');
-                                return `${year}년 ${month}월 ${day}일`;
-                              })()}
-                              {' ~ '}
-                              {product.endRent ? (() => {
-                                const dateStr = product.endRent.split('T')[0];
-                                const [year, month, day] = dateStr.split('-');
-                                return `${year}년 ${month}월 ${day}일`;
-                              })() : '협의'}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 희망 가격 */}
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-700 mb-1">희망 대여료</div>
-                          <div className="text-lg font-semibold text-gray-900">
-                            ~ {product.price.toLocaleString()}원<span className="text-base text-gray-600 font-normal">/일</span>
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            보증금: ~ {product.deposit.toLocaleString()}원
-                          </div>
-                        </div>
+                    <div className="flex gap-6 mb-6">
+                      {/* 왼쪽: 캘린더 (읽기 전용) */}
+                      <div className="flex-shrink-0">
+                        <DateRangeCalendar
+                          onDateRangeChange={() => {}} // 읽기 전용이므로 빈 함수
+                          disabledDates={[]} // 모든 날짜 표시
+                          availableStartDate={product.startRent}
+                          availableEndDate={product.endRent}
+                          initialStartDate={product.startRent}
+                          initialEndDate={product.endRent}
+                          readOnly={true}
+                        />
                       </div>
 
-                      {/* 희망 거래 방식 */}
-                      <div className="flex items-start gap-3">
-                        <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-700 mb-1">희망 거래 방식</div>
-                          <div className="text-base text-gray-900">
-                            {product.rentMethod === 'BOTH' && '택배거래 또는 직거래'}
-                            {product.rentMethod === 'ONLY_OFFLINE' && '직거래'}
-                            {product.rentMethod === 'ONLY_ONLINE' && '택배거래'}
+                      {/* 오른쪽: 희망 조건 */}
+                      <div className="flex-1">
+                        <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                          {/* 필요한 기간 */}
+                          {(product.startRent || product.endRent) && (
+                            <div className="flex items-start gap-3">
+                              <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-gray-700 mb-1">필요한 기간</div>
+                                <div className="text-base text-gray-900">
+                                  {product.startRent && (() => {
+                                    const dateStr = product.startRent.split('T')[0];
+                                    const [year, month, day] = dateStr.split('-');
+                                    return `${year}년 ${month}월 ${day}일`;
+                                  })()}
+                                  {' ~ '}
+                                  {product.endRent ? (() => {
+                                    const dateStr = product.endRent.split('T')[0];
+                                    const [year, month, day] = dateStr.split('-');
+                                    return `${year}년 ${month}월 ${day}일`;
+                                  })() : '협의'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 희망 가격 */}
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-700 mb-1">희망 대여료</div>
+                              <div className="text-lg font-semibold text-gray-900">
+                                ~ {product.price.toLocaleString()}원<span className="text-base text-gray-600 font-normal">/일</span>
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">
+                                보증금: ~ {product.deposit.toLocaleString()}원
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 희망 거래 방식 */}
+                          <div className="flex items-start gap-3">
+                            <svg className="w-5 h-5 text-gray-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-700 mb-1">희망 거래 방식</div>
+                              <div className="text-base text-gray-900">
+                                {product.rentMethod === 'BOTH' && '택배거래 또는 직거래'}
+                                {product.rentMethod === 'ONLY_OFFLINE' && '직거래'}
+                                {product.rentMethod === 'ONLY_ONLINE' && '택배거래'}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
                     {/* 버튼 */}
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 mt-6">
                       <button
                         disabled={isOwnProduct}
                         onClick={async () => {
@@ -1268,12 +1314,13 @@ const ProductDetailPage = () => {
 
                 {/* 캘린더 */}
                 <div className="mb-6">
-                  <DateRangeCalendar
-                    onDateRangeChange={handleDateRangeChange}
-                    disabledDates={product.disabledDates || []}
-                    availableStartDate={product.startRent}
-                    availableEndDate={product.endRent}
-                  />
+                    <DateRangeCalendar
+                      onDateRangeChange={handleDateRangeChange}
+                      disabledDates={product.unavailableDates || []}
+                      bookedDates={product.bookedDates || []}
+                      availableStartDate={product.startRent}
+                      availableEndDate={product.endRent}
+                    />
                 </div>
 
 
