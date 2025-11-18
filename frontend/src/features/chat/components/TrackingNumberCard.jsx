@@ -169,6 +169,9 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
         }
       }
 
+      // 운송장 번호 등록 상태 업데이트 (먼저 업데이트)
+      setIsTrackingRegistered(true);
+
       // 부모 컴포넌트에 완료 알림
       if (onShippingComplete) {
         onShippingComplete({
@@ -177,9 +180,6 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
           courier: courier
         });
       }
-
-      // 운송장 번호 등록 상태 업데이트
-      setIsTrackingRegistered(true);
 
       // 모달 닫기
       setShowTrackingModal(false);

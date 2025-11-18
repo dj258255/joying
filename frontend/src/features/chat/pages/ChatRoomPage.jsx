@@ -3298,17 +3298,28 @@ const ChatRoomPage = () => {
                     onShippingComplete={async ({ rentalHisId, trackingNo, courier }) => {
                       console.log('[ChatRoomPage] 발송 완료:', { rentalHisId, trackingNo, courier });
                       
-                      // 거래 상태 업데이트
-                      if (currentRentalData) {
-                        const updatedData = {
-                          ...currentRentalData,
-                          status: 'SHIPPED',
-                          trackingNo: trackingNo,
-                          courier: courier
-                        };
-                        setCurrentRentalData(updatedData);
+                      // 거래 상태 업데이트 - 운송장 번호 필드도 업데이트
+                      try {
+                        const updatedRentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const updatedRentalData = updatedRentalResponse.data || updatedRentalResponse;
+                        setCurrentRentalData(updatedRentalData);
                         // 운송장 번호 등록 상태 업데이트 (버튼 레이블 변경용)
                         setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+                        // 실패해도 로컬 상태 업데이트
+                        if (currentRentalData) {
+                          const updatedData = {
+                            ...currentRentalData,
+                            status: 'SHIPPED',
+                            outboundTrackingNo: trackingNo,
+                            outboundTrackingNumber: trackingNo,
+                            trackingNo: trackingNo,
+                            courier: courier
+                          };
+                          setCurrentRentalData(updatedData);
+                          setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
+                        }
                       }
                     }}
                   />
