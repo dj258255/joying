@@ -17,7 +17,7 @@ const UserProfilePage = () => {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('products');
-  const [reviewTab, setReviewTab] = useState('lent'); // borrowed: 빌렸을 때, lent: 빌려줬을 때
+  const [reviewTab, setReviewTab] = useState('rent'); // rent: 빌려줬을 때, borrow: 빌렸을 때
   const [totalReviewCount, setTotalReviewCount] = useState(0);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [pageInfo, setPageInfo] = useState({
@@ -29,7 +29,7 @@ const UserProfilePage = () => {
     content: [],
     totalPages: 1,
     currentPage: 0,
-    uploadType: 'BORROW'   // 기본값: 빌려줬을 때
+    uploadType: 'RENT'   // 기본값: 빌려줬을 때 (RENT = 받은 리뷰)
   });
 
   // 회원 정보 조회 - useUserProfile 훅 사용 (userApi.getUser 내부 호출)
@@ -103,20 +103,26 @@ const UserProfilePage = () => {
           params: {
             uploadType: reviewPageInfo.uploadType,
             page: reviewPageInfo.currentPage + 1, // 백엔드 page는 1부터 시작
-            size: 5
+            size: 10
           }
         });
 
-        const data = res.data.data;
+        // API 응답 구조: { status, message, data: { data: [...], totalCount, page, size } }
+        const responseData = res.data?.data || res.data || {};
+        const reviews = responseData.data || responseData.content || [];
 
         setReviewPageInfo(prev => ({
           ...prev,
-          content: data.data || [],
-          totalPages: Math.ceil(data.totalCount / data.size),
-          currentPage: data.page - 1
+          content: reviews,
+          totalPages: Math.ceil((responseData.totalCount || 0) / (responseData.size || 10)),
+          currentPage: (responseData.page || 1) - 1
         }));
       } catch (err) {
         console.error("리뷰 로드 실패:", err);
+        setReviewPageInfo(prev => ({
+          ...prev,
+          content: []
+        }));
       }
     };
 
@@ -126,9 +132,11 @@ const UserProfilePage = () => {
   const handleReviewTabChange = (tab) => {
     setReviewTab(tab);
 
+    // 빌려줬을 때(RENT) = RENT 타입 받은 리뷰
+    // 빌렸을 때(BORROW) = BORROW 타입 받은 리뷰
     setReviewPageInfo(prev => ({
       ...prev,
-      uploadType: tab === 'borrowed' ? 'RENT' : 'BORROW',
+      uploadType: tab === 'rent' ? 'RENT' : 'BORROW',
       currentPage: 0
     }));
   };
@@ -196,8 +204,6 @@ const UserProfilePage = () => {
                   className="w-20 h-20 mx-auto mb-4"
                 />
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.nickname}</h2>
-                <p className="text-gray-500 text-sm mb-2">{user.bio || '소개가 없습니다.'}</p>
-
                 {/* 평점 표시 */}
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <div className="flex gap-1">
@@ -358,9 +364,9 @@ const UserProfilePage = () => {
                   <h3 className="text-xl font-bold text-gray-900">리뷰</h3>
                   <div className="flex bg-gray-100 rounded-xl p-1">
                     <button
-                      onClick={() => handleReviewTabChange('lent')}
+                      onClick={() => handleReviewTabChange('rent')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        reviewTab === 'lent'
+                        reviewTab === 'rent'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
@@ -368,9 +374,9 @@ const UserProfilePage = () => {
                       빌려줬을 때
                     </button>
                     <button
-                      onClick={() => handleReviewTabChange('borrowed')}
+                      onClick={() => handleReviewTabChange('borrow')}
                       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        reviewTab === 'borrowed'
+                        reviewTab === 'borrow'
                           ? 'bg-white text-gray-900 shadow-sm'
                           : 'text-gray-600 hover:text-gray-800'
                       }`}
@@ -386,10 +392,11 @@ const UserProfilePage = () => {
                       <div className="space-y-4 pr-2">
                         {reviewPageInfo.content.map((review) => (
                           <ReviewCard
-                            key={review.id}
+                            key={review.reviewId || review.id}
                             review={review}
                             showProductInfo={true}
                             showRating={true}
+                            fromUserProfile={true}
                           />
                         ))}
                       </div>
@@ -450,16 +457,16 @@ const UserProfilePage = () => {
                     </div>
                   </>
                 ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                      </svg>
-                    </div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">
-                      {reviewTab === 'lent' ? '빌려줬을 때 리뷰가 없습니다' : '빌렸을 때 리뷰가 없습니다'}
-                    </h4>
-                    <p className="text-gray-500">아직 해당 리뷰가 없습니다.</p>
+                  <div className="flex-1 flex flex-col items-center justify-center h-64 text-center px-4">
+                    <svg className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                    <p className="text-gray-500 text-sm sm:text-base font-medium mb-1">
+                      {reviewTab === 'rent' ? '아직 빌려줬을 때 받은 리뷰가 없습니다' : '아직 빌렸을 때 받은 리뷰가 없습니다'}
+                    </p>
+                    <p className="text-gray-400 text-xs sm:text-sm">
+                      {reviewTab === 'rent' ? '상품을 빌려주면 리뷰를 받을 수 있습니다' : '상품을 빌리면 리뷰를 받을 수 있습니다'}
+                    </p>
                   </div>
                 )}
               </div>

@@ -405,9 +405,7 @@ const MyPageMain = () => {
                   size={80}
                   className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4"
                 />
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{currentUser?.nickname || '사용자'}</h2>
-                <p className="text-gray-500 text-xs sm:text-sm mb-2">{currentUser?.bio || '소개가 없습니다.'}</p>
-                
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">{currentUser?.nickname || '사용자'}</h2>                
                 {/* 평점 표시 */}
                 <div className="flex items-center justify-center gap-3 mb-4">
                   <div className="flex gap-1">

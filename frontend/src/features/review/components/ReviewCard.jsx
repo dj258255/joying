@@ -7,7 +7,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
 
-const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClick }) => {
+const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClick, fromUserProfile = false }) => {
   const navigate = useNavigate();
 
   const formatDate = (dateString) => {
@@ -80,10 +80,31 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
   // reviewer 정보 안전하게 처리
   const reviewer = review.reviewer || review.writer || {};
   
+  const handleProfileClick = (e) => {
+    e.stopPropagation(); // 카드 클릭 이벤트와 분리
+    
+    const reviewerId = reviewer.memberId || reviewer.member_id || reviewer.id;
+    if (reviewerId) {
+      navigate(`/members/${reviewerId}`);
+    }
+  };
+  
   const handleClick = () => {
     if (onClick) {
       onClick(review);
       return;
+    }
+
+    // UserProfilePage에서 온 경우 상품 상세 페이지로 이동
+    if (fromUserProfile) {
+      const productId = review.productId || review.product?.productId || review.product?.id;
+      if (productId) {
+        navigate(`/products/${productId}`);
+        return;
+      } else {
+        console.warn('[ReviewCard] productId를 찾을 수 없습니다:', review);
+        return;
+      }
     }
 
     // rentalHistoryId 찾기 (여러 경로 확인)
@@ -126,13 +147,21 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
     >
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
-        <ProfileImage
-          src={review?.profileImageUrl || review?.reviewer?.profileImageUrl}
-          alt={review?.nickname || review?.reviewer?.nickname || '익명'}
-          size={40}
-          className="w-8 h-8 md:w-10 md:h-10"
-        />
-        <div className="flex-1">
+        <div 
+          onClick={handleProfileClick}
+          className="cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <ProfileImage
+            src={reviewer.profileImageUrl || reviewer.profile_image_url}
+            alt={reviewer.nickname || reviewer.name || '익명'}
+            size={40}
+            className="w-8 h-8 md:w-10 md:h-10"
+          />
+        </div>
+        <div 
+          className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleProfileClick}
+        >
           <div className="font-medium text-gray-900 text-sm md:text-base">
             {review?.nickname || review?.reviewer?.nickname || '익명'}
           </div>
@@ -172,6 +201,37 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
               className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
             />
           ))}
+        </div>
+      )}
+
+      {/* 상품 정보 (showProductInfo가 true이고 상품 정보가 있는 경우) */}
+      {showProductInfo && (review.productId || review.productTitle || review.productImageUrl || review.product) && (
+        <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-3">
+            {(review.productImageUrl || review.product?.imageUrl || review.product?.mainImageUrl || review.product?.images?.[0]) && (
+              <img
+                src={review.productImageUrl || review.product?.imageUrl || review.product?.mainImageUrl || review.product?.images?.[0]}
+                alt={review.productTitle || review.product?.title || '상품 이미지'}
+                className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 text-sm truncate">
+                {review.productTitle || review.product?.title || '상품 정보'}
+              </div>
+              {review.productId && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/products/${review.productId || review.product?.productId || review.product?.id}`);
+                  }}
+                  className="mt-1 text-xs text-gray-600 hover:text-gray-900 underline"
+                >
+                  상품 보기
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
