@@ -19,8 +19,9 @@ import { rentalApi } from '../api/rentalApi';
  * @param {number} props.rentalHisId - 대여 이력 ID
  * @param {Function} props.onConfirmComplete - 수령 확인 완료 콜백
  * @param {Function} props.onCancelRequest - 거래 중단 요청 콜백
+ * @param {Function} props.sendMessage - 채팅 메시지 전송 함수
  */
-const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, onCancelRequest }) => {
+const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, onCancelRequest, sendMessage }) => {
   // 상태 관리
   const [currentStep, setCurrentStep] = useState('video'); // video, confirm, complete
   const [isLoading, setIsLoading] = useState(false);
@@ -199,7 +200,22 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
         || null;
 
       setUploadedVideoUrl(videoUrl);
-      setCurrentStep('confirm');
+
+      // 채팅방에 반납 수령 확인 선택 메시지 전송
+      if (sendMessage) {
+        const messageContent = `📦 반납 수령 영상이 업로드되었습니다.\n\n물품 상태를 확인하고 선택해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:RETURN_RECEIVE_CONFIRM`;
+
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
+
+        console.log('[ReturnReceiveModal] 반납 수령 확인 메시지 전송 완료');
+      }
+
+      // 모달 닫기
+      handleClose();
+      alert('반납 수령 영상이 업로드되었습니다. 채팅방에서 최종 선택해주세요.');
     } catch (err) {
       console.error('[ReturnReceiveModal] 영상 업로드 실패:', err);
       setError(err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.');
