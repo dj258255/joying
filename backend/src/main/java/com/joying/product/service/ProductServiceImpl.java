@@ -520,13 +520,11 @@ public class ProductServiceImpl implements ProductService {
         List<Long> bad = rentals.stream()
                 .filter(r -> r.getStatus() != RentalStatus.DEPOSIT_RETURNED)
                 .map(RentalHistory::getRentalHisId)
-                .collect(Collectors.toList());
+                .toList();
 
         if (!bad.isEmpty()) {
             throw new IllegalStateException("다음 대여 기록들이 완료되지 않아 상품을 삭제할 수 없습니다: " + bad);
         }
-
-
 
         // 찜삭제
         productLikeRepository.deleteByProduct_ProductId(productId);
@@ -542,6 +540,8 @@ public class ProductServiceImpl implements ProductService {
 
         // 상품 자체 삭제
         productRepository.delete(product);
+        entityManager.flush();
+        entityManager.clear();
 
         searchService.delete(productId);
     }
