@@ -15,6 +15,7 @@ import RentButton from '../../../features/checkout/components/RentButton';
 import { chatApi } from '../../../features/chat/api/chatApi';
 import { messageApi } from '../../../features/chat/api/messageApi';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
+import ProfileImage from '../../../shared/components/ProfileImage';
 import { useProductDetail } from '@/features/product/hooks/useProductDetail';
 import { useUserProfile } from '@/features/user/hooks/useUserProfile';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
@@ -211,10 +212,11 @@ const ProductDetailPage = () => {
           content: review.content,
           rating: review.rating,
           createdAt: review.created_at || review.createdAt,
+          imageUrls: review.imageUrls || review.image_urls || review.images || [],
           reviewer: {
             memberId: review.reviewer?.memberId,
             nickname: review.reviewer?.nickname,
-            profileImageUrl: review.reviewer?.profileImageUrl,
+            profileImageUrl: review.reviewer?.profileImageUrl || review.reviewer?.profile_image_url,
           },
         }))
       : [];
@@ -463,10 +465,21 @@ const ProductDetailPage = () => {
               {isAuthenticated && (
                 <button
                   onClick={() => setIsSideNavOpen(!isSideNavOpen)}
-                  className="group relative w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
+                  className="group relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 ring-2 ring-white/30 hover:ring-white/50"
                   title={user?.nickname || '프로필'}
                 >
-                  {user?.nickname?.charAt(0) || '👤'}
+                  {user?.profileImageUrl || user?.profile_image_url ? (
+                    <ProfileImage
+                      src={user.profileImageUrl || user.profile_image_url}
+                      alt={user?.nickname || '프로필'}
+                      size={36}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-sm">
+                      {user?.nickname?.charAt(0) || '👤'}
+                    </span>
+                  )}
                 </button>
               )}
             </div>
@@ -853,10 +866,21 @@ const ProductDetailPage = () => {
               {isAuthenticated ? (
                 <button
                   onClick={() => setIsSideNavOpen(!isSideNavOpen)}
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-md transition-all duration-300 ring-2 ring-white/30"
+                  className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-md transition-all duration-300 ring-2 ring-white/30"
                   title={user?.nickname || '프로필'}
                 >
-                  {user?.nickname?.charAt(0) || '👤'}
+                  {user?.profileImageUrl || user?.profile_image_url ? (
+                    <ProfileImage
+                      src={user.profileImageUrl || user.profile_image_url}
+                      alt={user?.nickname || '프로필'}
+                      size={36}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-sm">
+                      {user?.nickname?.charAt(0) || '👤'}
+                    </span>
+                  )}
                 </button>
               ) : (
                 <button

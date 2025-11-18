@@ -3,14 +3,12 @@
  * 통합 리뷰 카드 컴포넌트
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
-import { reviewApi } from '../api/reviewApi';
 
 const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClick }) => {
   const navigate = useNavigate();
-  const [isLoadingRentalId, setIsLoadingRentalId] = useState(false);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -82,36 +80,19 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
   // reviewer 정보 안전하게 처리
   const reviewer = review.reviewer || review.writer || {};
   
-  const handleClick = async () => {
+  const handleClick = () => {
     if (onClick) {
       onClick(review);
       return;
     }
 
     // rentalHistoryId 찾기 (여러 경로 확인)
-    let rentalId = review.rentalHistoryId 
+    // MyPageMain에서 이미 rentalHistoryId를 추가했으므로 직접 사용
+    const rentalId = review.rentalHistoryId 
       || review.rentalHisId 
       || review.rentalHistory?.rentalHisId 
       || review.rentalHistory?.rentalHistoryId
       || review.rentalHistory?.id;
-
-    // rentalHistoryId가 없으면 리뷰 상세 API를 호출해서 찾기
-    if (!rentalId && review.reviewId) {
-      try {
-        setIsLoadingRentalId(true);
-        const reviewDetail = await reviewApi.getReviewDetail(review.reviewId);
-        const detailData = reviewDetail?.data?.data || reviewDetail?.data || reviewDetail;
-        rentalId = detailData.rentalHistoryId 
-          || detailData.rentalHisId 
-          || detailData.rentalHistory?.rentalHisId 
-          || detailData.rentalHistory?.rentalHistoryId
-          || detailData.rentalHistory?.id;
-      } catch (error) {
-        console.error('[ReviewCard] 리뷰 상세 조회 실패:', error);
-      } finally {
-        setIsLoadingRentalId(false);
-      }
-    }
     
     if (rentalId) {
       // uploadType에 따라 빌린 내역 또는 빌려준 내역으로 이동
@@ -140,7 +121,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
 
   return (
     <div 
-      className={`p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow cursor-pointer ${isLoadingRentalId ? 'opacity-75' : ''}`}
+      className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow cursor-pointer"
       onClick={handleClick}
     >
       {/* 리뷰어 정보 */}
