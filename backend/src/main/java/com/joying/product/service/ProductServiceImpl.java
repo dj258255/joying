@@ -507,7 +507,7 @@ public class ProductServiceImpl implements ProductService {
     public void deleteProduct(Long productId, Long memberId) {
 
         // 상품 조회
-        Product product = productRepository.findByProductId(productId)
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
 
         // 권한 체크
