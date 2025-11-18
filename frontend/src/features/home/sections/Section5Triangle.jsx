@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/shared/constants';
 import { kakaoLogin } from '@/features/auth/api/authApi';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
 import logo from '@/assets/icons/logo.png';
 import kakaoLoginBtn from '../assets/kakao_login.png';
 
@@ -12,6 +13,7 @@ import kakaoLoginBtn from '../assets/kakao_login.png';
  */
 const Section5Triangle = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const handleKakaoLogin = () => {
     kakaoLogin();
@@ -45,13 +47,15 @@ const Section5Triangle = () => {
             믿을 수 있는 렌탈 서비스를 경험하세요
           </p>
           <div className="flex items-center justify-end gap-4">
-            <img
-              src={kakaoLoginBtn}
-              alt="카카오로 로그인하기"
-              onClick={handleKakaoLogin}
-              className="h-12 w-auto object-contain cursor-pointer transition-all hover:scale-105"
-              style={{ imageRendering: 'crisp-edges' }}
-            />
+            {!isAuthenticated && (
+              <img
+                src={kakaoLoginBtn}
+                alt="카카오로 로그인하기"
+                onClick={handleKakaoLogin}
+                className="h-12 w-auto object-contain cursor-pointer transition-all hover:scale-105"
+                style={{ imageRendering: 'crisp-edges' }}
+              />
+            )}
             <button
               onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}
               className="bg-white text-black px-8 py-3 rounded-lg text-base font-semibold transition-all hover:scale-105"
