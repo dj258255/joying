@@ -103,6 +103,7 @@ public class ProductServiceImpl implements ProductService {
                         .title(r.getTitle())
                         .content(r.getContent())
                         .rating(r.getRating())
+                        .createdAt(r.getCreatedAt())
                         .reviewer(ProductResponseDto.ReviewerDto.builder()
                                 .memberId(r.getReviewer().getMemberId())
                                 .name(r.getReviewer().getName())
@@ -110,7 +111,7 @@ public class ProductServiceImpl implements ProductService {
                                 .profileImageUrl(
                                         r.getReviewer().getProfileImage() != null
                                                 ? fileUrlResolver.toPublicUrl(r.getReviewer().getProfileImage())
-                                                : null
+                                                : r.getReviewer().getKakaoProfileImageUrl()
                                 )
                                 .build())
                         .build())
