@@ -3293,6 +3293,7 @@ const ChatRoomPage = () => {
                   <TrackingNumberCard
                     message={message}
                     isOwn={isOwn}
+                    rentalData={currentRentalData}
                     sendMessage={sendMessage}
                     onShippingComplete={async ({ rentalHisId, trackingNo, courier }) => {
                       console.log('[ChatRoomPage] 발송 완료:', { rentalHisId, trackingNo, courier });
