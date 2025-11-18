@@ -284,14 +284,18 @@ class ChatRoomService(
             val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
             logger.info("[getMyChatRooms] Redis 배치 조회 완료: unreadCountMap={}", unreadCountMap)
 
-            // ProductFile 배치 조회
-            val productIds = chatRooms.map { it.product?.getProductId()!! }
+            // ProductFile 배치 조회 (product가 null인 경우 제외)
+            val productIds = chatRooms.mapNotNull { it.product?.getProductId() }
             val thumbnailMap =
-                productFileRepository
-                    .findByProduct_ProductIdIn(productIds)
-                    .filter { it.isThumbnail }
-                    .associateBy { it.product.getProductId()!! }
-                    .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
+                if (productIds.isNotEmpty()) {
+                    productFileRepository
+                        .findByProduct_ProductIdIn(productIds)
+                        .filter { it.isThumbnail }
+                        .associateBy { it.product.getProductId()!! }
+                        .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
+                } else {
+                    emptyMap()
+                }
 
             // DTO 변환
             chatRooms.map { chatRoom ->
