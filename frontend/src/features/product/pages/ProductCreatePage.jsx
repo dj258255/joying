@@ -692,7 +692,7 @@ function ProductCreatePage() {
       const depositInfo = result.recommended_deposit ? ` / 보증금: ${result.recommended_deposit.toLocaleString()}원` : '';
       const hashtagInfo = result.hashtags?.length ? ` / 해시태그: ${result.hashtags.length}개` : '';
       const categoryInfo = result.sub_category ? ` / 카테고리: ${result.sub_category}` : '';
-      const successMessage = `✨ AI가 게시글을 자동으로 작성했습니다! (신뢰도: ${Math.round(result.confidence * 100)}%${priceInfo}${depositInfo}${hashtagInfo}${categoryInfo})`;
+      const successMessage = `AI가 게시글을 자동으로 작성했습니다!`;
       setErrorMessage(successMessage);
       setTimeout(() => {
         if (errorMessage === successMessage) {
@@ -1637,56 +1637,24 @@ function ProductCreatePage() {
           <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
         </div>
 
-        {/* AI 자동 입력 체크박스 + 업로드 타입 선택 */}
+        {/* AI 자동 입력 체크박스 */}
         {aiAvailable && (
           <div className="flex items-center gap-3">
-            {/* AI 자동 입력 체크박스 */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg">
               <input
                 type="checkbox"
                 id="aiAutoFill"
                 checked={aiAutoFill}
                 onChange={(e) => setAiAutoFill(e.target.checked)}
-                className="w-4 h-4 rounded accent-blue-600"
+                className="w-4 h-4 rounded accent-gray-600"
               />
-              <label htmlFor="aiAutoFill" className="text-sm font-medium text-blue-900 cursor-pointer whitespace-nowrap">
-                🤖 AI 자동 입력
+              <label htmlFor="aiAutoFill" className="text-sm font-medium text-white cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI 자동 입력
               </label>
             </div>
-
-            {/* AI용 업로드 타입 선택 (AI 체크박스가 활성화되어 있을 때만 표시) */}
-            {aiAutoFill && (
-              <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-100 border border-gray-300 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAiUploadType('RENT');
-                    updateField('uploadType', 'RENT'); // 실제 업로드 타입도 동기화
-                  }}
-                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                    aiUploadType === 'RENT'
-                      ? 'bg-black text-white'
-                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  빌려드려요
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAiUploadType('BORROW');
-                    updateField('uploadType', 'BORROW'); // 실제 업로드 타입도 동기화
-                  }}
-                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                    aiUploadType === 'BORROW'
-                      ? 'bg-black text-white'
-                      : 'bg-transparent text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  빌려요
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1712,11 +1680,18 @@ function ProductCreatePage() {
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
             <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
             {aiAvailable && aiAutoFill && (
-              <p className="text-blue-600 text-xs text-center px-4 mt-1">✨ 첫 이미지 업로드 시 AI가 제목과 설명을 작성합니다</p>
+              <p className="text-gray-600 text-xs text-center px-4 mt-1">첫 이미지 업로드 시 AI가 제목과 설명을 작성합니다</p>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating} />
             {uploading && <p className="text-gray-600 text-xs mt-2">업로드 중...</p>}
-            {aiGenerating && <p className="text-blue-600 text-xs mt-2 animate-pulse">🤖 AI가 게시글을 작성하고 있습니다...</p>}
+            {aiGenerating && (
+              <p className="text-gray-600 text-xs mt-2 animate-pulse flex items-center gap-1.5 justify-center">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI가 게시글을 작성하고 있습니다...
+              </p>
+            )}
           </div>
         </div>
 
@@ -2040,6 +2015,7 @@ function ProductCreatePage() {
             <div className="bg-white border-2 border-gray-300 rounded-2xl p-3 shadow-lg overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
               <div className="space-y-2 overflow-y-auto scrollbar-hide" style={{ maxHeight: '100%', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                 <ImageGallery
+                  key={filePreviews.length > 0 ? filePreviews[0] : 'no-image'}
                   images={previewProduct.images}
                   productTitle={previewProduct.title}
                   isLiked={false}
@@ -2078,7 +2054,7 @@ function ProductCreatePage() {
                   </div>
                   <div className="p-2 bg-gray-50 rounded-xl border border-gray-300">
                     <div className="text-[12px] text-gray-600 mb-1">지역</div>
-                    <div className="text-xs text-black font-medium">{form.sidoId} {form.gunguId} {form.dongId}</div>
+                    <div className="text-xs text-black font-medium">{selectedRegionName || (form.sidoId && form.gunguId && form.dongId ? `${form.sidoId} ${form.gunguId} ${form.dongId}` : '-')}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -2108,12 +2084,21 @@ function ProductCreatePage() {
               }}
             >
               {errorMessage && (
-                <div className={`mb-6 p-4 rounded-xl text-sm ${
-                  errorMessage.includes('✨') || errorMessage.includes('성공')
-                    ? 'bg-green-50 border-2 border-green-300 text-green-700'
-                    : 'bg-red-50 border-2 border-red-300 text-red-700'
+                <div className={`mb-6 p-4 rounded-xl text-sm flex items-center gap-2 ${
+                  errorMessage.includes('성공') || errorMessage.includes('작성했습니다')
+                    ? 'bg-gray-900 border-2 border-gray-800 text-white'
+                    : 'bg-gray-900 border-2 border-gray-800 text-white'
                 }`}>
-                  {errorMessage}
+                  {errorMessage.includes('성공') || errorMessage.includes('작성했습니다') ? (
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                  <span>{errorMessage}</span>
                 </div>
               )}
 
