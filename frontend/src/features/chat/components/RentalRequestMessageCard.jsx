@@ -196,9 +196,20 @@ const RentalRequestMessageCard = ({
           {/* 정보 */}
           <div className="p-4 space-y-3 bg-white/80">
             <div className="space-y-2.5">
+              {/* 상품 이미지 및 상품명 */}
               <div className="flex items-start gap-3">
-                <span className="text-xs text-gray-500 font-medium w-16 flex-shrink-0">상품</span>
-                <span className="text-sm text-gray-900 font-semibold flex-1">{rentalInfo.productTitle}</span>
+                {/* 상품 대표 이미지 */}
+                {(rentalInfoFromMessage?.productImageUrl || message.rentalInfo?.productImageUrl) && (
+                  <img
+                    src={rentalInfoFromMessage?.productImageUrl || message.rentalInfo?.productImageUrl}
+                    alt={rentalInfo.productTitle}
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-gray-500 font-medium block mb-1">상품</span>
+                  <span className="text-sm text-gray-900 font-semibold block">{rentalInfo.productTitle}</span>
+                </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-xs text-gray-500 font-medium w-16 flex-shrink-0">날짜</span>
