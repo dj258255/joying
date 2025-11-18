@@ -908,6 +908,10 @@ const TransactionProcessModal = ({
     }
   };
 
+  // 현재 거래 상태 확인
+  const currentStatus = transactionData?.status || transactionData?.rentalStatus || null;
+  const isCancelled = currentStatus === 'CANCELLED' || currentStep === 'cancelled';
+
   // 모달 제목 결정
   const getModalTitle = () => {
     switch(currentStep) {
@@ -1189,20 +1193,24 @@ const TransactionProcessModal = ({
                   )}
 
                   <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowCancelModal(true)}
-                      disabled={isLoading}
-                      className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      거래 취소하기
-                    </button>
-                    <button
-                      onClick={handleProceedPayment}
-                      disabled={isLoading}
-                      className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      결제하러 가기
-                    </button>
+                    {!isCancelled && (
+                      <button
+                        onClick={() => setShowCancelModal(true)}
+                        disabled={isLoading}
+                        className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        거래 취소하기
+                      </button>
+                    )}
+                    {!isCancelled && (
+                      <button
+                        onClick={handleProceedPayment}
+                        disabled={isLoading}
+                        className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        결제하러 가기
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -1462,19 +1470,23 @@ const TransactionProcessModal = ({
               )}
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="flex-1 px-4 py-2 glass-button-danger text-white rounded-lg font-medium"
-                >
-                  거래 취소하기
-                </button>
-                <button
-                  onClick={handleConfirmReceive}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
-                >
-                  {requireVideo ? '영상 촬영하기' : '대여 시작'}
-                </button>
+                {!isCancelled && (
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    className="flex-1 px-4 py-2 glass-button-danger text-white rounded-lg font-medium"
+                  >
+                    거래 취소하기
+                  </button>
+                )}
+                {!isCancelled && (
+                  <button
+                    onClick={handleConfirmReceive}
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
+                  >
+                    {requireVideo ? '영상 촬영하기' : '대여 시작'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1501,7 +1513,7 @@ const TransactionProcessModal = ({
               )}
 
               <div className="flex gap-3">
-                {userRole === 'buyer' && (
+                {userRole === 'buyer' && !isCancelled && (
                   <button
                     onClick={() => {
                       setCurrentStep('return');
@@ -1513,12 +1525,14 @@ const TransactionProcessModal = ({
                     반납하기
                   </button>
                 )}
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="flex-1 px-4 py-2 glass-button-danger text-white rounded-lg font-medium"
-                >
-                  거래 중단하기
-                </button>
+                {!isCancelled && (
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    className="flex-1 px-4 py-2 glass-button-danger text-white rounded-lg font-medium"
+                  >
+                    거래 중단하기
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1567,20 +1581,24 @@ const TransactionProcessModal = ({
               )}
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 glass-button-ghost text-gray-900 rounded-lg font-medium"
-                >
-                  거래 취소하기
-                </button>
-                <button
-                  onClick={handleReturnItem}
-                  disabled={isLoading || !courier || !trackingNumber}
+                {!isCancelled && (
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={isLoading}
+                    className="flex-1 px-4 py-2 glass-button-ghost text-gray-900 rounded-lg font-medium"
+                  >
+                    거래 취소하기
+                  </button>
+                )}
+                {!isCancelled && (
+                  <button
+                    onClick={handleReturnItem}
+                    disabled={isLoading || !courier || !trackingNumber}
                   className="flex-1 px-4 py-2 glass-button text-white rounded-lg font-medium disabled:opacity-50"
                 >
-                  {isLoading ? '처리 중...' : requireVideo ? '영상 촬영하기' : '반납 완료'}
-                </button>
+                    {isLoading ? '처리 중...' : requireVideo ? '영상 촬영하기' : '반납 완료'}
+                  </button>
+                )}
               </div>
             </div>
           )}

@@ -1182,7 +1182,7 @@ const ChatRoomPage = () => {
       // 채팅방에 취소 승인 메시지 전송
       await sendMessage({
         type: 'TEXT',
-        content: `✅ 거래 취소가 승인되었습니다.\n\n보증금이 합의된 대로 분배됩니다.`
+        content: `MESSAGE_TYPE:CANCEL_APPROVED\n✅ 거래 취소가 승인되었습니다.\n\n보증금이 합의된 대로 분배됩니다.\nrentalHisId:${cancelDetailInfo.rentalHisId}`
       });
 
       setShowCancelDetailModal(false);
@@ -1212,7 +1212,9 @@ const ChatRoomPage = () => {
       console.log('[ChatRoomPage] 취소 거절:', { cancelId: cancelDetailInfo.cancelId });
 
       // 취소 거절 API 호출
-      await rentalApi.rejectCancel(cancelDetailInfo.cancelId);
+      await rentalApi.rejectCancel(cancelDetailInfo.cancelId, {
+        rejectReason: '거래를 계속 진행하기로 결정했습니다.'
+      });
 
       alert('취소가 거절되었습니다. 거래가 계속 진행됩니다.');
 
@@ -2349,6 +2351,21 @@ const ChatRoomPage = () => {
 
                 console.log('[ChatRoomPage] 추출된 ID:', { rentalHisId, cancelId });
 
+                // 취소 승인 메시지가 이미 있는지 확인 (이 rentalHisId에 대해)
+                const isCancelApproved = messages.some(msg => {
+                  const msgContent = typeof msg.content === 'string' ? msg.content : (msg.content?.text || JSON.stringify(msg.content));
+                  const msgRentalIdMatch = msgContent?.match(/rentalHisId:(\d+)/);
+                  const msgRentalId = msgRentalIdMatch ? Number(msgRentalIdMatch[1]) : null;
+                  return msgContent?.includes('MESSAGE_TYPE:CANCEL_APPROVED') && msgRentalId === rentalHisId;
+                });
+
+                console.log('[ChatRoomPage] 취소 승인 확인:', { rentalHisId, isCancelApproved });
+
+                // 취소가 승인되었으면 버튼 숨김
+                if (isCancelApproved) {
+                  return null;
+                }
+
                 // 취소 사유 및 보증금 정보 추출
                 const reasonMatch = content.match(/취소 사유: (.*?)\n/);
                 const buyerRefundMatch = content.match(/구매자 환불: ([\d,]+)원/);
@@ -2609,6 +2626,97 @@ const ChatRoomPage = () => {
                   });
                 }
 
+                return buttons.length > 0 ? buttons : null;
+              }
+
+              // 반납 수령 확인 선택 메시지 - 판매자에게 "최종 수령 확인" / "거래 중단" 버튼 표시
+              const isReturnReceiveConfirm = message.type === 'return_receive_confirm' || (message.type === 'text' && content?.includes('MESSAGE_TYPE:RETURN_RECEIVE_CONFIRM'));
+              if (isReturnReceiveConfirm) {
+                console.log('[ChatRoomPage] 반납 수령 확인 선택 메시지 감지:', {
+                  messageType: message.type,
+                  content: content.substring(0, 100),
+                  currentUserId,
+                  senderId: message.sender?.id
+                });
+
+                const buttons = [];
+                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
+                const rentalHisId = rentalHisIdMatch ? parseInt(rentalHisIdMatch[1]) : null;
+
+                // 판매자 확인
+                const sellerId = productData?.sellerId
+                  || productData?.writer?.memberId
+                  || productData?.writer?.member_id
+                  || productData?.seller?.id
+                  || productData?.seller?.memberId
+                  || productData?.seller?.member_id;
+                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+
+                // 메시지 발신자가 판매자이고, 현재 사용자도 판매자인 경우 버튼 표시
+                const senderId = message.sender?.id;
+                const isOwn = Number(currentUserId) === Number(senderId);
+
+                console.log('[ChatRoomPage] 버튼 표시 조건 체크:', {
+                  isOwn,
+                  isSeller,
+                  rentalHisId,
+                  shouldShowButton: isOwn && isSeller && rentalHisId
+                });
+
+                if (isOwn && isSeller && rentalHisId) {
+                  buttons.push(
+                    {
+                      label: '✅ 최종 수령 확인',
+                      className: 'bg-green-600 text-white hover:bg-green-700',
+                      onClick: async () => {
+                        try {
+                          console.log('[ChatRoomPage] 최종 수령 확인 클릭:', { rentalHisId });
+
+                          if (!window.confirm('반납품을 최종 확인하고 거래를 완료하시겠습니까?')) {
+                            return;
+                          }
+
+                          // 반납 수령 확인 API 호출
+                          await rentalApi.confirmReturnReceive(rentalHisId);
+
+                          // 채팅방에 완료 메시지 전송
+                          await sendMessage({
+                            type: 'TEXT',
+                            content: `✅ 반납 수령을 최종 확인했습니다!\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nrentalHisId:${rentalHisId}`
+                          });
+
+                          alert('반납 수령이 확인되었습니다! 정산이 진행됩니다.');
+                        } catch (err) {
+                          console.error('[ChatRoomPage] 최종 수령 확인 실패:', err);
+                          alert(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
+                        }
+                      }
+                    },
+                    {
+                      label: '🚫 거래 중단',
+                      className: 'bg-red-600 text-white hover:bg-red-700',
+                      onClick: async () => {
+                        try {
+                          console.log('[ChatRoomPage] 거래 중단 클릭:', { rentalHisId });
+
+                          // rentalHisId로 거래 상세 조회
+                          const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                          const rentalData = rentalResponse.data;
+
+                          setCurrentRentalData(rentalData);
+
+                          // 취소 모달 열기
+                          setShowTransactionModal(true);
+                        } catch (err) {
+                          console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                          alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        }
+                      }
+                    }
+                  );
+                }
+
+                console.log('[ChatRoomPage] 반환할 버튼:', buttons);
                 return buttons.length > 0 ? buttons : null;
               }
 
@@ -3568,6 +3676,7 @@ const ChatRoomPage = () => {
           isOpen={showReturnReceiveModal}
           onClose={() => setShowReturnReceiveModal(false)}
           rentalHisId={currentRentalData.rentalHisId}
+          sendMessage={sendMessage}
           onConfirmComplete={async ({ videoUrl }) => {
             console.log('[ChatRoomPage] 반납 수령 확인 완료:', { videoUrl });
 
