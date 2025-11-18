@@ -608,6 +608,46 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     );
   }
 
+  // 거래 취소 거절 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+  const isCancelRejected = type === 'cancel_rejected' || (type === 'text' && content?.includes('MESSAGE_TYPE:CANCEL_REJECTED'));
+  if (isCancelRejected) {
+    // 메타데이터 제거한 표시용 콘텐츠
+    const displayContent = content
+      ?.replace(/\nMESSAGE_TYPE:CANCEL_REJECTED/g, '')
+      .trim();
+
+    return (
+      <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3 px-4">
+        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-xl border-gray-200/60 text-gray-900 rounded-full shadow-md px-4 py-2 max-w-[80%] border">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm font-medium text-center whitespace-pre-line">{displayContent}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 반납 수령 확인 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+  const isReturnReceived = type === 'return_received' || (type === 'text' && content?.includes('MESSAGE_TYPE:RETURN_RECEIVED'));
+  if (isReturnReceived) {
+    // 메타데이터 제거한 표시용 콘텐츠
+    const displayContent = content
+      ?.replace(/\nMESSAGE_TYPE:RETURN_RECEIVED/g, '')
+      .trim();
+
+    return (
+      <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3 px-4">
+        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-xl border-gray-200/60 text-gray-900 rounded-full shadow-md px-4 py-2 max-w-[80%] border">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm font-medium text-center whitespace-pre-line">{displayContent}</p>
+        </div>
+      </div>
+    );
+  }
+
   // 비디오 메시지
   if (type === 'video') {
     return (

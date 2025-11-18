@@ -490,6 +490,7 @@ const ChatRoomPage = () => {
   const rentalRequestData = location.state?.rentalRequestData || null;
   const hasSentRentalRequestRef = useRef(false); // 대여 요청 메시지 전송 여부 추적
   const hassentPaymentCompleteRef = useRef(false); // 결제 완료 메시지 전송 여부 추적
+  const hasSentBorrowRequestRef = useRef(false); // BORROW 제안 메시지 전송 여부 추적
 
   // 결제 완료 메시지는 백엔드에서 자동 전송
 
@@ -722,22 +723,88 @@ const ChatRoomPage = () => {
     const isBorrowRequest = location.state?.isBorrowRequest;
     const borrowInfo = location.state?.borrowInfo;
 
-    if (isBorrowRequest && borrowInfo && isConnected && currentChatRoom && productData && user) {
-      // BORROW 상품의 경우: 빌려줄 사람(채팅으로 제안하기 클릭한 사람)이 메시지를 전송
-      const sellerId = productData?.sellerId
-        || productData?.writer?.memberId
-        || productData?.writer?.member_id
-        || productData?.seller?.id
-        || productData?.seller?.memberId
-        || productData?.seller?.member_id;
-      const currentUserId = user?.id || user?.memberId;
-      const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+    // isBorrowRequest가 false이거나 없으면 아무 작업도 하지 않음
+    if (!isBorrowRequest || !borrowInfo) {
+      return;
+    }
 
-      if (isProductOwner) {
-        // 상품 주인(빌리려는 사람)은 메시지를 전송하지 않음 (수동적)
-        console.log('[ChatRoomPage] BORROW 상품 - 빌리려는 사람(상품 주인)은 메시지를 전송하지 않음');
+    // 필요한 모든 데이터가 준비되었는지 확인
+    if (!isConnected || !currentChatRoom || !productData || !user) {
+      return;
+    }
 
-        // location.state 초기화만 수행
+    // 이미 전송했으면 중복 전송 방지
+    if (hasSentBorrowRequestRef.current) {
+      // location.state만 초기화
+      navigate(location.pathname, {
+        replace: true,
+        state: {
+          ...location.state,
+          isBorrowRequest: false,
+          borrowInfo: null
+        }
+      });
+      return;
+    }
+
+    // BORROW 상품의 경우: 빌려줄 사람(채팅으로 제안하기 클릭한 사람)이 메시지를 전송
+    const sellerId = productData?.sellerId
+      || productData?.writer?.memberId
+      || productData?.writer?.member_id
+      || productData?.seller?.id
+      || productData?.seller?.memberId
+      || productData?.seller?.member_id;
+    const currentUserId = user?.id || user?.memberId;
+    const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+    if (isProductOwner) {
+      // 상품 주인(빌리려는 사람)은 메시지를 전송하지 않음 (수동적)
+      console.log('[ChatRoomPage] BORROW 상품 - 빌리려는 사람(상품 주인)은 메시지를 전송하지 않음');
+
+      // location.state 초기화만 수행
+      navigate(location.pathname, {
+        replace: true,
+        state: {
+          ...location.state,
+          isBorrowRequest: false,
+          borrowInfo: null
+        }
+      });
+      return;
+    }
+
+    console.log('[ChatRoomPage] BORROW 상품 감지 - 간단한 제안 메시지 전송 (빌려줄 사람):', borrowInfo);
+
+    // 간단한 제안 메시지 전송 (날짜 선택 없이)
+    const sendBorrowRequest = async () => {
+      // 중복 전송 방지를 위한 이중 체크
+      if (hasSentBorrowRequestRef.current) {
+        console.log('[ChatRoomPage] BORROW 제안 메시지 이미 전송됨, 중복 전송 방지');
+        return;
+      }
+
+      try {
+        // 전송 플래그 먼저 설정 (비동기 작업 전에 설정하여 중복 호출 방지)
+        hasSentBorrowRequestRef.current = true;
+
+        const productTitle = productData?.title || productData?.name || '상품';
+        // MESSAGE_TYPE 마커 추가하여 MessageBubble에서 식별 가능하도록
+        const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.\nMESSAGE_TYPE:BORROW_PROPOSAL`;
+
+        console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
+          type: 'TEXT',
+          content: messageContent
+        });
+
+        // 간단한 텍스트 메시지만 전송
+        await sendMessage({
+          type: 'TEXT',
+          content: messageContent
+        });
+
+        console.log('[ChatRoomPage] BORROW 제안 메시지 전송 완료');
+
+        // location.state 초기화 (중복 전송 방지)
         navigate(location.pathname, {
           replace: true,
           state: {
@@ -746,50 +813,19 @@ const ChatRoomPage = () => {
             borrowInfo: null
           }
         });
-        return;
+      } catch (error) {
+        console.error('[ChatRoomPage] BORROW 제안 메시지 전송 실패:', error);
+        hasSentBorrowRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
       }
+    };
 
-      console.log('[ChatRoomPage] BORROW 상품 감지 - 간단한 제안 메시지 전송 (빌려줄 사람):', borrowInfo);
+    // WebSocket 연결 후 약간의 지연을 두어 전송
+    const timeoutId = setTimeout(() => {
+      sendBorrowRequest();
+    }, 1000);
 
-      // 간단한 제안 메시지 전송 (날짜 선택 없이)
-      const sendBorrowRequest = async () => {
-        try {
-          const productTitle = productData?.title || productData?.name || '상품';
-          // MESSAGE_TYPE 마커 추가하여 MessageBubble에서 식별 가능하도록
-          const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.\nMESSAGE_TYPE:BORROW_PROPOSAL`;
-
-          console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
-            type: 'TEXT',
-            content: messageContent
-          });
-
-          // 간단한 텍스트 메시지만 전송
-          await sendMessage({
-            type: 'TEXT',
-            content: messageContent
-          });
-
-          console.log('[ChatRoomPage] BORROW 제안 메시지 전송 완료');
-
-          // location.state 초기화 (중복 전송 방지)
-          navigate(location.pathname, {
-            replace: true,
-            state: {
-              ...location.state,
-              isBorrowRequest: false,
-              borrowInfo: null
-            }
-          });
-        } catch (error) {
-          console.error('[ChatRoomPage] BORROW 제안 메시지 전송 실패:', error);
-        }
-      };
-
-      // WebSocket 연결 후 약간의 지연을 두어 전송
-      setTimeout(() => {
-        sendBorrowRequest();
-      }, 1000);
-    }
+    // cleanup 함수로 타이머 정리
+    return () => clearTimeout(timeoutId);
   }, [location.state, isConnected, currentChatRoom, productData, user, sendMessage, navigate, location.pathname]);
 
   // 대여 요청 메시지 찾기
@@ -2311,9 +2347,15 @@ const ChatRoomPage = () => {
                   || productData?.seller?.member_id;
                 const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
 
-                // 상품 주인(빌리고 싶은 사람)에게만 버튼 표시
-                if (isProductOwner) {
-                  return [{
+                // 메시지를 보낸 사람 확인
+                const messageSenderId = message.sender?.id || message.senderId;
+                const isMessageSender = messageSenderId && Number(messageSenderId) === Number(currentUserId);
+
+                const buttons = [];
+
+                // 메시지를 보낸 사람(제안한 사람)에게는 '거래 생성하기' 버튼
+                if (isMessageSender && !isProductOwner) {
+                  buttons.push({
                     text: '✅ 거래 생성하기',
                     style: 'primary',
                     onClick: async () => {
@@ -2363,10 +2405,21 @@ const ChatRoomPage = () => {
                         setShowTransactionModal(true);
                       }, 50);
                     }
-                  }];
+                  });
                 }
 
-                return null;
+                // BORROW 상품 주인(빌리고 싶은 사람)에게는 '대여 다시 요청하기' 버튼
+                if (isProductOwner && !isMessageSender) {
+                  buttons.push({
+                    text: '🔄 대여 다시 요청하기',
+                    style: 'secondary',
+                    onClick: () => {
+                      setShowRentalRequestModal(true);
+                    }
+                  });
+                }
+
+                return buttons.length > 0 ? buttons : null;
               }
 
               // 대여 요청 메시지 - 두 가지 버튼 추가
@@ -2910,7 +2963,7 @@ const ChatRoomPage = () => {
                           // 채팅방에 완료 메시지 전송
                           await sendMessage({
                             type: 'TEXT',
-                            content: `✅ 반납 수령을 최종 확인했습니다!\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nrentalHisId:${rentalHisId}`
+                            content: `반납 수령을 최종 확인했습니다!\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nMESSAGE_TYPE:RETURN_RECEIVED`
                           });
 
                           alert('반납 수령이 확인되었습니다! 정산이 진행됩니다.');
@@ -4018,7 +4071,7 @@ const ChatRoomPage = () => {
             console.log('[ChatRoomPage] 반납 수령 확인 완료:', { videoUrl });
 
             // 채팅방에 반납 수령 확인 완료 메시지 전송
-            const messageContent = `✅ 반납 수령을 확인했습니다!\n\n${videoUrl ? `[회수 영상 보기](${videoUrl})` : ''}\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nrentalHisId:${currentRentalData.rentalHisId}`;
+            const messageContent = `반납 수령을 확인했습니다!\n\n${videoUrl ? `[회수 영상 보기](${videoUrl})` : ''}\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nMESSAGE_TYPE:RETURN_RECEIVED`;
 
             await sendMessage({
               type: 'TEXT',
