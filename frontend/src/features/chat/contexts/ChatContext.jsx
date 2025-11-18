@@ -275,6 +275,7 @@ export const ChatProvider = ({ children }) => {
   const globalWebSocketSubscriptionRef = useRef(null); // 전역 WebSocket 구독
   const globalHeartbeatIntervalRef = useRef(null); // 전역 WebSocket Heartbeat 인터벌
   const activeRoomIdRef = useRef(null); // 현재 활성화된 채팅방 ID (자동 읽음 처리용)
+  const recentlyReceivedMessagesRef = useRef(new Set()); // 최근 수신한 메시지 ID (중복 방지용)
   const queryClient = useQueryClient();
   const { connect, disconnect, sendMessage: sendWebSocketMessage, sendTyping: sendTypingEvent, isConnected: socketConnected } = useChatSocket();
   const { user } = useAuth();
@@ -913,7 +914,7 @@ export const ChatProvider = ({ children }) => {
           senderId: rawMessage?.senderId,
           chatRoomId: rawMessage?.chatRoomId
         });
-        
+
         const normalized = normalizeMessage(rawMessage, chatRoomData);
         console.log('[ChatContext] WebSocket 메시지 정규화 후:', {
           normalized,
@@ -922,8 +923,27 @@ export const ChatProvider = ({ children }) => {
           senderId: normalized?.senderId,
           chatRoomId: normalized?.chatRoomId
         });
-        
+
         if (normalized) {
+          // 중복 메시지 필터링 (메시지 ID 기반)
+          const messageId = normalized.id;
+          if (messageId && recentlyReceivedMessagesRef.current.has(messageId)) {
+            console.log('[ChatContext] 중복 메시지 수신 무시:', {
+              messageId,
+              type: normalized.type,
+              content: normalized.content?.substring(0, 50)
+            });
+            return; // 중복 메시지는 무시
+          }
+
+          // 메시지 ID를 Set에 추가 (1초 후 자동 제거)
+          if (messageId) {
+            recentlyReceivedMessagesRef.current.add(messageId);
+            setTimeout(() => {
+              recentlyReceivedMessagesRef.current.delete(messageId);
+            }, 1000); // 1초 후 제거
+          }
+
           const snapshot = stateRef.current;
           const isOwnMessage = Number(normalized.senderId) === Number(currentUserId);
           
@@ -1156,8 +1176,15 @@ export const ChatProvider = ({ children }) => {
         }
       },
       onRead: (readEvent) => {
-        // 본인이 보낸 읽음 이벤트인 경우에도 처리 (다른 기기에서 읽은 경우 동기화)
-        // 단, 상대방이 읽은 것이므로 내가 보낸 메시지에 대해 읽음 처리
+        // 읽음 처리를 한 사람이 누구인지 확인
+        // readEvent.memberId = 읽음 처리를 한 사람 (메시지를 읽은 사람)
+        const readerMemberId = readEvent.memberId;
+
+        // 본인이 읽음 처리를 한 경우 무시 (내가 내 메시지를 읽은 것이므로 읽음 표시 안함)
+        if (readerMemberId && Number(readerMemberId) === Number(currentUserId)) {
+          console.log('[ChatContext] 본인의 읽음 처리 이벤트는 무시 (내 메시지는 읽음 표시 안함)');
+          return;
+        }
 
         // 상대방이 읽은 시간 이전의 내가 보낸 메시지를 읽음 처리
         if (readEvent.readAt) {
@@ -1166,7 +1193,13 @@ export const ChatProvider = ({ children }) => {
             ? new Date(readEvent.readAt).toISOString()
             : readEvent.readAt;
 
-          // 마지막 메시지만 읽음 표시 표시
+          console.log('[ChatContext] 상대방이 메시지를 읽음:', {
+            readerMemberId,
+            readAt,
+            currentUserId
+          });
+
+          // 상대방이 읽었으므로 내가 보낸 메시지를 읽음 처리
           dispatch({
             type: 'MARK_MESSAGES_AS_READ',
             payload: { readAt, currentUserId }
@@ -2137,13 +2170,13 @@ export const ChatProvider = ({ children }) => {
           console.log('[ChatContext] 전역 WebSocket 연결 성공 (채팅방 상태 변경 알림)');
 
           // 채팅방 상태 변경 알림 구독
-          subscription = client.subscribe('/user/queue/chatroom-status', (message) => {
+          const statusSubscription = client.subscribe('/user/queue/chatroom-status', (message) => {
             try {
               console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (raw):', {
                 body: message.body,
                 headers: message.headers
               });
-              
+
               const event = JSON.parse(message.body);
               console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (parsed):', {
                 event,
@@ -2153,7 +2186,7 @@ export const ChatProvider = ({ children }) => {
                 memberNickname: event.memberNickname,
                 timestamp: event.timestamp
               });
-              
+
               handleChatRoomStatusEvent(event);
             } catch (error) {
               console.error('[ChatContext] 채팅방 상태 변경 이벤트 파싱 오류:', {
@@ -2163,8 +2196,111 @@ export const ChatProvider = ({ children }) => {
               });
             }
           });
-          
+
           console.log('[ChatContext] 채팅방 상태 변경 알림 구독 완료: /user/queue/chatroom-status');
+
+          // 채팅방 목록 업데이트 구독 (unreadCount 실시간 업데이트용)
+          const updateSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
+            try {
+              const update = JSON.parse(message.body);
+              console.log('[ChatContext] 채팅방 업데이트 수신:', update);
+
+              // React Query 캐시 업데이트
+              queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
+                if (!oldData || !oldData.chatRooms) return oldData;
+
+                // 중복 제거를 위한 Map 사용 (chatRoomId 기준)
+                const chatRoomsMap = new Map();
+
+                // 기존 채팅방 목록을 Map에 추가 (중복 제거)
+                oldData.chatRooms.forEach((room) => {
+                  const roomId = room.chatRoomId || room.id;
+                  if (roomId) {
+                    const existingRoom = chatRoomsMap.get(roomId);
+                    if (!existingRoom) {
+                      chatRoomsMap.set(roomId, room);
+                    } else {
+                      // 최신 활동 시간 비교하여 최신 것만 유지
+                      const existingTime = new Date(existingRoom.lastMessageAt || existingRoom.updatedAt || 0).getTime();
+                      const currentTime = new Date(room.lastMessageAt || room.updatedAt || 0).getTime();
+                      if (currentTime > existingTime) {
+                        chatRoomsMap.set(roomId, room);
+                      }
+                    }
+                  }
+                });
+
+                const roomId = update.chatRoomId;
+                const existingRoom = chatRoomsMap.get(roomId);
+
+                if (existingRoom) {
+                  // lastMessage가 JSON 형식인 경우 "대여 요청"으로 변환
+                  let lastMessage = update.lastMessage || '';
+                  if (lastMessage && typeof lastMessage === 'string') {
+                    try {
+                      const contentStr = lastMessage.trim();
+                      const jsonStartIndex = contentStr.indexOf('{');
+                      const jsonEndIndex = contentStr.lastIndexOf('}');
+
+                      if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
+                        const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
+                        const parsed = JSON.parse(jsonStr);
+
+                        if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                          lastMessage = '대여 요청';
+                        }
+                      } else if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
+                        const parsed = JSON.parse(contentStr);
+                        if (parsed && parsed.type === 'RENTAL_REQUEST') {
+                          lastMessage = '대여 요청';
+                        }
+                      }
+                    } catch (e) {
+                      // JSON 파싱 실패 시 원본 유지
+                    }
+                  }
+
+                  chatRoomsMap.set(roomId, {
+                    ...existingRoom,
+                    lastMessage: lastMessage,
+                    lastMessageAt: update.lastMessageAt,
+                    unreadCount: update.unreadCount
+                  });
+                }
+
+                const uniqueChatRooms = Array.from(chatRoomsMap.values());
+
+                // 최신 활동 순으로 정렬 (고정 채팅방 우선)
+                uniqueChatRooms.sort((a, b) => {
+                  const aPinned = !!a.isPinned;
+                  const bPinned = !!b.isPinned;
+                  if (aPinned !== bPinned) return aPinned ? -1 : 1;
+                  const aTime = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+                  const bTime = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+                  return bTime - aTime;
+                });
+
+                // totalUnreadCount 계산
+                const totalUnreadCount = uniqueChatRooms.reduce(
+                  (sum, room) => sum + (room.unreadCount || 0),
+                  0
+                );
+
+                return {
+                  ...oldData,
+                  chatRooms: uniqueChatRooms,
+                  totalUnreadCount
+                };
+              });
+            } catch (error) {
+              console.error('[ChatContext] 채팅방 업데이트 처리 오류:', error);
+            }
+          });
+
+          console.log('[ChatContext] 채팅방 목록 업데이트 구독 완료: /user/queue/chatroom-update');
+
+          // 두 구독을 모두 저장
+          subscription = { statusSubscription, updateSubscription };
 
           // Heartbeat 시작 (30초마다, chatRoomId 없이)
           heartbeatInterval = setInterval(() => {
@@ -2216,7 +2352,12 @@ export const ChatProvider = ({ children }) => {
       }
       if (subscription) {
         try {
-          subscription.unsubscribe();
+          if (subscription.statusSubscription) {
+            subscription.statusSubscription.unsubscribe();
+          }
+          if (subscription.updateSubscription) {
+            subscription.updateSubscription.unsubscribe();
+          }
         } catch (error) {
           console.warn('[ChatContext] 전역 WebSocket 구독 해제 오류:', error);
         }
@@ -2232,7 +2373,7 @@ export const ChatProvider = ({ children }) => {
       globalWebSocketSubscriptionRef.current = null;
       globalHeartbeatIntervalRef.current = null;
     };
-  }, [currentUserId, handleChatRoomStatusEvent]);
+  }, [currentUserId, handleChatRoomStatusEvent, queryClient]);
 
   // 브라우저 포그라운드 복귀 시 Heartbeat 전송
   useEffect(() => {
