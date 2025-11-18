@@ -2491,9 +2491,19 @@ const ChatRoomPage = () => {
 
               // 결제 대기 메시지 (거래는 생성되었지만 결제가 안 됨)
               if (content.includes('💳 결제 대기') || content.includes('결제하러 가기')) {
+                // 결제 완료 여부 확인
+                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
+                const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
+                const isPaymentCompleted = currentRentalData?.status === 'ESCROW' || 
+                                           currentRentalData?.status === 'PAYMENT_COMPLETED' ||
+                                           currentRentalData?.status === 'SHIPPED' ||
+                                           currentRentalData?.status === 'RENTING' ||
+                                           currentRentalData?.rentalStatus === 'ESCROW';
+                
                 return [{
-                  text: '💳 결제하러 가기',
+                  text: isPaymentCompleted ? '✅ 결제 완료' : '💳 결제하러 가기',
                   style: 'primary',
+                  disabled: isPaymentCompleted,
                   onClick: async () => {
                     try {
                       // 메시지 내용에서 rentalHisId 추출
@@ -2712,9 +2722,17 @@ const ChatRoomPage = () => {
 
                 // 구매자에게만 "물품 수령 확인하기" 버튼 표시
                 if (!isSeller && rentalHisId) {
+                  // 수령 완료 여부 확인
+                  const isReceiveCompleted = currentRentalData?.status === 'RENTING' ||
+                                             currentRentalData?.status === 'RETURN_REQUESTED' ||
+                                             currentRentalData?.status === 'RETURNED' ||
+                                             currentRentalData?.status === 'COMPLETED' ||
+                                             currentRentalData?.rentalStatus === 'RENTING';
+                  
                   buttons.push({
-                    text: '✅ 물품 수령 확인하기',
+                    text: isReceiveCompleted ? '✅ 수령 완료' : '✅ 물품 수령 확인하기',
                     style: 'primary',
+                    disabled: isReceiveCompleted,
                     onClick: async () => {
                       try {
                         console.log('[ChatRoomPage] 물품 수령 확인하기 클릭:', rentalHisId);
@@ -2757,10 +2775,17 @@ const ChatRoomPage = () => {
 
                 // 구매자에게만 "반납하기", "거래 중단하기" 버튼 표시
                 if (!isSeller && currentRentalData?.rentalHisId) {
+                  // 반납 완료 여부 확인
+                  const isReturnCompleted = !!(currentRentalData?.returnTrackingNo || currentRentalData?.returnTrackingNumber) ||
+                                            currentRentalData?.status === 'RETURNED' ||
+                                            currentRentalData?.status === 'COMPLETED' ||
+                                            currentRentalData?.rentalStatus === 'RETURNED';
+                  
                   buttons.push(
                     {
-                      text: '📦 반납하기',
+                      text: isReturnCompleted ? '✅ 반납 완료' : '📦 반납하기',
                       style: 'primary',
+                      disabled: isReturnCompleted,
                       onClick: () => {
                         setShowTransactionModal(true);
                       }
@@ -2796,9 +2821,15 @@ const ChatRoomPage = () => {
 
                 // 판매자에게만 "반납 수령 확인하기" 버튼 표시
                 if (isSeller && rentalHisId) {
+                  // 반납 수령 완료 여부 확인
+                  const isReturnReceiveCompleted = currentRentalData?.status === 'COMPLETED' ||
+                                                    currentRentalData?.status === 'DEPOSIT_RETURNED' ||
+                                                    currentRentalData?.rentalStatus === 'COMPLETED';
+                  
                   buttons.push({
-                    text: '✅ 반납 수령 확인하기',
+                    text: isReturnReceiveCompleted ? '✅ 반납 수령 완료' : '✅ 반납 수령 확인하기',
                     style: 'primary',
+                    disabled: isReturnReceiveCompleted,
                     onClick: async () => {
                       try {
                         console.log('[ChatRoomPage] 반납 수령 확인하기 클릭:', rentalHisId);
@@ -3340,6 +3371,7 @@ const ChatRoomPage = () => {
                     message={message}
                     isOwn={isOwn}
                     isBuyer={isBuyer}
+                    rentalData={currentRentalData}
                     onExtendClick={async (rentalHisId) => {
                       try {
                         console.log('[ChatRoomPage] 거래 연장하기 클릭:', rentalHisId);
