@@ -3,12 +3,14 @@
  * 통합 리뷰 카드 컴포넌트
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProfileImage from '../../../shared/components/ProfileImage';
+import { reviewApi } from '../api/reviewApi';
 
-const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
+const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClick }) => {
   const navigate = useNavigate();
+  const [isLoadingRentalId, setIsLoadingRentalId] = useState(false);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -23,25 +25,124 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
     }
   };
 
-  const renderStars = (rating) => {
-    return [...Array(5)].map((_, i) => (
-      <svg
-        key={i}
-        className={`w-3 h-3 md:w-4 md:h-4 ${
-          i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
-        }`}
-        viewBox="0 0 20 20"
-      >
-        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-      </svg>
-    ));
+  // 정밀한 별점 렌더링 함수 (마이페이지 프로필과 동일한 스타일)
+  const renderStarRating = (rating) => {
+    const calcStarRates = () => {
+      let tempStarRatesArr = [0, 0, 0, 0, 0];
+      let starScore = rating;
+
+      for (let i = 0; i < 5; i++) {
+        if (starScore >= 1) {
+          tempStarRatesArr[i] = 14;
+          starScore -= 1;
+        } else {
+          tempStarRatesArr[i] = starScore * 14;
+          break;
+        }
+      }
+
+      return tempStarRatesArr;
+    };
+
+    const ratesResArr = calcStarRates();
+    const STAR_IDX_ARR = ['first', 'second', 'third', 'fourth', 'last'];
+
+    return STAR_IDX_ARR.map((item, idx) => {
+      const clipId = `clip-${idx}-${rating}-${review.reviewId || 'review'}`;
+      const pathId = `path-${idx}-${rating}-${review.reviewId || 'review'}`;
+
+      return (
+        <span key={`${item}_${idx}`}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={24}
+            height={24}
+            viewBox="0 0 14 13"
+            fill="#cacaca"
+          >
+            <clipPath id={clipId}>
+              <rect width={ratesResArr[idx]} height={24} />
+            </clipPath>
+            <path
+              id={pathId}
+              d="M9,2l2.163,4.279L16,6.969,12.5,10.3l.826,4.7L9,12.779,4.674,15,5.5,10.3,2,6.969l4.837-.69Z"
+              transform="translate(-2 -2)"
+            />
+            <use
+              clipPath={`url(#${clipId})`}
+              href={`#${pathId}`}
+              fill="#FFBF0F"
+            />
+          </svg>
+        </span>
+      );
+    });
   };
 
   // reviewer 정보 안전하게 처리
   const reviewer = review.reviewer || review.writer || {};
   
+  const handleClick = async () => {
+    if (onClick) {
+      onClick(review);
+      return;
+    }
+
+    // rentalHistoryId 찾기 (여러 경로 확인)
+    let rentalId = review.rentalHistoryId 
+      || review.rentalHisId 
+      || review.rentalHistory?.rentalHisId 
+      || review.rentalHistory?.rentalHistoryId
+      || review.rentalHistory?.id;
+
+    // rentalHistoryId가 없으면 리뷰 상세 API를 호출해서 찾기
+    if (!rentalId && review.reviewId) {
+      try {
+        setIsLoadingRentalId(true);
+        const reviewDetail = await reviewApi.getReviewDetail(review.reviewId);
+        const detailData = reviewDetail?.data?.data || reviewDetail?.data || reviewDetail;
+        rentalId = detailData.rentalHistoryId 
+          || detailData.rentalHisId 
+          || detailData.rentalHistory?.rentalHisId 
+          || detailData.rentalHistory?.rentalHistoryId
+          || detailData.rentalHistory?.id;
+      } catch (error) {
+        console.error('[ReviewCard] 리뷰 상세 조회 실패:', error);
+      } finally {
+        setIsLoadingRentalId(false);
+      }
+    }
+    
+    if (rentalId) {
+      // uploadType에 따라 빌린 내역 또는 빌려준 내역으로 이동
+      // 받은 리뷰: BORROW이면 빌린 내역, RENT이면 빌려준 내역
+      // 내가 쓴 리뷰: BORROW이면 빌린 내역, RENT이면 빌려준 내역
+      if (review.uploadType === 'BORROW' || review.type === 'BORROW') {
+        navigate(`/mypage/borrowed/${rentalId}`);
+      } else if (review.uploadType === 'RENT' || review.type === 'RENT') {
+        navigate(`/mypage/lent/${rentalId}`);
+      } else {
+        // uploadType이 없으면 기본적으로 빌린 내역으로 이동
+        navigate(`/mypage/borrowed/${rentalId}`);
+      }
+    } else {
+      console.warn('[ReviewCard] rentalHistoryId를 찾을 수 없습니다:', review);
+    }
+  };
+
+  // rentalHistoryId 찾기 (여러 경로 확인)
+  const rentalId = review.rentalHistoryId 
+    || review.rentalHisId 
+    || review.rentalHistory?.rentalHisId 
+    || review.rentalHistory?.rentalHistoryId
+    || review.rentalHistoryId
+    || review.rentalHistory?.id;
+
   return (
-    <div className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
+    <div 
+      className={`p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow cursor-pointer ${isLoadingRentalId ? 'opacity-75' : ''}`}
+      onClick={handleClick}
+    >
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage
@@ -60,9 +161,9 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
         </div>
         {/* 별점 표시 (옵션) */}
         {showRating && review.rating != null && (
-          <div className="flex items-center space-x-1">
-            {renderStars(review.rating)}
-            <span className="text-xs text-gray-500 ml-1">{review.rating.toFixed(1)}</span>
+          <div className="flex items-center gap-1">
+            {renderStarRating(review.rating)}
+            <span className="text-xs text-gray-600 ml-1 font-medium">{review.rating.toFixed(1)}</span>
           </div>
         )}
       </div>
