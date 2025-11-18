@@ -28,14 +28,28 @@ const ExtendRentalModal = ({ isOpen, onClose, rentalData, onExtendSuccess }) => 
   // 날짜 범위 변경 핸들러
   const handleDateRangeChange = (dateRange) => {
     if (dateRange && dateRange.end) {
-      setNewEndDate(dateRange.end);
+      const selectedEndDate = new Date(dateRange.end);
+      selectedEndDate.setHours(0, 0, 0, 0);
       
-      // 추가 일수 계산
+      // 기존 종료일보다 이후인지 확인
       if (originalEndDate) {
-        const days = Math.ceil((new Date(dateRange.end) - originalEndDate) / (1000 * 60 * 60 * 24));
+        const originalEnd = new Date(originalEndDate);
+        originalEnd.setHours(0, 0, 0, 0);
+        
+        // 기존 종료일보다 이후여야 함
+        if (selectedEndDate <= originalEnd) {
+          setNewEndDate(null);
+          setAdditionalFee(0);
+          return;
+        }
+        
+        // 연장 일수 계산 (기존 종료일 다음 날부터 새 종료일까지)
+        const days = Math.ceil((selectedEndDate - originalEnd) / (1000 * 60 * 60 * 24));
         const calculatedFee = days > 0 ? days * dailyFee : 0;
         setAdditionalFee(calculatedFee);
       }
+      
+      setNewEndDate(selectedEndDate);
     } else {
       setNewEndDate(null);
       setAdditionalFee(0);
@@ -109,8 +123,22 @@ const ExtendRentalModal = ({ isOpen, onClose, rentalData, onExtendSuccess }) => 
 
   if (!rentalData) return null;
 
+  // 연장 일수 계산 (기존 종료일 다음 날부터 새 종료일까지)
   const days = newEndDate && originalEndDate
-    ? Math.ceil((new Date(newEndDate) - originalEndDate) / (1000 * 60 * 60 * 24))
+    ? (() => {
+        const originalEnd = new Date(originalEndDate);
+        originalEnd.setHours(0, 0, 0, 0);
+        const newEnd = newEndDate instanceof Date ? newEndDate : new Date(newEndDate);
+        newEnd.setHours(0, 0, 0, 0);
+        
+        // 기존 종료일보다 이후인지 확인
+        if (newEnd <= originalEnd) {
+          return 0;
+        }
+        
+        // 일수 차이 계산
+        return Math.ceil((newEnd.getTime() - originalEnd.getTime()) / (1000 * 60 * 60 * 24));
+      })()
     : 0;
 
   return (
@@ -140,13 +168,46 @@ const ExtendRentalModal = ({ isOpen, onClose, rentalData, onExtendSuccess }) => 
           </label>
           <DateRangeCalendar
             onDateRangeChange={(range) => {
-              if (range && range.end) {
-                handleDateRangeChange({ end: range.end });
+              if (!range || !originalEndDate) {
+                setNewEndDate(null);
+                setAdditionalFee(0);
+                return;
+              }
+
+              // 연장의 경우: 사용자가 선택한 날짜를 종료일로 사용
+              // 시작일은 기존 종료일의 다음 날로 자동 설정
+              const selectedDate = range.end || range.start;
+              
+              if (!selectedDate) {
+                setNewEndDate(null);
+                setAdditionalFee(0);
+                return;
+              }
+
+              const originalEnd = new Date(originalEndDate);
+              originalEnd.setHours(0, 0, 0, 0);
+              
+              const selected = new Date(selectedDate);
+              selected.setHours(0, 0, 0, 0);
+              
+              // 선택한 날짜가 기존 종료일보다 이후인지 확인
+              if (selected > originalEnd) {
+                handleDateRangeChange({ end: selected });
+              } else {
+                // 기존 종료일 이하를 선택한 경우 무시
+                setNewEndDate(null);
+                setAdditionalFee(0);
               }
             }}
-            availableStartDate={originalEndDate || null}
-            initialStartDate={originalEndDate || null}
-            initialEndDate={newEndDate || null}
+            availableStartDate={originalEndDate ? (() => {
+              // 기존 종료일의 다음 날을 시작일로 설정
+              const nextDay = new Date(originalEndDate);
+              nextDay.setDate(nextDay.getDate() + 1);
+              nextDay.setHours(0, 0, 0, 0);
+              return nextDay;
+            })() : null}
+            initialStartDate={null}
+            initialEndDate={null}
           />
           {originalEndDate && (
             <p className="text-xs text-gray-600 mt-2">
