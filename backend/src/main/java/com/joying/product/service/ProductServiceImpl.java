@@ -34,9 +34,11 @@ import com.joying.region.domain.Dong;
 import com.joying.search.dto.SearchRequest;
 import com.joying.search.service.SearchService;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -476,6 +478,9 @@ public class ProductServiceImpl implements ProductService {
         return product.getProductId();
     }
 
+    @Autowired
+    private EntityManager entityManager;
+
     @Override
     @Transactional
     public void deleteProduct(Long productId, Long memberId) {
@@ -504,6 +509,8 @@ public class ProductServiceImpl implements ProductService {
         paymentRepository.detachProductFromPayments(productId);
         reviewRepository.detachProductFromReviews(productId);
         chatRoomRepository.detachProductFromChatRooms(productId);
+
+        entityManager.flush();
 
         // 찜삭제
         productLikeRepository.deleteByProduct_ProductId(productId);
