@@ -250,8 +250,8 @@ const MessageInput = ({
               value={message}
               onChange={(e) => {
                 const newValue = e.target.value;
-                // 최대 1000자 제한
-                if (newValue.length <= 1000) {
+                // 최대 499자 제한 (백엔드 500자 제한에 맞춤)
+                if (newValue.length <= 499) {
                   setMessage(newValue);
                   adjustTextareaHeight();
                   handleTyping();
@@ -261,14 +261,14 @@ const MessageInput = ({
               placeholder={disabled ? '상대방이 나간 채팅방입니다' : '메시지를 입력하세요...'}
               disabled={disabled}
               rows={1}
-              maxLength={1000}
+              maxLength={499}
               className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-2 pr-12 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed max-h-32 scrollbar-hide bg-white text-gray-900 placeholder-gray-500"
               style={{ minHeight: '40px', caretColor: '#111827' }}
             />
             {/* 글자 수 카운터 */}
-            {message.length > 800 && (
+            {message.length > 400 && (
               <div className="absolute bottom-1 left-2 text-xs text-gray-500">
-                {message.length}/1000
+                {message.length}/499
               </div>
             )}
             

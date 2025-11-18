@@ -36,7 +36,6 @@ import { rentalApi } from '../../../features/rental/api/rentalApi';
 import { paymentApi } from '../../../features/payment/api/paymentApi';
 import { accountApi } from '../../../features/user/api/accountApi';
 import { messageApi } from '../api/messageApi';
-import { useUnavailableDates } from '../../../features/product/hooks/useUnavailableDates';
 import { useProductDetail } from '../../../features/product/hooks/useProductDetail';
 import { useAuth } from '../../../features/auth/contexts/AuthContext';
 import SideNavbar from '../../../shared/components/Navbar/SideNavbar';
@@ -454,9 +453,31 @@ const ChatRoomPage = () => {
   
   // 상품 정보 조회 (판매자 확인용)
   const { product: productData } = useProductDetail(productId);
-  
-  // 대여 불가 날짜 조회 (404 에러는 hook 내부에서 처리됨)
-  const { unavailableDates } = useUnavailableDates(productId);
+
+  // rentalRefuses를 disabledDates 형식으로 변환 (ProductDetailPage와 동일한 방식)
+  const unavailableDates = useMemo(() => {
+    if (!productData?.rentalRefuses || !Array.isArray(productData.rentalRefuses)) {
+      return [];
+    }
+
+    return productData.rentalRefuses.flatMap(refuse => {
+      // ISO 문자열을 YYYY-MM-DD 형식으로 직접 추출 (타임존 문제 방지)
+      const startDateStr = refuse.startRef.split('T')[0];
+      const endDateStr = refuse.endRef.split('T')[0];
+
+      const start = new Date(startDateStr + 'T00:00:00');
+      const end = new Date(endDateStr + 'T00:00:00');
+      const dates = [];
+      const currentDate = new Date(start);
+
+      while (currentDate <= end) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return dates;
+    });
+  }, [productData?.rentalRefuses]);
 
   // 생성된 채팅방 데이터 (location.state에서 가져옴)
   const existingChatRoomData = location.state?.chatRoomData || null;
@@ -2988,6 +3009,32 @@ const ChatRoomPage = () => {
                         return;
                       }
 
+                      // 대여 요청을 한 사람(requesterId) 추출
+                      let requesterId = null;
+                      try {
+                        const rentalInfo = message.rentalInfo || (message.content ? JSON.parse(message.content) : null);
+                        requesterId = rentalInfo?.requesterId || message.senderId || message.memberId;
+                      } catch (e) {
+                        console.warn('[ChatRoomPage] requesterId 추출 실패, senderId 사용:', message.senderId);
+                        requesterId = message.senderId || message.memberId;
+                      }
+
+                      console.log('[ChatRoomPage] 거래 생성 권한 검증:', {
+                        requesterId,
+                        otherMemberId,
+                        messageSenderId: message.senderId
+                      });
+
+                      // requesterId와 otherMemberId가 일치하는지 검증
+                      if (requesterId && otherMemberId && Number(requesterId) !== Number(otherMemberId)) {
+                        alert('대여 요청을 한 사람만 거래를 생성할 수 있습니다.');
+                        console.error('[ChatRoomPage] 권한 검증 실패:', {
+                          requesterId,
+                          otherMemberId
+                        });
+                        return;
+                      }
+
                       // 기간 계산
                       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
 
@@ -2996,7 +3043,8 @@ const ChatRoomPage = () => {
                         startDate,
                         endDate,
                         rentMethod,
-                        days
+                        days,
+                        requesterId
                       });
 
                       // rentalData를 null로 설정하고, requestedDateRange만 전달
@@ -3004,13 +3052,14 @@ const ChatRoomPage = () => {
                       // 상품 정보에서 기본 금액 가져오기 (rentalFee, deposit가 전달된 경우 우선 사용)
                       const defaultRentalFee = rentalFee !== undefined ? rentalFee : (productData?.price || productData?.rentalFee || productData?.dailyPrice || 0);
                       const defaultDeposit = deposit !== undefined ? deposit : (productData?.deposit || 0);
-                      
+
                       setRequestedDateRange({
                         start: startDate,
                         end: endDate,
                         rentMethod,
                         rentalFee: defaultRentalFee,
-                        deposit: defaultDeposit
+                        deposit: defaultDeposit,
+                        requesterId  // 대여 요청자 ID 추가
                       });
 
                       setCurrentRentalData(null);
