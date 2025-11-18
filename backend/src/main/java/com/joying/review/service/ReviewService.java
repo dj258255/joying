@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
+import com.joying.file.domain.ProductFile;
 import com.joying.file.domain.ReviewFile;
 import com.joying.file.repository.FileRepository;
+import com.joying.file.repository.ProductFileRepository;
 import com.joying.file.repository.ReviewFileRepository;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
@@ -44,6 +46,7 @@ public class ReviewService {
 	private final FileRepository fileRepository;
 	private final ReviewFileRepository reviewFileRepository;
 	private final ReviewRepository reviewRepository;
+	private final ProductFileRepository	productFileRepository;
 
 	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getReviews(Long productId, int page, int size) {
@@ -241,7 +244,17 @@ public class ReviewService {
 	private ReviewResponseDto toResponseDto(Review review) {
 		List<String> imageUrls = resolveReviewImageUrls(review);
 		String profileImageUrl = resolveReviewerProfileImage(review);
-		return ReviewResponseDto.fromEntity(review, profileImageUrl, imageUrls);
+		Long productId = null;
+		String productTitle = null;
+		String productImageUrl = null;
+		if (review.getProduct() != null) {
+			productId = review.getProduct().getProductId();
+			productTitle = review.getProduct().getTitle();
+			List<ProductFile> productFiles = productFileRepository.findThumbnailsByProductIds(List.of(productId));
+			ProductFile productFile = productFiles.get(0);
+			productImageUrl = fileUrlResolver.toPublicUrl(productFile.getFile());
+		}
+		return ReviewResponseDto.fromEntity(review, profileImageUrl, imageUrls, productId, productTitle, productImageUrl);
 	}
 
 	private void connectFile(ReviewRequestDto dto, Review review) {
