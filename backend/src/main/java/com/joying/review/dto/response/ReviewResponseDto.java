@@ -13,7 +13,7 @@ public record ReviewResponseDto (
 	String title,
 	String content,
 	float rating,
-	String reviewerName,
+	String nickname,
 	Long reviewerId,
 	Instant createdAt,
 	String profileImageUrl,
@@ -26,7 +26,7 @@ public record ReviewResponseDto (
 			.title(review.getTitle())
 			.content(review.getContent())
 			.rating(review.getRating())
-			.reviewerName(review.getReviewer() != null ? review.getReviewer().getNickname() : null)
+			.nickname(review.getReviewer() != null ? review.getReviewer().getNickname() : null)
 			.reviewerId(review.getReviewer().getMemberId())
 			.createdAt(review.getCreatedAt())
 			.profileImageUrl(profileImageUrl)
