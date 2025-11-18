@@ -3,8 +3,9 @@
  * 수령 확인 메시지 카드 컴포넌트
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import VideoListModal from '../../rental/components/VideoListModal';
+import { checkButtonEnabled, TRANSACTION_STEPS } from '../../../shared/utils/transactionStepUtils';
 
 /**
  * 수령 확인 메시지 내용 파싱
@@ -36,9 +37,63 @@ export const parseReceiveMessage = (content) => {
 /**
  * 수령 확인 메시지 카드 컴포넌트
  */
-const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onExtendClick, onReturnClick, onCancelClick }) => {
+const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, rentalData = null, onExtendClick, onReturnClick, onCancelClick }) => {
   const [showVideoListModal, setShowVideoListModal] = useState(false);
+  const [buttonStates, setButtonStates] = useState({
+    extend: { enabled: true, reason: null },
+    return: { enabled: true, reason: null },
+    cancel: { enabled: true, reason: null }
+  });
   const receiveInfo = parseReceiveMessage(message.content);
+
+  // 버튼 활성화 여부 확인
+  useEffect(() => {
+    const checkButtons = async () => {
+      if (!receiveInfo?.rentalHisId) {
+        return;
+      }
+
+      try {
+        // rentalData가 없으면 조회
+        let currentRentalData = rentalData;
+        if (!currentRentalData && receiveInfo.rentalHisId) {
+          const { rentalApi } = await import('../../rental/api/rentalApi');
+          const rentalResponse = await rentalApi.getRentalDetail(receiveInfo.rentalHisId);
+          currentRentalData = rentalResponse.data || rentalResponse;
+        }
+
+        if (!currentRentalData) {
+          return;
+        }
+
+        // 거래 연장하기 버튼: 수령 완료 후 활성화
+        const extendState = await checkButtonEnabled(
+          TRANSACTION_STEPS.RECEIVE,
+          currentRentalData,
+          receiveInfo.rentalHisId
+        );
+
+        // 반납하기 버튼: 수령 완료 후, 반납 전에만 활성화
+        const returnTrackingCompleted = !!(currentRentalData?.returnTrackingNo || currentRentalData?.returnTrackingNumber);
+        const returnState = extendState.enabled && !returnTrackingCompleted
+          ? { enabled: true }
+          : { enabled: false, reason: returnTrackingCompleted ? '이미 반납이 완료되었습니다' : '수령을 먼저 완료해주세요' };
+
+        // 거래 중단하기 버튼: 항상 활성화 (취소는 언제든 가능)
+        const cancelState = { enabled: true };
+
+        setButtonStates({
+          extend: extendState,
+          return: returnState,
+          cancel: cancelState
+        });
+      } catch (err) {
+        console.error('[ReceiveMessageCard] 버튼 상태 확인 실패:', err);
+      }
+    };
+
+    checkButtons();
+  }, [receiveInfo?.rentalHisId, rentalData]);
 
   if (!receiveInfo) {
     // 수령 확인 메시지가 아니면 null 반환 (기본 MessageBubble로 렌더링)
@@ -93,8 +148,14 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onExtendC
                 {/* 거래 연장하기 버튼 */}
                 {onExtendClick && (
                   <button
-                    onClick={() => onExtendClick(receiveInfo.rentalHisId)}
-                    className="glass-button w-full text-sm py-2.5 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                    onClick={() => buttonStates.extend.enabled && onExtendClick(receiveInfo.rentalHisId)}
+                    disabled={!buttonStates.extend.enabled}
+                    title={buttonStates.extend.reason || ''}
+                    className={`glass-button w-full text-sm py-2.5 ${
+                      buttonStates.extend.enabled
+                        ? 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700'
+                        : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                    }`}
                   >
                     <div className="flex items-center justify-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,8 +169,14 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onExtendC
                 {/* 반납하기 버튼 */}
                 {onReturnClick && (
                   <button
-                    onClick={() => onReturnClick(receiveInfo.rentalHisId)}
-                    className="glass-button w-full text-sm py-2.5"
+                    onClick={() => buttonStates.return.enabled && onReturnClick(receiveInfo.rentalHisId)}
+                    disabled={!buttonStates.return.enabled}
+                    title={buttonStates.return.reason || ''}
+                    className={`glass-button w-full text-sm py-2.5 ${
+                      buttonStates.return.enabled
+                        ? ''
+                        : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                    }`}
                   >
                     <div className="flex items-center justify-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,8 +190,14 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onExtendC
                 {/* 거래 중단하기 버튼 */}
                 {onCancelClick && (
                   <button
-                    onClick={() => onCancelClick(receiveInfo.rentalHisId)}
-                    className="glass-button w-full text-sm py-2.5 bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+                    onClick={() => buttonStates.cancel.enabled && onCancelClick(receiveInfo.rentalHisId)}
+                    disabled={!buttonStates.cancel.enabled}
+                    title={buttonStates.cancel.reason || ''}
+                    className={`glass-button w-full text-sm py-2.5 ${
+                      buttonStates.cancel.enabled
+                        ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700'
+                        : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                    }`}
                   >
                     <div className="flex items-center justify-center gap-2">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
