@@ -44,7 +44,15 @@ const UserProfileProductList = ({
                     image: product.thumbnailUrl || product.images?.[0],
                     name: product.title
                   }}
-                  onClick={() => navigate(`/products/${pid}`)}
+                  onClick={() => navigate(`/products/${pid}`, {
+                    state: {
+                      fromMyPage: true,
+                      myPageState: {
+                        activeTab: 'products',
+                        productTab: 'registered'
+                      }
+                    }
+                  })}
                   actionType="view"
                   status="available"
                 />

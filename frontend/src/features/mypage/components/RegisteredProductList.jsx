@@ -283,7 +283,15 @@ const RegisteredProductList = ({
             <ProductCard
               key={product.id || product.productId}
               product={product}
-              onClick={() => navigate(`/products/${product.id || product.productId}`)}
+              onClick={() => navigate(`/products/${product.id || product.productId}`, {
+                state: {
+                  fromMyPage: true,
+                  myPageState: {
+                    activeTab: 'products',
+                    productTab: 'registered'
+                  }
+                }
+              })}
               onEdit={() => handleEditProduct(product)}
               onDelete={() => handleDeleteProduct(product)}
               actionType="menu"

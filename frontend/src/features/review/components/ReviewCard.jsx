@@ -37,19 +37,22 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false }) => {
     ));
   };
 
+  // reviewer 정보 안전하게 처리
+  const reviewer = review.reviewer || review.writer || {};
+  
   return (
     <div className="p-3 md:p-4 border border-gray-200 rounded-2xl hover:shadow-md transition-shadow">
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
         <ProfileImage
-          src={review.reviewer.profileImageUrl}
-          alt={review.reviewer.nickname || '익명'}
+          src={reviewer.profileImageUrl || reviewer.profile_image_url}
+          alt={reviewer.nickname || reviewer.name || '익명'}
           size={40}
           className="w-8 h-8 md:w-10 md:h-10"
         />
         <div className="flex-1">
           <div className="font-medium text-gray-900 text-sm md:text-base">
-            {review.reviewer.nickname || '익명'}
+            {reviewer.nickname || reviewer.name || '익명'}
           </div>
           <div className="text-xs text-gray-500">
             {formatDate(review.createdAt)}

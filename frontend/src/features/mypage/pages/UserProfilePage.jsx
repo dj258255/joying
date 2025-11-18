@@ -57,8 +57,15 @@ const UserProfilePage = () => {
           })
         ]);
 
-        const rentCount = rentRes.data.data.totalCount || 0;
-        const borrowCount = borrowRes.data.data.totalCount || 0;
+        // API 응답 구조 확인: response.data.data 또는 response.data
+        const rentData = rentRes.data?.data || rentRes.data || {};
+        const borrowData = borrowRes.data?.data || borrowRes.data || {};
+        
+        const rentCount = rentData.totalCount || rentData.total_count || rentData.totalElements || 0;
+        const borrowCount = borrowData.totalCount || borrowData.total_count || borrowData.totalElements || 0;
+        
+        console.log('[UserProfilePage] 리뷰 개수:', { rentCount, borrowCount, rentRes: rentRes.data, borrowRes: borrowRes.data });
+        
         setTotalReviewCount(rentCount + borrowCount);
       } catch (err) {
         console.error("리뷰 개수 로드 실패:", err);
