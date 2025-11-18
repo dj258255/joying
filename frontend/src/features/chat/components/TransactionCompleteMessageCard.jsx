@@ -4,7 +4,6 @@
  */
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import VideoListModal from '../../rental/components/VideoListModal';
 
 /**
@@ -41,8 +40,7 @@ export const parseTransactionCompleteMessage = (content) => {
 /**
  * 거래 완료 메시지 카드 컴포넌트
  */
-const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false }) => {
-  const navigate = useNavigate();
+const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false, onReviewClick }) => {
   const [showVideoListModal, setShowVideoListModal] = useState(false);
 
   const completeInfo = parseTransactionCompleteMessage(message.content);
@@ -54,7 +52,9 @@ const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = fal
 
   // 리뷰 작성하기 버튼 클릭 핸들러
   const handleReviewClick = () => {
-    navigate(`/reviews/write?rentalHistoryId=${completeInfo.rentalHisId}`);
+    if (onReviewClick) {
+      onReviewClick(completeInfo.rentalHisId, isBuyer ? 'BORROW' : 'RENT');
+    }
   };
 
   return (

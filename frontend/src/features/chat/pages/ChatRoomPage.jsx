@@ -23,6 +23,7 @@ import RentalRequestModal from '../components/RentalRequestModal';
 import TransactionProcessModal from '../components/TransactionProcessModal';
 import TransactionActionButton from '../components/TransactionActionButton';
 import PaymentModal from '../../../features/payment/components/PaymentModal';
+import { useReviewWrite } from '../../../features/review/hooks/useReviewWrite';
 import ShippingModal from '../../../features/rental/components/ShippingModal';
 import ReceiveModal from '../../../features/rental/components/ReceiveModal';
 import ReturnModal from '../../../features/rental/components/ReturnModal';
@@ -414,6 +415,16 @@ const ChatRoomPage = () => {
   // 거래 영상 조회 모달
   const [showVideoListModal, setShowVideoListModal] = useState(false);
   const [videoListModalRentalHisId, setVideoListModalRentalHisId] = useState(null);
+  // 리뷰 작성 모달
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRentalHisId, setReviewRentalHisId] = useState(null);
+  const [reviewUploadType, setReviewUploadType] = useState('BORROW'); // 'BORROW' 또는 'RENT'
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewContent, setReviewContent] = useState('');
+  
+  // 리뷰 작성 훅
+  const { createReview, isCreating: isCreatingReview } = useReviewWrite();
 
   // VideoListModal 열기 이벤트 리스너 (TransactionProcessModal에서 호출)
   useEffect(() => {
@@ -2881,6 +2892,26 @@ const ChatRoomPage = () => {
             // 송장 번호 등록 메시지 감지 (카드로 렌더링)
             const trackingInfo = parseTrackingNumberMessage(message.content);
             if (trackingInfo) {
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserId = user?.id || user?.memberId;
+              const isSeller = sellerId && currentUserId && Number(sellerId) === Number(currentUserId);
+              const isBuyer = !isSeller && currentUserId;
+              
+              // 발송(isReturn=false)이면 소유자만, 반납(isReturn=true)이면 대여자만 보이도록
+              const shouldShowCard = trackingInfo.isReturn ? isBuyer : isSeller;
+              
+              // 등록해야 하는 사람만 카드 표시
+              if (!shouldShowCard) {
+                // 기본 MessageBubble로 렌더링
+                return null;
+              }
+              
               return (
                 <React.Fragment key={key}>
                   {showDateDivider && <DateDivider />}
@@ -3082,6 +3113,14 @@ const ChatRoomPage = () => {
                     isOwn={isOwn}
                     isSeller={isSeller}
                     isBuyer={isBuyer}
+                    onReviewClick={(rentalHisId, uploadType) => {
+                      setReviewRentalHisId(rentalHisId);
+                      setReviewUploadType(uploadType);
+                      setReviewRating(0);
+                      setReviewTitle('');
+                      setReviewContent('');
+                      setShowReviewModal(true);
+                    }}
                   />
                 </React.Fragment>
               );
@@ -3632,6 +3671,148 @@ const ChatRoomPage = () => {
         rentalData={currentRentalData}
         productData={productData}
       />
+
+      {/* 리뷰 작성 모달 */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">리뷰 작성</h3>
+              <button
+                onClick={() => {
+                  setShowReviewModal(false);
+                  setReviewRentalHisId(null);
+                  setReviewRating(0);
+                  setReviewTitle('');
+                  setReviewContent('');
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">평점</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => {
+                        if (reviewRating === star) {
+                          setReviewRating(star - 0.5);
+                        } else {
+                          setReviewRating(star);
+                        }
+                      }}
+                      className="relative"
+                    >
+                      <svg
+                        className={`w-8 h-8 transition-colors ${
+                          star <= reviewRating ? 'text-yellow-400' : 'text-gray-300'
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      {/* 반별 표시를 위한 오버레이 */}
+                      {reviewRating === star - 0.5 && (
+                        <div className="absolute inset-0 overflow-hidden">
+                          <svg
+                            className="w-8 h-8 text-yellow-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                            style={{ clipPath: 'polygon(0 0, 50% 0, 50% 100%, 0 100%)' }}
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-600 mt-2">
+                  현재 평점: {reviewRating}점
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 제목 (선택)</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
+                  placeholder="리뷰 제목을 입력해주세요..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
+                  rows={4}
+                  placeholder="리뷰를 작성해주세요..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    setReviewRentalHisId(null);
+                    setReviewRating(0);
+                    setReviewTitle('');
+                    setReviewContent('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!reviewRating || !reviewContent.trim()) {
+                      alert('평점과 리뷰 내용을 입력해주세요.');
+                      return;
+                    }
+                    
+                    try {
+                      await createReview({
+                        rentalHistoryId: Number(reviewRentalHisId),
+                        title: reviewTitle.trim() || `리뷰`,
+                        content: reviewContent.trim(),
+                        rating: reviewRating,
+                        uploadType: reviewUploadType
+                      });
+                      
+                      // 모달 닫기
+                      setShowReviewModal(false);
+                      setReviewRentalHisId(null);
+                      setReviewRating(0);
+                      setReviewTitle('');
+                      setReviewContent('');
+                      
+                      alert('리뷰가 작성되었습니다.');
+                    } catch (error) {
+                      console.error('리뷰 작성 실패:', error);
+                      alert(error.response?.data?.message || '리뷰 작성에 실패했습니다. 다시 시도해주세요.');
+                    }
+                  }}
+                  disabled={isCreatingReview}
+                  className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingReview ? '작성 중...' : '작성하기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
