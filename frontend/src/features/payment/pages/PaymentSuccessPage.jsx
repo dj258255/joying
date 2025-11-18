@@ -319,13 +319,6 @@ const PaymentSuccessPage = () => {
               {formatCurrency(paymentInfo?.totalAmount || amount)}
             </div>
           )}
-          {paymentInfo?.status && (
-            <div className="mt-2">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                {paymentInfo.status === 'DONE' ? '승인완료' : paymentInfo.status}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* 안내 메시지 */}
@@ -364,12 +357,6 @@ const PaymentSuccessPage = () => {
           >
             홈으로 이동
           </button>
-        </div>
-
-        {/* 추가 정보 */}
-        <div className="mt-6 text-xs text-gray-500">
-          <p>결제 관련 문의사항이 있으시면 고객센터로 연락해주세요.</p>
-          <p className="mt-1">고객센터: 1588-0000 (운영시간: 09:00 - 18:00)</p>
         </div>
       </div>
     </div>
