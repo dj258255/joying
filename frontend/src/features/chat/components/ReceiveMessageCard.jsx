@@ -36,7 +36,7 @@ export const parseReceiveMessage = (content) => {
 /**
  * 수령 확인 메시지 카드 컴포넌트
  */
-const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onReturnClick, onCancelClick }) => {
+const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, onExtendClick, onReturnClick, onCancelClick }) => {
   const [showVideoListModal, setShowVideoListModal] = useState(false);
   const receiveInfo = parseReceiveMessage(message.content);
 
