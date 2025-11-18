@@ -487,6 +487,59 @@ const ProductDetailPage = () => {
     return diffDays;
   };
 
+  // 정밀한 별점 렌더링 함수 (마이페이지와 동일한 스타일)
+  const renderPreciseStars = (rating) => {
+    const calcStarRates = () => {
+      let tempStarRatesArr = [0, 0, 0, 0, 0];
+      let starScore = rating;
+
+      for (let i = 0; i < 5; i++) {
+        if (starScore >= 1) {
+          tempStarRatesArr[i] = 14; // 별 하나당 14 (viewBox width)
+          starScore -= 1;
+        } else {
+          tempStarRatesArr[i] = starScore * 14; // 부분 채우기
+          break;
+        }
+      }
+      return tempStarRatesArr;
+    };
+
+    const ratesResArr = calcStarRates();
+    const STAR_IDX_ARR = ['first', 'second', 'third', 'fourth', 'last'];
+
+    return STAR_IDX_ARR.map((item, idx) => {
+      const clipId = `clip-product-${idx}-${rating}`;
+      const pathId = `path-product-${idx}-${rating}`;
+
+      return (
+        <span key={`${item}_${idx}`}>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={20}
+            height={20}
+            viewBox="0 0 14 13"
+            fill="#cacaca"
+          >
+            <clipPath id={clipId}>
+              <rect width={ratesResArr[idx]} height={20} />
+            </clipPath>
+            <path
+              id={pathId}
+              d="M9,2l2.163,4.279L16,6.969,12.5,10.3l.826,4.7L9,12.779,4.674,15,5.5,10.3,2,6.969l4.837-.69Z"
+              transform="translate(-2 -2)"
+            />
+            <use
+              clipPath={`url(#${clipId})`}
+              href={`#${pathId}`}
+              fill="#FFBF0F"
+            />
+          </svg>
+        </span>
+      );
+    });
+  };
+
   return (
     <>
       <SideNavbar isOpen={isSideNavOpen} onClose={() => setIsSideNavOpen(false)} />
@@ -559,20 +612,10 @@ const ProductDetailPage = () => {
                   {/* 별점과 위치 */}
                   <div className="flex items-center gap-4 text-sm mb-6">
                     <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <svg
-                          key={i}
-                          className={`w-5 h-5 ${
-                            i < Math.floor(product.rating || 0)
-                              ? 'text-yellow-400 fill-current'
-                              : 'text-gray-300 fill-current'
-                          }`}
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                        </svg>
-                      ))}
+                      {renderPreciseStars(product.rating || 0)}
                     </div>
+                    <span className="text-gray-600">{product.rating ? product.rating.toFixed(1) : '0.0'}</span>
+                    <span className="text-gray-400">•</span>
                     <span className="text-gray-600">{productReviews.length} reviews</span>
                     <span className="text-gray-400">•</span>
                     <span className="flex items-center gap-1 text-gray-600">
@@ -594,22 +637,34 @@ const ProductDetailPage = () => {
                     <div className="flex items-center gap-2">
                       {product.rentMethod === 'BOTH' && (
                         <>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                            🚗 직접 거래
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 rounded-lg text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            직접 거래
                           </span>
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                            📦 택배 거래
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 rounded-lg text-sm font-medium">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                            택배 거래
                           </span>
                         </>
                       )}
                       {product.rentMethod === 'ONLY_OFFLINE' && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                          🚗 직접 거래만 가능
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 rounded-lg text-sm font-medium">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          직접 거래만 가능
                         </span>
                       )}
                       {product.rentMethod === 'ONLY_ONLINE' && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium">
-                          📦 택배 거래만 가능
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-900 rounded-lg text-sm font-medium">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                          택배 거래만 가능
                         </span>
                       )}
                     </div>
@@ -621,7 +676,7 @@ const ProductDetailPage = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       <span>
-                        대여 가능 기간: {' '}
+                        {product.uploadType === 'BORROW' ? '대여 희망 기간' : '대여 가능 기간'}: {' '}
                         {product.startRent && (() => {
                           const dateStr = product.startRent.split('T')[0];
                           const [year, month, day] = dateStr.split('-');
@@ -959,21 +1014,11 @@ const ProductDetailPage = () => {
               
               {/* 별점 */}
               <div className="flex items-center gap-2 mb-4">
-                <div className="flex items-center">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-4 h-4 ${
-                        i < Math.floor(product.rating || 0)
-                          ? 'text-yellow-400 fill-current'
-                          : 'text-gray-300'
-                      }`}
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                    </svg>
-                  ))}
+                <div className="flex items-center gap-1">
+                  {renderPreciseStars(product.rating || 0)}
                 </div>
+                <span className="text-sm text-gray-600">{product.rating ? product.rating.toFixed(1) : '0.0'}</span>
+                <span className="text-gray-400">•</span>
                 <span className="text-sm text-gray-600">{productReviews.length} reviews</span>
               </div>
 
@@ -1000,22 +1045,34 @@ const ProductDetailPage = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     {product.rentMethod === 'BOTH' && (
                       <>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
-                          🚗 직접 거래
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-900 rounded-lg text-xs font-medium">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          직접 거래
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
-                          📦 택배 거래
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-900 rounded-lg text-xs font-medium">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                          택배 거래
                         </span>
                       </>
                     )}
                     {product.rentMethod === 'ONLY_OFFLINE' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
-                        🚗 직접 거래만 가능
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-900 rounded-lg text-xs font-medium">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        직접 거래만 가능
                       </span>
                     )}
                     {product.rentMethod === 'ONLY_ONLINE' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
-                        📦 택배 거래만 가능
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-900 rounded-lg text-xs font-medium">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        택배 거래만 가능
                       </span>
                     )}
                   </div>
@@ -1027,6 +1084,7 @@ const ProductDetailPage = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span>
+                        {product.uploadType === 'BORROW' ? '대여 희망 기간' : '대여 가능 기간'}: {' '}
                         {product.startRent && (() => {
                           const dateStr = product.startRent.split('T')[0];
                           const [year, month, day] = dateStr.split('-');
