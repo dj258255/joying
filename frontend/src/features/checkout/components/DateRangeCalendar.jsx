@@ -3,18 +3,64 @@
  * 날짜 범위 선택 캘린더 컴포넌트
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const DateRangeCalendar = ({ 
   onDateRangeChange, 
   disabledDates = [], 
   availableStartDate = null, 
-  availableEndDate = null 
+  availableEndDate = null,
+  initialStartDate = null,
+  initialEndDate = null
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [selectedRange, setSelectedRange] = useState([]);
+
+  // 날짜 범위 내의 모든 날짜 배열 생성
+  const getDaysInRange = (start, end) => {
+    const days = [];
+    const current = new Date(start);
+    while (current <= end) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return days;
+  };
+
+  // 초기값 설정
+  useEffect(() => {
+    if (initialStartDate && initialEndDate) {
+      const start = initialStartDate instanceof Date 
+        ? initialStartDate 
+        : new Date(initialStartDate);
+      const end = initialEndDate instanceof Date 
+        ? initialEndDate 
+        : new Date(initialEndDate);
+      
+      // 날짜 정규화 (시간 제거)
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+      
+      setStartDate(start);
+      setEndDate(end);
+      
+      const range = getDaysInRange(start, end);
+      setSelectedRange(range);
+      
+      // 초기 달을 시작일이 포함된 달로 설정
+      setCurrentMonth(new Date(start));
+      
+      // 부모 컴포넌트에 알림
+      if (onDateRangeChange) {
+        onDateRangeChange({
+          start: start,
+          end: end
+        });
+      }
+    }
+  }, [initialStartDate, initialEndDate, onDateRangeChange]);
 
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -78,16 +124,6 @@ const DateRangeCalendar = ({
         onDateRangeChange(null);
       }
     }
-  };
-
-  const getDaysInRange = (start, end) => {
-    const days = [];
-    const current = new Date(start);
-    while (current <= end) {
-      days.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-    return days;
   };
 
   const navigateMonth = (direction) => {

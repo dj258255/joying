@@ -267,24 +267,24 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="물품 수령 확인" className="max-w-2xl">
+    <Modal isOpen={isOpen} onClose={handleClose} title="물품 수령 확인" className="max-w-2xl" hideCloseButton={true}>
       <div className="space-y-6">
         {error && <ErrorAlert message={error} />}
 
         {/* Step 1: 영상 녹화 */}
         {currentStep === 'video' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
+          <div className="space-y-6">
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-2">
                 📹 물품 개봉 영상을 촬영해주세요
               </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                택배 개봉 과정을 촬영하면 분쟁 시 증거로 사용됩니다
+              <p className="text-sm text-gray-700 leading-relaxed">
+                물품의 상태를 확인하고 촬영하면 분쟁 시 증거로 사용됩니다
               </p>
             </div>
 
             {/* 비디오 프리뷰 */}
-            <div className="relative bg-black rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+            <div className="relative bg-black rounded-3xl overflow-hidden shadow-2xl" style={{ paddingTop: '56.25%' }}>
               <video
                 ref={videoRef}
                 className="absolute inset-0 w-full h-full object-contain"
@@ -319,7 +319,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
               {!isRecording && !recordedVideoUrl && (
                 <button
                   onClick={startRecording}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                  className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
                 >
                   📹 촬영 시작
                 </button>
@@ -328,7 +328,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
               {isRecording && (
                 <button
                   onClick={stopRecording}
-                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                  className="flex-1 px-6 py-3 glass-button-danger text-white rounded-2xl font-semibold text-base"
                 >
                   ⏹ 촬영 중지
                 </button>
@@ -338,14 +338,14 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
                 <>
                   <button
                     onClick={retakeVideo}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                    className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
                   >
                     다시 촬영
                   </button>
                   <button
                     onClick={handleVideoConfirm}
                     disabled={isLoading}
-                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? '업로드 중...' : '다음 단계'}
                   </button>
@@ -357,36 +357,45 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
 
         {/* Step 2: 수령 확인 */}
         {currentStep === 'confirm' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
+          <div className="space-y-6">
+            <div className="p-6 bg-green-500/20 backdrop-blur-xl border border-green-400/50 rounded-3xl shadow-lg">
+              <p className="text-base text-green-900 font-bold mb-2">
                 ✅ 영상 업로드 완료!
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="text-sm text-gray-700 leading-relaxed">
                 물품 확인 후 수령을 확정해주세요
               </p>
             </div>
 
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-2">💡 수령 확인 전 체크사항</p>
-              <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                <li>물품이 설명과 일치하는지 확인</li>
-                <li>손상되거나 파손된 부분이 없는지 확인</li>
-                <li>모든 구성품이 포함되어 있는지 확인</li>
+            <div className="p-6 bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl shadow-lg">
+              <p className="text-base text-gray-900 font-semibold mb-3">💡 확인 사항</p>
+              <ul className="text-sm text-gray-700 space-y-2 leading-relaxed">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>물품이 설명과 일치하는지 확인</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>손상되거나 파손된 부분이 없는지 확인</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>모든 구성품이 포함되어 있는지 확인</span>
+                </li>
               </ul>
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setCurrentStep('video')}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                className="flex-1 px-6 py-3 glass-button-ghost text-gray-900 rounded-2xl font-semibold text-base"
               >
                 이전
               </button>
               <button
                 onClick={handleReceiveConfirm}
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                className="flex-1 px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? '처리 중...' : '수령 확인'}
               </button>
@@ -396,18 +405,18 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
 
         {/* Step 3: 완료 */}
         {currentStep === 'complete' && (
-          <div className="space-y-4">
-            <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
-              <div className="text-4xl mb-3">✅</div>
-              <p className="text-green-800 font-bold text-lg">수령이 확인되었습니다!</p>
-              <p className="text-green-600 text-sm mt-2">
+          <div className="space-y-6">
+            <div className="p-8 bg-green-500/20 backdrop-blur-xl border border-green-400/50 rounded-3xl text-center shadow-lg">
+              <div className="text-5xl mb-4">✅</div>
+              <p className="text-gray-900 font-bold text-xl mb-2">수령이 확인되었습니다!</p>
+              <p className="text-gray-700 text-base leading-relaxed">
                 이제 대여가 시작되었습니다
               </p>
             </div>
 
             <button
               onClick={handleClose}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              className="w-full px-6 py-3 glass-button text-white rounded-2xl font-semibold text-base"
             >
               확인
             </button>

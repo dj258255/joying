@@ -226,6 +226,7 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
             setTrackingInfo(null);
           }}
           className="max-w-sm md:max-w-2xl lg:max-w-4xl"
+          hideCloseButton={true}
         >
           <TrackingStatusCard
             trackingNumber={trackingInfo.trackingNumber}

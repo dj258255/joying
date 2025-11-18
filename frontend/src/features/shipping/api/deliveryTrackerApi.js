@@ -20,26 +20,44 @@ const getAuthHeader = () => {
  * 택배사 코드 매핑 (프론트엔드 코드 → Delivery Tracker carrierId)
  */
 const COURIER_CODE_MAP = {
+  // 영어 코드 매핑
   cj: 'kr.cjlogistics',      // CJ대한통운
   post: 'kr.epost',           // 우체국택배
   lotte: 'kr.lotte',          // 롯데택배
   hanjin: 'kr.hanjin',        // 한진택배
   logen: 'kr.logen',          // 로젠택배
+  // 한글 이름 매핑
+  'cj대한통운': 'kr.cjlogistics',
+  'cj 대한통운': 'kr.cjlogistics',
+  '대한통운': 'kr.cjlogistics',
+  '우체국택배': 'kr.epost',
+  '롯데택배': 'kr.lotte',
+  '한진택배': 'kr.hanjin',
+  '로젠택배': 'kr.logen',
+  // 영어 이름 매핑 (대소문자 무관)
+  'cjlogistics': 'kr.cjlogistics',
+  'epost': 'kr.epost',
 };
 
 /**
  * 프론트엔드 택배사 코드를 Delivery Tracker carrierId로 변환
- * @param {string} courierCode - 프론트엔드 택배사 코드 (cj, post, lotte 등) 또는 carrierId (kr.cjlogistics 등)
+ * @param {string} courierCode - 프론트엔드 택배사 코드 (cj, post, lotte 등), 한글 이름 (한진택배 등), 또는 carrierId (kr.cjlogistics 등)
  * @returns {string} Delivery Tracker carrierId
  */
 export const mapCourierToCarrierId = (courierCode) => {
+  if (!courierCode) {
+    throw new Error('택배사 코드가 제공되지 않았습니다.');
+  }
+
   // 이미 carrierId 형식인 경우 (kr.xxx) 그대로 반환
-  if (courierCode?.startsWith('kr.')) {
+  if (courierCode.startsWith('kr.')) {
     return courierCode;
   }
   
-  // 프론트엔드 코드를 carrierId로 변환
-  const carrierId = COURIER_CODE_MAP[courierCode?.toLowerCase()];
+  // 소문자 변환하여 매핑 테이블에서 검색
+  const normalizedCode = courierCode.trim();
+  const carrierId = COURIER_CODE_MAP[normalizedCode.toLowerCase()] || COURIER_CODE_MAP[normalizedCode];
+  
   if (!carrierId) {
     throw new Error(`지원하지 않는 택배사 코드입니다: ${courierCode}`);
   }

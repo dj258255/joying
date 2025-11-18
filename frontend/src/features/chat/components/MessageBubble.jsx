@@ -207,12 +207,61 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     if (content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE')) {
       // 아래 isPaymentComplete 로직에서 처리
     } else {
-      // 일반 시스템 메시지는 중앙 정렬
+      // 일반 시스템 메시지는 중앙 정렬 (글래스모피즘 디자인)
+      // 메시지 타입 자동 감지
+      let messageType = 'info';
+      let messageIcon = null;
+      
+      if (content?.includes('✅') || content?.includes('완료') || content?.includes('확인') || content?.includes('반납')) {
+        messageType = 'success';
+        if (content?.includes('반납')) {
+          messageIcon = (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          );
+        } else {
+          messageIcon = (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          );
+        }
+      } else if (content?.includes('⚠️') || content?.includes('경고') || content?.includes('주의')) {
+        messageType = 'warning';
+        messageIcon = (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        );
+      } else if (content?.includes('❌') || content?.includes('오류') || content?.includes('실패')) {
+        messageType = 'error';
+        messageIcon = (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        );
+      } else {
+        messageIcon = (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      }
+      
+      const typeStyles = {
+        info: 'bg-white/80 backdrop-blur-xl border-gray-200/60 text-gray-900',
+        success: 'bg-green-500/20 backdrop-blur-xl border-green-400/50 text-green-900',
+        warning: 'bg-yellow-500/20 backdrop-blur-xl border-yellow-400/50 text-yellow-900',
+        error: 'bg-red-500/20 backdrop-blur-xl border-red-400/50 text-red-900'
+      };
+      
       return (
-        <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3">
-          <span className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-full">
-            {content}
-          </span>
+        <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3 px-4">
+          <div className={`inline-flex items-center gap-2 ${typeStyles[messageType]} rounded-full shadow-md px-4 py-2 max-w-[80%] border`}>
+            {messageIcon && <span className="flex-shrink-0">{messageIcon}</span>}
+            <p className="text-sm font-medium text-center whitespace-pre-line">{content}</p>
+          </div>
         </div>
       );
     }
