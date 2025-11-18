@@ -67,6 +67,7 @@ public class ProductServiceImpl implements ProductService {
     private final FileRepository fileRepository;
     private final HashtagRepository hashtagRepository;
     private final SearchService searchService;
+    private final RentalHistoryRepository rentalHistoryRepository;
 
     @Override
     public ProductResponseDto.ProductDetail getProductInfo(Long productId, Long memberId) {
@@ -488,6 +489,19 @@ public class ProductServiceImpl implements ProductService {
         if (!product.getWriter().getMemberId().equals(memberId)) {
             throw new SecurityException("해당 상품을 삭제할 권한이 없습니다.");
         }
+
+        List<RentalHistory> rentals = rentalHistoryRepository.findAllByRentalProduct_ProductId(productId);
+
+        List<Long> bad = rentals.stream()
+                .filter(r -> r.getStatus() != RentalStatus.DEPOSIT_RETURNED)
+                .map(RentalHistory::getRentalHisId)
+                .collect(Collectors.toList());
+
+        if (!bad.isEmpty()) {
+            throw new IllegalStateException("다음 대여 기록들이 완료되지 않아 상품을 삭제할 수 없습니다: " + bad);
+        }
+
+
 
         // 찜삭제
         productLikeRepository.deleteByProduct_ProductId(productId);
