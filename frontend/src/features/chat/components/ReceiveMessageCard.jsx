@@ -66,18 +66,24 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, rentalDat
           return;
         }
 
+        // 수령 완료 여부 확인 (RENTING 상태 이상)
+        const receiveStatus = currentRentalData?.status || currentRentalData?.rentalStatus;
+        const isReceiveCompleted = receiveStatus === 'RENTING' ||
+                                   receiveStatus === 'RETURN_REQUESTED' ||
+                                   receiveStatus === 'RETURNED' ||
+                                   receiveStatus === 'COMPLETED' ||
+                                   receiveStatus === 'DEPOSIT_RETURNED';
+
         // 거래 연장하기 버튼: 수령 완료 후 활성화
-        const extendState = await checkButtonEnabled(
-          TRANSACTION_STEPS.RECEIVE,
-          currentRentalData,
-          receiveInfo.rentalHisId
-        );
+        const extendState = isReceiveCompleted
+          ? { enabled: true }
+          : { enabled: false, reason: '수령을 먼저 완료해주세요' };
 
         // 반납하기 버튼: 수령 완료 후, 반납 전에만 활성화
         const returnTrackingCompleted = !!(currentRentalData?.returnTrackingNo || currentRentalData?.returnTrackingNumber);
-        const returnState = extendState.enabled && !returnTrackingCompleted
+        const returnState = isReceiveCompleted && !returnTrackingCompleted
           ? { enabled: true }
-          : { enabled: false, reason: returnTrackingCompleted ? '이미 반납이 완료되었습니다' : '수령을 먼저 완료해주세요' };
+          : { enabled: false, reason: returnTrackingCompleted ? '이미 반납이 완료되었습니다' : (isReceiveCompleted ? '반납을 진행해주세요' : '수령을 먼저 완료해주세요') };
 
         // 거래 중단하기 버튼: 항상 활성화 (취소는 언제든 가능)
         const cancelState = { enabled: true };
