@@ -26,10 +26,6 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
      */
     List<RentalHistory> findAllByRentalProduct_ProductId(Long productId);
 
-    @Modifying
-    @Query("UPDATE RentalHistory rh SET rh.rentalProduct = NULL WHERE rh.rentalProduct.productId = :productId")
-    int detachProductFromRentalHistories(@Param("productId") Long productId);
-
     /**
      * 상태별 거래 내역 조회
      */
