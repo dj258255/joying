@@ -3,8 +3,8 @@ package com.joying.chat.service
 import com.joying.chat.domain.ChatRoom
 import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.domain.ChatRoomStatus
-import com.joying.chat.dto.ChatRoomResponse
 import com.joying.chat.dto.ChatRoomMemberResponse
+import com.joying.chat.dto.ChatRoomResponse
 import com.joying.chat.dto.ChatRoomStatusEvent
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
@@ -20,8 +20,6 @@ import com.joying.product.repository.ProductRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -49,7 +47,7 @@ class ChatRoomService(
     private val fileUrlResolver: FileUrlResolver,
     private val permissionCache: ChatRoomPermissionCache,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val redisPubSubPublisher: RedisPubSubPublisher
+    private val redisPubSubPublisher: RedisPubSubPublisher,
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
 
@@ -62,12 +60,19 @@ class ChatRoomService(
      * @return 생성/조회된 채팅방
      */
     @Transactional
-    fun getOrCreateChatRoom(productId: Long, requestMemberId: Long): ChatRoom {
-        val product = productRepository.findById(productId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다") }
+    fun getOrCreateChatRoom(
+        productId: Long,
+        requestMemberId: Long,
+    ): ChatRoom {
+        val product =
+            productRepository
+                .findById(productId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "상품을 찾을 수 없습니다") }
 
-        val requestMember = memberRepository.findById(requestMemberId)
-            .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
+        val requestMember =
+            memberRepository
+                .findById(requestMemberId)
+                .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 
         val seller = product.getWriter()
 
@@ -93,8 +98,10 @@ class ChatRoomService(
 
             // 나간 채팅방이면 재입장 처리
             // 1. 요청한 사람 재입장
-            val requestMemberRecord = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, requestMemberId)
-                .orElse(null)
+            val requestMemberRecord =
+                chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, requestMemberId)
+                    .orElse(null)
             if (requestMemberRecord != null && requestMemberRecord.isLeft) {
                 requestMemberRecord.rejoin()
                 logger.info("채팅방 재입장 (요청자): chatRoomId={}, memberId={}", chatRoom.chatRoomId, requestMemberId)
@@ -104,19 +111,28 @@ class ChatRoomService(
                     try {
                         sendRejoinNotification(chatRoom.chatRoomId!!, requestMemberId)
                     } catch (e: Exception) {
-                        logger.error("재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}", chatRoom.chatRoomId, requestMemberId, e.message, e)
+                        logger.error(
+                            "재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}",
+                            chatRoom.chatRoomId,
+                            requestMemberId,
+                            e.message,
+                            e,
+                        )
                     }
                 }
             }
 
             // 2. 상대방도 나간 상태면 함께 재입장 (채팅방 재활성화)
-            val otherMemberId = if (requestMemberId == chatRoom.buyer.getMemberId()) {
-                chatRoom.seller.getMemberId()!!
-            } else {
-                chatRoom.buyer.getMemberId()!!
-            }
-            val otherMemberRecord = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, otherMemberId)
-                .orElse(null)
+            val otherMemberId =
+                if (requestMemberId == chatRoom.buyer.getMemberId()) {
+                    chatRoom.seller.getMemberId()!!
+                } else {
+                    chatRoom.buyer.getMemberId()!!
+                }
+            val otherMemberRecord =
+                chatRoomMemberRepository
+                    .findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, otherMemberId)
+                    .orElse(null)
             if (otherMemberRecord != null && otherMemberRecord.isLeft) {
                 otherMemberRecord.rejoin()
                 logger.info("채팅방 재입장 (상대방도 자동): chatRoomId={}, memberId={}", chatRoom.chatRoomId, otherMemberId)
@@ -126,24 +142,27 @@ class ChatRoomService(
         }
 
         // 새 채팅방 생성
-        val newChatRoom = ChatRoom(
-            product = product,
-            buyer = buyer,
-            seller = seller
-        )
+        val newChatRoom =
+            ChatRoom(
+                product = product,
+                buyer = buyer,
+                seller = seller,
+            )
 
         val savedChatRoom = chatRoomRepository.save(newChatRoom)
 
         // 채팅방 멤버 생성 (구매자, 판매자)
-        val buyerMember = ChatRoomMember(
-            chatRoom = savedChatRoom,
-            member = buyer
-        )
+        val buyerMember =
+            ChatRoomMember(
+                chatRoom = savedChatRoom,
+                member = buyer,
+            )
 
-        val sellerMember = ChatRoomMember(
-            chatRoom = savedChatRoom,
-            member = seller
-        )
+        val sellerMember =
+            ChatRoomMember(
+                chatRoom = savedChatRoom,
+                member = seller,
+            )
 
         chatRoomMemberRepository.save(buyerMember)
         chatRoomMemberRepository.save(sellerMember)
@@ -153,7 +172,7 @@ class ChatRoomService(
             savedChatRoom.chatRoomId,
             productId,
             buyer.getMemberId(),
-            seller.getMemberId()
+            seller.getMemberId(),
         )
 
         // 권한 캐시 Warmup (비동기)
@@ -177,42 +196,50 @@ class ChatRoomService(
      * @return 채팅방 DTO
      */
     @Transactional
-    fun getOrCreateChatRoomResponse(productId: Long, buyerId: Long): ChatRoomResponse {
+    fun getOrCreateChatRoomResponse(
+        productId: Long,
+        buyerId: Long,
+    ): ChatRoomResponse {
         // 채팅방 생성 또는 조회
         val chatRoom = getOrCreateChatRoom(productId, buyerId)
 
         // 내 설정 조회
-        val myMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, buyerId)
-            .orElse(null)
+        val myMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoom.chatRoomId!!, buyerId)
+                .orElse(null)
 
         // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
         return ChatRoomResponse(
             chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product.getProductId()!!,
-            productTitle = chatRoom.product.getTitle(),
-            productImageUrl = getProductThumbnailUrl(chatRoom.product),
-            otherMemberId = if (chatRoom.buyer.getMemberId() == buyerId) {
-                chatRoom.seller.getMemberId()!!
-            } else {
-                chatRoom.buyer.getMemberId()!!
-            },
-            otherMemberNickname = if (chatRoom.buyer.getMemberId() == buyerId) {
-                chatRoom.seller.getNickname()
-            } else {
-                chatRoom.buyer.getNickname()
-            },
-            otherMemberProfileUrl = if (chatRoom.buyer.getMemberId() == buyerId) {
-                getProfileImageUrl(chatRoom.seller)
-            } else {
-                getProfileImageUrl(chatRoom.buyer)
-            },
+            productId = chatRoom.product?.getProductId()!!,
+            productTitle = chatRoom.product!!.getTitle(),
+            productImageUrl = getProductThumbnailUrl(chatRoom.product!!),
+            otherMemberId =
+                if (chatRoom.buyer.getMemberId() == buyerId) {
+                    chatRoom.seller.getMemberId()!!
+                } else {
+                    chatRoom.buyer.getMemberId()!!
+                },
+            otherMemberNickname =
+                if (chatRoom.buyer.getMemberId() == buyerId) {
+                    chatRoom.seller.getNickname()
+                } else {
+                    chatRoom.buyer.getNickname()
+                },
+            otherMemberProfileUrl =
+                if (chatRoom.buyer.getMemberId() == buyerId) {
+                    getProfileImageUrl(chatRoom.seller)
+                } else {
+                    getProfileImageUrl(chatRoom.buyer)
+                },
             lastMessage = chatRoom.lastMessage,
             lastMessageAt = chatRoom.lastMessageAt,
             unreadCount = 0L,
             status = chatRoom.status,
             isPinned = myMember?.isPinned ?: false,
             isMuted = myMember?.isMuted ?: false,
-            isLeft = myMember?.isLeft ?: false
+            isLeft = myMember?.isLeft ?: false,
         )
     }
 
@@ -233,84 +260,98 @@ class ChatRoomService(
      * @param includeMember 참여자 온라인 상태 포함 여부
      * @return 채팅방 목록
      */
-    fun getMyChatRooms(memberId: Long, includeMember: Boolean = false): List<ChatRoomResponse> = kotlinx.coroutines.runBlocking {
-        logger.info("[getMyChatRooms] 시작: memberId={}, includeMember={}", memberId, includeMember)
+    fun getMyChatRooms(
+        memberId: Long,
+        includeMember: Boolean = false,
+    ): List<ChatRoomResponse> =
+        kotlinx.coroutines.runBlocking {
+            logger.info("[getMyChatRooms] 시작: memberId={}, includeMember={}", memberId, includeMember)
 
-        // JPA Repository 조회 (Blocking이지만 충분히 빠름)
-        val chatRooms = chatRoomRepository.findByMemberId(memberId)
-        logger.info("[getMyChatRooms] chatRooms 조회 완료: 개수={}", chatRooms.size)
+            // JPA Repository 조회 (Blocking이지만 충분히 빠름)
+            val chatRooms = chatRoomRepository.findByMemberId(memberId)
+            logger.info("[getMyChatRooms] chatRooms 조회 완료: 개수={}", chatRooms.size)
 
-        val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
-        logger.info("[getMyChatRooms] chatRoomMembers 조회 완료: 개수={}", chatRoomMembers.size)
+            val chatRoomMembers = chatRoomMemberRepository.findByMemberId(memberId)
+            logger.info("[getMyChatRooms] chatRoomMembers 조회 완료: 개수={}", chatRoomMembers.size)
 
-        // 채팅방별 설정 매핑 (Lazy Loading 방지를 위해 chatRoomId 직접 접근)
-        val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoomId }
-        logger.info("[getMyChatRooms] memberSettingsMap 생성 완료")
+            // 채팅방별 설정 매핑 (Lazy Loading 방지를 위해 chatRoomId 직접 접근)
+            val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoomId }
+            logger.info("[getMyChatRooms] memberSettingsMap 생성 완료")
 
-        // Redis에서 안읽은 개수 배치 조회 (suspend fun이므로 코루틴 내에서 호출)
-        val chatRoomIds = chatRooms.map { it.chatRoomId!! }
-        logger.info("[getMyChatRooms] Redis 배치 조회 시작: chatRoomIds={}", chatRoomIds)
-        val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
-        logger.info("[getMyChatRooms] Redis 배치 조회 완료: unreadCountMap={}", unreadCountMap)
+            // Redis에서 안읽은 개수 배치 조회 (suspend fun이므로 코루틴 내에서 호출)
+            val chatRoomIds = chatRooms.map { it.chatRoomId!! }
+            logger.info("[getMyChatRooms] Redis 배치 조회 시작: chatRoomIds={}", chatRoomIds)
+            val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
+            logger.info("[getMyChatRooms] Redis 배치 조회 완료: unreadCountMap={}", unreadCountMap)
 
-        // ProductFile 배치 조회
-        val productIds = chatRooms.map { it.product.getProductId()!! }
-        val thumbnailMap = productFileRepository.findByProduct_ProductIdIn(productIds)
-            .filter { it.isThumbnail }
-            .associateBy { it.product.getProductId()!! }
-            .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
+            // ProductFile 배치 조회
+            val productIds = chatRooms.map { it.product?.getProductId()!! }
+            val thumbnailMap =
+                productFileRepository
+                    .findByProduct_ProductIdIn(productIds)
+                    .filter { it.isThumbnail }
+                    .associateBy { it.product.getProductId()!! }
+                    .mapValues { fileUrlResolver.toPublicUrl(it.value.file) }
 
-        // DTO 변환
-        chatRooms.map { chatRoom ->
-            val settings = memberSettingsMap[chatRoom.chatRoomId]
-                ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
+            // DTO 변환
+            chatRooms.map { chatRoom ->
+                val settings =
+                    memberSettingsMap[chatRoom.chatRoomId]
+                        ?: throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다")
 
-            // 상대방 정보 (Fetch Join으로 이미 로드됨)
-            val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
-                chatRoom.seller
-            } else {
-                chatRoom.buyer
-            }
+                // 상대방 정보 (Fetch Join으로 이미 로드됨)
+                val otherMember =
+                    if (chatRoom.buyer.getMemberId() == memberId) {
+                        chatRoom.seller
+                    } else {
+                        chatRoom.buyer
+                    }
 
-            val profileUrl = getProfileImageUrl(otherMember)
-            logger.debug("[getMyChatRooms] 프로필 URL 조회: chatRoomId={}, otherMemberId={}, profileUrl={}",
-                chatRoom.chatRoomId, otherMember.getMemberId(), profileUrl)
-
-            // 참여자 상세 정보 (선택적)
-            val memberInfo = if (includeMember) {
-                val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
-                val lastSeenAt = if (!isOnline) {
-                    chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
-                } else {
-                    null
-                }
-                ChatRoomResponse.MemberInfo(
-                    isOnline = isOnline,
-                    lastSeenAt = lastSeenAt
+                val profileUrl = getProfileImageUrl(otherMember)
+                logger.debug(
+                    "[getMyChatRooms] 프로필 URL 조회: chatRoomId={}, otherMemberId={}, profileUrl={}",
+                    chatRoom.chatRoomId,
+                    otherMember.getMemberId(),
+                    profileUrl,
                 )
-            } else {
-                null
-            }
 
-            ChatRoomResponse(
-                chatRoomId = chatRoom.chatRoomId!!,
-                productId = chatRoom.product.getProductId()!!,
-                productTitle = chatRoom.product.getTitle(),
-                productImageUrl = thumbnailMap[chatRoom.product.getProductId()],
-                otherMemberId = otherMember.getMemberId()!!,
-                otherMemberNickname = otherMember.getNickname(),
-                otherMemberProfileUrl = profileUrl,
-                lastMessage = chatRoom.lastMessage,
-                lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
-                status = chatRoom.status,
-                isPinned = settings.isPinned,
-                isMuted = settings.isMuted,
-                isLeft = settings.isLeft,
-                member = memberInfo  // ← 선택적 포함
-            )
+                // 참여자 상세 정보 (선택적)
+                val memberInfo =
+                    if (includeMember) {
+                        val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
+                        val lastSeenAt =
+                            if (!isOnline) {
+                                chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+                            } else {
+                                null
+                            }
+                        ChatRoomResponse.MemberInfo(
+                            isOnline = isOnline,
+                            lastSeenAt = lastSeenAt,
+                        )
+                    } else {
+                        null
+                    }
+
+                ChatRoomResponse(
+                    chatRoomId = chatRoom.chatRoomId!!,
+                    productId = chatRoom.product?.getProductId()!!,
+                    productTitle = chatRoom.product!!.getTitle(),
+                    productImageUrl = thumbnailMap[chatRoom.product!!.getProductId()],
+                    otherMemberId = otherMember.getMemberId()!!,
+                    otherMemberNickname = otherMember.getNickname(),
+                    otherMemberProfileUrl = profileUrl,
+                    lastMessage = chatRoom.lastMessage,
+                    lastMessageAt = chatRoom.lastMessageAt,
+                    unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
+                    status = chatRoom.status,
+                    isPinned = settings.isPinned,
+                    isMuted = settings.isMuted,
+                    isLeft = settings.isLeft,
+                    member = memberInfo, // ← 선택적 포함
+                )
+            }
         }
-    }
 
     /**
      * 채팅방 상세 조회 (단일) - runBlocking 방식
@@ -325,69 +366,83 @@ class ChatRoomService(
      * @param includeMember 참여자 상세 정보 포함 여부 (온라인 상태 등)
      * @return 채팅방 상세 정보
      */
-    fun getChatRoomDetail(chatRoomId: Long, memberId: Long, includeMember: Boolean = false): ChatRoomResponse = kotlinx.coroutines.runBlocking {
-        // 1. ChatRoom 조회 (Fetch Join으로 Product, Buyer, Seller 한 번에 로드)
-        val chatRoom = chatRoomRepository.findByIdWithFetchJoin(chatRoomId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+    fun getChatRoomDetail(
+        chatRoomId: Long,
+        memberId: Long,
+        includeMember: Boolean = false,
+    ): ChatRoomResponse =
+        @Suppress("ktlint:standard:max-line-length")
+        kotlinx.coroutines.runBlocking {
+            // 1. ChatRoom 조회 (Fetch Join으로 Product, Buyer, Seller 한 번에 로드)
+            val chatRoom =
+                chatRoomRepository
+                    .findByIdWithFetchJoin(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
-        // 권한 확인 (구매자 또는 판매자만)
-        if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
-            throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
-        }
-
-        // 2. Settings와 Redis 병렬 조회 (의존성 없음)
-        val settingsDeferred = async {
-            chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
-        }
-        val unreadCountDeferred = async {
-            unreadCountService.get(chatRoomId, memberId)
-        }
-
-        val settings = settingsDeferred.await()
-        val unreadCount = unreadCountDeferred.await()
-
-        // 상대방 정보 (Fetch Join으로 이미 로드됨)
-        val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
-            chatRoom.seller
-        } else {
-            chatRoom.buyer
-        }
-
-        // 참여자 상세 정보 (선택적)
-        val memberInfo = if (includeMember) {
-            val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
-            val lastSeenAt = if (!isOnline) {
-                chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
-            } else {
-                null
+            // 권한 확인 (구매자 또는 판매자만)
+            if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
+                throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
             }
-            ChatRoomResponse.MemberInfo(
-                isOnline = isOnline,
-                lastSeenAt = lastSeenAt
-            )
-        } else {
-            null
-        }
 
-        ChatRoomResponse(
-            chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product.getProductId()!!,
-            productTitle = chatRoom.product.getTitle(),
-            productImageUrl = getProductThumbnailUrl(chatRoom.product),
-            otherMemberId = otherMember.getMemberId()!!,
-            otherMemberNickname = otherMember.getNickname(),
-            otherMemberProfileUrl = getProfileImageUrl(otherMember),
-            lastMessage = chatRoom.lastMessage,
-            lastMessageAt = chatRoom.lastMessageAt,
-            unreadCount = unreadCount,
-            status = chatRoom.status,
-            isPinned = settings.isPinned,
-            isMuted = settings.isMuted,
-            isLeft = settings.isLeft,
-            member = memberInfo  // ← 선택적 포함
-        )
-    }
+            // 2. Settings와 Redis 병렬 조회 (의존성 없음)
+            val settingsDeferred =
+                async {
+                    chatRoomMemberRepository
+                        .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                        .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+                }
+            val unreadCountDeferred =
+                async {
+                    unreadCountService.get(chatRoomId, memberId)
+                }
+
+            val settings = settingsDeferred.await()
+            val unreadCount = unreadCountDeferred.await()
+
+            // 상대방 정보 (Fetch Join으로 이미 로드됨)
+            val otherMember =
+                if (chatRoom.buyer.getMemberId() == memberId) {
+                    chatRoom.seller
+                } else {
+                    chatRoom.buyer
+                }
+
+            // 참여자 상세 정보 (선택적)
+            val memberInfo =
+                if (includeMember) {
+                    val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
+                    val lastSeenAt =
+                        if (!isOnline) {
+                            chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+                        } else {
+                            null
+                        }
+                    ChatRoomResponse.MemberInfo(
+                        isOnline = isOnline,
+                        lastSeenAt = lastSeenAt,
+                    )
+                } else {
+                    null
+                }
+
+            ChatRoomResponse(
+                chatRoomId = chatRoom.chatRoomId!!,
+                productId = chatRoom.product?.getProductId()!!,
+                productTitle = chatRoom.product!!.getTitle(),
+                productImageUrl = getProductThumbnailUrl(chatRoom.product),
+                otherMemberId = otherMember.getMemberId()!!,
+                otherMemberNickname = otherMember.getNickname(),
+                otherMemberProfileUrl = getProfileImageUrl(otherMember),
+                lastMessage = chatRoom.lastMessage,
+                lastMessageAt = chatRoom.lastMessageAt,
+                unreadCount = unreadCount,
+                status = chatRoom.status,
+                isPinned = settings.isPinned,
+                isMuted = settings.isMuted,
+                isLeft = settings.isLeft,
+                member = memberInfo, // ← 선택적 포함
+            )
+        }
 
     /**
      * 채팅방 나가기 (개별)
@@ -400,24 +455,34 @@ class ChatRoomService(
      * @param memberId 회원 ID
      */
     @Transactional
-    fun leaveChatRoom(chatRoomId: Long, memberId: Long) {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
+    fun leaveChatRoom(
+        chatRoomId: Long,
+        memberId: Long,
+    ) {
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다") }
 
         // 채팅방 정보 조회 (상대방 ID 계산용)
-        val chatRoom = chatRoomRepository.findById(chatRoomId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+        val chatRoom =
+            chatRoomRepository
+                .findById(chatRoomId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
         // 상대방 ID 계산
-        val otherMemberId = if (memberId == chatRoom.buyer.memberId) {
-            chatRoom.seller.memberId!!
-        } else {
-            chatRoom.buyer.memberId!!
-        }
+        val otherMemberId =
+            if (memberId == chatRoom.buyer.memberId) {
+                chatRoom.seller.memberId!!
+            } else {
+                chatRoom.buyer.memberId!!
+            }
 
         // 나가는 사용자 정보 조회 (닉네임 포함)
-        val leavingMember = memberRepository.findById(memberId)
-            .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
+        val leavingMember =
+            memberRepository
+                .findById(memberId)
+                .orElseThrow { BusinessException(ErrorCode.MEMBER_NOT_FOUND) }
 
         // 채팅방 나가기 처리 (개별)
         chatRoomMember.leave()
@@ -431,31 +496,35 @@ class ChatRoomService(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // 1. 시스템 메시지 생성 및 저장
-                val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
-                    chatRoomId = chatRoomId,
-                    content = "${leavingMember.getNickname()}님이 채팅방을 나갔습니다"
-                )
+                val systemMessage =
+                    com.joying.chat.document.ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = "${leavingMember.getNickname()}님이 채팅방을 나갔습니다",
+                    )
                 systemMessage.createdAt = Instant.now()
 
                 val savedMessage = chatMessageRepository.save(systemMessage)
 
                 // 2. Redis Pub/Sub로 발행 (실시간 전달)
-                val messageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
-                    .copy(receiverId = otherMemberId)
+                val messageDto =
+                    com.joying.chat.dto.ChatMessageResponse
+                        .from(savedMessage, null)
+                        .copy(receiverId = otherMemberId)
                 redisPubSubPublisher.publish(messageDto)
 
                 // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
-                val event = ChatRoomStatusEvent(
-                    chatRoomId = chatRoomId,
-                    eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
-                    memberId = memberId,
-                    memberNickname = leavingMember.getNickname()
-                )
+                val event =
+                    ChatRoomStatusEvent(
+                        chatRoomId = chatRoomId,
+                        eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
+                        memberId = memberId,
+                        memberNickname = leavingMember.getNickname(),
+                    )
 
                 messagingTemplate.convertAndSendToUser(
                     otherMemberId.toString(),
                     "/queue/chatroom-status",
-                    event
+                    event,
                 )
 
                 logger.debug("채팅방 나가기 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, otherMemberId)
@@ -474,9 +543,14 @@ class ChatRoomService(
      * @return 재입장 여부 (이미 입장 상태면 false)
      */
     @Transactional
-    fun rejoinChatRoom(chatRoomId: Long, memberId: Long): Boolean {
-        val chatRoomMember = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElse(null) ?: return false
+    fun rejoinChatRoom(
+        chatRoomId: Long,
+        memberId: Long,
+    ): Boolean {
+        val chatRoomMember =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElse(null) ?: return false
 
         // 이미 입장 상태면 아무것도 하지 않음
         if (!chatRoomMember.isLeft) {
@@ -503,7 +577,7 @@ class ChatRoomService(
      */
     @Transactional
     fun autoCloseInactiveChatRooms() {
-        val threshold = Instant.now().minusSeconds(30L * 24 * 60 * 60)  // 30일 = 30 * 24 * 60 * 60초
+        val threshold = Instant.now().minusSeconds(30L * 24 * 60 * 60) // 30일 = 30 * 24 * 60 * 60초
         val inactiveChatRooms = chatRoomRepository.findInactiveChatRooms(ChatRoomStatus.ACTIVE, threshold)
 
         inactiveChatRooms.forEach { chatRoom ->
@@ -514,51 +588,57 @@ class ChatRoomService(
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     // 1. 시스템 메시지 생성 및 저장
-                    val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
-                        chatRoomId = chatRoom.chatRoomId!!,
-                        content = "채팅방이 30일 미사용으로 자동 종료되었습니다"
-                    )
+                    val systemMessage =
+                        com.joying.chat.document.ChatMessage.createSystemMessage(
+                            chatRoomId = chatRoom.chatRoomId!!,
+                            content = "채팅방이 30일 미사용으로 자동 종료되었습니다",
+                        )
                     systemMessage.createdAt = Instant.now()
 
                     val savedMessage = chatMessageRepository.save(systemMessage)
 
                     // 2. Redis Pub/Sub로 발행 (실시간 전달) - 양쪽에게 전송
-                    val buyerMessageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
-                        .copy(receiverId = chatRoom.buyer.memberId!!)
+                    val buyerMessageDto =
+                        com.joying.chat.dto.ChatMessageResponse
+                            .from(savedMessage, null)
+                            .copy(receiverId = chatRoom.buyer.memberId!!)
                     redisPubSubPublisher.publish(buyerMessageDto)
 
-                    val sellerMessageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
-                        .copy(receiverId = chatRoom.seller.memberId!!)
+                    val sellerMessageDto =
+                        com.joying.chat.dto.ChatMessageResponse
+                            .from(savedMessage, null)
+                            .copy(receiverId = chatRoom.seller.memberId!!)
                     redisPubSubPublisher.publish(sellerMessageDto)
 
                     // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
-                    val event = ChatRoomStatusEvent(
-                        chatRoomId = chatRoom.chatRoomId!!,
-                        eventType = ChatRoomStatusEvent.EventType.ROOM_CLOSED,
-                        memberId = 0L,  // 시스템에 의한 종료
-                        memberNickname = null,
-                        status = ChatRoomStatus.AUTO_CLOSED
-                    )
+                    val event =
+                        ChatRoomStatusEvent(
+                            chatRoomId = chatRoom.chatRoomId!!,
+                            eventType = ChatRoomStatusEvent.EventType.ROOM_CLOSED,
+                            memberId = 0L, // 시스템에 의한 종료
+                            memberNickname = null,
+                            status = ChatRoomStatus.AUTO_CLOSED,
+                        )
 
                     // 구매자에게 알림
                     messagingTemplate.convertAndSendToUser(
                         chatRoom.buyer.memberId.toString(),
                         "/queue/chatroom-status",
-                        event
+                        event,
                     )
 
                     // 판매자에게 알림
                     messagingTemplate.convertAndSendToUser(
                         chatRoom.seller.memberId.toString(),
                         "/queue/chatroom-status",
-                        event
+                        event,
                     )
 
                     logger.debug(
                         "채팅방 자동 종료 메시지 저장 및 이벤트 전송: chatRoomId={}, to=[{}, {}]",
                         chatRoom.chatRoomId,
                         chatRoom.buyer.memberId,
-                        chatRoom.seller.memberId
+                        chatRoom.seller.memberId,
                     )
                 } catch (e: Exception) {
                     logger.error("채팅방 자동 종료 메시지 저장 실패: chatRoomId={}, error={}", chatRoom.chatRoomId, e.message, e)
@@ -577,10 +657,11 @@ class ChatRoomService(
      * @return 모든 채팅방의 안읽은 메시지 총 개수
      */
     suspend fun getTotalUnreadCount(memberId: Long): Long {
-        val chatRoomMembers = withContext(Dispatchers.IO) {
-            chatRoomMemberRepository.findByMemberId(memberId)
-        }
-        val chatRoomIds = chatRoomMembers.map { it.chatRoomId!! }  // FK 직접 접근
+        val chatRoomMembers =
+            withContext(Dispatchers.IO) {
+                chatRoomMemberRepository.findByMemberId(memberId)
+            }
+        val chatRoomIds = chatRoomMembers.map { it.chatRoomId!! } // FK 직접 접근
 
         // Redis에서 배치 조회 후 합산
         val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
@@ -595,9 +676,14 @@ class ChatRoomService(
      * @param memberId 요청한 회원 ID
      * @return 채팅방 참여자 정보
      */
-    fun getChatRoomMemberInfo(chatRoomId: Long, memberId: Long): ChatRoomMemberResponse {
-        val chatRoom = chatRoomRepository.findById(chatRoomId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+    fun getChatRoomMemberInfo(
+        chatRoomId: Long,
+        memberId: Long,
+    ): ChatRoomMemberResponse {
+        val chatRoom =
+            chatRoomRepository
+                .findById(chatRoomId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
         // 권한 확인 (구매자 또는 판매자만)
         if (chatRoom.buyer.getMemberId() != memberId && chatRoom.seller.getMemberId() != memberId) {
@@ -605,23 +691,27 @@ class ChatRoomService(
         }
 
         // 상대방 정보
-        val otherMember = if (chatRoom.buyer.getMemberId() == memberId) {
-            chatRoom.seller
-        } else {
-            chatRoom.buyer
-        }
+        val otherMember =
+            if (chatRoom.buyer.getMemberId() == memberId) {
+                chatRoom.seller
+            } else {
+                chatRoom.buyer
+            }
 
         // 내 설정 정보
-        val mySettings = chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
-            .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
+        val mySettings =
+            chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
 
         // 온라인 상태 조회
         val isOnline = chatPresenceService.isOnline(otherMember.getMemberId()!!)
-        val lastSeenAt = if (!isOnline) {
-            chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
-        } else {
-            null
-        }
+        val lastSeenAt =
+            if (!isOnline) {
+                chatPresenceService.getLastSeenAt(otherMember.getMemberId()!!)
+            } else {
+                null
+            }
 
         return ChatRoomMemberResponse(
             memberId = otherMember.getMemberId()!!,
@@ -633,8 +723,8 @@ class ChatRoomService(
             isMuted = mySettings.isMuted,
             lastReadAt = mySettings.lastReadAt,
             chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product.getProductId()!!,
-            productTitle = chatRoom.product.getTitle()
+            productId = chatRoom.product?.getProductId()!!,
+            productTitle = chatRoom.product!!.getTitle(),
         )
     }
 
@@ -646,8 +736,8 @@ class ChatRoomService(
      * @param product 상품 엔티티
      * @return 썸네일 이미지 URL (없으면 null)
      */
-    private fun getProductThumbnailUrl(product: Product): String? {
-        val productFiles = productFileRepository.findByProduct_ProductId(product.getProductId()!!)
+    private fun getProductThumbnailUrl(product: Product?): String? {
+        val productFiles = productFileRepository.findByProduct_ProductId(product?.getProductId()!!)
 
         // isThumbnail=true인 파일 찾기 (첫 번째 이미지가 썸네일)
         val thumbnailFile = productFiles.firstOrNull { it.isThumbnail }
@@ -694,32 +784,40 @@ class ChatRoomService(
      * @param chatRoomId 채팅방 ID
      * @param memberId 재입장한 회원 ID
      */
-    private suspend fun sendRejoinNotification(chatRoomId: Long, memberId: Long) {
+    private suspend fun sendRejoinNotification(
+        chatRoomId: Long,
+        memberId: Long,
+    ) {
         withContext(Dispatchers.IO) {
             try {
                 // 채팅방 정보 조회
-                val chatRoom = chatRoomRepository.findById(chatRoomId)
-                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+                val chatRoom =
+                    chatRoomRepository
+                        .findById(chatRoomId)
+                        .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
                 // 재입장한 사용자 닉네임
-                val rejoiningMemberNickname = if (memberId == chatRoom.buyer.memberId) {
-                    chatRoom.buyer.nickname
-                } else {
-                    chatRoom.seller.nickname
-                }
+                val rejoiningMemberNickname =
+                    if (memberId == chatRoom.buyer.memberId) {
+                        chatRoom.buyer.nickname
+                    } else {
+                        chatRoom.seller.nickname
+                    }
 
                 // 상대방 ID 계산
-                val receiverId = if (memberId == chatRoom.buyer.memberId) {
-                    chatRoom.seller.memberId!!
-                } else {
-                    chatRoom.buyer.memberId!!
-                }
+                val receiverId =
+                    if (memberId == chatRoom.buyer.memberId) {
+                        chatRoom.seller.memberId!!
+                    } else {
+                        chatRoom.buyer.memberId!!
+                    }
 
                 // 1. 시스템 메시지 생성 및 저장 (MongoDB)
-                val systemMessage = com.joying.chat.document.ChatMessage.createSystemMessage(
-                    chatRoomId = chatRoomId,
-                    content = "${rejoiningMemberNickname}님이 다시 들어왔습니다"
-                )
+                val systemMessage =
+                    com.joying.chat.document.ChatMessage.createSystemMessage(
+                        chatRoomId = chatRoomId,
+                        content = "${rejoiningMemberNickname}님이 다시 들어왔습니다",
+                    )
                 systemMessage.createdAt = Instant.now()
 
                 val savedMessage = chatMessageRepository.save(systemMessage)
@@ -727,24 +825,27 @@ class ChatRoomService(
                 logger.info("재입장 시스템 메시지 MongoDB 저장: chatRoomId={}, memberId={}", chatRoomId, memberId)
 
                 // 2. Redis Pub/Sub로 발행 (실시간 전달)
-                val messageDto = com.joying.chat.dto.ChatMessageResponse.from(savedMessage, null)
-                    .copy(receiverId = receiverId)
+                val messageDto =
+                    com.joying.chat.dto.ChatMessageResponse
+                        .from(savedMessage, null)
+                        .copy(receiverId = receiverId)
                 redisPubSubPublisher.publish(messageDto)
 
                 logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
 
                 // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
-                val event = ChatRoomStatusEvent(
-                    chatRoomId = chatRoomId,
-                    eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
-                    memberId = memberId,
-                    memberNickname = rejoiningMemberNickname
-                )
+                val event =
+                    ChatRoomStatusEvent(
+                        chatRoomId = chatRoomId,
+                        eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
+                        memberId = memberId,
+                        memberNickname = rejoiningMemberNickname,
+                    )
 
                 messagingTemplate.convertAndSendToUser(
                     receiverId.toString(),
                     "/queue/chatroom-status",
-                    event
+                    event,
                 )
 
                 logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
