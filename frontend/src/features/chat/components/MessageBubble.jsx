@@ -508,6 +508,55 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     );
   }
 
+  // BORROW 제안 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
+  const isBorrowProposal = type === 'borrow_proposal' || (type === 'text' && content?.includes('MESSAGE_TYPE:BORROW_PROPOSAL'));
+  if (isBorrowProposal) {
+    // 메타데이터 제거한 표시용 콘텐츠
+    const displayContent = content
+      ?.replace(/\nMESSAGE_TYPE:BORROW_PROPOSAL/g, '')
+      .trim();
+
+    return (
+      <div id={id ? `message-${id}` : undefined} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+        <div className="max-w-sm">
+          <div
+            className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl p-4"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <span className="text-base font-bold text-blue-900">대여 제안</span>
+            </div>
+            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{displayContent}</p>
+
+            {/* 액션 버튼들 */}
+            {actionButtons && actionButtons.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {actionButtons.map((button, index) => (
+                  <button
+                    key={index}
+                    onClick={button.onClick}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${button.className || 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  >
+                    {button.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div
+            className={`text-xs mt-1 ${isOwn ? 'text-right' : 'text-left'} text-gray-500`}
+          >
+            <span>{formatTime(timestamp)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 취소 요청 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
   const isCancelRequest = type === 'cancel_request' || (type === 'text' && content?.includes('MESSAGE_TYPE:CANCEL_REQUEST'));
   if (isCancelRequest) {
