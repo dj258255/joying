@@ -194,38 +194,64 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
       }`}
     >
       <div className="flex items-center space-x-3">
-        {/* 프로필 이미지 */}
-        <div className="flex-shrink-0 relative">
-          <ProfileImage 
-            src={profileImage}
-            alt={roomName}
-            size={48}
-            className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              const opponentId = otherMemberId || participants?.find(p => p.id !== 101)?.id;
-              if (opponentId) {
-                navigate(`/members/${opponentId}`);
-              }
-            }}
-          />
-          {/* 고정 표시 */}
-          {isPinned && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
-              <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            </div>
-          )}
-          {/* 온라인 상태 표시 */}
-          {member && (
-            <div
-              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
-                member.isOnline ? 'bg-green-500' : 'bg-gray-400'
-              }`}
-              title={member.isOnline ? '온라인' : '오프라인'}
+        {/* 프로필 이미지 영역 */}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {/* 유저 프로필 이미지 */}
+          <div className="relative">
+            <ProfileImage
+              src={otherMemberProfileUrl || participants?.find(p => p.id !== 101)?.profileImage}
+              alt={otherMemberNickname || '사용자'}
+              size={48}
+              className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                const opponentId = otherMemberId || participants?.find(p => p.id !== 101)?.id;
+                if (opponentId) {
+                  navigate(`/members/${opponentId}`);
+                }
+              }}
             />
-          )}
+            {/* 온라인 상태 표시 */}
+            {member && (
+              <div
+                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${
+                  member.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+                title={member.isOnline ? '온라인' : '오프라인'}
+              />
+            )}
+          </div>
+
+          {/* 상품 이미지 */}
+          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+            {productImageUrl ? (
+              <img
+                src={productImageUrl}
+                alt={productTitle || '상품'}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"%3E%3Crect fill="%23E5E7EB" width="48" height="48"/%3E%3Cg fill="%239CA3AF"%3E%3Cpath d="M19 19h10v10H19z" opacity="0.3"/%3E%3Ccircle cx="21.5" cy="21.5" r="1.5"/%3E%3Cpath d="M19 29l2.5-3.5 2 2.5 3-4.5 2.5 5.5H19z"/%3E%3C/g%3E%3Ctext x="24" y="38" text-anchor="middle" fill="%239CA3AF" font-family="Arial" font-size="6"%3E이미지 없음%3C/text%3E%3C/svg%3E';
+                }}
+              />
+            ) : (
+              // 상품이 삭제된 경우 플레이스홀더
+              <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                <svg className="w-6 h-6 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="text-[8px] leading-none">삭제됨</span>
+              </div>
+            )}
+            {/* 고정 표시 */}
+            {isPinned && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm z-10">
+                <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </div>
+            )}
+          </div>
         </div>
         
         {/* 채팅방 정보 */}
