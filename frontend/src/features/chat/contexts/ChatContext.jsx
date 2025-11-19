@@ -963,48 +963,9 @@ export const ChatProvider = ({ children }) => {
           const snapshot = stateRef.current;
           const isOwnMessage = Number(normalized.senderId) === Number(currentUserId);
           
-          // 내가 보낸 메시지의 경우, 최근 전송한 메시지와 내용이 같은지 확인 (중복 수신 방지)
-          if (isOwnMessage && normalized.content) {
-            const contentForComparison = normalized.content
-              .replace(/rentalHisId[:\s]*\d+/gi, '')
-              .replace(/MESSAGE_TYPE[:\s]*[^\n]+/gi, '')
-              .replace(/\n+/g, '\n')
-              .trim();
-            
-            // 최근 5초 이내에 같은 내용의 메시지가 있는지 확인
-            const recentSameMessage = snapshot.messages
-              .filter(msg => {
-                if (!msg || !msg.content) return false;
-                const msgSenderId = msg.senderId ?? msg.sender?.id;
-                if (Number(msgSenderId) !== Number(currentUserId)) return false;
-                
-                // 시간 차이 확인 (5초 이내)
-                const msgTime = new Date(msg.timestamp || 0).getTime();
-                const normalizedTime = new Date(normalized.timestamp || 0).getTime();
-                if (Math.abs(normalizedTime - msgTime) > 5000) return false;
-                
-                // 내용 비교
-                const msgContentForComparison = msg.content
-                  .replace(/rentalHisId[:\s]*\d+/gi, '')
-                  .replace(/MESSAGE_TYPE[:\s]*[^\n]+/gi, '')
-                  .replace(/\n+/g, '\n')
-                  .trim();
-                
-                return msgContentForComparison === contentForComparison;
-              });
-            
-            if (recentSameMessage.length > 0) {
-              console.log('[ChatContext] 내가 보낸 메시지 중복 수신 무시 (내용 기반):', {
-                content: normalized.content?.substring(0, 50),
-                existingMessages: recentSameMessage.map(m => ({
-                  id: m.id,
-                  content: m.content?.substring(0, 50),
-                  timestamp: m.timestamp
-                }))
-              });
-              return; // 중복 메시지 무시
-            }
-          }
+          // 내가 보낸 메시지의 경우, 메시지 ID 기반으로만 중복 체크 (내용 기반은 너무 강력함)
+          // 메시지 ID가 이미 recentlyReceivedMessagesRef에 있으면 중복으로 간주
+          // 내용 기반 중복 체크는 제거 (시스템 메시지나 중요한 메시지가 필터링되는 것을 방지)
           
           // 시스템 메시지 처리 (재입장, 나가기 등) - 타입 체크를 더 엄격하게
           const isSystemMessage = normalized.type === 'system' || 
@@ -1561,52 +1522,59 @@ export const ChatProvider = ({ children }) => {
       };
 
       // 중복 전송 방지: 같은 내용의 메시지를 짧은 시간 내에 여러 번 보내는 것을 방지
-      // 메시지 내용의 핵심 부분만 추출하여 비교 (rentalHisId, MESSAGE_TYPE 등은 제외하고 실제 내용만)
-      const contentForComparison = payload.content
-        ? payload.content
-            .replace(/rentalHisId[:\s]*\d+/gi, '')
-            .replace(/MESSAGE_TYPE[:\s]*[^\n]+/gi, '')
-            .replace(/\n+/g, '\n')
-            .trim()
-        : '';
+      // 단, 시스템 메시지나 특정 타입의 메시지는 제외 (운송장 등록 안내 등)
+      const isSystemMessage = payload.content?.includes('MESSAGE_TYPE:') || 
+                              payload.content?.includes('운송장 번호를 등록해주세요') ||
+                              payload.content?.includes('물품을 수령했습니다');
       
-      // 메시지 키 생성 (구분자를 사용하여 안전하게 파싱 가능하도록)
-      const urlPart = payload.imageUrl || payload.fileUrl || '';
-      const messageKey = `${roomId}|||${payload.type}|||${contentForComparison}|||${urlPart}`;
-      
-      // 최근 3초 이내에 같은 내용의 메시지를 보냈는지 확인
-      const recentKey = Array.from(pendingSendMessagesRef.current).find(key => {
-        // 키 형식: roomId|||type|||content|||url
-        const parts = key.split('|||');
-        if (parts.length !== 4) return false;
+      if (!isSystemMessage) {
+        // 메시지 내용의 핵심 부분만 추출하여 비교 (rentalHisId, MESSAGE_TYPE 등은 제외하고 실제 내용만)
+        const contentForComparison = payload.content
+          ? payload.content
+              .replace(/rentalHisId[:\s]*\d+/gi, '')
+              .replace(/MESSAGE_TYPE[:\s]*[^\n]+/gi, '')
+              .replace(/\n+/g, '\n')
+              .trim()
+          : '';
         
-        const keyRoomId = parts[0];
-        const keyType = parts[1];
-        const keyContent = parts[2];
-        const keyUrl = parts[3] || '';
+        // 메시지 키 생성 (구분자를 사용하여 안전하게 파싱 가능하도록)
+        const urlPart = payload.imageUrl || payload.fileUrl || '';
+        const messageKey = `${roomId}|||${payload.type}|||${contentForComparison}|||${urlPart}`;
         
-        return keyRoomId === String(roomId) && 
-               keyType === payload.type && 
-               keyContent === contentForComparison &&
-               (keyUrl === urlPart);
-      });
-
-      if (recentKey) {
-        console.log('[ChatContext] 중복 메시지 전송 방지:', {
-          roomId,
-          type: payload.type,
-          content: payload.content?.substring(0, 50),
-          recentKey
+        // 최근 3초 이내에 같은 내용의 메시지를 보냈는지 확인
+        const recentKey = Array.from(pendingSendMessagesRef.current).find(key => {
+          // 키 형식: roomId|||type|||content|||url
+          const parts = key.split('|||');
+          if (parts.length !== 4) return false;
+          
+          const keyRoomId = parts[0];
+          const keyType = parts[1];
+          const keyContent = parts[2];
+          const keyUrl = parts[3] || '';
+          
+          return keyRoomId === String(roomId) && 
+                 keyType === payload.type && 
+                 keyContent === contentForComparison &&
+                 (keyUrl === urlPart);
         });
-        return; // 중복 전송 방지
-      }
 
-      // 전송 중인 메시지 키 추가
-      pendingSendMessagesRef.current.add(messageKey);
-      // 3초 후 자동 제거 (같은 메시지를 3초 내에 다시 보낼 수 없음)
-      setTimeout(() => {
-        pendingSendMessagesRef.current.delete(messageKey);
-      }, 3000);
+        if (recentKey) {
+          console.log('[ChatContext] 중복 메시지 전송 방지:', {
+            roomId,
+            type: payload.type,
+            content: payload.content?.substring(0, 50),
+            recentKey
+          });
+          return; // 중복 전송 방지
+        }
+
+        // 전송 중인 메시지 키 추가
+        pendingSendMessagesRef.current.add(messageKey);
+        // 3초 후 자동 제거 (같은 메시지를 3초 내에 다시 보낼 수 없음)
+        setTimeout(() => {
+          pendingSendMessagesRef.current.delete(messageKey);
+        }, 3000);
+      }
 
       if (!socketConnected || !websocketApi.isConnected?.()) {
         console.warn('WebSocket 연결을 기다리는 중입니다.');

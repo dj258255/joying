@@ -33,11 +33,15 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef(null);
   const streamRef = useRef(null);
+  const hasCalledOnReceiveCompleteRef = useRef(false); // onReceiveComplete 중복 호출 방지
 
   // 기존 영상 확인
   React.useEffect(() => {
     const checkExistingVideo = async () => {
       if (!isOpen || !rentalHisId) return;
+
+      // 모달이 열릴 때 리셋
+      hasCalledOnReceiveCompleteRef.current = false;
 
       try {
         console.log('[ReceiveModal] 기존 영상 확인 중...');
@@ -203,14 +207,17 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       await rentalApi.confirmReceive(rentalHisId);
       console.log('[ReceiveModal] 수령 확인 완료 - 상태가 RENTING으로 변경됨');
 
-      // 부모 컴포넌트에 완료 알림
-      if (onReceiveComplete) {
+      // 부모 컴포넌트에 완료 알림 (메시지 전송은 부모에서 처리)
+      // onReceiveComplete는 한 번만 호출되도록 함
+      setCurrentStep('complete');
+      
+      // 완료 단계로 이동 후 부모에 알림 (메시지 중복 방지)
+      if (onReceiveComplete && !hasCalledOnReceiveCompleteRef.current) {
+        hasCalledOnReceiveCompleteRef.current = true;
         onReceiveComplete({
           videoUrl: videoUrl
         });
       }
-
-      setCurrentStep('complete');
     } catch (err) {
       console.error('[ReceiveModal] 영상 업로드 또는 수령 확인 실패:', err);
       setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
@@ -232,14 +239,16 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
 
       console.log('[ReceiveModal] 수령 확인 완료');
 
-      // 부모 컴포넌트에 완료 알림
-      if (onReceiveComplete) {
+      // 부모 컴포넌트에 완료 알림 (메시지 전송은 부모에서 처리)
+      setCurrentStep('complete');
+      
+      // 완료 단계로 이동 후 부모에 알림 (메시지 중복 방지)
+      if (onReceiveComplete && !hasCalledOnReceiveCompleteRef.current) {
+        hasCalledOnReceiveCompleteRef.current = true;
         onReceiveComplete({
           videoUrl: uploadedVideoUrl
         });
       }
-
-      setCurrentStep('complete');
     } catch (err) {
       console.error('[ReceiveModal] 수령 확인 실패:', err);
       setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
@@ -262,6 +271,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
     setRecordedVideoUrl(null);
     setUploadedVideoUrl(null);
     setError(null);
+    hasCalledOnReceiveCompleteRef.current = false; // 리셋
 
     onClose();
   };
