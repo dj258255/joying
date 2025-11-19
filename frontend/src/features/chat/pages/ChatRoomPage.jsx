@@ -2773,7 +2773,7 @@ const ChatRoomPage = () => {
               const content = message.content || '';
 
               // BORROW 상품 '채팅으로 제안하기' 메시지인지 확인
-              if (!content.includes('💡') || !content.includes('빌려드릴 수 있습니다') || !content.includes('거래를 원하시면')) {
+              if (!content.includes('MESSAGE_TYPE:BORROW_PROPOSAL')) {
                 return null;
               }
 
@@ -2789,6 +2789,15 @@ const ChatRoomPage = () => {
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
               const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+              console.log('[ChatRoomPage] getRentMethodSelector 조건 체크:', {
+                messageSenderId,
+                currentUserId,
+                isMessageSender,
+                sellerId,
+                isProductOwner,
+                shouldShow: isMessageSender && !isProductOwner
+              });
 
               // 메시지 보낸 사람(제안한 사람)에게만 거래 방법 선택 UI 표시
               if (!isMessageSender || isProductOwner) {
