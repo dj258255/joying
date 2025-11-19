@@ -619,7 +619,7 @@ function ProductCreatePage() {
       // 백엔드가 항상 유효한 값을 반환하므로 프론트엔드는 신뢰
       const newFormData = {
         ...form,
-        title: result.title ? result.title.slice(0, 50) : form.title,
+        title: result.title ? result.title.slice(0, 30) : form.title,
         content: result.description ? result.description.slice(0, 2000) : form.content,
         rentalFee: result.recommended_price ? formatCurrency(result.recommended_price) : form.rentalFee,
         deposit: result.recommended_deposit ? formatCurrency(result.recommended_deposit) : form.deposit,
@@ -789,10 +789,29 @@ function ProductCreatePage() {
     return null;
   };
 
+  const MAX_IMAGE_COUNT = 5;
+
   const handleFiles = async (files) => {
     const fileArr = Array.from(files || []);
     if (fileArr.length === 0) return;
     setErrorMessage('');
+
+    // 이미지 개수 제한 확인 (현재 개수 + 새로 추가할 개수)
+    const currentCount = filePreviews.length;
+    const totalCount = currentCount + fileArr.length;
+    
+    if (totalCount > MAX_IMAGE_COUNT) {
+      const canAdd = MAX_IMAGE_COUNT - currentCount;
+      if (canAdd <= 0) {
+        setErrorMessage(`이미지는 최대 ${MAX_IMAGE_COUNT}개까지 등록할 수 있습니다.`);
+        setTimeout(() => setErrorMessage(''), 3000);
+        return;
+      }
+      // 추가 가능한 개수만큼만 처리
+      fileArr.splice(canAdd);
+      setErrorMessage(`${canAdd}개의 이미지만 추가되었습니다. (최대 ${MAX_IMAGE_COUNT}개)`);
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
 
     const localUrls = fileArr.map((f) => URL.createObjectURL(f));
     const previewStartIndex = filePreviews.length;
@@ -911,7 +930,12 @@ function ProductCreatePage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    handleFiles(e.dataTransfer.files);
+    if (filePreviews.length < MAX_IMAGE_COUNT) {
+      handleFiles(e.dataTransfer.files);
+    } else {
+      setErrorMessage(`이미지는 최대 ${MAX_IMAGE_COUNT}개까지 등록할 수 있습니다.`);
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
   };
 
   const onDragOver = (e) => {
@@ -1542,15 +1566,15 @@ function ProductCreatePage() {
             <label className="block text-sm font-medium text-black mb-1.5">제목</label>
             <input
               value={form.title}
-              onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
+              onChange={(e) => updateField('title', e.target.value.slice(0, 30))}
               placeholder="상품 제목을 입력하세요"
               className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
             />
             <div className="text-right text-xs mt-1">
-              <span className={form.title.length >= 45 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
-                {form.title.length}/50
+              <span className={form.title.length >= 25 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
+                {form.title.length}/30
               </span>
-              {form.title.length === 50 && (
+              {form.title.length === 30 && (
                 <span className="ml-2 text-red-600 text-xs">최대 길이입니다</span>
               )}
             </div>
@@ -1729,17 +1753,19 @@ function ProductCreatePage() {
             onDragOver={handleDrag}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
-            onClick={() => { if (!uploading && !aiGenerating) fileInputRef.current?.click(); }}
-            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
-              dragActive
-                ? 'border-black bg-gray-100 scale-105'
-                : 'border-gray-300 hover:border-black bg-gray-50'
+            onClick={() => { if (!uploading && !aiGenerating && filePreviews.length < MAX_IMAGE_COUNT) fileInputRef.current?.click(); }}
+            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all duration-300 ${
+              filePreviews.length >= MAX_IMAGE_COUNT || uploading || aiGenerating
+                ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                : dragActive
+                ? 'border-black bg-gray-100 scale-105 cursor-pointer'
+                : 'border-gray-300 hover:border-black bg-gray-50 cursor-pointer'
             }`}
           >
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
-            <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating} />
+            <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다 (최대 {MAX_IMAGE_COUNT}개)</p>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating || filePreviews.length >= MAX_IMAGE_COUNT} />
             {uploading && <p className="text-gray-600 text-xs mt-2">업로드 중...</p>}
           </div>
         </div>
