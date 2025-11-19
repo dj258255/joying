@@ -1458,7 +1458,12 @@ const ChatRoomPage = () => {
         // 2. rentalHisId가 있을 때만 운송장 번호 입력 요청 메시지 전송
         if (rentalHisId) {
           setTimeout(async () => {
-            const trackingRequestMessage = `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+            // BORROW/RENT 타입에 따라 메시지 내용 결정
+            const isBorrowType = productData?.uploadType === 'BORROW';
+            const trackingRequestMessage = isBorrowType
+              ? `📦 구매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`
+              : `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+
             await sendMessage({
               type: 'TEXT',
               content: trackingRequestMessage
@@ -3002,14 +3007,26 @@ const ChatRoomPage = () => {
             // 거래 생성 완료 메시지 감지 (카드로 렌더링)
             const transactionInfo = parseTransactionCreatedMessage(message.content);
             if (transactionInfo) {
-              // rentalHisId가 있으면 거래 상태 확인하여 이미 결제 완료된 경우 처리하지 않음
-              // (결제 완료된 경우 PaymentCompleteMessageCard로 렌더링)
-              if (transactionInfo.rentalHisId && currentRentalData) {
-                const status = currentRentalData.status || currentRentalData.rentalStatus;
-                // 결제 완료 상태면 TransactionCreatedMessageCard를 표시하지 않음
-                if (status && status !== 'PENDING') {
-                  // PaymentCompleteMessageCard가 따로 렌더링되므로 여기서는 skip
+              // rentalHisId가 있으면 메시지 목록에서 결제 완료 메시지가 있는지 확인
+              if (transactionInfo.rentalHisId) {
+                // 현재 메시지 이후에 같은 rentalHisId에 대한 결제 완료 메시지가 있는지 확인
+                const hasPaymentCompleteMessage = sortedMessages.some(msg => {
+                  const content = msg.content || '';
+                  return content.includes('MESSAGE_TYPE:PAYMENT_COMPLETE') &&
+                         content.includes(`rentalHisId:${transactionInfo.rentalHisId}`);
+                });
+
+                // 결제 완료 메시지가 있으면 TransactionCreatedMessageCard 숨김
+                if (hasPaymentCompleteMessage) {
                   return null;
+                }
+
+                // currentRentalData로도 한번 더 확인 (이중 체크)
+                if (currentRentalData) {
+                  const status = currentRentalData.status || currentRentalData.rentalStatus;
+                  if (status && status !== 'PENDING') {
+                    return null;
+                  }
                 }
               }
 
