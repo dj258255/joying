@@ -1,6 +1,6 @@
 /**
- * BorrowedHistoryPage Component
- * 빌린 내역 상세 페이지
+ * LentHistoryPage Component
+ * 빌려준 내역 상세 페이지
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -19,26 +19,26 @@ import { useRef } from 'react';
 import CustomAlert from '../../../shared/components/CustomAlert';
 import CustomConfirm from '../../../shared/components/CustomConfirm';
 
-const BorrowedHistoryPage = () => {
+const LentHistoryPage = () => {
   const { rentalId } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const [rental, setRental] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeReviewTab, setActiveReviewTab] = useState('myReview'); // 'myReview' | 'ownerReview'
+  const [activeReviewTab, setActiveReviewTab] = useState('myReview'); // 'myReview' | 'renterReview'
   
   // 리뷰 작성 훅
   const { createReview, updateReview, deleteReview, isCreating: isCreatingReview, isUpdating: isUpdatingReview, isDeleting: isDeletingReview } = useReviewWrite();
   
   // 리뷰 데이터 상태
-  const [myReview, setMyReview] = useState(null); // 내가 작성한 리뷰 (빌린 사람이 상품에 대한 리뷰)
-  const [ownerReview, setOwnerReview] = useState(null); // 판매자가 작성한 리뷰 (빌린 사람에 대한 리뷰)
+  const [myReview, setMyReview] = useState(null); // 내가 작성한 리뷰 (빌려준 사람이 빌린 사람에 대한 리뷰)
+  const [renterReview, setRenterReview] = useState(null); // 대여자가 작성한 리뷰 (빌린 사람이 상품에 대한 리뷰)
   const [loadingReviews, setLoadingReviews] = useState(false);
   
-  // 판매자 정보 조회 (별점 포함)
-  const ownerMemberId = rental?.owner?.memberId;
-  const { user: ownerUser } = useUserProfile(ownerMemberId);
-  const ownerRating = ownerUser?.rating || rental?.owner?.rating || 0;
+  // 대여자 정보 조회 (별점 포함)
+  const renterMemberId = rental?.renter?.memberId;
+  const { user: renterUser } = useUserProfile(renterMemberId);
+  const renterRating = renterUser?.rating || rental?.renter?.rating || 0;
   
   // 커스텀 알림 상태
   const [alertMessage, setAlertMessage] = useState(null);
@@ -85,7 +85,7 @@ const BorrowedHistoryPage = () => {
         return;
       }
       
-      console.log('[BorrowedHistoryPage] 대여 내역 로드 완료:', rentalData);
+      console.log('[LentHistoryPage] 대여 내역 로드 완료:', rentalData);
       setRental(rentalData);
     } catch (error) {
       console.error('대여 내역 로딩 중 오류:', error);
@@ -99,21 +99,34 @@ const BorrowedHistoryPage = () => {
     return new Date(dateString).toLocaleDateString('ko-KR');
   };
 
-  const getStatusText = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return '완료';
-      case 'pending': return '대기중';
-      case 'cancelled': return '취소됨';
-      default: return status;
+      case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+      case 'ESCROW': return 'bg-blue-100 text-blue-800';
+      case 'SHIPPED': return 'bg-indigo-100 text-indigo-800';
+      case 'RENTING': return 'bg-blue-100 text-blue-800';
+      case 'RETURN_REQUESTED': return 'bg-purple-100 text-purple-800';
+      case 'RETURNED': return 'bg-teal-100 text-teal-800';
+      case 'DEPOSIT_RETURNED': return 'bg-green-100 text-green-800';
+      case 'COMPLETED': return 'bg-green-100 text-green-800';
+      case 'CANCELLED': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getStatusColor = (status) => {
+  // 상태 텍스트 변환 (RentalStatus enum에 맞게)
+  const getStatusText = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'PENDING': return '결제 대기';
+      case 'ESCROW': return '보증금 보관';
+      case 'SHIPPED': return '발송 완료';
+      case 'RENTING': return '대여 중';
+      case 'RETURN_REQUESTED': return '반납 요청';
+      case 'RETURNED': return '회수 완료';
+      case 'DEPOSIT_RETURNED': return '거래 완료';
+      case 'COMPLETED': return '거래 완료';
+      case 'CANCELLED': return '거래 취소';
+      default: return '거래 대기';
     }
   };
 
@@ -177,10 +190,10 @@ const BorrowedHistoryPage = () => {
     try {
       setLoadingReviews(true);
       
-      // 내가 작성한 리뷰 조회 (빌린 사람이 작성한 리뷰)
-      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member (빌린 사람이 작성한 리뷰)
+      // 내가 작성한 리뷰 조회 (빌려준 사람이 빌린 사람에 대한 리뷰)
+      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member → 빌린 사람에 대한 리뷰 (빌려준 사람이 작성)
       try {
-        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
         // API 응답 구조: { status, message, data: { reviewId, title, content, rating, reviewerName } }
         const myReviewData = myReviewResponse?.data?.data;
         if (myReviewData && myReviewData.reviewId) {
@@ -198,23 +211,23 @@ const BorrowedHistoryPage = () => {
         }
       }
       
-      // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰)
-      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member (빌린 사람에 대한 리뷰)
+      // 대여자가 작성한 리뷰 조회 (빌린 사람이 작성한 리뷰)
+      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member → 빌린 사람이 작성한 리뷰
       try {
-        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
-        const ownerReviewData = ownerReviewResponse?.data?.data;
-        if (ownerReviewData && ownerReviewData.reviewId) {
-          setOwnerReview(ownerReviewData);
+        const renterReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const renterReviewData = renterReviewResponse?.data?.data;
+        if (renterReviewData && renterReviewData.reviewId) {
+          setRenterReview(renterReviewData);
         } else {
-          setOwnerReview(null);
+          setRenterReview(null);
         }
       } catch (error) {
         // 404는 리뷰가 없다는 의미이므로 null로 설정
         if (error.response?.status === 404) {
-          setOwnerReview(null);
+          setRenterReview(null);
         } else {
-          console.error('판매자 리뷰 조회 실패:', error);
-          setOwnerReview(null);
+          console.error('대여자 리뷰 조회 실패:', error);
+          setRenterReview(null);
         }
       }
     } catch (error) {
@@ -225,7 +238,7 @@ const BorrowedHistoryPage = () => {
   };
 
   // 리뷰 조회 재시도 헬퍼 함수
-  const retryLoadMyReview = async (type = 'rent', maxRetries = 5) => {
+  const retryLoadMyReview = async (type = 'borrow', maxRetries = 5) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         const response = await reviewApi.getRentalReview(rentalId, type);
@@ -308,17 +321,17 @@ const BorrowedHistoryPage = () => {
     const days = getDaysInMonth(new Date(displayYear, displayMonth));
 
     return (
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-3 border border-gray-200">
+        <div className="text-center mb-2">
+          <h3 className="text-base font-semibold text-gray-900">
             {displayYear}년 {displayMonth + 1}월
           </h3>
         </div>
         
         {/* 요일 헤더 */}
-        <div className="grid grid-cols-7 gap-1 mb-3">
+        <div className="grid grid-cols-7 gap-1 mb-2">
           {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
-            <div key={day} className="text-center text-sm font-semibold text-gray-700 py-2">
+            <div key={day} className="text-center text-xs font-semibold text-gray-700 py-1">
               {day}
             </div>
           ))}
@@ -328,7 +341,7 @@ const BorrowedHistoryPage = () => {
         <div className="grid grid-cols-7 gap-1">
           {days.map((date, index) => {
             if (!date) {
-              return <div key={index} className="h-10"></div>;
+              return <div key={index} className="h-8"></div>;
             }
             
             const isSelected = isInRange(date);
@@ -337,7 +350,7 @@ const BorrowedHistoryPage = () => {
             return (
               <div
                 key={index}
-                className={`h-10 flex items-center justify-center text-sm rounded-lg transition-all duration-200 ${
+                className={`h-8 flex items-center justify-center text-xs rounded-lg transition-all duration-200 ${
                   isSelected
                     ? 'bg-gray-900 text-white font-bold shadow-md'
                     : isToday
@@ -352,13 +365,13 @@ const BorrowedHistoryPage = () => {
         </div>
         
         {/* 범례 */}
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs">
+        <div className="flex items-center justify-center gap-3 mt-2 text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-900 rounded"></div>
+            <div className="w-2 h-2 bg-gray-900 rounded"></div>
             <span className="text-gray-600">대여 기간</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-gray-200 rounded"></div>
+            <div className="w-2 h-2 bg-gray-200 rounded"></div>
             <span className="text-gray-600">오늘</span>
           </div>
         </div>
@@ -437,8 +450,8 @@ const BorrowedHistoryPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 상단 왼쪽: 상품 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">상품 정보</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">상품 정보</h2>
             
             <ProductCardByProductId
               productId={rental.product?.productId}
@@ -453,51 +466,47 @@ const BorrowedHistoryPage = () => {
             />
           </div>
 
-          {/* 상단 오른쪽: 판매자 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">판매자 정보</h2>
+          {/* 상단 오른쪽: 대여자 정보 */}
+          <div className="bg-white rounded-2xl shadow-lg p-4 flex flex-col">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여자 정보</h2>
             
-            <div className="text-center mb-4">
-              <ProfileImage
-                src={ownerUser?.profileImageUrl || ownerUser?.profile_image_url || rental.owner?.profileImage || rental.owner?.profileImageUrl || null}
-                alt={ownerUser?.nickname || ownerUser?.name || rental.owner?.nickname || rental.owner?.name || '판매자'}
-                size={80}
-                className="w-20 h-20 mx-auto mb-4"
-              />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{ownerUser?.nickname || ownerUser?.name || rental.owner?.nickname || rental.owner?.name} 님</h3>
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className="flex gap-1">
-                  {renderPreciseStars(Number(ownerRating) || 0)}
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="text-center mb-3">
+                <ProfileImage
+                  src={renterUser?.profileImageUrl || renterUser?.profile_image_url || rental.renter?.profileImage || rental.renter?.profileImageUrl || null}
+                  alt={renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name || '대여자'}
+                  size={64}
+                  className="w-16 h-16 mx-auto mb-2"
+                />
+                <h3 className="text-base font-semibold text-gray-900 mb-1">{renterUser?.nickname || renterUser?.name || rental.renter?.nickname || rental.renter?.name} 님</h3>
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <div className="flex gap-1">
+                    {renderPreciseStars(Number(renterRating) || 0)}
+                  </div>
+                  <span className="text-sm text-gray-600">{Number(renterRating) || 0}</span>
                 </div>
-                <span className="text-sm text-gray-600">{Number(ownerRating) || 0}</span>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <button
-                onClick={() => navigate(`/members/${rental.owner?.memberId}`)}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                프로필 보기
-              </button>
-              <button
-                onClick={() => navigate(`/chats`)}
-                className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                메시지 보내기
-              </button>
+              <div className="space-y-2 flex flex-col items-center">
+                <button
+                  onClick={() => navigate(`/members/${rental.renter?.memberId}`)}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  프로필 보기
+                </button>
+              </div>
             </div>
           </div>
 
           {/* 중간 왼쪽: 대여 기간 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">대여 기간</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여 기간</h2>
             {renderCalendar()}
           </div>
 
           {/* 하단 왼쪽: 결제 정보 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">결제 정보</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">결제 정보</h2>
             
             <div className="space-y-3 mb-4">
               <div className="flex justify-between">
@@ -518,77 +527,103 @@ const BorrowedHistoryPage = () => {
             </button>
           </div>
 
-          {/* 중간 오른쪽: 판매자가 남긴 리뷰 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">판매자가 남긴 리뷰</h2>
+          {/* 중간 오른쪽: 대여자가 남긴 리뷰 */}
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">대여자가 남긴 리뷰</h2>
             
             {loadingReviews ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                <p className="text-gray-600">로딩 중...</p>
+                <p className="text-gray-600 text-sm">로딩 중...</p>
               </div>
-            ) : ownerReview ? (
+            ) : renterReview ? (
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="flex">
-                    {renderPreciseStars(ownerReview.rating || 0)}
+                    {renderPreciseStars(renterReview.rating || 0)}
                   </div>
-                  <span className="text-sm text-gray-600">{ownerReview.rating || 0}</span>
+                  <span className="text-sm text-gray-600">{renterReview.rating || 0}</span>
                 </div>
-                {ownerReview.title && (
-                  <h4 className="font-semibold text-gray-900 mb-2">{ownerReview.title}</h4>
+                {renterReview.title && (
+                  <h4 className="font-semibold text-gray-900 mb-1.5 text-sm">{renterReview.title}</h4>
                 )}
-                <p className="text-gray-700 mb-3">"{ownerReview.content}"</p>
-                <div className="text-sm text-gray-500">
-                  {ownerReview.reviewerName || '판매자'} • {ownerReview.createdAt ? formatDate(ownerReview.createdAt) : ''}
+                <p className="text-gray-700 mb-2 text-sm">"{renterReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {renterReview.imageUrls && renterReview.imageUrls.length > 0 && (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {renterReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="text-xs text-gray-500">
+                  {renterReview.reviewerName || '대여자'} • {renterReview.createdAt ? formatDate(renterReview.createdAt) : ''}
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-600">판매자가 아직 리뷰를 작성하지 않았습니다.</p>
+              <div className="text-center py-6">
+                <p className="text-gray-600 text-sm">대여자가 아직 리뷰를 작성하지 않았습니다.</p>
               </div>
             )}
           </div>
 
           {/* 하단 오른쪽: 내가 남긴 리뷰 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">내가 남긴 리뷰</h2>
+          <div className="bg-white rounded-2xl shadow-lg p-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">내가 남긴 리뷰</h2>
             
             {loadingReviews ? (
-              <div className="text-center py-8">
+              <div className="text-center py-6">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                <p className="text-gray-600">로딩 중...</p>
+                <p className="text-gray-600 text-sm">로딩 중...</p>
               </div>
             ) : myReview ? (
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="flex">
                     {renderPreciseStars(myReview.rating || 0)}
                   </div>
                   <span className="text-sm text-gray-600">{myReview.rating || 0}</span>
                 </div>
                 {myReview.title && (
-                  <h4 className="font-semibold text-gray-900 mb-2">{myReview.title}</h4>
+                  <h4 className="font-semibold text-gray-900 mb-1.5 text-sm">{myReview.title}</h4>
                 )}
-                <p className="text-gray-700 mb-3">"{myReview.content}"</p>
-                <div className="text-sm text-gray-500 mb-4">
+                <p className="text-gray-700 mb-2 text-sm">"{myReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {myReview.imageUrls && myReview.imageUrls.length > 0 && (
+                  <div className="mb-2 flex gap-2 overflow-x-auto">
+                    {myReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="text-xs text-gray-500 mb-3">
                   {formatDate(myReview.createdAt || new Date())}
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setReviewTitle(myReview.title || '');
-                      setReviewContent(myReview.content || '');
-                      setReviewRating(myReview.rating || 0);
-                      // 기존 이미지 정보 복원
-                      setReviewFileIds(myReview.imageFileIds || myReview.fileIds || []);
-                      setReviewImagePreviews(myReview.imageUrls || []);
-                      setShowEditReviewModal(true);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    수정
-                  </button>
+                <button
+                  onClick={() => {
+                    setReviewTitle(myReview.title || '');
+                    setReviewContent(myReview.content || '');
+                    setReviewRating(myReview.rating || 0);
+                    // 기존 이미지 정보 복원
+                    setReviewFileIds(myReview.imageFileIds || myReview.fileIds || []);
+                    setReviewImagePreviews(myReview.imageUrls || []);
+                    setShowEditReviewModal(true);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  수정
+                </button>
                   <button
                     onClick={() => {
                       setConfirmMessage('리뷰를 삭제하시겠습니까?');
@@ -660,23 +695,35 @@ const BorrowedHistoryPage = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">거래 상태</span>
                     <span className={`px-2 py-1 rounded-full text-sm ${
-                      rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
-                      rental.status === 'RENTING' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-red-100 text-red-800'
+                      rental.status === 'DEPOSIT_RETURNED' || rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                      rental.status === 'RENTING' ? 'bg-blue-100 text-blue-800' :
+                      rental.status === 'RETURNED' ? 'bg-teal-100 text-teal-800' :
+                      rental.status === 'RETURN_REQUESTED' ? 'bg-purple-100 text-purple-800' :
+                      rental.status === 'SHIPPED' ? 'bg-indigo-100 text-indigo-800' :
+                      rental.status === 'ESCROW' ? 'bg-cyan-100 text-cyan-800' :
+                      rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      rental.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
                     }`}>
-                      {rental.status === 'COMPLETED' ? '완료' : 
-                       rental.status === 'RENTING' ? '진행중' : 
-                       rental.status === 'CANCELLED' ? '취소' : rental.status}
+                      {rental.status === 'DEPOSIT_RETURNED' ? '거래 완료' :
+                       rental.status === 'COMPLETED' ? '거래 완료' :
+                       rental.status === 'RETURNED' ? '회수 완료' :
+                       rental.status === 'RETURN_REQUESTED' ? '반납 요청' :
+                       rental.status === 'RENTING' ? '대여 중' :
+                       rental.status === 'SHIPPED' ? '발송 완료' :
+                       rental.status === 'ESCROW' ? '보증금 보관' :
+                       rental.status === 'PENDING' ? '결제 대기' :
+                       rental.status === 'CANCELLED' ? '거래 취소' : rental.status}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">대여 시작일</span>
                     <span className="font-medium text-gray-900">{formatDate(rental.startRen)}</span>
                   </div>
-                    <div className="flex justify-between">
+                  <div className="flex justify-between">
                     <span className="text-gray-600">대여 종료일</span>
                     <span className="font-medium text-gray-900">{formatDate(rental.endRen)}</span>
-                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -701,20 +748,6 @@ const BorrowedHistoryPage = () => {
                   <div className="flex justify-between font-bold text-lg text-gray-900">
                     <span>총 결제금액</span>
                     <span>{((rental.fee || 0) + (rental.deposit || 0)).toLocaleString()}원</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-3">결제 방법</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">결제 수단</span>
-                    <span className="font-medium text-gray-900">카드 결제</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">카드 번호</span>
-                    <span className="font-medium text-gray-900">****-****-****-1234</span>
                   </div>
                 </div>
               </div>
@@ -822,16 +855,32 @@ const BorrowedHistoryPage = () => {
 
               {/* 이미지 업로드 섹션 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">이미지 업로드 (선택)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이미지 업로드 (선택)
+                  <span className="ml-2 text-xs text-gray-500">({reviewImagePreviews.length}/3)</span>
+                </label>
                 <div
-                  onClick={() => reviewFileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition bg-gray-50"
+                  onClick={() => {
+                    if (reviewImagePreviews.length < 3) {
+                      reviewFileInputRef.current?.click();
+                    } else {
+                      setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                      setAlertType('warning');
+                    }
+                  }}
+                  className={`w-full border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition bg-gray-50 ${
+                    reviewImagePreviews.length >= 3
+                      ? 'border-gray-300 cursor-not-allowed opacity-50'
+                      : 'border-gray-300 cursor-pointer hover:border-gray-500'
+                  }`}
                 >
                   <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <p className="text-sm text-gray-600">
-                    클릭하여 이미지 추가
+                    {reviewImagePreviews.length >= 3 
+                      ? '이미지는 최대 3개까지 업로드할 수 있습니다.' 
+                      : '클릭하여 이미지 추가 (최대 3개)'}
                   </p>
                   <input
                     ref={reviewFileInputRef}
@@ -843,12 +892,31 @@ const BorrowedHistoryPage = () => {
                       const files = Array.from(e.target.files || []);
                       if (files.length === 0) return;
                       
+                      // 최대 3개 제한
+                      const currentCount = reviewImagePreviews.length;
+                      const remainingSlots = 3 - currentCount;
+                      
+                      if (remainingSlots <= 0) {
+                        setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                        setAlertType('warning');
+                        e.target.value = '';
+                        return;
+                      }
+                      
+                      // 남은 슬롯만큼만 처리
+                      const filesToUpload = files.slice(0, remainingSlots);
+                      if (files.length > remainingSlots) {
+                        setAlertMessage(`${remainingSlots}개의 이미지만 추가되었습니다. (최대 3개)`);
+                        setAlertType('info');
+                        setTimeout(() => setAlertMessage(null), 3000);
+                      }
+                      
                       setReviewUploading(true);
-                      const localUrls = files.map(f => URL.createObjectURL(f));
+                      const localUrls = filesToUpload.map(f => URL.createObjectURL(f));
                       setReviewImagePreviews(prev => [...prev, ...localUrls]);
                       
                       try {
-                        const uploadPromises = files.map(async (file) => {
+                        const uploadPromises = filesToUpload.map(async (file) => {
                           const uploadResult = await fileApi.uploadFile(file);
                           const fileId = uploadResult.body?.data?.fileId
                             || uploadResult.data?.fileId
@@ -864,13 +932,15 @@ const BorrowedHistoryPage = () => {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
                         setAlertType('error');
+                        // 실패한 이미지 제거
+                        setReviewImagePreviews(prev => prev.slice(0, currentCount));
                       } finally {
                         setReviewUploading(false);
                       }
                       
                       e.target.value = '';
                     }}
-                    disabled={reviewUploading}
+                    disabled={reviewUploading || reviewImagePreviews.length >= 3}
                   />
                 </div>
 
@@ -930,7 +1000,7 @@ const BorrowedHistoryPage = () => {
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
-                        uploadType: 'BORROW', // 빌린 내역이므로 BORROW
+                        uploadType: 'RENT', // 빌려준 내역이므로 RENT
                         fileIds: reviewFileIds
                       });
                       
@@ -944,7 +1014,7 @@ const BorrowedHistoryPage = () => {
                       
                       // 리뷰 작성 후 리뷰 조회 (서버 반영을 위해 약간의 지연 후 재시도)
                       setTimeout(async () => {
-                        await retryLoadMyReview('rent');
+                        await retryLoadMyReview('borrow');
                         // 전체 리뷰 목록도 다시 로드
                         await loadReviews();
                       }, 500);
@@ -977,6 +1047,8 @@ const BorrowedHistoryPage = () => {
                   setReviewTitle('');
                   setReviewContent('');
                   setReviewRating(0);
+                  setReviewFileIds([]);
+                  setReviewImagePreviews([]);
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1164,10 +1236,11 @@ const BorrowedHistoryPage = () => {
                       <div key={idx} className="relative group">
                         <img
                           src={src}
-                          alt={`리뷰 이미지 ${idx + 1}`}
+                          alt={`preview-${idx}`}
                           className="w-full h-24 object-cover rounded-lg border border-gray-300"
                         />
                         <button
+                          type="button"
                           onClick={() => {
                             setReviewImagePreviews(prev => prev.filter((_, i) => i !== idx));
                             setReviewFileIds(prev => prev.filter((_, i) => i !== idx));
@@ -1182,7 +1255,6 @@ const BorrowedHistoryPage = () => {
                     ))}
                   </div>
                 )}
-
                 {reviewUploading && (
                   <p className="text-sm text-gray-500 mt-2">이미지 업로드 중...</p>
                 )}
@@ -1250,5 +1322,5 @@ const BorrowedHistoryPage = () => {
   );
 };
 
-export default BorrowedHistoryPage;
+export default LentHistoryPage;
 
