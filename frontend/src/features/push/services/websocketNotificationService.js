@@ -185,15 +185,24 @@ export function handleNotification(notification) {
   if (notificationChatRoomId) {
     const currentPath = window.location.pathname;
     const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
+    
+    // window 객체에 저장된 현재 활성 채팅방 ID도 확인 (ChatContext에서 설정)
+    const activeChatRoomId = window.__activeChatRoomId__ || null;
 
     console.log('[WebSocketNotification] 채팅방 체크:', {
       currentPath,
       currentChatRoomId,
+      activeChatRoomId,
       notificationChatRoomId,
-      matches: currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)
+      matchesPath: currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId),
+      matchesActive: activeChatRoomId && String(activeChatRoomId) === String(notificationChatRoomId)
     });
 
-    if (currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)) {
+    // 경로나 활성 채팅방 ID가 일치하면 알림 표시 안함
+    const isInCurrentChatRoom = (currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)) ||
+                                (activeChatRoomId && String(activeChatRoomId) === String(notificationChatRoomId));
+
+    if (isInCurrentChatRoom) {
       console.log('[WebSocketNotification] 현재 채팅방 안에 있으므로 알림 표시 안함');
       return;
     }

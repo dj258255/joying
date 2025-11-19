@@ -24,15 +24,15 @@ const TransactionCreateModal = ({
   } = rentalInfo || {};
 
   // 폼 상태
-  const [rentalFee, setRentalFee] = useState(dailyPrice || 0);
-  const [depositAmount, setDepositAmount] = useState(deposit || 0);
+  const [rentalFee, setRentalFee] = useState(dailyPrice || '');
+  const [depositAmount, setDepositAmount] = useState(deposit || '');
   const [requireVideo, setRequireVideo] = useState(false);
   const [error, setError] = useState('');
 
   // rentalInfo가 변경될 때마다 기본값 업데이트
   useEffect(() => {
-    setRentalFee(dailyPrice || 0);
-    setDepositAmount(deposit || 0);
+    setRentalFee(dailyPrice || '');
+    setDepositAmount(deposit || '');
   }, [dailyPrice, deposit]);
 
   const formatDate = (date) => {
@@ -57,19 +57,22 @@ const TransactionCreateModal = ({
 
   const handleSubmit = async () => {
     // 유효성 검사
-    if (rentalFee <= 0) {
+    const rentalFeeNum = Number(rentalFee) || 0;
+    const depositAmountNum = Number(depositAmount) || 0;
+    
+    if (rentalFeeNum <= 0) {
       setError('일일 대여료를 입력해주세요.');
       return;
     }
-    if (depositAmount < 0) {
+    if (depositAmountNum < 0) {
       setError('보증금은 0원 이상이어야 합니다.');
       return;
     }
 
     try {
       await onSubmit({
-        rentalFee,
-        depositAmount,
+        rentalFee: rentalFeeNum,
+        depositAmount: depositAmountNum,
         requireVideo
       });
       handleClose();
@@ -105,8 +108,15 @@ const TransactionCreateModal = ({
               type="number"
               value={rentalFee}
               onChange={(e) => {
-                setRentalFee(Number(e.target.value));
+                const value = e.target.value;
+                setRentalFee(value === '' ? '' : Number(value));
                 setError('');
+              }}
+              onBlur={(e) => {
+                const value = Number(e.target.value);
+                if (isNaN(value) || value < 0) {
+                  setRentalFee('');
+                }
               }}
               min="0"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -129,8 +139,15 @@ const TransactionCreateModal = ({
               type="number"
               value={depositAmount}
               onChange={(e) => {
-                setDepositAmount(Number(e.target.value));
+                const value = e.target.value;
+                setDepositAmount(value === '' ? '' : Number(value));
                 setError('');
+              }}
+              onBlur={(e) => {
+                const value = Number(e.target.value);
+                if (isNaN(value) || value < 0) {
+                  setDepositAmount('');
+                }
               }}
               min="0"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -181,17 +198,23 @@ const TransactionCreateModal = ({
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-blue-800">
               <span>대여료 ({days}일)</span>
-              <span className="font-medium">{(rentalFee * days).toLocaleString()}원</span>
+              <span className="font-medium">
+                {rentalFee && Number(rentalFee) > 0 ? ((Number(rentalFee) * days).toLocaleString() + '원') : '-'}
+              </span>
             </div>
             <div className="flex justify-between text-blue-800">
               <span>보증금</span>
-              <span className="font-medium">{depositAmount.toLocaleString()}원</span>
+              <span className="font-medium">
+                {depositAmount && Number(depositAmount) > 0 ? (Number(depositAmount).toLocaleString() + '원') : '-'}
+              </span>
             </div>
             <div className="border-t border-blue-300 pt-2 mt-2">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-blue-900">총계</span>
                 <span className="text-xl font-bold text-blue-900">
-                  {(rentalFee * days + depositAmount).toLocaleString()}원
+                  {rentalFee && Number(rentalFee) > 0 && depositAmount && Number(depositAmount) >= 0
+                    ? ((Number(rentalFee) * days + Number(depositAmount)).toLocaleString() + '원')
+                    : '-'}
                 </span>
               </div>
             </div>

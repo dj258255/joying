@@ -183,16 +183,7 @@ const LazyEmoticonImage = ({ emoticon, onSelect, index }) => {
  * EmoticonPicker 컴포넌트
  */
 const EmoticonPicker = ({ isOpen, onClose, onSelect }) => {
-  const [searchQuery, setSearchQuery] = useState('');
   const modalRef = useRef(null);
-
-  // 검색 필터링
-  const filteredEmoticons = useMemo(() => {
-    if (!searchQuery.trim()) return EMOTICON_IMAGES;
-    return EMOTICON_IMAGES.filter((emoticon) =>
-      emoticon.alt.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
 
   // 모달 외부 클릭 시 닫기
   useEffect(() => {
@@ -268,52 +259,11 @@ const EmoticonPicker = ({ isOpen, onClose, onSelect }) => {
           </button>
         </div>
 
-        {/* 검색 바 */}
-        {EMOTICON_IMAGES.length > 0 && (
-          <div className="px-4 sm:px-6 py-3 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="이모티콘 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
-                <svg 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-                  aria-label="검색 초기화"
-                >
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            {EMOTICON_IMAGES.length > 0 && (
-              <div className="mt-2 text-xs text-gray-500">
-                총 {EMOTICON_IMAGES.length}개 {searchQuery && `(검색 결과: ${filteredEmoticons.length}개)`}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* 이모티콘 그리드 */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-transparent">
-          {filteredEmoticons.length > 0 ? (
+          {EMOTICON_IMAGES.length > 0 ? (
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 sm:gap-4">
-              {filteredEmoticons.map((emoticon, index) => (
+              {EMOTICON_IMAGES.map((emoticon, index) => (
                 <LazyEmoticonImage
                   key={emoticon.id}
                   emoticon={emoticon}
@@ -327,7 +277,7 @@ const EmoticonPicker = ({ isOpen, onClose, onSelect }) => {
               <svg className="w-12 h-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm">검색 결과가 없습니다.</p>
+              <p className="text-sm">이모티콘이 없습니다.</p>
             </div>
           )}
         </div>
