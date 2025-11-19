@@ -962,6 +962,14 @@ function ProductCreatePage() {
   };
 
   const sameDay = (a, b) => a && b && a.toDateString() === b.toDateString();
+  // 오늘 이전 날짜인지 확인
+  const isPastDate = (d) => {
+    if (!d) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return date < today;
+  };
   const isDateSelected = (d) => sameDay(d, calStart) || sameDay(d, calEnd);
   const isPendingRange = (d) => {
     if (!calStart || !d) return false;
@@ -996,6 +1004,11 @@ function ProductCreatePage() {
   // 달력 클릭 로직: 첫 클릭 -> 시작일, 두 번째 클릭 -> 종료일, 중복 클릭 -> 취소
   const onCalendarClick = (date) => {
     if (!date) return;
+
+    // 오늘 이전 날짜는 선택 불가
+    if (isPastDate(date)) {
+      return;
+    }
 
     // 가능 기간 모드: 이미 설정된 가능 기간 내의 날짜를 클릭하면 초기화
     if (calendarMode === 'available') {
@@ -1801,15 +1814,17 @@ function ProductCreatePage() {
               const selected = isDateSelected(d) || isPendingRange(d);
               const inAvailable = isInAvailableRange(d);
               const inRefuse = isInRefuseRanges(d);
+              const isPast = isPastDate(d);
 
               return (
                 <button
                   key={idx}
                   type="button"
-                  disabled={!d}
+                  disabled={!d || isPast}
                   onClick={() => d && onCalendarClick(d)}
                   className={`h-8 w-full aspect-square rounded-lg text-xs transition-all ${
                     !d ? 'invisible' :
+                    isPast ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
                     inRefuse ? 'bg-red-500 text-white' :
                     selected || inAvailable ? 'bg-black text-white font-bold' :
                     'text-gray-700 hover:bg-gray-100'
