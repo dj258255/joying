@@ -1438,23 +1438,30 @@ const ChatRoomPage = () => {
       });
 
       // 결제 완료 시스템 메시지 전송
-      const rentalHisId = result?.data?.rentalHisId || result?.rentalHisId;
-      if (sendMessage && rentalHisId) {
+      const rentalHisId = result?.data?.rentalHisId || result?.rentalHisId || result?.data?.data?.rentalHisId;
+      console.log('[handlePaymentSuccess] rentalHisId:', rentalHisId, 'result:', result);
+
+      if (sendMessage) {
         // 1. 결제 완료 메시지
-        const paymentCompleteMessage = `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
+        const paymentCompleteMessage = rentalHisId
+          ? `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`
+          : `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
+
         await sendMessage({
           type: 'TEXT',
           content: paymentCompleteMessage
         });
 
-        // 2. 판매자에게 운송장 번호 입력 요청 메시지 (시간 간격을 두고 전송)
-        setTimeout(async () => {
-          const trackingRequestMessage = `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
-          await sendMessage({
-            type: 'TEXT',
-            content: trackingRequestMessage
-          });
-        }, 1000);
+        // 2. rentalHisId가 있을 때만 운송장 번호 입력 요청 메시지 전송
+        if (rentalHisId) {
+          setTimeout(async () => {
+            const trackingRequestMessage = `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+            await sendMessage({
+              type: 'TEXT',
+              content: trackingRequestMessage
+            });
+          }, 1000);
+        }
       }
 
       // 메시지 새로고침을 위해 채팅방 다시 로드
@@ -3237,12 +3244,30 @@ const ChatRoomPage = () => {
             // 거래 생성 완료 메시지 감지 (카드로 렌더링)
             const transactionInfo = parseTransactionCreatedMessage(message.content);
             if (transactionInfo) {
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserId = user?.id || user?.memberId;
+              const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isBuyer = isBorrowType ? isProductOwner : !isProductOwner;
+
               return (
                 <React.Fragment key={key}>
                   {showDateDivider && <DateDivider />}
                   <TransactionCreatedMessageCard
                     message={message}
                     isOwn={isOwn}
+                    isBuyer={isBuyer}
                     onPaymentClick={async (rentalHisId) => {
                       try {
                         // rentalHisId로 거래 상세 조회
