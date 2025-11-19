@@ -87,6 +87,7 @@ function ProductCreatePage() {
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
+  const [originalFiles, setOriginalFiles] = useState([]); // AI용 원본 파일 저장
   const [dragActive, setDragActive] = useState(false);
   const dndZoneRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -172,8 +173,6 @@ function ProductCreatePage() {
   // AI 자동 생성 상태
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
-  const [aiAutoFill, setAiAutoFill] = useState(true); // AI 자동 입력 사용 여부
-  const [aiUploadType, setAiUploadType] = useState('RENT'); // AI용 업로드 타입 (빌려줘/구해요)
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -584,12 +583,20 @@ function ProductCreatePage() {
   /**
    * AI로 게시글 제목과 내용 자동 생성 (GPT-4o 기반)
    */
-  const generateWithAI = async (imageFile) => {
-    if (!aiAvailable || !aiAutoFill) return;
+  const generateWithAI = async (imageFile, uploadType = form.uploadType) => {
+    if (!aiAvailable) {
+      alert('AI 서비스를 사용할 수 없습니다.');
+      return;
+    }
+
+    if (!imageFile) {
+      alert('이미지를 먼저 업로드해주세요.');
+      return;
+    }
 
     try {
       setAiGenerating(true);
-      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', aiUploadType);
+      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', uploadType);
 
       // 이미지 리사이즈 (용량 줄이기)
       const resizedImage = await resizeImageForAI(imageFile);
@@ -599,7 +606,7 @@ function ProductCreatePage() {
       });
 
       // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
-      const result = await aiApi.generateProductDescription(resizedImage, aiUploadType);
+      const result = await aiApi.generateProductDescription(resizedImage, uploadType);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
       console.log('[ProductCreatePage] 🔍 보증금 확인:', {
@@ -612,7 +619,7 @@ function ProductCreatePage() {
       // 백엔드가 항상 유효한 값을 반환하므로 프론트엔드는 신뢰
       const newFormData = {
         ...form,
-        title: result.title ? result.title.slice(0, 50) : form.title,
+        title: result.title ? result.title.slice(0, 30) : form.title,
         content: result.description ? result.description.slice(0, 2000) : form.content,
         rentalFee: result.recommended_price ? formatCurrency(result.recommended_price) : form.rentalFee,
         deposit: result.recommended_deposit ? formatCurrency(result.recommended_deposit) : form.deposit,
@@ -695,10 +702,8 @@ function ProductCreatePage() {
       const successMessage = `AI가 게시글을 자동으로 작성했습니다!`;
       setErrorMessage(successMessage);
       setTimeout(() => {
-        if (errorMessage === successMessage) {
-          setErrorMessage('');
-        }
-      }, 5000);
+        setErrorMessage('');
+      }, 1000);
 
     } catch (error) {
       console.error('[ProductCreatePage] AI 게시글 생성 실패:', error);
@@ -784,14 +789,36 @@ function ProductCreatePage() {
     return null;
   };
 
+  const MAX_IMAGE_COUNT = 5;
+
   const handleFiles = async (files) => {
     const fileArr = Array.from(files || []);
     if (fileArr.length === 0) return;
     setErrorMessage('');
 
+    // 이미지 개수 제한 확인 (현재 개수 + 새로 추가할 개수)
+    const currentCount = filePreviews.length;
+    const totalCount = currentCount + fileArr.length;
+    
+    if (totalCount > MAX_IMAGE_COUNT) {
+      const canAdd = MAX_IMAGE_COUNT - currentCount;
+      if (canAdd <= 0) {
+        setErrorMessage(`이미지는 최대 ${MAX_IMAGE_COUNT}개까지 등록할 수 있습니다.`);
+        setTimeout(() => setErrorMessage(''), 3000);
+        return;
+      }
+      // 추가 가능한 개수만큼만 처리
+      fileArr.splice(canAdd);
+      setErrorMessage(`${canAdd}개의 이미지만 추가되었습니다. (최대 ${MAX_IMAGE_COUNT}개)`);
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
+
     const localUrls = fileArr.map((f) => URL.createObjectURL(f));
     const previewStartIndex = filePreviews.length;
     setFilePreviews((prev) => [...prev, ...localUrls]);
+    
+    // 원본 파일 저장 (AI용)
+    setOriginalFiles((prev) => [...prev, ...fileArr]);
 
     if (USE_FAKE_API) {
       const tmpIds = fileArr.map((_, i) => `tmp_${Date.now()}_${i}`);
@@ -838,12 +865,6 @@ function ProductCreatePage() {
       const successfulUploads = uploadedResults.filter(r => r.fileId !== undefined && r.fileId !== null);
       if (successfulUploads.length > 0) {
         setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
-
-        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (이미지가 없었을 때)
-        if (previewStartIndex === 0 && fileArr.length > 0) {
-          console.log('[ProductCreatePage] 첫 이미지 업로드 완료, AI 자동 생성 시작');
-          await generateWithAI(fileArr[0]);
-        }
       }
 
       if (failedIndices.length > 0) {
@@ -859,6 +880,17 @@ function ProductCreatePage() {
             }
           });
           return newPreviews;
+        });
+        
+        // 원본 파일도 함께 삭제
+        setOriginalFiles((prev) => {
+          const newFiles = [...prev];
+          failedIndices.reverse().forEach(idx => {
+            if (idx < newFiles.length) {
+              newFiles.splice(idx, 1);
+            }
+          });
+          return newFiles;
         });
 
         if (successfulUploads.length === 0) {
@@ -898,7 +930,12 @@ function ProductCreatePage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    handleFiles(e.dataTransfer.files);
+    if (filePreviews.length < MAX_IMAGE_COUNT) {
+      handleFiles(e.dataTransfer.files);
+    } else {
+      setErrorMessage(`이미지는 최대 ${MAX_IMAGE_COUNT}개까지 등록할 수 있습니다.`);
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
   };
 
   const onDragOver = (e) => {
@@ -922,6 +959,14 @@ function ProductCreatePage() {
       }
       return newPreviews;
     });
+    // 원본 파일도 함께 삭제
+    setOriginalFiles((prev) => {
+      const newFiles = [...prev];
+      if (idx < newFiles.length) {
+        newFiles.splice(idx, 1);
+      }
+      return newFiles;
+    });
   };
 
   const onThumbDragStart = (index) => (e) => {
@@ -939,6 +984,13 @@ function ProductCreatePage() {
       return arr;
     });
     setFilePreviews((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(index, 0, moved);
+      return arr;
+    });
+    // 원본 파일도 함께 순서 변경
+    setOriginalFiles((prev) => {
       const arr = [...prev];
       const [moved] = arr.splice(from, 1);
       arr.splice(index, 0, moved);
@@ -962,6 +1014,14 @@ function ProductCreatePage() {
   };
 
   const sameDay = (a, b) => a && b && a.toDateString() === b.toDateString();
+  // 오늘 이전 날짜인지 확인
+  const isPastDate = (d) => {
+    if (!d) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return date < today;
+  };
   const isDateSelected = (d) => sameDay(d, calStart) || sameDay(d, calEnd);
   const isPendingRange = (d) => {
     if (!calStart || !d) return false;
@@ -996,6 +1056,11 @@ function ProductCreatePage() {
   // 달력 클릭 로직: 첫 클릭 -> 시작일, 두 번째 클릭 -> 종료일, 중복 클릭 -> 취소
   const onCalendarClick = (date) => {
     if (!date) return;
+
+    // 오늘 이전 날짜는 선택 불가
+    if (isPastDate(date)) {
+      return;
+    }
 
     // 가능 기간 모드: 이미 설정된 가능 기간 내의 날짜를 클릭하면 초기화
     if (calendarMode === 'available') {
@@ -1372,17 +1437,17 @@ function ProductCreatePage() {
   // Step - 상품 설명 (제목, 해시태그, 내용, 보증금, 일일요금)
   const renderStepDescription = () => (
     <div className="space-y-4">
-      {/* 헤더 + 보증금/일일요금 */}
-      <div className="flex items-start justify-between gap-4">
+      {/* 헤더 + 보증금/일일요금 - 모바일에서는 세로, 데스크톱에서는 가로 */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         {/* 왼쪽: 헤더 */}
-        <div>
+        <div className="flex-1">
           <h2 className="text-xl font-bold text-black mb-2">상품 설명</h2>
           <p className="text-gray-600">상품의 상세 정보를 입력해주세요</p>
         </div>
 
-        {/* 오른쪽: 보증금 + 일일요금 (가로 배치) */}
-        <div className="flex gap-3">
-          <div className="w-40">
+        {/* 오른쪽: 보증금 + 일일요금 (모바일에서는 세로, 데스크톱에서는 가로 배치) */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="w-full md:w-40">
             <label className="block text-sm font-medium text-black mb-1">보증금</label>
             <input
               type="text"
@@ -1420,7 +1485,7 @@ function ProductCreatePage() {
               </div>
             )}
           </div>
-          <div className="w-40">
+          <div className="w-full md:w-40">
             <label className="block text-sm font-medium text-black mb-1">일일요금</label>
             <input
               type="text"
@@ -1461,21 +1526,55 @@ function ProductCreatePage() {
         </div>
       </div>
 
+      {/* AI 자동 작성 버튼 - 독립된 공간 */}
+      {aiAvailable && originalFiles.length > 0 && (
+        <div className="max-w-4xl mx-auto py-2">
+          <button
+            type="button"
+            onClick={async () => {
+              if (originalFiles.length > 0) {
+                await generateWithAI(originalFiles[0], form.uploadType);
+              } else {
+                alert('이미지를 먼저 업로드해주세요.');
+              }
+            }}
+            disabled={aiGenerating}
+            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+          >
+            {aiGenerating ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                AI 작성 중...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI 자동 작성
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto space-y-3">
           {/* 제목 - 전체 너비 */}
           <div>
             <label className="block text-sm font-medium text-black mb-1.5">제목</label>
             <input
               value={form.title}
-              onChange={(e) => updateField('title', e.target.value.slice(0, 50))}
+              onChange={(e) => updateField('title', e.target.value.slice(0, 30))}
               placeholder="상품 제목을 입력하세요"
               className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-xl text-black placeholder-gray-500 focus:outline-none focus:border-black"
             />
             <div className="text-right text-xs mt-1">
-              <span className={form.title.length >= 45 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
-                {form.title.length}/50
+              <span className={form.title.length >= 25 ? 'text-orange-600 font-medium' : 'text-gray-500'}>
+                {form.title.length}/30
               </span>
-              {form.title.length === 50 && (
+              {form.title.length === 30 && (
                 <span className="ml-2 text-red-600 text-xs">최대 길이입니다</span>
               )}
             </div>
@@ -1642,27 +1741,6 @@ function ProductCreatePage() {
           <h2 className="text-xl font-bold text-black mb-1">이미지 업로드</h2>
           <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
         </div>
-
-        {/* AI 자동 입력 체크박스 */}
-        {aiAvailable && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg">
-              <input
-                type="checkbox"
-                id="aiAutoFill"
-                checked={aiAutoFill}
-                onChange={(e) => setAiAutoFill(e.target.checked)}
-                className="w-4 h-4 rounded accent-gray-600"
-              />
-              <label htmlFor="aiAutoFill" className="text-sm font-medium text-white cursor-pointer whitespace-nowrap flex items-center gap-1.5">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                AI 자동 입력
-              </label>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 드래그 영역과 미리보기를 가로로 배치 */}
@@ -1675,29 +1753,20 @@ function ProductCreatePage() {
             onDragOver={handleDrag}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
-            onClick={() => { if (!uploading && !aiGenerating) fileInputRef.current?.click(); }}
-            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 ${
-              dragActive
-                ? 'border-black bg-gray-100 scale-105'
-                : 'border-gray-300 hover:border-black bg-gray-50'
+            onClick={() => { if (!uploading && !aiGenerating && filePreviews.length < MAX_IMAGE_COUNT) fileInputRef.current?.click(); }}
+            className={`w-full lg:w-80 aspect-square border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all duration-300 ${
+              filePreviews.length >= MAX_IMAGE_COUNT || uploading || aiGenerating
+                ? 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'
+                : dragActive
+                ? 'border-black bg-gray-100 scale-105 cursor-pointer'
+                : 'border-gray-300 hover:border-black bg-gray-50 cursor-pointer'
             }`}
           >
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
-            <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
-            {aiAvailable && aiAutoFill && (
-              <p className="text-gray-600 text-xs text-center px-4 mt-1">첫 이미지 업로드 시 AI가 제목과 설명을 작성합니다</p>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating} />
+            <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다 (최대 {MAX_IMAGE_COUNT}개)</p>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating || filePreviews.length >= MAX_IMAGE_COUNT} />
             {uploading && <p className="text-gray-600 text-xs mt-2">업로드 중...</p>}
-            {aiGenerating && (
-              <p className="text-gray-600 text-xs mt-2 animate-pulse flex items-center gap-1.5 justify-center">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                AI가 게시글을 작성하고 있습니다...
-              </p>
-            )}
           </div>
         </div>
 
@@ -1801,15 +1870,17 @@ function ProductCreatePage() {
               const selected = isDateSelected(d) || isPendingRange(d);
               const inAvailable = isInAvailableRange(d);
               const inRefuse = isInRefuseRanges(d);
+              const isPast = isPastDate(d);
 
               return (
                 <button
                   key={idx}
                   type="button"
-                  disabled={!d}
+                  disabled={!d || isPast}
                   onClick={() => d && onCalendarClick(d)}
                   className={`h-8 w-full aspect-square rounded-lg text-xs transition-all ${
                     !d ? 'invisible' :
+                    isPast ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
                     inRefuse ? 'bg-red-500 text-white' :
                     selected || inAvailable ? 'bg-black text-white font-bold' :
                     'text-gray-700 hover:bg-gray-100'

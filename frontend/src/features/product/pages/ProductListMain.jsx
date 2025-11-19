@@ -471,8 +471,20 @@ const ProductListMain = () => {
     });
   };
 
+  const isPastDate = (date) => {
+    if (!date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateToCheck = new Date(date);
+    dateToCheck.setHours(0, 0, 0, 0);
+    return dateToCheck < today;
+  };
+
   const handleDateClick = (date) => {
     if (!date) return;
+    
+    // 과거 날짜는 선택 불가
+    if (isPastDate(date)) return;
     
     if (!selectedDates.start) {
       setSelectedDates({ start: date, end: null });
@@ -518,38 +530,58 @@ const ProductListMain = () => {
 
   const handlePriceBlur = (type) => {
     const value = priceRange[type];
-    if (value) {
-      const numValue = parseInt(value.replace(/,/g, ''), 10);
-      if (isNaN(numValue)) {
-        setPriceRange(prev => ({ ...prev, [type]: '' }));
-        setPriceError('');
-        return;
-      }
-      
-      const formattedValue = formatPrice(String(numValue));
-      setPriceRange(prev => {
-        const newRange = { ...prev, [type]: formattedValue };
-        
-        // 최소 금액과 최대 금액 비교
-        const minNum = type === 'min' ? numValue : (prev.min ? parseInt(prev.min.replace(/,/g, ''), 10) : null);
-        const maxNum = type === 'max' ? numValue : (prev.max ? parseInt(prev.max.replace(/,/g, ''), 10) : null);
-        
-        if (minNum !== null && maxNum !== null && minNum > maxNum) {
-          setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-          // 최소 금액이 최대 금액보다 크면 최대 금액으로 조정
-          if (type === 'min') {
-            return { ...newRange, min: formatPrice(String(maxNum)) };
-          } else {
-            return { ...newRange, max: formatPrice(String(minNum)) };
-          }
-        } else {
-          setPriceError('');
-          return newRange;
-        }
-      });
-    } else {
+
+    if (!value) {
       setPriceError('');
+      return;
     }
+
+    let numValue = Number(value.replace(/,/g, ''));
+
+    if (isNaN(numValue)) {
+      setPriceRange(prev => ({ ...prev, [type]: '' }));
+      setPriceError('');
+      return;
+    }
+
+    // 🔥 MAX_INT 범위 보정
+    const MAX_INT = 2147483647;
+    if (numValue > MAX_INT) numValue = MAX_INT;
+    if (numValue < 0) numValue = 0;
+
+    // UI용 포맷(콤마 포함)
+    const formatted = formatPrice(String(numValue));
+
+    setPriceRange(prev => {
+      // 콤마 없는 숫자값
+      const minNum = type === 'min'
+        ? numValue
+        : (prev.min ? Number(prev.min.replace(/,/g, '')) : null);
+
+      const maxNum = type === 'max'
+        ? numValue
+        : (prev.max ? Number(prev.max.replace(/,/g, '')) : null);
+
+      // **min > max 보정**
+      if (minNum !== null && maxNum !== null && minNum > maxNum) {
+        setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+
+        // 자동 보정
+        const corrected = type === 'min'
+          ? { ...prev, min: formatPrice(String(maxNum)) }
+          : { ...prev, max: formatPrice(String(minNum)) };
+
+        return corrected;
+      }
+
+      // 정상 케이스: 이 값으로 업데이트됨
+      setPriceError('');
+
+      return {
+        ...prev,
+        [type]: formatted,
+      };
+    });
   };
 
   const toggleSubcategory = (subcategory) => {
@@ -1126,25 +1158,14 @@ const ProductListMain = () => {
               value={priceRange.min}
               onChange={(e) => {
                 const newMin = e.target.value.replace(/[^0-9]/g, '');
-                setPriceRange(prev => {
-                  const newRange = { ...prev, min: newMin };
-                  // 실시간 검증
-                  if (newMin && prev.max) {
-                    const minNum = parseInt(newMin.replace(/,/g, ''), 10);
-                    const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
-                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                    } else {
-                      setPriceError('');
-                    }
-                  } else {
-                    setPriceError('');
-                  }
-                  return newRange;
-                });
+                setPriceRange(prev => ({
+                  ...prev,
+                  min: newMin
+                }));
+                setPriceError('');
               }}
               onBlur={() => handlePriceBlur('min')}
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
+              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 rounded-xl transition-all duration-300"
               style={{
                 background: 'rgba(255, 255, 255, 0.7)',
                 backdropFilter: 'blur(20px)',
@@ -1157,26 +1178,12 @@ const ProductListMain = () => {
               placeholder="최대 금액"
               value={priceRange.max}
               onChange={(e) => {
-                const newMax = e.target.value.replace(/[^0-9]/g, '');
-                setPriceRange(prev => {
-                  const newRange = { ...prev, max: newMax };
-                  // 실시간 검증
-                  if (newMax && prev.min) {
-                    const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
-                    const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
-                    if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                      setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                    } else {
-                      setPriceError('');
-                    }
-                  } else {
-                    setPriceError('');
-                  }
-                  return newRange;
-                });
+                const onlyNumbers = e.target.value.replace(/[^0-9]/g, '');
+                setPriceRange(prev => ({ ...prev, max: onlyNumbers }));
+                setPriceError('');
               }}
               onBlur={() => handlePriceBlur('max')}
-              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 overflow-hidden text-ellipsis rounded-xl transition-all duration-300"
+              className="flex-1 flex-shrink min-w-0 px-4 py-3 text-sm text-gray-700 placeholder-gray-400 rounded-xl transition-all duration-300"
               style={{
                 background: 'rgba(255, 255, 255, 0.7)',
                 backdropFilter: 'blur(20px)',
@@ -1257,30 +1264,38 @@ const ProductListMain = () => {
             </div>
 
             <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth(currentMonth).map((date, index) => (
-                <button
-                  key={index}
-                  onClick={() => date && handleDateClick(date)}
-                  disabled={!date}
-                  className={`
-                    aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
-                    ${!date ? 'invisible' : ''}
-                    ${isDateSelected(date) || isDateInRange(date)
-                      ? 'text-white font-semibold'
-                      : 'text-gray-700'
-                    }
-                  `}
-                   style={isDateSelected(date) || isDateInRange(date) ? {
-                     background: 'linear-gradient(135deg, #1f2937, #111827)',
-                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
-                   } : {
-                    background: 'rgba(255, 255, 255, 0.3)',
-                    backdropFilter: 'blur(5px)'
-                  }}
-                >
-                  {date && date.getDate()}
-                </button>
-              ))}
+              {getDaysInMonth(currentMonth).map((date, index) => {
+                const isPast = date && isPastDate(date);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => date && handleDateClick(date)}
+                    disabled={!date || isPast}
+                    className={`
+                      aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
+                      ${!date ? 'invisible' : ''}
+                      ${isPast 
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                        : isDateSelected(date) || isDateInRange(date)
+                        ? 'text-white font-semibold'
+                        : 'text-gray-700'
+                      }
+                    `}
+                     style={!isPast && (isDateSelected(date) || isDateInRange(date)) ? {
+                       background: 'linear-gradient(135deg, #1f2937, #111827)',
+                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
+                     } : isPast ? {
+                       background: '#E5E7EB',
+                       opacity: 0.5
+                     } : {
+                      background: 'rgba(255, 255, 255, 0.3)',
+                      backdropFilter: 'blur(5px)'
+                    }}
+                  >
+                    {date && date.getDate()}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1499,7 +1514,14 @@ const ProductListMain = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length > 50) {
+                  setSearchQuery(value.slice(0, 50));
+                } else {
+                  setSearchQuery(value);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
@@ -1858,19 +1880,23 @@ const ProductListMain = () => {
                        const isToday = isTodayDate(date);
                        const isSelected = isDateSelected(date);
                        const isInRange = isDateInRange(date);
+                       const isPast = isPastDate(date);
                        
                        days.push(
                          <button
                            key={i}
                            onClick={() => handleDateClick(date)}
+                           disabled={isPast}
                            className={`p-2 rounded-lg transition-all duration-200 ${
-                             isToday ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''
+                             isPast ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50' : ''
                            } ${
-                             isSelected ? 'bg-gray-900 text-white' : ''
+                             !isPast && isToday ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''
                            } ${
-                             isInRange && !isSelected ? 'bg-gray-900/30 text-gray-900' : ''
+                             !isPast && isSelected ? 'bg-gray-900 text-white' : ''
                            } ${
-                             !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
+                             !isPast && isInRange && !isSelected ? 'bg-gray-900/30 text-gray-900' : ''
+                           } ${
+                             !isPast && !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
                            }`}
                          >
                            {i}
@@ -1894,24 +1920,37 @@ const ProductListMain = () => {
                    placeholder="최소 금액"
                    value={priceRange.min}
                    onChange={(e) => {
-                     const newMin = e.target.value.replace(/[^0-9]/g, '');
-                     setPriceRange(prev => {
-                       const newRange = { ...prev, min: newMin };
-                       // 실시간 검증
-                       if (newMin && prev.max) {
-                         const minNum = parseInt(newMin.replace(/,/g, ''), 10);
-                         const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
-                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                         } else {
-                           setPriceError('');
-                         }
-                       } else {
-                         setPriceError('');
-                       }
-                       return newRange;
-                     });
-                   }}
+                    let newMin = e.target.value.replace(/[^0-9]/g, '');
+
+                    let num = Number(newMin);
+
+                    const MAX_INT = 2147483647;
+                    if (num > MAX_INT) {
+                      num = MAX_INT;
+                    }
+                    if (num < 0) {
+                      num = 0;
+                    }
+
+                    newMin = String(num);
+
+                    setPriceRange(prev => {
+                      const newRange = { ...prev, min: newMin };
+
+                      if (newMin && prev.max) {
+                        const minNum = Number(newMin);
+                        const maxNum = Number(prev.max);
+                        if (minNum > maxNum) {
+                          setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                        } else {
+                          setPriceError('');
+                        }
+                      } else {
+                        setPriceError('');
+                      }
+                      return newRange;
+                    });
+                  }}
                    onBlur={() => handlePriceBlur('min')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
@@ -1927,24 +1966,37 @@ const ProductListMain = () => {
                    placeholder="최대 금액"
                    value={priceRange.max}
                    onChange={(e) => {
-                     const newMax = e.target.value.replace(/[^0-9]/g, '');
-                     setPriceRange(prev => {
-                       const newRange = { ...prev, max: newMax };
-                       // 실시간 검증
-                       if (newMax && prev.min) {
-                         const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
-                         const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
-                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                         } else {
-                           setPriceError('');
-                         }
-                       } else {
-                         setPriceError('');
-                       }
-                       return newRange;
-                     });
-                   }}
+                      let newMax = e.target.value.replace(/[^0-9]/g, '');
+                      let num = Number(newMax);
+
+                      const MAX_INT = 2147483647;
+                      if (num > MAX_INT) {
+                        num = MAX_INT;
+                      }
+                      if (num < 0) {
+                        num = 0;
+                      }
+
+                      newMax = String(num);
+
+                      setPriceRange(prev => {
+                        const newRange = { ...prev, max: newMax };
+
+                        if (newMax && prev.min) {
+                          const minNum = Number(prev.min);
+                          const maxNum = Number(newMax);
+                          if (minNum > maxNum) {
+                            setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                          } else {
+                            setPriceError('');
+                          }
+                        } else {
+                          setPriceError('');
+                        }
+
+                        return newRange;
+                      });
+                    }}
                    onBlur={() => handlePriceBlur('max')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 

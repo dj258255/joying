@@ -15,6 +15,7 @@ import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '.
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
 import TrackingNumberCard, { parseTrackingNumberMessage } from '../components/TrackingNumberCard';
+import ReturnReceiveConfirmMessageCard, { parseReturnReceiveConfirmMessage } from '../components/ReturnReceiveConfirmMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
 import ChatSettingsModal from '../components/ChatSettingsModal';
@@ -3409,6 +3410,48 @@ const ChatRoomPage = () => {
               );
             }
 
+            // 반납 수령 확인 선택 메시지 감지 (카드로 렌더링)
+            const returnReceiveConfirmInfo = parseReturnReceiveConfirmMessage(message.content);
+            if (returnReceiveConfirmInfo) {
+              // 판매자 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
+              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <ReturnReceiveConfirmMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    onConfirmComplete={async (rentalHisId) => {
+                      try {
+                        // 거래 데이터 갱신
+                        const updatedRentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const updatedRentalData = updatedRentalResponse.data || updatedRentalResponse;
+                        setCurrentRentalData(updatedRentalData);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+                      }
+                    }}
+                    onCancelRequest={(rentalData) => {
+                      setCurrentRentalData(rentalData);
+                      setTimeout(() => {
+                        setShowTransactionModal(true);
+                      }, 50);
+                    }}
+                    sendMessage={sendMessage}
+                  />
+                </React.Fragment>
+              );
+            }
+
             // 거래 완료 메시지 감지 (카드로 렌더링)
             const completeInfo = parseTransactionCompleteMessage(message.content);
             if (completeInfo) {
@@ -4120,7 +4163,14 @@ const ChatRoomPage = () => {
                 <input
                   type="text"
                   value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length > 255) {
+                      setReviewTitle(value.slice(0, 255));
+                    } else {
+                      setReviewTitle(value);
+                    }
+                  }}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
                   placeholder="리뷰 제목을 입력해주세요..."
                 />
@@ -4129,7 +4179,14 @@ const ChatRoomPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
                 <textarea
                   value={reviewContent}
-                  onChange={(e) => setReviewContent(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length > 1000) {
+                      setReviewContent(value.slice(0, 1000));
+                    } else {
+                      setReviewContent(value);
+                    }
+                  }}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
                   rows={4}
                   placeholder="리뷰를 작성해주세요..."
@@ -4159,6 +4216,29 @@ const ChatRoomPage = () => {
                       const files = Array.from(e.target.files || []);
                       if (files.length === 0) return;
                       
+                      const currentCount = reviewImagePreviews.length;
+                      if (currentCount + files.length > 3) {
+                        alert("이미지는 최대 3장까지 업로드할 수 있습니다.");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg", "image/gif"];
+                      const invalidType = files.some(f => !allowedTypes.includes(f.type));
+                      if (invalidType) {
+                        alert("JPEG, PNG, WEBP 형식의 이미지 파일만 업로드할 수 있습니다.");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      const maxSize = 5 * 1024 * 1024;
+                      const tooLarge = files.some(f => f.size > maxSize);
+                      if (tooLarge) {
+                        alert("각 이미지는 최대 5MB까지 업로드 가능합니다.");
+                        e.target.value = "";
+                        return;
+                      }
+
                       setReviewUploading(true);
                       const localUrls = files.map(f => URL.createObjectURL(f));
                       setReviewImagePreviews(prev => [...prev, ...localUrls]);

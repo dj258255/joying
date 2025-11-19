@@ -80,8 +80,18 @@ public class ReviewService {
 		if (dto == null) throw new IllegalArgumentException("리뷰 요청 데이터가 비어 있습니다.");
 		if (dto.rentalHistoryId() == null)
 			throw new IllegalArgumentException("대여 이력 ID가 필요합니다.");
+		if (dto.title() != null && dto.title().length() > 255) {
+			throw new IllegalArgumentException("제목은 255자 이내여야 합니다.");
+		}
+		if (dto.content() == null || dto.content().isBlank()) {
+			throw new IllegalArgumentException("내용은 필수입니다.");
+		}
 		if (dto.content().length() > 1000) {
 			throw new IllegalArgumentException("내용은 1000자 이내여야 합니다.");
+		}
+		List<Long> fileIds = dto.fileIds() == null ? List.of() : dto.fileIds();
+		if (fileIds.size() > 3) {
+			throw new IllegalArgumentException("파일의 수는 3개 이내여야 합니다.");
 		}
 
 		// 로그인 사용자
