@@ -40,8 +40,6 @@ export const parseTransactionCompleteMessage = (content) => {
  * 거래 완료 메시지 카드 컴포넌트
  */
 const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false, uploadType, onReviewClick }) => {
-  const [showVideoListModal, setShowVideoListModal] = useState(false);
-
   const completeInfo = parseTransactionCompleteMessage(message.content);
 
   if (!completeInfo) {

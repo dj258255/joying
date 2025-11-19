@@ -215,11 +215,14 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 권한 검증 (빌린 사람 또는 대여자만 조회 가능)
-        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
-        Long renterId = rental.getMember().getMemberId();
+        // 권한 검증 (거래 당사자만 조회 가능)
+        // productWriter: 상품을 올린 사람 (RENT=대여자, BORROW=빌린 사람)
+        // rentalMember: 거래를 생성한 사람 (RENT=빌린 사람, BORROW=대여자)
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
 
-        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+        // 상품 올린 사람이거나 거래 생성한 사람이면 조회 가능
+        if (!memberId.equals(productWriterId) && !memberId.equals(rentalMemberId)) {
             throw new IllegalArgumentException("권한이 없습니다");
         }
 
@@ -487,11 +490,11 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 2. 권한 검증 (Owner 또는 Renter만 조회 가능)
-        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
-        Long renterId = rental.getMember().getMemberId();
+        // 2. 권한 검증 (거래 당사자만 조회 가능)
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
 
-        if (!memberId.equals(ownerId) && !memberId.equals(renterId)) {
+        if (!memberId.equals(productWriterId) && !memberId.equals(rentalMemberId)) {
             throw new IllegalArgumentException("권한이 없습니다");
         }
 
