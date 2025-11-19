@@ -2394,25 +2394,80 @@ const ChatRoomPage = () => {
             const getActionButtons = () => {
               const content = message.content || '';
 
-              // BORROW 상품 '채팅으로 제안하기' 메시지 - 거래 생성하기 버튼 표시
+              // BORROW 상품 '채팅으로 제안하기' 메시지 - 승인 및 거래 생성 버튼 표시
               if (content.includes('MESSAGE_TYPE:BORROW_PROPOSAL')) {
-                // BORROW 상품 주인(빌리고 싶은 사람) 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
+                // BORROW 상품 주인(빌리고 싶은 사람 = A) 확인
+                // writer.memberId를 우선적으로 사용 (백엔드 검증과 일치)
+                const productOwnerId = productData?.writer?.memberId
                   || productData?.writer?.member_id
+                  || productData?.writer?.id
+                  || productData?.sellerId
                   || productData?.seller?.id
                   || productData?.seller?.memberId
                   || productData?.seller?.member_id;
-                const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+                const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
 
-                // 메시지를 보낸 사람 확인
-                const messageSenderId = message.sender?.id || message.senderId;
+                // 메시지를 보낸 사람 확인 (빌려줄 사람 = B)
+                const messageSenderId = message.sender?.id || message.senderId || message.memberId;
                 const isMessageSender = messageSenderId && Number(messageSenderId) === Number(currentUserId);
+
+                // 승인 상태 확인 (메시지에 승인 정보가 있는지 또는 승인 메시지가 있는지)
+                const proposalMessageId = message.id || message.messageId || message._id;
+                const hasApprovalMessage = messages && messages.some(msg => {
+                  const msgContent = msg.content || '';
+                  if (!msgContent.includes('MESSAGE_TYPE:BORROW_PROPOSAL_APPROVED')) {
+                    return false;
+                  }
+                  // proposalMessageId가 있으면 정확히 매칭 시도
+                  if (proposalMessageId) {
+                    const idStr = String(proposalMessageId);
+                    return msgContent.includes(`proposalMessageId:${proposalMessageId}`) ||
+                           msgContent.includes(`proposalMessageId:${idStr}`) ||
+                           msg.metadata?.proposalMessageId === proposalMessageId ||
+                           msg.metadata?.proposalMessageId === idStr;
+                  }
+                  // proposalMessageId가 없어도 같은 채팅방에 승인 메시지가 있으면 승인된 것으로 간주
+                  // (BORROW 상품의 경우 한 채팅방에 하나의 제안만 있을 가능성이 높음)
+                  return true;
+                });
+                const isApproved = content.includes('MESSAGE_TYPE:BORROW_PROPOSAL_APPROVED') || 
+                                  message.metadata?.borrowProposalApproved === true ||
+                                  hasApprovalMessage;
 
                 const buttons = [];
 
-                // 메시지를 보낸 사람(제안한 사람)에게는 '거래 생성하기' 버튼
-                if (isMessageSender && !isProductOwner) {
+                // A(상품 주인)에게는 '승인' 버튼 (아직 승인되지 않은 경우)
+                if (isProductOwner && !isMessageSender && !isApproved) {
+                  buttons.push({
+                    text: '✅ 승인하기',
+                    style: 'primary',
+                    onClick: async () => {
+                      try {
+                        // 승인 메시지 전송 (간단한 안내만)
+                        const approvalMessage = `✅ 승인했습니다\n\nMESSAGE_TYPE:BORROW_PROPOSAL_APPROVED\nproposalMessageId:${message.id || message.messageId || ''}`;
+
+                        await sendMessage({
+                          type: 'TEXT',
+                          content: approvalMessage,
+                          metadata: {
+                            borrowProposalApproved: true,
+                            proposalMessageId: message.id || message.messageId
+                          }
+                        });
+
+                        // 원본 메시지도 업데이트 (로컬에서만)
+                        // 실제로는 새 승인 메시지가 전송되므로 원본 메시지는 그대로 유지
+                      } catch (error) {
+                        console.error('[ChatRoomPage] 승인 메시지 전송 실패:', error);
+                        alert('승인 메시지 전송에 실패했습니다.');
+                      }
+                    }
+                  });
+                }
+
+                // A(상품 주인)에게는 '거래 생성하기' 버튼 (승인된 경우에만)
+                // 승인 메시지가 있거나, 원본 메시지에 승인 정보가 있으면 표시
+                if (isProductOwner && !isMessageSender && (isApproved || hasApprovalMessage)) {
                   buttons.push({
                     text: '✅ 거래 생성하기',
                     style: 'primary',
@@ -2430,6 +2485,7 @@ const ChatRoomPage = () => {
 
                       if (!startDate || !endDate) {
                         alert('희망 대여 기간이 설정되어 있지 않습니다.\n날짜를 직접 선택해주세요.');
+                        return;
                       }
 
                       // 선택된 거래 방법 사용 (기본값: ONLY_ONLINE)
@@ -2439,41 +2495,53 @@ const ChatRoomPage = () => {
                       // 기간 계산
                       const days = startDate && endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1 : 0;
 
-                      console.log('[ChatRoomPage] BORROW 거래 생성하기 버튼 클릭:', {
+                      console.log('[ChatRoomPage] BORROW 거래 생성하기 버튼 클릭 (상품 주인):', {
                         productId: productIdToUse,
                         startDate,
                         endDate,
                         rentMethod: selectedRentMethod,
-                        days
+                        days,
+                        currentUserId
                       });
 
                       // 상품 정보에서 기본 금액 가져오기
                       const defaultRentalFee = productData?.price || productData?.rentalFee || productData?.dailyPrice || 0;
                       const defaultDeposit = productData?.deposit || 0;
 
+                      // A(상품 주인)가 거래를 생성하므로, A가 seller 역할
+                      // otherMemberId는 B(채팅 건 사람)의 ID (renterId로 전달됨)
+                      const messageSenderId = message.sender?.id || message.senderId || message.memberId;
+                      const otherMemberIdForBorrow = messageSenderId ? Number(messageSenderId) : null;
+
+                      console.log('[ChatRoomPage] BORROW 거래 생성 - 상품 주인이 거래 생성:', {
+                        productOwnerId: currentUserId,
+                        otherMemberId: otherMemberIdForBorrow,
+                        messageSenderId,
+                        productData: {
+                          uploadType: productData?.uploadType,
+                          productId: productData?.id || productData?.productId
+                        }
+                      });
+
+                      if (!otherMemberIdForBorrow) {
+                        alert('상대방 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                        return;
+                      }
+
                       setRequestedDateRange({
                         start: startDate,
                         end: endDate,
                         rentMethod: selectedRentMethod,
                         rentalFee: defaultRentalFee,
-                        deposit: defaultDeposit
+                        deposit: defaultDeposit,
+                        // BORROW 타입일 때 상대방(B) ID를 명시적으로 전달
+                        otherMemberId: otherMemberIdForBorrow
                       });
 
                       setCurrentRentalData(null);
                       setTimeout(() => {
                         setShowTransactionModal(true);
                       }, 50);
-                    }
-                  });
-                }
-
-                // BORROW 상품 주인(빌리고 싶은 사람)에게는 '대여 다시 요청하기' 버튼
-                if (isProductOwner && !isMessageSender) {
-                  buttons.push({
-                    text: '🔄 대여 다시 요청하기',
-                    style: 'secondary',
-                    onClick: () => {
-                      setShowRentalRequestModal(true);
                     }
                   });
                 }
@@ -3178,13 +3246,21 @@ const ChatRoomPage = () => {
                     isSeller={isSeller}
                     onShippingClick={async (rentalHisId) => {
                       try {
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data || rentalResponse;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
+                        // BORROW 상품의 경우 getRentalDetail 권한 문제로 호출하지 않음
+                        // rentalHisId만 전달하여 발송 모달 열기
+                        const isBorrowProduct = productData?.uploadType === 'BORROW';
+                        
+                        if (!isBorrowProduct) {
+                          // RENT 상품: 거래 상세 조회
+                          const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                          const rentalData = rentalResponse.data || rentalResponse;
+                          console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                          setCurrentRentalData(rentalData);
+                        } else {
+                          // BORROW 상품: rentalHisId만 저장 (getRentalDetail 호출 안 함)
+                          console.log('[ChatRoomPage] BORROW 상품 - rentalHisId만 저장:', rentalHisId);
+                          setCurrentRentalData({ rentalHisId });
+                        }
 
                         // 약간의 지연 후 발송 모달 열기
                         setTimeout(() => {
@@ -3192,7 +3268,17 @@ const ChatRoomPage = () => {
                         }, 50);
                       } catch (err) {
                         console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        // BORROW 상품의 경우 getRentalDetail 에러는 무시하고 모달 열기
+                        const isBorrowProduct = productData?.uploadType === 'BORROW';
+                        if (isBorrowProduct && err.response?.status === 500) {
+                          console.log('[ChatRoomPage] BORROW 상품 - getRentalDetail 권한 에러 무시, 모달 열기');
+                          setCurrentRentalData({ rentalHisId });
+                          setTimeout(() => {
+                            setShowShippingModal(true);
+                          }, 50);
+                        } else {
+                          alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        }
                       }
                     }}
                   />
@@ -3231,13 +3317,21 @@ const ChatRoomPage = () => {
                     isSeller={isSeller}
                     onShippingClick={async (rentalHisId) => {
                       try {
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data || rentalResponse;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
+                        // BORROW 상품의 경우 getRentalDetail 권한 문제로 호출하지 않음
+                        // rentalHisId만 전달하여 발송 모달 열기
+                        const isBorrowProduct = productData?.uploadType === 'BORROW';
+                        
+                        if (!isBorrowProduct) {
+                          // RENT 상품: 거래 상세 조회
+                          const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                          const rentalData = rentalResponse.data || rentalResponse;
+                          console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                          setCurrentRentalData(rentalData);
+                        } else {
+                          // BORROW 상품: rentalHisId만 저장 (getRentalDetail 호출 안 함)
+                          console.log('[ChatRoomPage] BORROW 상품 - rentalHisId만 저장:', rentalHisId);
+                          setCurrentRentalData({ rentalHisId });
+                        }
 
                         // 약간의 지연 후 발송 모달 열기
                         setTimeout(() => {
@@ -3245,7 +3339,17 @@ const ChatRoomPage = () => {
                         }, 50);
                       } catch (err) {
                         console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        // BORROW 상품의 경우 getRentalDetail 에러는 무시하고 모달 열기
+                        const isBorrowProduct = productData?.uploadType === 'BORROW';
+                        if (isBorrowProduct && err.response?.status === 500) {
+                          console.log('[ChatRoomPage] BORROW 상품 - getRentalDetail 권한 에러 무시, 모달 열기');
+                          setCurrentRentalData({ rentalHisId });
+                          setTimeout(() => {
+                            setShowShippingModal(true);
+                          }, 50);
+                        } else {
+                          alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                        }
                       }
                     }}
                   />
@@ -3933,12 +4037,12 @@ const ChatRoomPage = () => {
         </div>
       )}
 
-      {/* 통합 거래 프로세스 모달 */}
+      {/* 통합 거래 프로세스 모달 - BORROW와 RENT 모두 동일한 모달 사용 */}
       <TransactionProcessModal
         isOpen={showTransactionModal}
         onClose={() => {
           setShowTransactionModal(false);
-          setRequestedDateRange(null); // 모달 닫을 때 초기화
+          setRequestedDateRange(null);
         }}
         productData={productData}
         rentalData={currentRentalData}
@@ -3953,19 +4057,18 @@ const ChatRoomPage = () => {
             || productData?.seller?.member_id;
           const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
 
-          // BORROW 상품인 경우 역할 반대로 설정
           const isBorrowProduct = productData?.uploadType === 'BORROW';
 
           if (isBorrowProduct) {
-            // BORROW: 상품 주인(빌리고 싶은 사람) = buyer, 상대방(빌려줄 사람) = seller
-            return isProductOwner ? 'buyer' : 'seller';
+            // BORROW: A(상품 주인)가 거래 생성하므로 A = seller, B(채팅 건 사람) = buyer
+            // 거래 생성은 A가 하므로, A가 seller 역할
+            return isProductOwner ? 'seller' : 'buyer';
           } else {
             // RENT: 상품 주인(빌려줄 사람) = seller, 상대방(빌리고 싶은 사람) = buyer
             return isProductOwner ? 'seller' : 'buyer';
           }
         })()}
         requestedDateRange={requestedDateRange || (() => {
-          // state에 requestedDateRange가 없으면 최근 대여 요청 메시지에서 날짜 가져오기
           if (messages && messages.length > 0) {
             const rentalRequests = messages
               .filter(msg => msg.type === 'rental_request')
@@ -3986,7 +4089,29 @@ const ChatRoomPage = () => {
           setCurrentRentalData(newRentalData);
         }}
         sendMessage={sendMessage}
-        otherMemberId={currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId}
+        otherMemberId={(() => {
+          const isBorrowProduct = productData?.uploadType === 'BORROW';
+          if (isBorrowProduct) {
+            // BORROW: A(상품 주인)가 거래 생성하므로, otherMemberId는 B(채팅 건 사람)의 ID
+            // 이 ID가 renterId로 전달되어야 함
+            // requestedDateRange에서 otherMemberId가 있으면 우선 사용
+            const fromRequestedRange = requestedDateRange?.otherMemberId;
+            if (fromRequestedRange) {
+              console.log('[ChatRoomPage] BORROW 타입 - otherMemberId (requestedDateRange에서):', fromRequestedRange);
+              return Number(fromRequestedRange);
+            }
+            
+            // requestedDateRange에 없으면 채팅방 상대방 ID 사용
+            const otherId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
+            console.log('[ChatRoomPage] BORROW 타입 - otherMemberId (채팅방 상대방):', otherId);
+            return otherId ? Number(otherId) : null; // Number로 변환
+          } else {
+            // RENT: 기존 로직 - 상대방의 ID
+            const otherId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
+            console.log('[ChatRoomPage] RENT 타입 - otherMemberId (renterId로 사용):', otherId);
+            return otherId ? Number(otherId) : null; // Number로 변환
+          }
+        })()}
         chatRoomId={chatRoomId}
       />
 
