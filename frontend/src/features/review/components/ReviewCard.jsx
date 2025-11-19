@@ -77,15 +77,28 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
     });
   };
 
-  // reviewer 정보 안전하게 처리
-  const reviewer = review.reviewer || review.writer || {};
+  // reviewer 정보 안전하게 처리 (여러 경로 확인)
+  const reviewer = review.reviewer 
+    || review.writer 
+    || review.member 
+    || (review.memberId ? { memberId: review.memberId, nickname: review.nickname, profileImageUrl: review.profileImageUrl } : {})
+    || {};
+  
+  // reviewer ID 찾기 (여러 경로 확인)
+  const reviewerId = reviewer.memberId 
+    || reviewer.member_id 
+    || reviewer.id
+    || review.reviewerId
+    || review.writerId
+    || review.memberId;
   
   const handleProfileClick = (e) => {
     e.stopPropagation(); // 카드 클릭 이벤트와 분리
     
-    const reviewerId = reviewer.memberId || reviewer.member_id || reviewer.id;
     if (reviewerId) {
       navigate(`/members/${reviewerId}`);
+    } else {
+      console.warn('[ReviewCard] reviewerId를 찾을 수 없습니다:', review);
     }
   };
   
@@ -147,26 +160,37 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
     >
       {/* 리뷰어 정보 */}
       <div className="flex items-center space-x-2 mb-2">
+        {/* 프로필 이미지 - 항상 표시 */}
         <div 
-          onClick={handleProfileClick}
-          className="cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={reviewerId ? handleProfileClick : undefined}
+          className={reviewerId ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
         >
           <ProfileImage
-            src={reviewer.profileImageUrl || reviewer.profile_image_url}
-            alt={reviewer.nickname || reviewer.name || '익명'}
+            src={reviewer.profileImageUrl 
+              || reviewer.profile_image_url 
+              || review.profileImageUrl
+              || review.profile_image_url}
+            alt={reviewer.nickname 
+              || reviewer.name 
+              || review.nickname 
+              || '익명'}
             size={40}
             className="w-8 h-8 md:w-10 md:h-10"
           />
         </div>
         <div 
-          className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={handleProfileClick}
+          className={`flex-1 ${reviewerId ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+          onClick={reviewerId ? handleProfileClick : undefined}
         >
           <div className="font-medium text-gray-900 text-sm md:text-base">
-            {review?.nickname || review?.reviewer?.nickname || '익명'}
+            {reviewer.nickname 
+              || reviewer.name 
+              || review.nickname 
+              || review.reviewer?.nickname 
+              || '익명'}
           </div>
           <div className="text-xs text-gray-500">
-            {formatDate(review.createdAt)}
+            {formatDate(review.createdAt || review.created_at)}
           </div>
         </div>
         {/* 별점 표시 (옵션) */}
