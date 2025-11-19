@@ -3159,6 +3159,8 @@ const ChatRoomPage = () => {
                           paymentId: paymentResult.data?.paymentId,
                           orderId: paymentResult.data?.orderId,
                           totalAmount: totalAmount,
+                          chatRoomId: chatRoomId,
+                          rentalHisId: rentalHisId,
                           rentalInfo: {
                             rentalHisId: rentalHisId,
                             productTitle: product.title || product.name
@@ -3670,6 +3672,8 @@ const ChatRoomPage = () => {
           orderId={paymentMessage.orderId}
           amount={paymentMessage.totalAmount}
           orderName={paymentMessage.rentalInfo?.productTitle || '상품 대여'}
+          chatRoomId={paymentMessage.chatRoomId}
+          rentalHisId={paymentMessage.rentalHisId}
           onSuccess={handlePaymentSuccess}
           onError={(error) => {
             console.error('결제 오류:', error);
