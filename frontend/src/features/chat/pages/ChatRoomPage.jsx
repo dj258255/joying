@@ -1437,6 +1437,26 @@ const ChatRoomPage = () => {
         sender: currentUserInfo
       });
 
+      // 결제 완료 시스템 메시지 전송
+      const rentalHisId = result?.data?.rentalHisId || result?.rentalHisId;
+      if (sendMessage && rentalHisId) {
+        // 1. 결제 완료 메시지
+        const paymentCompleteMessage = `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
+        await sendMessage({
+          type: 'TEXT',
+          content: paymentCompleteMessage
+        });
+
+        // 2. 판매자에게 운송장 번호 입력 요청 메시지 (시간 간격을 두고 전송)
+        setTimeout(async () => {
+          const trackingRequestMessage = `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+          await sendMessage({
+            type: 'TEXT',
+            content: trackingRequestMessage
+          });
+        }, 1000);
+      }
+
       // 메시지 새로고침을 위해 채팅방 다시 로드
       setCurrentChatRoom(chatRoomId);
 
@@ -3107,14 +3127,23 @@ const ChatRoomPage = () => {
               const currentUserId = user?.id || user?.memberId;
               const isRequester = senderId && Number(senderId) === Number(currentUserId);
 
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+              const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인: uploadType이 BORROW면 역할 반대
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자(빌려주는 사람), 채팅 건 사람 = 구매자(빌리는 사람)
+              // BORROW: 상품 올린 사람 = 구매자(빌리는 사람), 채팅 건 사람 = 판매자(빌려주는 사람) - 반대!
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자 (채팅 건 사람)
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
 
               return (
                 <React.Fragment key={key}>
