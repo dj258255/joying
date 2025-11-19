@@ -792,7 +792,7 @@ const ChatRoomPage = () => {
 
         const productTitle = productData?.title || productData?.name || '상품';
         // MESSAGE_TYPE 마커 추가하여 MessageBubble에서 식별 가능하도록
-        const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n거래를 원하시면 아래 버튼을 눌러주세요.\nMESSAGE_TYPE:BORROW_PROPOSAL`;
+        const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n\nMESSAGE_TYPE:BORROW_PROPOSAL`;
 
         console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
           type: 'TEXT',
@@ -1498,6 +1498,52 @@ const ChatRoomPage = () => {
     setShowPaymentModal(false);
     setPaymentMessage(null);
   };
+
+  // PaymentSuccessPage에서 돌아왔을 때 시스템 메시지 전송
+  useEffect(() => {
+    const paymentComplete = searchParams.get('paymentComplete');
+    const rentalHisId = searchParams.get('rentalHisId');
+    const orderId = searchParams.get('orderId');
+    const amount = searchParams.get('amount');
+
+    if (paymentComplete === 'true' && rentalHisId && sendMessage && productData) {
+      console.log('[ChatRoomPage] 결제 완료 URL 파라미터 감지, 시스템 메시지 전송');
+
+      const sendPaymentCompleteMessages = async () => {
+        try {
+          // 1. 결제 완료 메시지
+          const paymentCompleteMessage = `💳 결제가 완료되었습니다!\n\n결제 금액: ${parseInt(amount).toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
+
+          await sendMessage({
+            type: 'TEXT',
+            content: paymentCompleteMessage
+          });
+
+          console.log('[ChatRoomPage] 결제 완료 메시지 전송 완료');
+
+          // 2. 운송장 입력 요청 메시지
+          const isBorrowType = productData?.uploadType === 'BORROW';
+          const trackingRequestMessage = isBorrowType
+            ? `📦 구매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`
+            : `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+
+          await sendMessage({
+            type: 'TEXT',
+            content: trackingRequestMessage
+          });
+
+          console.log('[ChatRoomPage] 운송장 요청 메시지 전송 완료');
+
+          // URL 파라미터 제거 (중복 전송 방지)
+          navigate(`/chats/${chatRoomId}`, { replace: true });
+        } catch (err) {
+          console.error('[ChatRoomPage] 시스템 메시지 전송 실패:', err);
+        }
+      };
+
+      sendPaymentCompleteMessages();
+    }
+  }, [searchParams, sendMessage, productData, chatRoomId, navigate]);
 
   const handleRentalReject = async (message) => {
     if (!message) {
