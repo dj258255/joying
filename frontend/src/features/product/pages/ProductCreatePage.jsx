@@ -702,10 +702,8 @@ function ProductCreatePage() {
       const successMessage = `AI가 게시글을 자동으로 작성했습니다!`;
       setErrorMessage(successMessage);
       setTimeout(() => {
-        if (errorMessage === successMessage) {
-          setErrorMessage('');
-        }
-      }, 5000);
+        setErrorMessage('');
+      }, 1000);
 
     } catch (error) {
       console.error('[ProductCreatePage] AI 게시글 생성 실패:', error);
