@@ -231,6 +231,11 @@ public class ReviewService {
 	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getMemberReviews(Long memberId, UploadType uploadType, int page, int size) {
 		PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reviewId"));
+		if (uploadType == UploadType.BORROW) {
+			uploadType = UploadType.RENT;
+		} else {
+			uploadType = UploadType.BORROW;
+		}
 		Page<Review> reviews = reviewRepository.findByReviewed_MemberIdAndUploadType(memberId, uploadType, pageRequest);
 		return reviews.map(this::toResponseDto);
 	}
