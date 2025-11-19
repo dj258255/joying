@@ -62,15 +62,16 @@ export const parseRentalRequestMessage = (content) => {
  * @param {Function} props.onRentalRequestAgain - 대여 다시 요청하기 핸들러
  * @param {Function} props.onCreateTransaction - 거래 생성하기 핸들러
  */
-const RentalRequestMessageCard = ({ 
-  message, 
-  isOwn = false, 
-  isRequester = false, 
+const RentalRequestMessageCard = ({
+  message,
+  isOwn = false,
+  isRequester = false,
   isSeller = false,
   productId: productIdProp = null,
   onRentalRequestAgain,
   onCreateTransaction
 }) => {
+  const [selectedRentMethod, setSelectedRentMethod] = React.useState('BOTH');
   // 메시지에서 대여 정보 추출 (rentalInfo 객체 또는 content 파싱)
   let rentalInfoFromMessage = null;
 
@@ -207,8 +208,8 @@ const RentalRequestMessageCard = ({
       return;
     }
 
-    // 거래 방법은 BOTH로 고정 (UI에서 제거했으므로)
-    const rentMethod = 'BOTH';
+    // 선택된 거래 방법 또는 rentalInfo에 있는 거래 방법 사용
+    const rentMethod = selectedRentMethod || rentalInfo.rentMethod || 'BOTH';
 
     await onCreateTransaction({
       startDate,
@@ -296,8 +297,8 @@ const RentalRequestMessageCard = ({
             {/* 버튼 영역 */}
             {(isRequester || isSeller) && (
               <div className="pt-3 border-t border-gray-200 space-y-2">
-                {/* 요청자에게는 '대여 다시 요청하기' 버튼 */}
-                {isRequester && onRentalRequestAgain && (
+                {/* 구매자(isSeller가 false)에게는 '대여 다시 요청하기' 버튼 */}
+                {!isSeller && onRentalRequestAgain && (
                   <button
                     onClick={onRentalRequestAgain}
                     className="glass-button-ghost w-full text-sm py-2"
@@ -311,19 +312,62 @@ const RentalRequestMessageCard = ({
                   </button>
                 )}
 
-                {/* 판매자에게는 '거래 생성하기' 버튼 */}
+                {/* 판매자(isSeller가 true)에게는 거래 방법 선택 + '거래 생성하기' 버튼 */}
                 {isSeller && onCreateTransaction && (
-                  <button
-                    onClick={handleCreateTransaction}
-                    className="glass-button w-full text-sm py-2"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>거래 생성하기</span>
+                  <>
+                    {/* 거래 방법 선택 */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-gray-600 font-medium block">거래 방법</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRentMethod('DELIVERY')}
+                          className={`flex-1 py-2 px-3 text-xs rounded-lg font-medium transition-colors ${
+                            selectedRentMethod === 'DELIVERY'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          택배거래
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRentMethod('DIRECT')}
+                          className={`flex-1 py-2 px-3 text-xs rounded-lg font-medium transition-colors ${
+                            selectedRentMethod === 'DIRECT'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          직거래
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRentMethod('BOTH')}
+                          className={`flex-1 py-2 px-3 text-xs rounded-lg font-medium transition-colors ${
+                            selectedRentMethod === 'BOTH'
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          둘 다 가능
+                        </button>
+                      </div>
                     </div>
-                  </button>
+
+                    {/* 거래 생성하기 버튼 */}
+                    <button
+                      onClick={handleCreateTransaction}
+                      className="glass-button w-full text-sm py-2"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>거래 생성하기</span>
+                      </div>
+                    </button>
+                  </>
                 )}
               </div>
             )}
