@@ -227,6 +227,10 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public Long createProduct(Long memberId, ProductRequestDto.CreateProduct req) {
 
+        if (req.getFileIds().size() > 5) {
+            throw new IllegalArgumentException("상품 이미지 개수가 5개를 초과할 수 없습니다.");
+        }
+
         //작성자
         Member writer = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
