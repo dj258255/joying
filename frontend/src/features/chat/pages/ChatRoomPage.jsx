@@ -1441,44 +1441,12 @@ const ChatRoomPage = () => {
         sender: currentUserInfo
       });
 
-      // 결제 완료 시스템 메시지 전송
+      // 결제 완료 시스템 메시지는 useEffect에서 발송 (중복 방지)
       const rentalHisId = result?.data?.rentalHisId || result?.rentalHisId || result?.data?.data?.rentalHisId;
       console.log('[handlePaymentSuccess] rentalHisId:', rentalHisId, 'result:', result);
+      console.log('[handlePaymentSuccess] 메시지는 PaymentSuccessPage에서 돌아올 때 useEffect에서 발송됨');
 
-      if (sendMessage) {
-        console.log('[handlePaymentSuccess] 결제 완료 메시지 전송 시작');
-
-        // 1. 결제 완료 메시지
-        const paymentCompleteMessage = rentalHisId
-          ? `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`
-          : `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nMESSAGE_TYPE:PAYMENT_COMPLETE`;
-
-        await sendMessage({
-          type: 'TEXT',
-          content: paymentCompleteMessage
-        });
-
-        console.log('[handlePaymentSuccess] 결제 완료 메시지 전송 완료');
-
-        // 2. rentalHisId가 있을 때만 운송장 번호 입력 요청 메시지 전송
-        if (rentalHisId) {
-          // BORROW/RENT 타입에 따라 메시지 내용 결정
-          const isBorrowType = productData?.uploadType === 'BORROW';
-          const trackingRequestMessage = isBorrowType
-            ? `📦 구매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`
-            : `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
-
-          // setTimeout 제거하고 바로 전송
-          await sendMessage({
-            type: 'TEXT',
-            content: trackingRequestMessage
-          });
-
-          console.log('[handlePaymentSuccess] 운송장 요청 메시지 전송 완료');
-        }
-      }
-
-      // 메시지 전송 완료 후 약간의 딜레이를 주고 채팅방 리로드
+      // PaymentSuccessPage로 이동 (거기서 돌아올 때 useEffect에서 메시지 발송)
       setTimeout(() => {
         setCurrentChatRoom(chatRoomId);
       }, 500);
