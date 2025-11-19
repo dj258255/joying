@@ -7,7 +7,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kakaoLogin } from '../api/authApi';
 import { ROUTE_PATHS } from '@/shared/constants';
-import kakaoLoginBtn from '@/features/home/assets/kakao_login.png';
+import kakaoLoginBtn from '@/features/home/assets/kakao_login_large_narrow.png';
 import logo from '@/assets/icons/logo.png';
 
 const LoginPage = () => {
