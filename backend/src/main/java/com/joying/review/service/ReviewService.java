@@ -3,6 +3,7 @@ package com.joying.review.service;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -31,6 +32,7 @@ import com.joying.review.exception.CannotWriteReviewException;
 import com.joying.review.exception.UnauthorizedReviewAccessException;
 import com.joying.review.repository.ReviewRepository;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,9 @@ public class ReviewService {
 	private final ReviewFileRepository reviewFileRepository;
 	private final ReviewRepository reviewRepository;
 	private final ProductFileRepository	productFileRepository;
+
+	@Autowired
+	private EntityManager entityManager;
 
 	@Transactional(readOnly = true)
 	public Page<ReviewResponseDto> getReviews(Long productId, int page, int size) {
@@ -194,6 +199,8 @@ public class ReviewService {
 			if (!existingFiles.isEmpty()) {
 				reviewFileRepository.deleteAll(existingFiles);
 				review.getReviewFiles().clear();
+				entityManager.flush();
+				entityManager.clear();
 			}
 			connectFile(dto, review);
 		}
