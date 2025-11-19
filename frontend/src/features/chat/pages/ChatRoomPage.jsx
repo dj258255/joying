@@ -15,6 +15,7 @@ import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '.
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
 import TrackingNumberCard, { parseTrackingNumberMessage } from '../components/TrackingNumberCard';
+import TrackingNumberRequestMessageCard, { parseTrackingNumberRequestMessage } from '../components/TrackingNumberRequestMessageCard';
 import ReturnReceiveConfirmMessageCard, { parseReturnReceiveConfirmMessage } from '../components/ReturnReceiveConfirmMessageCard';
 import ProfileImage from '../../../shared/components/ProfileImage';
 import MessageInput from '../components/MessageInput';
@@ -3203,6 +3204,59 @@ const ChatRoomPage = () => {
                 <React.Fragment key={key}>
                   {showDateDivider && <DateDivider />}
                   <PaymentCompleteMessageCard
+                    message={message}
+                    isOwn={isOwn}
+                    isSeller={isSeller}
+                    onShippingClick={async (rentalHisId) => {
+                      try {
+                        // rentalHisId로 거래 상세 조회
+                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
+                        const rentalData = rentalResponse.data || rentalResponse;
+
+                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+
+                        setCurrentRentalData(rentalData);
+
+                        // 약간의 지연 후 발송 모달 열기
+                        setTimeout(() => {
+                          setShowShippingModal(true);
+                        }, 50);
+                      } catch (err) {
+                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
+                      }
+                    }}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 운송장 번호 입력 요청 메시지 감지 (카드로 렌더링)
+            const trackingRequestInfo = parseTrackingNumberRequestMessage(message.content);
+            if (trackingRequestInfo) {
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const currentUserId = user?.id || user?.memberId;
+              const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
+
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <TrackingNumberRequestMessageCard
                     message={message}
                     isOwn={isOwn}
                     isSeller={isSeller}
