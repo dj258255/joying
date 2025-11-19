@@ -869,19 +869,16 @@ export const ChatProvider = ({ children }) => {
       
       // unreadCount 업데이트
       let unreadCount = room.unreadCount || 0;
-      // 시스템 메시지는 unreadCount에 영향 없음
-      if (message.type === 'system') {
-        // 시스템 메시지는 unreadCount 유지
-      } else if (isOwnMessage) {
+      if (isOwnMessage) {
         // 내가 보낸 메시지는 unreadCount에 영향 없음
         // (상대방이 읽지 않은 내 메시지는 메시지 아래에 "1"로 표시됨)
       } else {
-        // 상대방이 보낸 메시지 (내가 읽지 않은 메시지 개수)
+        // 상대방이 보낸 메시지 또는 시스템 메시지 (내가 읽지 않은 메시지 개수)
         if (shouldMarkAsRead) {
           // 채팅방에 진입해서 읽음 처리한 경우 unreadCount를 0으로 설정
           unreadCount = 0;
         } else {
-          // 새로 받은 메시지면 unreadCount 증가
+          // 새로 받은 메시지면 unreadCount 증가 (시스템 메시지 포함)
           unreadCount = (unreadCount || 0) + 1;
         }
       }

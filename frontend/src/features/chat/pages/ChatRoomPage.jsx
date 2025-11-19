@@ -2425,7 +2425,7 @@ const ChatRoomPage = () => {
               const content = message.content || '';
 
               // BORROW 상품 '채팅으로 제안하기' 메시지 - 거래 생성하기 버튼 표시
-              if (content.includes('💡') && content.includes('빌려드릴 수 있습니다') && content.includes('거래를 원하시면')) {
+              if (content.includes('MESSAGE_TYPE:BORROW_PROPOSAL')) {
                 // BORROW 상품 주인(빌리고 싶은 사람) 확인
                 const sellerId = productData?.sellerId
                   || productData?.writer?.memberId
