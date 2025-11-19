@@ -471,8 +471,20 @@ const ProductListMain = () => {
     });
   };
 
+  const isPastDate = (date) => {
+    if (!date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateToCheck = new Date(date);
+    dateToCheck.setHours(0, 0, 0, 0);
+    return dateToCheck < today;
+  };
+
   const handleDateClick = (date) => {
     if (!date) return;
+    
+    // 과거 날짜는 선택 불가
+    if (isPastDate(date)) return;
     
     if (!selectedDates.start) {
       setSelectedDates({ start: date, end: null });
@@ -1257,30 +1269,38 @@ const ProductListMain = () => {
             </div>
 
             <div className="grid grid-cols-7 gap-1">
-              {getDaysInMonth(currentMonth).map((date, index) => (
-                <button
-                  key={index}
-                  onClick={() => date && handleDateClick(date)}
-                  disabled={!date}
-                  className={`
-                    aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
-                    ${!date ? 'invisible' : ''}
-                    ${isDateSelected(date) || isDateInRange(date)
-                      ? 'text-white font-semibold'
-                      : 'text-gray-700'
-                    }
-                  `}
-                   style={isDateSelected(date) || isDateInRange(date) ? {
-                     background: 'linear-gradient(135deg, #1f2937, #111827)',
-                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
-                   } : {
-                    background: 'rgba(255, 255, 255, 0.3)',
-                    backdropFilter: 'blur(5px)'
-                  }}
-                >
-                  {date && date.getDate()}
-                </button>
-              ))}
+              {getDaysInMonth(currentMonth).map((date, index) => {
+                const isPast = date && isPastDate(date);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => date && handleDateClick(date)}
+                    disabled={!date || isPast}
+                    className={`
+                      aspect-square flex items-center justify-center text-xs rounded-lg transition-all duration-200
+                      ${!date ? 'invisible' : ''}
+                      ${isPast 
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                        : isDateSelected(date) || isDateInRange(date)
+                        ? 'text-white font-semibold'
+                        : 'text-gray-700'
+                      }
+                    `}
+                     style={!isPast && (isDateSelected(date) || isDateInRange(date)) ? {
+                       background: 'linear-gradient(135deg, #1f2937, #111827)',
+                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)'
+                     } : isPast ? {
+                       background: '#E5E7EB',
+                       opacity: 0.5
+                     } : {
+                      background: 'rgba(255, 255, 255, 0.3)',
+                      backdropFilter: 'blur(5px)'
+                    }}
+                  >
+                    {date && date.getDate()}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1858,19 +1878,23 @@ const ProductListMain = () => {
                        const isToday = isTodayDate(date);
                        const isSelected = isDateSelected(date);
                        const isInRange = isDateInRange(date);
+                       const isPast = isPastDate(date);
                        
                        days.push(
                          <button
                            key={i}
                            onClick={() => handleDateClick(date)}
+                           disabled={isPast}
                            className={`p-2 rounded-lg transition-all duration-200 ${
-                             isToday ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''
+                             isPast ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50' : ''
                            } ${
-                             isSelected ? 'bg-gray-900 text-white' : ''
+                             !isPast && isToday ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-300' : ''
                            } ${
-                             isInRange && !isSelected ? 'bg-gray-900/30 text-gray-900' : ''
+                             !isPast && isSelected ? 'bg-gray-900 text-white' : ''
                            } ${
-                             !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
+                             !isPast && isInRange && !isSelected ? 'bg-gray-900/30 text-gray-900' : ''
+                           } ${
+                             !isPast && !isToday && !isSelected && !isInRange ? 'hover:bg-white/50 text-gray-800' : ''
                            }`}
                          >
                            {i}
