@@ -102,9 +102,18 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
     
     // 문자열인 경우 JSON 형식인지 확인
     if (typeof lastMessage === 'string') {
+      // MESSAGE_TYPE: 으로 시작하는 텍스트 제거
+      let contentStr = lastMessage.trim();
+      
+      // MESSAGE_TYPE: 으로 시작하는 줄과 그 이후의 모든 내용 제거
+      const messageTypeIndex = contentStr.indexOf('MESSAGE_TYPE:');
+      if (messageTypeIndex !== -1) {
+        // MESSAGE_TYPE: 이전의 내용만 가져오기
+        contentStr = contentStr.substring(0, messageTypeIndex).trim();
+      }
+      
       // JSON 형식인 경우 "대여 요청"으로 변환
       try {
-        const contentStr = lastMessage.trim();
         const jsonStartIndex = contentStr.indexOf('{');
         const jsonEndIndex = contentStr.lastIndexOf('}');
         
@@ -127,11 +136,21 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
         // JSON 파싱 실패 시 원본 반환
       }
       
-      return lastMessage;
+      return contentStr || '메시지가 없습니다';
     }
     
     // 객체인 경우 (로컬 스토리지 형식 호환)
     if (typeof lastMessage === 'object') {
+      let content = lastMessage.content || '';
+      
+      // content가 문자열인 경우 MESSAGE_TYPE: 제거
+      if (typeof content === 'string') {
+        const messageTypeIndex = content.indexOf('MESSAGE_TYPE:');
+        if (messageTypeIndex !== -1) {
+          content = content.substring(0, messageTypeIndex).trim();
+        }
+      }
+      
       if (lastMessage.type === 'image') {
         return '📷 사진';
       } else if (lastMessage.type === 'file') {
@@ -139,7 +158,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
       } else if (lastMessage.type === 'rental_request') {
         return '대여 요청';
       } else {
-        return lastMessage.content || '메시지가 없습니다';
+        return content || '메시지가 없습니다';
       }
     }
     

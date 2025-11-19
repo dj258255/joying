@@ -518,6 +518,28 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     );
   }
 
+  // BORROW 승인 메시지 - 간단하게 표시
+  const isBorrowApproval = type === 'text' && content?.includes('MESSAGE_TYPE:BORROW_PROPOSAL_APPROVED');
+  if (isBorrowApproval) {
+    // 메타데이터 제거한 표시용 콘텐츠 (간단한 안내만)
+    const displayContent = content
+      ?.replace(/\nMESSAGE_TYPE:BORROW_PROPOSAL_APPROVED.*/g, '')
+      ?.replace(/proposalMessageId:.*/g, '')
+      .trim() || '✅ 승인했습니다';
+
+    // 시스템 메시지 스타일로 간단하게 표시
+    return (
+      <div id={id ? `message-${id}` : undefined} className="flex justify-center my-3 px-4">
+        <div className="inline-flex items-center gap-2 bg-green-500/20 backdrop-blur-xl border-green-400/50 text-green-900 rounded-full shadow-md px-4 py-2 max-w-[80%] border">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <p className="text-sm font-medium text-center">{displayContent}</p>
+        </div>
+      </div>
+    );
+  }
+
   // BORROW 제안 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
   const isBorrowProposal = type === 'borrow_proposal' || (type === 'text' && content?.includes('MESSAGE_TYPE:BORROW_PROPOSAL'));
   if (isBorrowProposal) {

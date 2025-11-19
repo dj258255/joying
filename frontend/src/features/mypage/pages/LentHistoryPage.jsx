@@ -193,9 +193,9 @@ const LentHistoryPage = () => {
       setLoadingReviews(true);
       
       // 내가 작성한 리뷰 조회 (빌려준 사람이 빌린 사람에 대한 리뷰)
-      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member → 빌린 사람에 대한 리뷰 (빌려준 사람이 작성)
+      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member → 빌린 사람이 작성한 리뷰
       try {
-        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
+        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
         // API 응답 구조: { status, message, data: { reviewId, title, content, rating, reviewerName } }
         const myReviewData = myReviewResponse?.data?.data;
         if (myReviewData && myReviewData.reviewId) {
@@ -214,9 +214,9 @@ const LentHistoryPage = () => {
       }
       
       // 대여자가 작성한 리뷰 조회 (빌린 사람이 작성한 리뷰)
-      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member → 빌린 사람이 작성한 리뷰
+      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member → 빌린 사람에 대한 리뷰 (빌려준 사람이 작성)
       try {
-        const renterReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const renterReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
         const renterReviewData = renterReviewResponse?.data?.data;
         if (renterReviewData && renterReviewData.reviewId) {
           setRenterReview(renterReviewData);
@@ -240,7 +240,7 @@ const LentHistoryPage = () => {
   };
 
   // 리뷰 조회 재시도 헬퍼 함수
-  const retryLoadMyReview = async (type = 'borrow', maxRetries = 5) => {
+  const retryLoadMyReview = async (type = 'rent', maxRetries = 5) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         const response = await reviewApi.getRentalReview(rentalId, type);

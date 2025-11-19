@@ -26,10 +26,19 @@ const TransactionActionButton = ({
   // productId가 없으면 버튼 표시 안함
   if (!productId) return null;
 
-  // 판매자인지 확인
-  const isSeller = productData?.sellerId === user?.id ||
-                   productData?.writer?.memberId === user?.id ||
-                   productData?.seller?.id === user?.id;
+  // 판매자인지 확인 (BORROW 타입 고려)
+  const isBorrowProduct = productData?.uploadType === 'BORROW';
+  const currentUserId = user?.id || user?.memberId;
+  const sellerId = productData?.sellerId
+    || productData?.writer?.memberId
+    || productData?.seller?.id;
+  const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+  
+  // BORROW: B(채팅 건 사람)가 거래 생성/발송 담당 = seller, A(상품 주인) = buyer
+  // RENT: 상품 주인(빌려줄 사람) = 판매자(거래 생성/발송 담당), 상대방 = 구매자
+  const isSeller = isBorrowProduct
+    ? !isProductOwner  // BORROW: 상품 주인이 아니면 판매자 (채팅 건 사람)
+    : isProductOwner;  // RENT: 상품 주인이 판매자
 
   // 버튼 활성화 여부 확인
   React.useEffect(() => {
