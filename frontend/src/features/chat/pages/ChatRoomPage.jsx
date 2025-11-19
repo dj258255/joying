@@ -14,6 +14,7 @@ import RentalRequestMessageCard, { parseRentalRequestMessage } from '../componen
 import TransactionCreatedMessageCard, { parseTransactionCreatedMessage } from '../components/TransactionCreatedMessageCard';
 import PaymentCompleteMessageCard, { parsePaymentCompleteMessage } from '../components/PaymentCompleteMessageCard';
 import TransactionCompleteMessageCard, { parseTransactionCompleteMessage } from '../components/TransactionCompleteMessageCard';
+import CancelApprovedMessageCard, { parseCancelApprovedMessage } from '../components/CancelApprovedMessageCard';
 import TrackingNumberCard, { parseTrackingNumberMessage } from '../components/TrackingNumberCard';
 import TrackingNumberRequestMessageCard, { parseTrackingNumberRequestMessage } from '../components/TrackingNumberRequestMessageCard';
 import ReturnReceiveConfirmMessageCard, { parseReturnReceiveConfirmMessage } from '../components/ReturnReceiveConfirmMessageCard';
@@ -3550,6 +3551,20 @@ const ChatRoomPage = () => {
                       }, 50);
                     }}
                     sendMessage={sendMessage}
+                  />
+                </React.Fragment>
+              );
+            }
+
+            // 거래 취소 승인 메시지 감지 (카드로 렌더링)
+            const cancelApprovedInfo = parseCancelApprovedMessage(message.content);
+            if (cancelApprovedInfo) {
+              return (
+                <React.Fragment key={key}>
+                  {showDateDivider && <DateDivider />}
+                  <CancelApprovedMessageCard
+                    message={message}
+                    isOwn={isOwn}
                   />
                 </React.Fragment>
               );
