@@ -43,7 +43,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
       if (!isOpen || !rentalHisId) return;
 
       try {
-        console.log('[ReturnReceiveModal] 기존 영상 확인 중...');
+        
         const videosResponse = await rentalApi.getVideos(rentalHisId);
         const videos = videosResponse.data || videosResponse.body || videosResponse || [];
 
@@ -52,15 +52,15 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
           : null;
 
         if (lenderReceiveVideo) {
-          console.log('[ReturnReceiveModal] 기존 수령 영상 발견. 확인 단계로 이동');
+          
           setUploadedVideoUrl(lenderReceiveVideo.videoUrl || lenderReceiveVideo.url || lenderReceiveVideo.filePath);
           setCurrentStep('confirm');
         } else {
-          console.log('[ReturnReceiveModal] 기존 영상 없음. 촬영 단계로 시작');
+          
           setCurrentStep('video');
         }
       } catch (err) {
-        console.error('[ReturnReceiveModal] 기존 영상 확인 실패:', err);
+        
         setCurrentStep('video');
       }
     };
@@ -106,9 +106,9 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[ReturnReceiveModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
+        
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[ReturnReceiveModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+        
 
         const url = URL.createObjectURL(blob);
         setRecordedVideoBlob(blob);
@@ -129,7 +129,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('[ReturnReceiveModal] 영상 녹화 시작 실패:', err);
+      
       setError('카메라 접근에 실패했습니다. 브라우저 설정을 확인해주세요.');
     }
   };
@@ -162,11 +162,11 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReturnReceiveModal] 영상 업로드 시작');
+      
 
       // 1. 파일 업로드
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      console.log('[ReturnReceiveModal] 파일 업로드 응답:', uploadResult);
+      
 
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
@@ -177,11 +177,11 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ReturnReceiveModal] fileId를 찾을 수 없음:', uploadResult);
+        
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
-      console.log('[ReturnReceiveModal] 파일 업로드 성공. fileId:', fileId);
+      
 
       // 2. 대여 이력에 영상 등록
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
@@ -189,7 +189,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
         videoType: 'OWNER_RECEIVE' // 판매자 수령 영상
       });
 
-      console.log('[ReturnReceiveModal] 영상 등록 성공:', videoResult);
+      
 
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
@@ -210,14 +210,14 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
           content: messageContent
         });
 
-        console.log('[ReturnReceiveModal] 반납 수령 확인 메시지 전송 완료');
+        
       }
 
       // 모달 닫기
       handleClose();
       alert('반납 수령 영상이 업로드되었습니다. 채팅방에서 최종 선택해주세요.');
     } catch (err) {
-      console.error('[ReturnReceiveModal] 영상 업로드 실패:', err);
+      
       setError(err.response?.data?.message || err.message || '영상 업로드에 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -230,12 +230,12 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReturnReceiveModal] 반납 수령 확인 및 정산 처리 시작:', rentalHisId);
+      
 
       // 반납 수령 확인 API 호출 (정산 처리 포함)
       await rentalApi.confirmReturnReceive(rentalHisId);
 
-      console.log('[ReturnReceiveModal] 반납 수령 확인 및 정산 완료');
+      
 
       // 부모 컴포넌트에 완료 알림
       if (onConfirmComplete) {
@@ -246,7 +246,7 @@ const ReturnReceiveModal = ({ isOpen, onClose, rentalHisId, onConfirmComplete, o
 
       setCurrentStep('complete');
     } catch (err) {
-      console.error('[ReturnReceiveModal] 반납 수령 확인 실패:', err);
+      
       setError(err.response?.data?.message || err.message || '반납 수령 확인에 실패했습니다.');
     } finally {
       setIsLoading(false);

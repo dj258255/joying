@@ -8,4 +8,3 @@ export * from './api/categoryApi';
 // Hooks
 export * from './hooks/useCategories';
 
-

@@ -21,9 +21,9 @@ const PaymentCheckoutPage = () => {
     try {
       const result = await createPayment(paymentData);
       // TODO: 결제 성공 페이지로 이동
-      console.log('결제 성공:', result);
+      
     } catch (error) {
-      console.error('결제 실패:', error);
+      
     }
   };
 

@@ -27,7 +27,7 @@ const ReviewWritePage = ({ mode }) => {
             const data = await getReviewDetail(reviewId);
             setInitialData(data);
           } catch (err) {
-            console.error('리뷰 불러오기 실패:', err);
+            
           }
         })();
       }
@@ -64,7 +64,7 @@ const ReviewWritePage = ({ mode }) => {
       }
       //navigate(-1);
     } catch (err) {
-      console.error('리뷰 저장 실패:', err);
+      
       alert('리뷰 저장에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);

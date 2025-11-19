@@ -51,13 +51,7 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
 
   // 디버깅: 프로필 이미지 URL 확인
   if (!profileImage || profileImage === '/images/default_profile_image.png') {
-    console.log('[ChatRoomListItem] 프로필 이미지 디버깅:', {
-      chatRoomId: roomId,
-      otherMemberProfileUrl,
-      productImageUrl,
-      finalProfileImage: profileImage
-    });
-  }
+    }
   
   // 마지막 메시지 시간 (백엔드 형식 우선)
   const lastMessageTime = lastMessageAt || updatedAt;

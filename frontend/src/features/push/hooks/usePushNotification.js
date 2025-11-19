@@ -53,7 +53,7 @@ export const usePushNotification = () => {
       setIsSubscribed(!!currentSubscription);
       setSubscription(currentSubscription);
     } catch (error) {
-      console.error('[usePushNotification] 구독 상태 확인 실패:', error);
+      
       setIsSubscribed(false);
     }
   }, [isSupported, isAuthenticated]);

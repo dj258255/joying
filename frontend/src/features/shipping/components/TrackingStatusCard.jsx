@@ -25,9 +25,9 @@ const TrackingStatusCard = ({ trackingNumber, courier }) => {
     try {
       const result = await shippingApi.getTrackingStatus(trackingNumber, courier);
       setTrackingData(result);
-      console.log('[TrackingStatusCard] 배송 조회 성공:', result);
+      
     } catch (err) {
-      console.error('[TrackingStatusCard] 배송 조회 실패:', err);
+      
       setError(err.message || '배송 조회에 실패했습니다.');
     } finally {
       setIsLoading(false);

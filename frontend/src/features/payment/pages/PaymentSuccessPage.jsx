@@ -27,9 +27,7 @@ const PaymentSuccessPage = () => {
   useEffect(() => {
     // 환경 변수 확인 로그
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
-    console.log('[PaymentSuccessPage] VITE_TOSS_CLIENT_KEY 확인:', {
-      exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
-      value: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    }...` : 'undefined',
       length: clientKey?.length || 0,
       urlParams: { paymentKey, orderId, amount }
     });
@@ -38,7 +36,7 @@ const PaymentSuccessPage = () => {
     const confirmPayment = async () => {
       // 필수 파라미터 검증
       if (!paymentKey || !orderId || !amount) {
-        console.error('[PaymentSuccessPage] 필수 파라미터 누락:', { paymentKey, orderId, amount });
+        
         setError('결제 정보가 올바르지 않습니다. (paymentKey, orderId, amount 필요)');
         setStatus('error');
         return;
@@ -53,17 +51,17 @@ const PaymentSuccessPage = () => {
           amount: parseInt(amount)
         };
 
-        console.log('[PaymentSuccessPage] 결제 승인 요청:', confirmData);
+        
 
         // 백엔드 API 호출
         const response = await paymentApi.confirmPayment(confirmData);
 
-        console.log('[PaymentSuccessPage] 결제 승인 완료:', response);
+        
 
         setPaymentInfo(response);
         setStatus('success');
       } catch (error) {
-        console.error('[PaymentSuccessPage] 결제 승인 실패:', error);
+        
 
         // 에러 메시지 추출
         const errorMessage = error.response?.data?.message
@@ -77,7 +75,7 @@ const PaymentSuccessPage = () => {
                                    errorMessage.includes('중복');
 
         if (isAlreadyProcessed && retryCount < MAX_RETRY) {
-          console.warn('[PaymentSuccessPage] 이미 처리된 결제 감지 - 페이지 새로고침 시도');
+          
           setRetryCount(prev => prev + 1);
 
           // 3초 후 페이지 새로고침 (토스 API 조회 재시도)
@@ -106,27 +104,13 @@ const PaymentSuccessPage = () => {
   };
 
   const handleGoToChats = () => {
-    console.log('[PaymentSuccessPage] handleGoToChats 함수 실행됨!');
-    console.log('[PaymentSuccessPage] URL 파라미터 값:', {
-      chatRoomId,
-      rentalHisId,
-      orderId,
-      amount
-    });
-
+    
     // 채팅방 ID가 있으면 해당 채팅방으로, 없으면 채팅 목록으로
     if (chatRoomId) {
       const url = `/chats/${chatRoomId}?paymentComplete=true&rentalHisId=${rentalHisId}&orderId=${orderId}&amount=${amount}`;
-      console.log('[PaymentSuccessPage] 채팅방으로 이동:', {
-        chatRoomId,
-        rentalHisId,
-        orderId,
-        amount,
-        url
-      });
       navigate(url);
     } else {
-      console.log('[PaymentSuccessPage] 채팅방 목록으로 이동 (chatRoomId 없음)');
+      
       navigate('/chats');
     }
   };

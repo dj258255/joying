@@ -149,7 +149,7 @@ export const useChatRooms = () => {
       if (context?.previousData) {
         queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], context.previousData);
       }
-      console.error('채팅방 나가기 실패:', error);
+      
     },
     onSuccess: () => {
       // 성공 시 서버 데이터와 동기화 (안전장치)

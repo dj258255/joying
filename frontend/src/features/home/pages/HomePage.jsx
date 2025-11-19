@@ -1,11 +1,8 @@
 /**
  * HomePage Component
 
-
  * 섹션별 카메라 각도 전환 + Sticky 스크롤
  */
-
-
 
 import React, { Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -410,7 +407,6 @@ const Model3D = React.memo(({ animationState, currentModel, currentSection }) =>
     }
   }, [currentModel]);
 
-
   return (
     <>
         {currentModel === 'all' ? (
@@ -682,7 +678,6 @@ const HomePage = () => {
     }
   }, []);
 
-
   // GSAP 애니메이션 상태 (Section 1과 동일하게 시작)
   const animationState = useRef({
     rotation: { x: 0, y: Math.PI * 2, z: 0 },
@@ -761,7 +756,6 @@ const HomePage = () => {
         scale: 0,  // Section 6과 동일
       }
     ];
-
 
     // 섹션으로 즉시 이동하는 함수
     const goToSection = (index) => {
@@ -1030,7 +1024,6 @@ const HomePage = () => {
 
   return (
 
-
     <div 
       className="bg-black text-white" 
       style={{ 
@@ -1095,5 +1088,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
-
 

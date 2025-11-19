@@ -28,21 +28,16 @@ export const useVideoRecorder = () => {
       setError(null);
 
       mediaRecorder.ondataavailable = (event) => {
-        console.log('[useVideoRecorder] ondataavailable - 데이터 크기:', event.data.size);
+        
         if (event.data.size > 0) {
           chunksRef.current.push(event.data);
-          console.log('[useVideoRecorder] 청크 추가됨 - 총 청크 수:', chunksRef.current.length);
+          
         }
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[useVideoRecorder] onstop 호출됨 - 청크 수:', chunksRef.current.length);
+        
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[useVideoRecorder] Blob 생성 완료:', {
-          size: blob.size,
-          type: blob.type,
-          chunks: chunksRef.current.length
-        });
         setRecordedBlob(blob);
         setIsRecording(false);
 
@@ -52,7 +47,7 @@ export const useVideoRecorder = () => {
       };
 
       mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
+        
         setError('녹화 중 오류가 발생했습니다.');
         setIsRecording(false);
       };
@@ -66,7 +61,7 @@ export const useVideoRecorder = () => {
       }, 1000);
 
     } catch (err) {
-      console.error('녹화 시작 실패:', err);
+      
       setError('녹화를 시작할 수 없습니다.');
     }
   }, []);

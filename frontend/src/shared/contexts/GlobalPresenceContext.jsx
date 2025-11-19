@@ -44,7 +44,7 @@ export const GlobalPresenceProvider = ({ children }) => {
     const connectWebSocket = () => {
       try {
         const url = getWebSocketUrl();
-        console.log('[GlobalPresence] WebSocket 연결 시도:', url);
+        
 
         const socket = url.startsWith('ws://') || url.startsWith('wss://')
           ? new WebSocket(url)
@@ -59,7 +59,7 @@ export const GlobalPresenceProvider = ({ children }) => {
           heartbeatOutgoing: 30000,
           debug: (str) => {
             if (import.meta.env.DEV) {
-              console.debug('[GlobalPresence STOMP]', str);
+              
             }
           },
           webSocketFactory: () => socket,
@@ -69,13 +69,13 @@ export const GlobalPresenceProvider = ({ children }) => {
         });
 
         client.onConnect = () => {
-          console.log('[GlobalPresence] WebSocket 연결 성공');
+          
 
           // 온라인 상태 변경 구독
           const presenceSubscription = client.subscribe('/user/queue/presence-update', (message) => {
             try {
               const presenceUpdate = JSON.parse(message.body);
-              console.log('[GlobalPresence] 온라인 상태 변경 수신:', presenceUpdate);
+              
 
               // React Query 캐시 업데이트 (채팅방 목록 온라인 상태 반영)
               queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
@@ -101,7 +101,7 @@ export const GlobalPresenceProvider = ({ children }) => {
                 };
               });
             } catch (error) {
-              console.error('[GlobalPresence] 온라인 상태 업데이트 처리 오류:', error);
+              
             }
           });
 
@@ -111,10 +111,10 @@ export const GlobalPresenceProvider = ({ children }) => {
           const notificationSubscription = client.subscribe('/user/queue/notifications', (message) => {
             try {
               const notification = JSON.parse(message.body);
-              console.log('[GlobalPresence] 알림 수신:', notification);
+              
               handleNotification(notification);
             } catch (error) {
-              console.error('[GlobalPresence] 알림 파싱 오류:', error);
+              
             }
           });
 
@@ -122,7 +122,7 @@ export const GlobalPresenceProvider = ({ children }) => {
           const chatRoomUpdateSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
               const update = JSON.parse(message.body);
-              console.log('[GlobalPresence] 채팅방 업데이트:', update);
+              
 
               // 채팅방 업데이트 이벤트 발생
               window.dispatchEvent(new CustomEvent('chatroom-update', { detail: update }));
@@ -149,7 +149,7 @@ export const GlobalPresenceProvider = ({ children }) => {
                 }
               }
             } catch (error) {
-              console.error('[GlobalPresence] 채팅방 업데이트 파싱 오류:', error);
+              
             }
           });
 
@@ -157,10 +157,10 @@ export const GlobalPresenceProvider = ({ children }) => {
           const chatRoomStatusSubscription = client.subscribe('/user/queue/chatroom-status', (message) => {
             try {
               const status = JSON.parse(message.body);
-              console.log('[GlobalPresence] 채팅방 상태 변경:', status);
+              
               window.dispatchEvent(new CustomEvent('chatroom-status', { detail: status }));
             } catch (error) {
-              console.error('[GlobalPresence] 채팅방 상태 파싱 오류:', error);
+              
             }
           });
 
@@ -180,9 +180,9 @@ export const GlobalPresenceProvider = ({ children }) => {
                   destination: '/app/chat/heartbeat',
                   body: JSON.stringify({}) // 빈 객체를 JSON으로 전송 (백엔드 @Payload Map<String, Any>? 파싱 가능)
                 });
-                console.log('[GlobalPresence] Heartbeat 전송');
+                
               } catch (error) {
-                console.warn('[GlobalPresence] Heartbeat 전송 실패:', error);
+                
               }
             }
           }, 30000);
@@ -191,25 +191,20 @@ export const GlobalPresenceProvider = ({ children }) => {
         };
 
         client.onStompError = (frame) => {
-          console.error('[GlobalPresence] STOMP 오류:', frame.headers['message'], frame.body);
+          
         };
 
         client.onWebSocketError = (error) => {
-          console.error('[GlobalPresence] WebSocket 오류:', error);
+          
         };
 
         client.onWebSocketClose = (event) => {
-          console.warn('[GlobalPresence] WebSocket 종료:', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean
-          });
-        };
+          };
 
         client.activate();
         stompClientRef.current = client;
       } catch (error) {
-        console.error('[GlobalPresence] WebSocket 연결 실패:', error);
+        
       }
     };
 
@@ -225,7 +220,7 @@ export const GlobalPresenceProvider = ({ children }) => {
         try {
           presenceSubscriptionRef.current.unsubscribe();
         } catch (error) {
-          console.warn('[GlobalPresence] 온라인 상태 구독 해제 오류:', error);
+          
         }
         presenceSubscriptionRef.current = null;
       }
@@ -235,16 +230,16 @@ export const GlobalPresenceProvider = ({ children }) => {
           chatRoomSubscriptionRef.current.update?.unsubscribe();
           chatRoomSubscriptionRef.current.status?.unsubscribe();
         } catch (error) {
-          console.warn('[GlobalPresence] 채팅방 구독 해제 오류:', error);
+          
         }
         chatRoomSubscriptionRef.current = null;
       }
       if (stompClientRef.current) {
         try {
           stompClientRef.current.deactivate();
-          console.log('[GlobalPresence] WebSocket 연결 해제');
+          
         } catch (error) {
-          console.warn('[GlobalPresence] WebSocket 비활성화 오류:', error);
+          
         }
         stompClientRef.current = null;
       }

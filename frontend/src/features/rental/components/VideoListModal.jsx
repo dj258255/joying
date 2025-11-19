@@ -86,10 +86,10 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
         setIsLoading(true);
         setError(null);
 
-        console.log('[VideoListModal] 영상 목록 조회 시작:', rentalHisId);
+        
 
         const response = await rentalApi.getVideos(rentalHisId);
-        console.log('[VideoListModal] API 응답:', response);
+        
 
         // 응답 구조 확인: VideoListResponse { videos: List<VideoResponse> }
         // VideoResponse { fileUrl: String, ... }
@@ -100,11 +100,11 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
           || response?.data
           || [];
 
-        console.log('[VideoListModal] 추출된 영상 목록:', videoList);
+        
 
         // 배열인지 확인
         if (!Array.isArray(videoList)) {
-          console.warn('[VideoListModal] 영상 목록이 배열이 아님:', videoList);
+          
           setVideos([]);
           return;
         }
@@ -123,7 +123,7 @@ const VideoListModal = ({ isOpen, onClose, rentalHisId }) => {
           setSelectedVideo(sortedVideos[0]);
         }
       } catch (err) {
-        console.error('[VideoListModal] 영상 목록 조회 실패:', err);
+        
         setError(err.response?.data?.message || err.message || '영상 목록을 불러올 수 없습니다.');
       } finally {
         setIsLoading(false);

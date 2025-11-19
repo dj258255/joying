@@ -82,15 +82,15 @@ const LentHistoryPage = () => {
       const rentalData = response?.data?.data || response?.data || response;
       
       if (!rentalData) {
-        console.error('대여 내역을 찾을 수 없습니다:', rentalId);
+        
         navigate('/404');
         return;
       }
       
-      console.log('[LentHistoryPage] 대여 내역 로드 완료:', rentalData);
+      
       setRental(rentalData);
     } catch (error) {
-      console.error('대여 내역 로딩 중 오류:', error);
+      
       navigate('/404');
     } finally {
       setLoading(false);
@@ -208,7 +208,7 @@ const LentHistoryPage = () => {
         if (error.response?.status === 404) {
           setMyReview(null);
         } else {
-          console.error('내 리뷰 조회 실패:', error);
+          
           setMyReview(null);
         }
       }
@@ -228,12 +228,12 @@ const LentHistoryPage = () => {
         if (error.response?.status === 404) {
           setRenterReview(null);
         } else {
-          console.error('대여자 리뷰 조회 실패:', error);
+          
           setRenterReview(null);
         }
       }
     } catch (error) {
-      console.error('리뷰 조회 중 오류:', error);
+      
     } finally {
       setLoadingReviews(false);
     }
@@ -262,7 +262,7 @@ const LentHistoryPage = () => {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
         } else {
-          console.error(`리뷰 조회 시도 ${i + 1} 실패:`, error);
+          
           if (i < maxRetries - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -447,11 +447,11 @@ const LentHistoryPage = () => {
               try {
                 await loadReviews();
               } catch (loadError) {
-                console.error('리뷰 조회 실패:', loadError);
+                
                 // 조회 실패는 무시 (이미 모달은 닫힘)
               }
             } catch (error) {
-              console.error('리뷰 삭제 실패:', error);
+              
               setAlertMessage('리뷰 삭제에 실패했습니다.');
               setAlertType('error');
               // 삭제 실패 시에도 모달 닫기
@@ -963,7 +963,7 @@ const LentHistoryPage = () => {
                         );
                         setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
-                        console.error('이미지 업로드 실패:', err);
+                        
                         setAlertMessage('이미지 업로드에 실패했습니다.');
                         setAlertType('error');
                         // 실패한 이미지 제거
@@ -1055,7 +1055,7 @@ const LentHistoryPage = () => {
                         await loadReviews();
                       }, 500);
                     } catch (error) {
-                      console.error('리뷰 작성 실패:', error);
+                      
                       setAlertMessage('리뷰 작성에 실패했습니다. 다시 시도해주세요.');
                       setAlertType('error');
                     }
@@ -1259,7 +1259,7 @@ const LentHistoryPage = () => {
                         );
                         setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
-                        console.error('이미지 업로드 실패:', err);
+                        
                         setAlertMessage('이미지 업로드에 실패했습니다.');
                         setAlertType('error');
                         // 실패한 이미지 제거
@@ -1349,15 +1349,6 @@ const LentHistoryPage = () => {
                       // 2. 변경되었으면 새로운 fileIds 배열 (빈 배열이면 모든 파일 삭제)
                       const fileIdsToSend = isFileIdsChanged ? validFileIds : undefined;
                       
-                      console.log('[LentHistoryPage] 리뷰 수정 요청:', {
-                        reviewId: myReview.reviewId,
-                        fileIds: fileIdsToSend,
-                        fileIdsLength: fileIdsToSend?.length || 0,
-                        originalFileIds: originalReviewFileIds,
-                        currentFileIds: validFileIds,
-                        isFileIdsChanged: isFileIdsChanged
-                      });
-                      
                       const updateData = {
                         reviewId: myReview.reviewId,
                         title: reviewTitle.trim() || `리뷰`,
@@ -1384,7 +1375,7 @@ const LentHistoryPage = () => {
                       // 리뷰 다시 불러오기
                       await loadReviews();
                     } catch (error) {
-                      console.error('리뷰 수정 실패:', error);
+                      
                       setAlertMessage('리뷰 수정에 실패했습니다. 다시 시도해주세요.');
                       setAlertType('error');
                     }

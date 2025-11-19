@@ -57,7 +57,7 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
       });
       onClose();
     } catch (error) {
-      console.error('설정 저장 실패:', error);
+      
       alert(error.message || '설정 저장에 실패했습니다.');
     }
   };
@@ -75,7 +75,7 @@ const ChatSettingsModal = ({ isOpen, onClose, chatRoom, onUpdateSettings }) => {
         navigate('/chats');
         onClose();
       } catch (error) {
-        console.error('채팅방 나가기 실패:', error);
+        
         alert(error.message || '채팅방 나가기에 실패했습니다.');
       }
     }

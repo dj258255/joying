@@ -44,10 +44,7 @@ export const rentalApi = {
       rentMethod
     };
 
-    console.log('[rentalApi] 요청 준비:', {
-      productId: productIdNum,
-      requestBody,
-      'requestBody (stringified)': JSON.stringify(requestBody),
+    ': JSON.stringify(requestBody),
       'startRen 타입': typeof startRen,
       'endRen 타입': typeof endRen,
       'renterId': requestBody.renterId,
@@ -65,14 +62,11 @@ export const rentalApi = {
         }
       );
 
-      console.log('[rentalApi] 응답 성공:', response.data);
+      
       return response.data;
     } catch (error) {
       const errorData = error.response?.data || {};
-      console.error('[rentalApi] 요청 실패:', {
-        url: `/rentals/${productIdNum}/reservations`,
-        requestBody,
-        'requestBody (stringified)': JSON.stringify(requestBody),
+      ': JSON.stringify(requestBody),
         error: errorData,
         errorMessage: errorData.message || error.message,
         errorCode: errorData.code,
@@ -94,7 +88,7 @@ export const rentalApi = {
     try {
     const response = await axiosInstance.get(`/rentals/rental-histories/${rentalHisId}`);
       
-      console.log('[rentalApi] 거래 상세 조회 성공:', response.data);
+      
       
       // 응답 구조: { status, message, data: {... }, timestamp }
       // 또는 axios 응답: { data: { status, message, data: {... }, timestamp } }
@@ -104,12 +98,6 @@ export const rentalApi = {
       
     return response.data;
     } catch (error) {
-      console.error('[rentalApi] 거래 상세 조회 실패:', {
-        rentalHisId,
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
       throw error;
     }
   },
@@ -125,18 +113,13 @@ export const rentalApi = {
       throw new Error(`유효하지 않은 상품 ID: ${productId}`);
     }
 
-    console.log('[rentalApi] 상품의 최신 거래 조회:', productIdNum);
+    
 
     try {
       const response = await axiosInstance.get(`/rentals/products/${productIdNum}/latest`);
-      console.log('[rentalApi] 최신 거래 조회 성공:', response.data);
+      
       return response.data;
     } catch (error) {
-      console.error('[rentalApi] 최신 거래 조회 실패:', {
-        productId: productIdNum,
-        error: error.response?.data || error.message,
-        status: error.response?.status
-      });
       throw error;
     }
   },
@@ -331,7 +314,7 @@ export const rentalApi = {
         params: { page, size }
       });
       
-      console.log('[rentalApi] 빌린 내역 조회 성공:', response.data);
+      
       
       // 응답 구조: { status, message, data: { content, pageable, ... }, timestamp }
       if (response.data?.data) {
@@ -340,11 +323,6 @@ export const rentalApi = {
       
       return response.data;
     } catch (error) {
-      console.error('[rentalApi] 빌린 내역 조회 실패:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
       throw error;
     }
   },
@@ -364,7 +342,7 @@ export const rentalApi = {
         params: { page, size }
       });
       
-      console.log('[rentalApi] 빌려준 내역 조회 성공:', response.data);
+      
       
       // 응답 구조: { status, message, data: { content, pageable, ... }, timestamp }
       if (response.data?.data) {
@@ -373,11 +351,6 @@ export const rentalApi = {
       
       return response.data;
     } catch (error) {
-      console.error('[rentalApi] 빌려준 내역 조회 실패:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
       throw error;
     }
   },
@@ -398,18 +371,13 @@ export const rentalApi = {
       additionalFee: Number(data.additionalFee)
     };
 
-    console.log('[rentalApi] 대여 기간 연장 요청:', {
-      rentalHisId,
-      requestBody
-    });
-
     try {
       const response = await axiosInstance.patch(
         `/rentals/rental-histories/${rentalHisId}/extend`,
         requestBody
       );
 
-      console.log('[rentalApi] 대여 기간 연장 성공:', response.data);
+      
 
       // 응답 구조: { status, message, data: {...}, timestamp }
       if (response.data?.data) {
@@ -418,12 +386,6 @@ export const rentalApi = {
 
       return response.data;
     } catch (error) {
-      console.error('[rentalApi] 대여 기간 연장 실패:', {
-        rentalHisId,
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
       throw error;
     }
   }

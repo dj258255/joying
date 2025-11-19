@@ -19,7 +19,7 @@ const LikedProductList = ({
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 20;
 
-  console.log('[LikedProductList] 컴포넌트 렌더링:', { currentPage, pageSize });
+  
 
   // 찜한 상품 목록 조회
   const { data, isLoading, isError, error } = useLikedProducts({
@@ -27,17 +27,8 @@ const LikedProductList = ({
     size: pageSize
   });
 
-  console.log('[LikedProductList] Query 상태:', { 
-    isLoading, 
-    isError, 
-    hasData: !!data,
-    dataLength: data?.content?.length,
-    error: error?.message 
-  });
-
   const likedProducts = data?.content || [];
   const totalPages = data?.totalPages || 0;
-
 
   if (isLoading) {
     return (

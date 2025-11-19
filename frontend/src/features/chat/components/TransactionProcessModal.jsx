@@ -60,11 +60,13 @@ const TransactionProcessModal = ({
   }); // BOTH, ONLY_OFFLINE, ONLY_ONLINE
   const [rentalFee, setRentalFee] = useState(() => {
     // requestedDateRange에서 가져오거나 productData에서 가져오기
-    return requestedDateRange?.rentalFee ?? productData?.price ?? productData?.rentalFee ?? productData?.dailyPrice ?? 0;
+    const defaultValue = requestedDateRange?.rentalFee ?? productData?.price ?? productData?.rentalFee ?? productData?.dailyPrice ?? 0;
+    return defaultValue > 0 ? defaultValue : '';
   });
   const [deposit, setDeposit] = useState(() => {
     // requestedDateRange에서 가져오거나 productData에서 가져오기
-    return requestedDateRange?.deposit ?? productData?.deposit ?? 0;
+    const defaultValue = requestedDateRange?.deposit ?? productData?.deposit ?? 0;
+    return defaultValue > 0 ? defaultValue : '';
   });
   const [requireVideo, setRequireVideo] = useState(false); // 영상 녹화 필수 제거
 
@@ -90,13 +92,6 @@ const TransactionProcessModal = ({
 
   // 초기화: rentalData가 있으면 상태 복원
   useEffect(() => {
-    console.log('[TransactionProcessModal] useEffect 실행:', {
-      rentalData,
-      rentalDataStatus: rentalData?.status || rentalData?.rentalStatus,
-      requestedDateRange,
-      userRole
-    });
-
     if (rentalData) {
       setTransactionData(rentalData);
       
@@ -160,13 +155,13 @@ const TransactionProcessModal = ({
   // 현재 단계 결정
   const determineCurrentStep = (data) => {
     if (!data) {
-      console.log('[TransactionProcessModal] determineCurrentStep: data 없음, create로 설정');
+      
       setCurrentStep('create');
       return;
     }
 
     const status = data.status || data.rentalStatus;
-    console.log('[TransactionProcessModal] determineCurrentStep:', { data, status, userRole });
+    
 
     switch(status) {
       case 'PENDING':
@@ -247,7 +242,7 @@ const TransactionProcessModal = ({
         
         // 상품 주인 자신의 ID를 renterId로 전달
         renterIdValue = Number(productOwnerId);
-        console.log('[TransactionProcessModal] BORROW 타입 - 상품 주인이 거래 생성, renterId = 상품 주인 ID:', renterIdValue);
+        
       } else {
         // RENT 타입: 상품 주인이 거래 생성하므로, renterId는 상대방(buyer)의 ID
         if (!otherMemberId) {
@@ -259,7 +254,7 @@ const TransactionProcessModal = ({
           setError('유효하지 않은 상대방 ID입니다.');
           return;
         }
-        console.log('[TransactionProcessModal] RENT 타입 - 상품 주인이 거래 생성, renterId = 상대방 ID:', renterIdValue);
+        
       }
     }
     
@@ -278,32 +273,16 @@ const TransactionProcessModal = ({
       // RENT 타입: 상품 주인이 거래 생성 시 renterId = 상대방(buyer)의 ID
       renterId: renterIdValue,
       // 커스텀 대여료와 보증금 전달 (할인 등 금액 조정 시)
-      fee: rentalFee || null,      // 1일 대여료 (null이면 상품 기본값 사용)
-      deposit: deposit || null      // 보증금 (null이면 상품 기본값 사용)
+      // 빈 값이면 null로 전달하여 백엔드가 상품 기본값 사용
+      fee: rentalFee !== '' && rentalFee !== null && rentalFee !== undefined ? Number(rentalFee) : null,      // 1일 대여료 (null이면 상품 기본값 사용)
+      deposit: deposit !== '' && deposit !== null && deposit !== undefined ? Number(deposit) : null      // 보증금 (null이면 상품 기본값 사용)
     };
     
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('[TransactionProcessModal] 거래 생성 시작:', {
-        productId,
-        dateRange,
-        rentMethod,
-        userRole,
-        otherMemberId,
-        productData,
-        isBorrowProduct,
-        renterIdValue
-      });
-
-      console.log('[TransactionProcessModal] 거래 생성 요청 데이터:', {
-        isBorrowProduct,
-        userRole,
-        otherMemberId,
-        renterIdValue,
-        rentalRequestData,
-        'rentalRequestData (stringified)': JSON.stringify(rentalRequestData),
+      ': JSON.stringify(rentalRequestData),
         'renterId 전달 여부': !!rentalRequestData.renterId,
         'renterId 값': rentalRequestData.renterId,
         'renterId 타입': typeof rentalRequestData.renterId,
@@ -327,11 +306,13 @@ const TransactionProcessModal = ({
       // 대여 거래 생성
       const result = await rentalApi.createRentalReservation(productId, rentalRequestData);
 
-      console.log('[TransactionProcessModal] 거래 생성 성공:', result);
+      
 
       // 결제 생성
       const days = Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1;
-      const totalAmount = (rentalFee * days) + deposit;
+      const finalRentalFee = Number(rentalFee || 0);
+      const finalDeposit = Number(deposit || 0);
+      const totalAmount = (finalRentalFee * days) + finalDeposit;
 
       const paymentData = {
         rentalHisId: result.data.rentalHisId,
@@ -357,7 +338,7 @@ const TransactionProcessModal = ({
 
       // 채팅방에 거래 생성 완료 메시지 전송
       if (sendMessage) {
-        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\nrentalHisId:${result.data.rentalHisId}`;
+        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(finalRentalFee * days).toLocaleString()}원\n보증금: ${finalDeposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\nrentalHisId:${result.data.rentalHisId}`;
 
         await sendMessage({
           type: 'TEXT',
@@ -367,30 +348,10 @@ const TransactionProcessModal = ({
 
       // alert 제거 - 채팅 메시지로 충분
     } catch (err) {
-      console.error('[TransactionProcessModal] 거래 생성 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '거래 생성에 실패했습니다.';
       const errorData = err.response?.data || {};
-      
-      console.error('[TransactionProcessModal] 에러 상세 정보:', {
-        status: err.response?.status,
-        errorData,
-        errorMessage: errorData.message,
-        errorCode: errorData.code,
-        requestData: {
-          productId,
-          userRole,
-          otherMemberId,
-          renterId: rentalRequestData.renterId,
-          isBorrowProduct
-        }
-      });
       
       if (err.response?.status === 400) {
         errorMessage = errorData.message || '잘못된 요청입니다. 입력 정보를 확인해주세요.';
@@ -436,7 +397,7 @@ const TransactionProcessModal = ({
 
   // 결제 진행 (구매자)
   const handleProceedPayment = async () => {
-    console.log('[TransactionProcessModal] handleProceedPayment 호출됨');
+    
 
     if (!transactionData) {
       setError('거래 정보를 찾을 수 없습니다.');
@@ -451,13 +412,6 @@ const TransactionProcessModal = ({
       const days = Math.ceil((new Date(transactionData.endRen) - new Date(transactionData.startRen)) / (1000 * 60 * 60 * 24)) + 1;
       const totalAmount = (transactionData.fee * days) + transactionData.deposit;
 
-      console.log('[TransactionProcessModal] 결제 생성 시작:', {
-        rentalHisId: transactionData.rentalHisId,
-        productId: productData.id || productData.productId,
-        totalAmount,
-        days
-      });
-
       // 결제 생성 API 호출
       const paymentData = {
         rentalHisId: transactionData.rentalHisId,
@@ -468,13 +422,11 @@ const TransactionProcessModal = ({
 
       const paymentResult = await paymentApi.createPayment(paymentData);
 
-      console.log('[TransactionProcessModal] 결제 생성 완료:', paymentResult);
+      
 
       // PaymentModal 열기 전 환경 변수 확인
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
-      console.log('[TransactionProcessModal] 결제 모달 열기 전 VITE_TOSS_CLIENT_KEY 확인:', {
-        exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
-        value: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+      }...` : 'undefined',
         length: clientKey?.length || 0,
         paymentInfo: paymentResult.data
       });
@@ -483,7 +435,7 @@ const TransactionProcessModal = ({
       setPaymentInfo(paymentResult.data);
       setShowPaymentModal(true);
     } catch (err) {
-      console.error('[TransactionProcessModal] 결제 생성 실패:', err);
+      
       setError('결제 생성에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
@@ -528,7 +480,7 @@ const TransactionProcessModal = ({
         onTransactionCreated(null);
       }
     } catch (err) {
-      console.error('[TransactionProcessModal] 거래 취소 실패:', err);
+      
       const errorMessage = err.response?.data?.message || err.message || '거래 취소에 실패했습니다.';
       setError(errorMessage);
       alert(errorMessage);
@@ -582,13 +534,7 @@ const TransactionProcessModal = ({
 
       // alert 제거 - 채팅 메시지로 충분
     } catch (err) {
-      console.error('[TransactionProcessModal] 결제 승인 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '결제 승인에 실패했습니다.';
       
@@ -620,7 +566,7 @@ const TransactionProcessModal = ({
 
   // 영상 촬영 시작 (발송 전)
   const handleStartVideoRecording = () => {
-    console.log('[TransactionProcessModal] 영상 촬영 시작');
+    
     setShowVideoRecorder(true);
   };
 
@@ -640,18 +586,12 @@ const TransactionProcessModal = ({
       setIsLoading(true);
       setError(null);
 
-      console.log('[TransactionProcessModal] 발송 처리 시작:', {
-        rentalHisId: transactionData.rentalHisId,
-        carrierCode: courier,
-        trackingNo: trackingNumber
-      });
-
       await rentalApi.shipItem(transactionData.rentalHisId, {
         carrierCode: courier,
         trackingNo: trackingNumber
       });
 
-      console.log('[TransactionProcessModal] 발송 처리 성공');
+      
 
       // 채팅방에 발송 완료 메시지 전송
       if (sendMessage) {
@@ -676,13 +616,7 @@ const TransactionProcessModal = ({
       setShowTrackingModal(false);
       setCurrentStep('delivery');
     } catch (err) {
-      console.error('[TransactionProcessModal] 발송 처리 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '발송 처리에 실패했습니다.';
       
@@ -712,9 +646,9 @@ const TransactionProcessModal = ({
       setIsLoading(true);
 
       // 1. 영상을 서버에 업로드
-      console.log('[TransactionProcessModal] 영상 업로드 시작');
+      
       const uploadResult = await fileApi.uploadFile(videoBlob);
-      console.log('[TransactionProcessModal] 업로드 응답:', uploadResult);
+      
 
       // 응답 구조에 따라 fileId 추출 (여러 가능성 체크)
       const fileId = uploadResult?.body?.data?.fileId
@@ -725,7 +659,7 @@ const TransactionProcessModal = ({
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다. 응답: ' + JSON.stringify(uploadResult));
       }
 
-      console.log('[TransactionProcessModal] 영상 업로드 성공. fileId:', fileId);
+      
 
       // 2. 대여 이력에 영상 등록
       // VideoType: OWNER_SEND, RENTER_RECEIVE, RENTER_RETURN, OWNER_RECEIVE
@@ -790,13 +724,7 @@ const TransactionProcessModal = ({
         // currentStep은 'return' 유지
       }
     } catch (err) {
-      console.error('[TransactionProcessModal] 영상 업로드 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '영상 업로드에 실패했습니다.';
       
@@ -837,7 +765,7 @@ const TransactionProcessModal = ({
         alert('대여가 시작되었습니다.');
       }
     } catch (err) {
-      console.error('[TransactionProcessModal] 수령 확인 실패:', err);
+      
       const errorMessage = err.response?.data?.message || err.message || '수령 확인에 실패했습니다.';
       setError(errorMessage);
       alert(errorMessage);
@@ -884,13 +812,7 @@ const TransactionProcessModal = ({
       // alert 제거
       onClose();
     } catch (err) {
-      console.error('[TransactionProcessModal] 반납 처리 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '반납 처리에 실패했습니다.';
       
@@ -925,13 +847,7 @@ const TransactionProcessModal = ({
       setCurrentStep('complete');
       // alert 제거
     } catch (err) {
-      console.error('[TransactionProcessModal] 회수 확인 실패:', err);
-      console.error('[TransactionProcessModal] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       let errorMessage = '회수 확인에 실패했습니다.';
       
@@ -963,20 +879,13 @@ const TransactionProcessModal = ({
 
       const { reason, buyerRefund, sellerRefund } = cancelData;
 
-      console.log('[TransactionProcessModal] 취소 요청:', {
-        rentalHisId: transactionData.rentalHisId,
-        reason,
-        depositRenterAmt: buyerRefund,
-        depositOwnerAmt: sellerRefund
-      });
-
       const cancelResponse = await rentalApi.createCancelRequest(transactionData.rentalHisId, {
         reason: reason,
         depositRenterAmt: buyerRefund,
         depositOwnerAmt: sellerRefund
       });
 
-      console.log('[TransactionProcessModal] 취소 요청 성공:', cancelResponse);
+      
 
       // 채팅방에 취소 요청 메시지 전송
       if (sendMessage) {
@@ -995,14 +904,14 @@ const TransactionProcessModal = ({
           }
         });
 
-        console.log('[TransactionProcessModal] 취소 요청 메시지 전송 완료');
+        
       }
 
       // alert 제거
       setShowCancelModal(false);
       onClose();
     } catch (err) {
-      console.error('[TransactionProcessModal] 취소 요청 실패:', err);
+      
       const errorMessage = err.response?.data?.message || err.message || '취소 요청에 실패했습니다.';
       setError(errorMessage);
       throw err; // CancelRequestModal에서 에러 처리
@@ -1124,15 +1033,28 @@ const TransactionProcessModal = ({
                   </label>
                   <input
                     type="number"
-                    value={rentalFee}
+                    value={rentalFee || ''}
                     onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setRentalFee(value >= 0 ? value : 0);
+                      const inputValue = e.target.value;
+                      // 빈 문자열이면 빈 문자열로 유지
+                      if (inputValue === '') {
+                        setRentalFee('');
+                        return;
+                      }
+                      const value = Number(inputValue);
+                      // 숫자가 아니거나 음수면 빈 문자열
+                      if (isNaN(value) || value < 0) {
+                        setRentalFee('');
+                      } else {
+                        setRentalFee(value);
+                      }
                     }}
                     onBlur={(e) => {
-                      const value = Number(e.target.value);
-                      if (value < 0 || isNaN(value)) {
-                        setRentalFee(0);
+                      const inputValue = e.target.value;
+                      // blur 시 빈 값이면 기본값(상품 기본값)으로 설정
+                      if (inputValue === '' || isNaN(Number(inputValue)) || Number(inputValue) < 0) {
+                        const defaultValue = productData?.price ?? productData?.rentalFee ?? productData?.dailyPrice ?? 0;
+                        setRentalFee(defaultValue);
                       }
                     }}
                     min="0"
@@ -1145,15 +1067,28 @@ const TransactionProcessModal = ({
                   </label>
                   <input
                     type="number"
-                    value={deposit}
+                    value={deposit || ''}
                     onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setDeposit(value >= 0 ? value : 0);
+                      const inputValue = e.target.value;
+                      // 빈 문자열이면 빈 문자열로 유지
+                      if (inputValue === '') {
+                        setDeposit('');
+                        return;
+                      }
+                      const value = Number(inputValue);
+                      // 숫자가 아니거나 음수면 빈 문자열
+                      if (isNaN(value) || value < 0) {
+                        setDeposit('');
+                      } else {
+                        setDeposit(value);
+                      }
                     }}
                     onBlur={(e) => {
-                      const value = Number(e.target.value);
-                      if (value < 0 || isNaN(value)) {
-                        setDeposit(0);
+                      const inputValue = e.target.value;
+                      // blur 시 빈 값이면 기본값(상품 기본값)으로 설정
+                      if (inputValue === '' || isNaN(Number(inputValue)) || Number(inputValue) < 0) {
+                        const defaultValue = productData?.deposit ?? 0;
+                        setDeposit(defaultValue);
                       }
                     }}
                     min="0"
@@ -1161,7 +1096,6 @@ const TransactionProcessModal = ({
                   />
                 </div>
               </div>
-
 
               {dateRange && dateRange.start && dateRange.end && (
                 <div className="p-4 bg-white/60 backdrop-blur-md border border-white/30 rounded-2xl">
@@ -1173,15 +1107,19 @@ const TransactionProcessModal = ({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700">대여료</span>
-                      <span className="text-gray-900 font-medium">{rentalFee.toLocaleString()}원 × {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</span>
+                      <span className="text-gray-900 font-medium">
+                        {rentalFee ? `${Number(rentalFee).toLocaleString()}원 × ${Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일` : '0원'}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700">보증금</span>
-                      <span className="text-gray-900 font-medium">{deposit.toLocaleString()}원</span>
+                      <span className="text-gray-900 font-medium">{deposit ? `${Number(deposit).toLocaleString()}원` : '0원'}</span>
                     </div>
                     <div className="pt-2 border-t border-white/50 flex justify-between">
                       <span className="font-semibold text-gray-900">총 결제 금액</span>
-                      <span className="font-bold text-lg text-gray-900">{((rentalFee * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + deposit).toLocaleString()}원</span>
+                      <span className="font-bold text-lg text-gray-900">
+                        {((Number(rentalFee || 0) * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + Number(deposit || 0)).toLocaleString()}원
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1885,7 +1823,7 @@ const TransactionProcessModal = ({
           rentalHisId={transactionData?.rentalHisId}
           onSuccess={handlePaymentSuccess}
           onError={(error) => {
-            console.error('결제 오류:', error);
+            
             setError(error.message || '결제 처리 중 오류가 발생했습니다.');
           }}
         />

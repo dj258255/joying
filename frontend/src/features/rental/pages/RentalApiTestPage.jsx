@@ -66,11 +66,7 @@ const RentalApiTestPage = () => {
       };
 
       // 요청 본문 상세 로그
-      console.log('📤 API 요청 상세:', {
-        url: `/rentals/${productId}/reservations`,
-        method: 'POST',
-        body: rentalData,
-        'body (JSON string)': JSON.stringify(rentalData),
+      ': JSON.stringify(rentalData),
         'startDate (input)': startDate,
         'endDate (input)': endDate,
         'startRen (ISO)': startRenISO,
@@ -79,10 +75,10 @@ const RentalApiTestPage = () => {
 
       const response = await rentalApi.createRentalReservation(productId, rentalData);
 
-      console.log('✅ API 응답:', response);
+      
       setResult(response);
     } catch (err) {
-      console.error('❌ API 에러:', err);
+      
       setError({
         message: err.message,
         response: err.response?.data,

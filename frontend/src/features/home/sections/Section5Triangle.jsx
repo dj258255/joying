@@ -71,4 +71,3 @@ const Section5Triangle = () => {
 
 export default Section5Triangle;
 
-

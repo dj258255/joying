@@ -108,7 +108,7 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
         // 모달 열기
         setShowTrackingModal(true);
       } catch (error) {
-        console.error('[ReturnMessageCard] 배송 조회 실패:', error);
+        
         // 에러 시 채팅 메시지 파싱 값으로 모달 열기
         setTrackingInfo({
           trackingNumber: returnInfo.trackingNumber,
@@ -300,6 +300,4 @@ const ReturnMessageCard = ({ message, isOwn = false, onTrackClick, onReceiveConf
 };
 
 export default ReturnMessageCard;
-
-
 

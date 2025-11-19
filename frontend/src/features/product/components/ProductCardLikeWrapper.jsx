@@ -46,12 +46,7 @@ const ProductCardLikeWrapper = ({
         ? product.isLiked 
         : (product?.isLike !== undefined ? product.isLike : undefined));
     
-    console.log('[ProductCardLikeWrapper] product 변경 감지:', { 
-      productId, 
-      oldLiked: isLiked, 
-      newLiked,
-      initialLiked,
-      hasLikedField: 'liked' in (product || {}),
+    ,
       hasIsLikedField: 'isLiked' in (product || {}),
       hasIsLikeField: 'isLike' in (product || {}),
       productLiked: product?.liked,
@@ -64,10 +59,10 @@ const ProductCardLikeWrapper = ({
 
   const handleLike = (currentLiked) => {
     if (isLoading || !productId) {
-      console.warn('[ProductCardLikeWrapper] 찜하기 불가:', { isLoading, productId });
+      
       return;
     }
-    console.log('[ProductCardLikeWrapper] 찜하기 클릭:', { productId, currentLiked });
+    
     
     // 이전 상태 저장 (에러 시 롤백용)
     const previousLiked = isLiked;
@@ -78,7 +73,7 @@ const ProductCardLikeWrapper = ({
     // API 호출
     toggleLike(currentLiked).catch((error) => {
       // 에러 발생 시 이전 상태로 롤백
-      console.error('[ProductCardLikeWrapper] 찜하기 실패, 상태 롤백:', error);
+      
       setIsLiked(previousLiked);
     });
   };

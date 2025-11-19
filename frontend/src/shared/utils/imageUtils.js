@@ -51,7 +51,7 @@ export const preloadImages = async (imageUrls) => {
     const promises = imageUrls.map(url => preloadImage(url));
     return await Promise.all(promises);
   } catch (error) {
-    console.error('이미지 프리로드 실패:', error);
+    
     throw error;
   }
 };

@@ -34,10 +34,20 @@ const MessageInput = ({
   const textareaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const lastTypingTimeRef = useRef(0);
+  const isSendingRef = useRef(false); // 전송 중 플래그 (중복 전송 방지)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (message.trim() && !disabled) {
+    
+    // 전송 중이거나 메시지가 비어있거나 비활성화 상태면 전송하지 않음
+    if (isSendingRef.current || !message.trim() || disabled) {
+      return;
+    }
+
+    // 전송 중 플래그 설정
+    isSendingRef.current = true;
+
+    try {
       // replyTo가 객체인 경우 id를, 문자열인 경우 그대로 사용
       let replyToMessageId = null;
       if (replyTo) {
@@ -48,20 +58,28 @@ const MessageInput = ({
         }
       }
       
-      onSendMessage({
-        content: message.trim(),
+      const messageContent = message.trim();
+      
+      // 메시지 전송 전에 입력 필드 비우기 (optimistic update)
+      setMessage('');
+      onCancelReply?.();
+      
+      // 메시지 전송
+      await onSendMessage({
+        content: messageContent,
         type: 'TEXT',
         replyToMessageId: replyToMessageId
       });
-      setMessage('');
-      onCancelReply?.();
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
+    } catch (error) {
+      
+      // 전송 실패 시 메시지 복원
+      setMessage(message);
+      alert('메시지 전송에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      // 전송 완료 후 플래그 해제 (약간의 지연을 두어 중복 방지)
+      setTimeout(() => {
+        isSendingRef.current = false;
+      }, 500);
     }
   };
 
@@ -73,7 +91,7 @@ const MessageInput = ({
       // 파일이 순차적으로 전송되므로 각각 await
       await onSendFile?.(file);
     } catch (error) {
-      console.error('파일 전송 실패:', error);
+      
       // 에러가 발생해도 다음 파일 업로드를 위해 throw하지 않음
       alert(`${file.name || '파일'} 전송에 실패했습니다: ${error.message || '알 수 없는 오류'}`);
     }
@@ -96,7 +114,7 @@ const MessageInput = ({
       await onSendFile?.(file);
       setShowEmoticonPicker(false);
     } catch (error) {
-      console.error('이모티콘 전송 실패:', error);
+      
       alert(error.message || '이모티콘 전송에 실패했습니다.');
     }
   };
@@ -257,7 +275,13 @@ const MessageInput = ({
                   handleTyping();
                 }
               }}
-              onKeyPress={handleKeyPress}
+              onKeyDown={(e) => {
+                // Enter 키 처리 (Shift+Enter는 줄바꿈)
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
               placeholder={disabled ? '상대방이 나간 채팅방입니다' : '메시지를 입력하세요...'}
               disabled={disabled}
               rows={1}

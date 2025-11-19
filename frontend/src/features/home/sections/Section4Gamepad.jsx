@@ -81,4 +81,3 @@ const Section4Gamepad = ({ products = [], categoryId }) => {
 
 export default Section4Gamepad;
 
-

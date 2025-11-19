@@ -40,7 +40,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       if (!isOpen || !rentalHisId) return;
 
       try {
-        console.log('[ReceiveModal] 기존 영상 확인 중...');
+        
         const videosResponse = await rentalApi.getVideos(rentalHisId);
         const videos = videosResponse.data || videosResponse.body || videosResponse || [];
 
@@ -49,15 +49,15 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
           : null;
 
         if (renterReceiveVideo) {
-          console.log('[ReceiveModal] 기존 수령 영상 발견. 확인 단계로 이동');
+          
           setUploadedVideoUrl(renterReceiveVideo.videoUrl || renterReceiveVideo.url || renterReceiveVideo.filePath);
           setCurrentStep('confirm');
         } else {
-          console.log('[ReceiveModal] 기존 영상 없음. 촬영 단계로 시작');
+          
           setCurrentStep('video');
         }
       } catch (err) {
-        console.error('[ReceiveModal] 기존 영상 확인 실패:', err);
+        
         setCurrentStep('video');
       }
     };
@@ -103,9 +103,9 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[ReceiveModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
+        
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[ReceiveModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+        
 
         const url = URL.createObjectURL(blob);
         setRecordedVideoBlob(blob);
@@ -126,7 +126,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('[ReceiveModal] 영상 녹화 시작 실패:', err);
+      
       setError('카메라 접근에 실패했습니다. 브라우저 설정을 확인해주세요.');
     }
   };
@@ -159,11 +159,11 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReceiveModal] 영상 업로드 시작');
+      
 
       // 1. 파일 업로드 (상태가 아직 SHIPPED일 때)
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      console.log('[ReceiveModal] 파일 업로드 응답:', uploadResult);
+      
 
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
@@ -174,11 +174,11 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ReceiveModal] fileId를 찾을 수 없음:', uploadResult);
+        
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
-      console.log('[ReceiveModal] 파일 업로드 성공. fileId:', fileId);
+      
 
       // 2. 대여 이력에 영상 등록 (상태: SHIPPED)
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
@@ -186,7 +186,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
         videoType: 'RENTER_RECEIVE' // 구매자 수령 영상
       });
 
-      console.log('[ReceiveModal] 영상 등록 성공:', videoResult);
+      
 
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
@@ -199,9 +199,9 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       setUploadedVideoUrl(videoUrl);
 
       // 3. 수령 확인 API 호출 (상태: SHIPPED → RENTING)
-      console.log('[ReceiveModal] 수령 확인 API 호출:', rentalHisId);
+      
       await rentalApi.confirmReceive(rentalHisId);
-      console.log('[ReceiveModal] 수령 확인 완료 - 상태가 RENTING으로 변경됨');
+      
 
       // 부모 컴포넌트에 완료 알림
       if (onReceiveComplete) {
@@ -212,7 +212,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
 
       setCurrentStep('complete');
     } catch (err) {
-      console.error('[ReceiveModal] 영상 업로드 또는 수령 확인 실패:', err);
+      
       setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -225,12 +225,12 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReceiveModal] 수령 확인 처리 시작:', rentalHisId);
+      
 
       // 수령 확인 API 호출
       await rentalApi.confirmReceive(rentalHisId);
 
-      console.log('[ReceiveModal] 수령 확인 완료');
+      
 
       // 부모 컴포넌트에 완료 알림
       if (onReceiveComplete) {
@@ -241,7 +241,7 @@ const ReceiveModal = ({ isOpen, onClose, rentalHisId, onReceiveComplete }) => {
 
       setCurrentStep('complete');
     } catch (err) {
-      console.error('[ReceiveModal] 수령 확인 실패:', err);
+      
       setError(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
     } finally {
       setIsLoading(false);

@@ -47,7 +47,7 @@ const UserInfoEditor = ({ onSave }) => {
       alert('회원 정보가 수정되었습니다.');
       onSave?.();
     } catch (error) {
-      console.error('회원 정보 수정 실패:', error);
+      
       alert('회원 정보 수정에 실패했습니다.');
     }
   };

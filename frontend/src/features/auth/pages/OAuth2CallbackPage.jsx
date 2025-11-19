@@ -16,7 +16,7 @@ const OAuth2CallbackPage = () => {
     const handleCallback = async () => {
       const loginStatus = searchParams.get('login');
       
-      console.log('🔍 로그인 상태:', loginStatus);
+      
       
       if (loginStatus === 'success') {
         // auth/me API 호출로 로그인 상태 확인
@@ -31,7 +31,7 @@ const OAuth2CallbackPage = () => {
         }
       } else {
         // 로그인 실패 - 로그인 페이지로 이동
-        console.error('로그인 실패');
+        
         navigate('/login', { replace: true });
       }
     };
@@ -50,17 +50,4 @@ const OAuth2CallbackPage = () => {
 };
 
 export default OAuth2CallbackPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
 

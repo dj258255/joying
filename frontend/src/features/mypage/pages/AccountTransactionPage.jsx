@@ -43,7 +43,7 @@ const AccountTransactionPage = () => {
       
       try {
         const response = await accountApi.getAccountProducts();
-        console.log('[AccountTransactionPage] 수시 입출금 상품 목록:', response);
+        
         
         // 응답 구조에 따라 데이터 추출
         let productsData = [];
@@ -57,7 +57,7 @@ const AccountTransactionPage = () => {
         
         setProducts(productsData);
       } catch (err) {
-        console.error('[AccountTransactionPage] 상품 목록 조회 실패:', err);
+        
         setProductsError(err.response?.data?.message || err.message || '상품 목록 조회에 실패했습니다.');
       } finally {
         setIsLoadingProducts(false);
@@ -87,7 +87,7 @@ const AccountTransactionPage = () => {
         
         setTransactionData(response);
       } catch (err) {
-        console.error('[AccountTransactionPage] 거래 내역 조회 실패:', err);
+        
         let errorMessage = '거래 내역 조회에 실패했습니다.';
         
         if (err.response?.data) {
@@ -125,11 +125,11 @@ const AccountTransactionPage = () => {
         accountTypeUniqueNo: selectedProduct.accountTypeUniqueNo
       });
       
-      console.log('[AccountTransactionPage] SSAFY 계좌 생성 성공:', response);
+      
       setCreatedAccount(response);
       alert('SSAFY 계좌가 생성되었습니다!');
     } catch (err) {
-      console.error('[AccountTransactionPage] SSAFY 계좌 생성 실패:', err);
+      
       const errorMessage = err.response?.data?.message || err.message || '계좌 생성에 실패했습니다.';
       setCreateAccountError(errorMessage);
       alert(errorMessage);

@@ -52,7 +52,7 @@ export const messageApi = {
     // chatRoomId를 숫자로 변환 (백엔드는 Long 타입을 기대)
     const chatRoomIdNum = Number(chatRoomId);
     if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
-      console.error('[messageApi] 유효하지 않은 채팅방 ID:', chatRoomId);
+      
       return [];
     }
     
@@ -82,7 +82,7 @@ export const messageApi = {
       }
       
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 목록 조회 요청:', { chatRoomId: chatRoomIdNum, queryParams });
+      
       }
       
       const response = await axiosInstance.get(`/chat-rooms/${chatRoomIdNum}/messages`, {
@@ -90,9 +90,7 @@ export const messageApi = {
       });
       
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 목록 조회 응답:', {
-        status: response.status,
-        messageCount: Array.isArray(response.data?.data) ? response.data.data.length : Array.isArray(response.data?.data?.content) ? response.data.data.content.length : Array.isArray(response.data?.body?.data) ? response.data.body.data.length : Array.isArray(response.data?.body?.data?.content) ? response.data.body.data.content.length : 0
+      ? response.data.data.length : Array.isArray(response.data?.data?.content) ? response.data.data.content.length : Array.isArray(response.data?.body?.data) ? response.data.body.data.length : Array.isArray(response.data?.body?.data?.content) ? response.data.body.data.content.length : 0
       });
       }
 
@@ -118,22 +116,14 @@ export const messageApi = {
       
       // 응답이 배열 형식이 아닌 경우 빈 배열 반환
       if (isDevelopment) {
-      console.warn('[messageApi] 메시지 목록 응답 형식이 예상과 다릅니다:', response.data);
+      
       }
       return [];
     } catch (error) {
-      console.error('[messageApi] 메시지 목록 조회 실패:', {
-        chatRoomId: chatRoomIdNum,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       // 404 에러는 빈 배열 반환 (채팅방에 메시지가 없는 경우)
       if (error.response?.status === 404) {
         if (isDevelopment) {
-        console.warn('[messageApi] 메시지를 찾을 수 없습니다. 빈 배열 반환.');
+        
         }
         return [];
       }
@@ -145,7 +135,7 @@ export const messageApi = {
       
       // 기타 에러는 빈 배열 반환하여 UI가 깨지지 않도록 함
       if (isDevelopment) {
-      console.warn('[messageApi] 메시지 목록 조회 실패. 빈 배열 반환.');
+      
       }
       return [];
     }
@@ -302,27 +292,18 @@ export const messageApi = {
 
     try {
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 삭제 요청:', { chatRoomId: chatRoomIdNum, messageId });
+      
       }
       
       const response = await axiosInstance.delete(`/chat-rooms/${chatRoomIdNum}/messages/${messageId}`);
       
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 삭제 완료:', { status: response.status });
+      
       }
       
       // 204 No Content 응답
       return;
     } catch (error) {
-      console.error('[messageApi] 메시지 삭제 실패:', {
-        chatRoomId: chatRoomIdNum,
-        messageId,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       if (error.response?.status === 401) {
         throw new Error('로그인이 필요합니다.');
       }
@@ -360,7 +341,7 @@ export const messageApi = {
 
     try {
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 수정 요청:', { chatRoomId: chatRoomIdNum, messageId, content: content.substring(0, 50) });
+      
       }
       
       const response = await axiosInstance.patch(
@@ -369,7 +350,7 @@ export const messageApi = {
       );
       
       if (isDevelopment) {
-      console.log('[messageApi] 메시지 수정 완료:', { status: response.status });
+      
       }
 
       // 응답 데이터 추출
@@ -386,15 +367,6 @@ export const messageApi = {
 
       return updatedMessage;
     } catch (error) {
-      console.error('[messageApi] 메시지 수정 실패:', {
-        chatRoomId: chatRoomIdNum,
-        messageId,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       if (error.response?.status === 400) {
         throw new Error(error.response?.data?.message || '메시지 수정에 실패했습니다. (TEXT 타입만 수정 가능)');
       }
@@ -431,12 +403,6 @@ export const messageApi = {
 
     try {
       if (isDevelopment) {
-      console.log('[messageApi] 파일 업로드 요청:', { 
-        chatRoomId: chatRoomIdNum, 
-        fileName: file.name, 
-        fileSize: file.size, 
-        fileType: file.type 
-      });
       }
 
       const formData = new FormData();
@@ -453,7 +419,7 @@ export const messageApi = {
       );
 
       if (isDevelopment) {
-      console.log('[messageApi] 파일 업로드 완료:', { status: response.status });
+      
       }
 
       // 응답 데이터 추출
@@ -470,15 +436,6 @@ export const messageApi = {
 
       return fileData;
     } catch (error) {
-      console.error('[messageApi] 파일 업로드 실패:', {
-        chatRoomId: chatRoomIdNum,
-        fileName: file.name,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       if (error.response?.status === 400) {
         throw new Error(error.response?.data?.message || '파일 업로드에 실패했습니다.');
       }
@@ -510,11 +467,11 @@ export const messageApi = {
   getMessagesAround: async (chatRoomId, messageId, params = {}) => {
     const chatRoomIdNum = Number(chatRoomId);
     if (!chatRoomIdNum || isNaN(chatRoomIdNum) || chatRoomIdNum <= 0) {
-      console.error('[messageApi] 유효하지 않은 채팅방 ID:', chatRoomId);
+      
       throw new Error('유효하지 않은 채팅방 ID입니다.');
     }
     if (!messageId) {
-      console.error('[messageApi] 메시지 ID가 필요합니다.');
+      
       throw new Error('메시지 ID가 필요합니다.');
     }
 
@@ -530,12 +487,7 @@ export const messageApi = {
       }
       
       if (isDevelopment) {
-        console.log('[messageApi] 메시지 주변 조회 요청:', { 
-          chatRoomId: chatRoomIdNum, 
-          messageId, 
-          queryParams 
-        });
-      }
+        }
       
       const response = await axiosInstance.get(
         `/chat-rooms/${chatRoomIdNum}/messages/${messageId}/around`,
@@ -543,9 +495,7 @@ export const messageApi = {
       );
       
       if (isDevelopment) {
-        console.log('[messageApi] 메시지 주변 조회 응답:', {
-          status: response.status,
-          messageCount: Array.isArray(response.data?.data) ? response.data.data.length : 0
+        ? response.data.data.length : 0
         });
       }
 
@@ -567,19 +517,10 @@ export const messageApi = {
       
       // 응답이 배열 형식이 아닌 경우 빈 배열 반환
       if (isDevelopment) {
-        console.warn('[messageApi] 메시지 주변 조회 응답 형식이 예상과 다릅니다:', response.data);
+        
       }
       return [];
     } catch (error) {
-      console.error('[messageApi] 메시지 주변 조회 실패:', {
-        chatRoomId: chatRoomIdNum,
-        messageId,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       // 400 Bad Request
       if (error.response?.status === 400) {
         throw new Error(error.response?.data?.message || '해당 채팅방의 메시지가 아닙니다.');

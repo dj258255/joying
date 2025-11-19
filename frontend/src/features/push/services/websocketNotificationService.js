@@ -23,15 +23,15 @@ let chatRoomStatusSubscription = null;
 export function subscribeToGlobalNotifications() {
   // 이미 연결되어 있으면 재연결 안 함
   if (globalClient?.connected) {
-    console.log('[WebSocketNotification] 이미 전역 알림이 구독되어 있습니다.');
+    
     return;
   }
 
-  console.log('[WebSocketNotification] 전역 알림 WebSocket 연결 시작...');
+  
 
   const createSocket = () => {
     const url = getWebSocketUrl();
-    console.log('[WebSocketNotification] SockJS 연결 URL:', url);
+    
 
     if (url.startsWith('ws://') || url.startsWith('wss://')) {
       return new WebSocket(url);
@@ -49,7 +49,7 @@ export function subscribeToGlobalNotifications() {
     heartbeatOutgoing: 30000,
     debug: (str) => {
       if (import.meta.env.DEV) {
-        console.debug('[WebSocketNotification STOMP]', str);
+        
       }
     },
     webSocketFactory: createSocket,
@@ -59,17 +59,17 @@ export function subscribeToGlobalNotifications() {
   });
 
   globalClient.onConnect = (frame) => {
-    console.log('[WebSocketNotification] 전역 알림 WebSocket 연결 성공');
+    
 
     // 푸시 알림 Fallback 구독
     notificationSubscription = globalClient.subscribe('/user/queue/notifications', (message) => {
       try {
         const notification = JSON.parse(message.body);
-        console.log('[WebSocketNotification] 알림 수신:', notification);
+        
 
         handleNotification(notification);
       } catch (error) {
-        console.error('[WebSocketNotification] 알림 파싱 오류:', error);
+        
       }
     });
 
@@ -77,12 +77,12 @@ export function subscribeToGlobalNotifications() {
     chatRoomUpdateSubscription = globalClient.subscribe('/user/queue/chatroom-update', (message) => {
       try {
         const update = JSON.parse(message.body);
-        console.log('[WebSocketNotification] 채팅방 업데이트:', update);
+        
 
         // 채팅 목록 페이지가 열려있으면 리로드 이벤트 발생
         window.dispatchEvent(new CustomEvent('chatroom-update', { detail: update }));
       } catch (error) {
-        console.error('[WebSocketNotification] 채팅방 업데이트 파싱 오류:', error);
+        
       }
     });
 
@@ -90,33 +90,27 @@ export function subscribeToGlobalNotifications() {
     chatRoomStatusSubscription = globalClient.subscribe('/user/queue/chatroom-status', (message) => {
       try {
         const status = JSON.parse(message.body);
-        console.log('[WebSocketNotification] 채팅방 상태 변경:', status);
+        
 
         // 채팅방 상태 변경 이벤트 발생
         window.dispatchEvent(new CustomEvent('chatroom-status', { detail: status }));
       } catch (error) {
-        console.error('[WebSocketNotification] 채팅방 상태 파싱 오류:', error);
+        
       }
     });
 
-    console.log('[WebSocketNotification] 모든 구독 완료');
+    
   };
 
   globalClient.onStompError = (frame) => {
-    console.error('[WebSocketNotification] STOMP 오류:', frame.headers['message'], frame.body);
+    
   };
 
   globalClient.onWebSocketError = (error) => {
-    console.error('[WebSocketNotification] WebSocket 오류:', error);
+    
   };
 
   globalClient.onWebSocketClose = (event) => {
-    console.warn('[WebSocketNotification] WebSocket 종료:', {
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean
-    });
-
     // 구독 정리
     notificationSubscription = null;
     chatRoomUpdateSubscription = null;
@@ -130,13 +124,13 @@ export function subscribeToGlobalNotifications() {
  * WebSocket 알림 구독 해제
  */
 export function unsubscribeFromGlobalNotifications() {
-  console.log('[WebSocketNotification] 전역 알림 구독 해제...');
+  
 
   if (notificationSubscription) {
     try {
       notificationSubscription.unsubscribe();
     } catch (error) {
-      console.warn('[WebSocketNotification] 알림 구독 해제 실패:', error);
+      
     }
     notificationSubscription = null;
   }
@@ -145,7 +139,7 @@ export function unsubscribeFromGlobalNotifications() {
     try {
       chatRoomUpdateSubscription.unsubscribe();
     } catch (error) {
-      console.warn('[WebSocketNotification] 채팅방 업데이트 구독 해제 실패:', error);
+      
     }
     chatRoomUpdateSubscription = null;
   }
@@ -154,7 +148,7 @@ export function unsubscribeFromGlobalNotifications() {
     try {
       chatRoomStatusSubscription.unsubscribe();
     } catch (error) {
-      console.warn('[WebSocketNotification] 채팅방 상태 구독 해제 실패:', error);
+      
     }
     chatRoomStatusSubscription = null;
   }
@@ -163,7 +157,7 @@ export function unsubscribeFromGlobalNotifications() {
     try {
       globalClient.deactivate();
     } catch (error) {
-      console.warn('[WebSocketNotification] 연결 종료 실패:', error);
+      
     }
     globalClient = null;
   }
@@ -176,60 +170,62 @@ export function unsubscribeFromGlobalNotifications() {
 export function handleNotification(notification) {
   const { type, title, body, icon, image, badge, tag, data } = notification;
 
-  console.log('[WebSocketNotification] 알림 처리:', { type, title, body, data, fullNotification: notification });
+  
 
   // 현재 채팅방에 있는지 확인 (채팅방 안에 있으면 알림 표시 안함)
   // chatRoomId, chatroomId, roomId 등 다양한 필드명 체크
   const notificationChatRoomId = data?.chatRoomId || data?.chatroomId || data?.roomId || notification.chatRoomId;
 
   if (notificationChatRoomId) {
+    // 현재 탭의 URL 확인
     const currentPath = window.location.pathname;
     const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
 
-    console.log('[WebSocketNotification] 채팅방 체크:', {
-      currentPath,
-      currentChatRoomId,
-      notificationChatRoomId,
-      matches: currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)
-    });
+    // localStorage를 통해 모든 탭에서 현재 채팅방 ID 확인
+    // 채팅방 진입 시 ChatRoomPage에서 'current_chat_room_id'를 localStorage에 저장
+    const activeChatRoomId = localStorage.getItem('current_chat_room_id');
 
-    if (currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)) {
-      console.log('[WebSocketNotification] 현재 채팅방 안에 있으므로 알림 표시 안함');
+    // 현재 탭이 해당 채팅방이거나, 다른 탭에서 해당 채팅방을 보고 있으면 알림 표시 안함
+    if (
+      (currentChatRoomId && String(currentChatRoomId) === String(notificationChatRoomId)) ||
+      (activeChatRoomId && String(activeChatRoomId) === String(notificationChatRoomId))
+    ) {
+      
       return;
     }
   } else {
-    console.log('[WebSocketNotification] chatRoomId 없음, 알림 표시 진행');
+    
   }
 
-  // 중복 알림 방지: 최근 5초 이내에 같은 messageId 받았으면 무시
+  // 중복 알림 방지: 최근 30초 이내에 같은 messageId 받았으면 무시 (5초에서 30초로 연장)
   if (data?.messageId) {
     const storageKey = `notification_${data.messageId}`;
     const lastShown = localStorage.getItem(storageKey);
     const now = Date.now();
 
-    if (lastShown && (now - parseInt(lastShown)) < 5000) {
-      console.log('[WebSocketNotification] 중복 알림 무시 (최근에 표시됨)');
+    if (lastShown && (now - parseInt(lastShown)) < 30000) {
+      
       return;
     }
 
     localStorage.setItem(storageKey, now.toString());
 
-    // 5초 후 자동 삭제 (메모리 절약)
+    // 30초 후 자동 삭제 (메모리 절약)
     setTimeout(() => {
       localStorage.removeItem(storageKey);
-    }, 5000);
+    }, 30000);
   }
 
   // 브라우저 알림 권한 확인
   if (Notification.permission !== 'granted') {
-    console.log('[WebSocketNotification] 브라우저 알림 권한 없음 (권한:', Notification.permission, ')');
+    
     return;
   }
 
   // Service Worker를 통해 알림 표시 (Edge 호환성)
   // Edge는 페이지에서 직접 Notification 생성하는 것을 제한할 수 있음
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    console.log('[WebSocketNotification] Service Worker를 통해 알림 표시 시도...');
+    
 
     // WebSocket 알림 표시 (1순위 - 즉시 표시)
     // 각 메시지마다 고유 tag를 사용하므로 알림이 쌓임
@@ -251,17 +247,17 @@ export function handleNotification(notification) {
           }
 
           await registration.showNotification(title, notificationOptions);
-          console.log('[WebSocketNotification] WebSocket 알림 표시 완료 (Fallback 작동, tag:', tag, ')');
+          
         } catch (error) {
-          console.error('[WebSocketNotification] Service Worker 알림 표시 실패:', error);
+          
         }
       }).catch((error) => {
-        console.error('[WebSocketNotification] Service Worker 준비 실패:', error);
+        
       });
     }, 200); // 200ms 지연
   } else {
     // Service Worker 없으면 일반 Notification API 사용 (폴백)
-    console.log('[WebSocketNotification] Service Worker 없음, 페이지 알림 사용');
+    
 
     try {
       const notificationOptions = {
@@ -288,9 +284,9 @@ export function handleNotification(notification) {
         browserNotification.close();
       };
 
-      console.log('[WebSocketNotification] 페이지 알림 표시 완료 (tag:', tag, ')');
+      
     } catch (error) {
-      console.error('[WebSocketNotification] 페이지 알림 표시 실패:', error);
+      
     }
   }
 

@@ -27,16 +27,11 @@ export const AuthProvider = ({ children }) => {
       const response = await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
       if (response.status === 200) {
         const userData = response.data;
-        console.log('[AuthContext] 사용자 정보 업데이트:', {
-          memberId: userData.memberId,
-          verified: userData.verified,
-          name: userData.name
-        });
         setUser(userData);
         setIsAuthenticated(true);
       }
     } catch (error) {
-      console.log('인증되지 않은 사용자:', error.response?.status);
+      
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -54,7 +49,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
     } catch (error) {
-      console.error('로그인 실패:', error);
+      
       return false;
     }
   };
@@ -64,7 +59,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await axiosInstance.post(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
-      console.error('로그아웃 API 호출 실패:', error);
+      
     } finally {
       // API 호출 성공/실패와 관계없이 로컬 상태 초기화
       setUser(null);
@@ -80,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         return true;
       }
     } catch (error) {
-      console.error('토큰 갱신 실패:', error);
+      
       // 토큰 갱신 실패 시 로컬 상태만 초기화 (무한 루프 방지)
       setUser(null);
       setIsAuthenticated(false);

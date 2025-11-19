@@ -29,7 +29,7 @@ export const PushNotificationInitializer = () => {
       // Push 알림 초기화 (2순위 - 오프라인/백그라운드 Fallback)
       // WebSocket 알림(1순위)은 GlobalPresenceContext에서 처리
       initializePushNotification().catch((error) => {
-        console.warn('[PushNotificationInitializer] 푸시 알림 초기화 실패:', error);
+        
         // 초기화 실패는 치명적이지 않으므로 에러를 무시
       });
     }, 2000); // 2초 후 초기화

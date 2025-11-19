@@ -26,8 +26,7 @@ function urlBase64ToUint8Array(base64String) {
     // Base64 유효성 검증 (Base64 문자만 포함하는지 확인)
     const base64Regex = /^[A-Za-z0-9+\/_-]*={0,2}$/;
     if (!base64Regex.test(cleaned)) {
-      console.error('[PushNotificationService] 유효하지 않은 Base64 문자 발견:', {
-        input: cleaned.substring(0, 50) + '...',
+      + '...',
         length: cleaned.length,
         firstChar: cleaned[0],
         lastChar: cleaned[cleaned.length - 1]
@@ -52,8 +51,7 @@ function urlBase64ToUint8Array(base64String) {
       base64 = cleaned + padding;
     } else {
       // 혼합된 경우 (예상치 못한 경우)
-      console.warn('[PushNotificationService] 혼합된 Base64 형식 감지, URL-safe로 처리:', {
-        input: cleaned.substring(0, 50) + '...',
+      + '...',
         hasUrlSafeChars,
         hasStandardChars
       });
@@ -72,21 +70,12 @@ function urlBase64ToUint8Array(base64String) {
     }
     
     // 변환 결과 검증 및 로깅
-    console.log('[PushNotificationService] VAPID 키 변환 완료:', {
-      inputLength: base64String.length,
-      outputLength: outputArray.length,
-      firstByte: outputArray[0],
-      lastByte: outputArray[outputArray.length - 1],
-      isValidLength: outputArray.length === 65 || outputArray.length === 87,
-      isUncompressed: outputArray[0] === 0x04,
-      preview: Array.from(outputArray.slice(0, 10))
+    )
     });
     
     return outputArray;
   } catch (error) {
-    console.error('[PushNotificationService] Base64 디코딩 실패:', {
-      error: error.message,
-      input: base64String.substring(0, 50) + '...',
+    + '...',
       length: base64String.length,
       inputType: typeof base64String
     });
@@ -145,16 +134,7 @@ export function isPushNotificationSupported() {
     const isStandalone = window.navigator.standalone === true ||
                         window.matchMedia('(display-mode: standalone)').matches;
 
-    console.log('[PushNotificationService] iOS 푸시 알림 지원 확인:', {
-      ...mobileEnv,
-      serviceWorker: 'serviceWorker' in navigator,
-      pushManager: 'PushManager' in window,
-      notification: 'Notification' in window,
-      isStandalone,
-      isPWAMode: isStandalone,
-      isSupported: isSupported && isStandalone,
-      note: isStandalone
-        ? 'iOS Safari PWA 모드 - 푸시 알림 지원됨 (iOS 16.4+)'
+    '
         : 'iOS Safari 일반 브라우저 모드 - 푸시 알림 미지원. 홈 화면에 추가하여 PWA로 사용해야 합니다.'
     });
 
@@ -171,15 +151,6 @@ export function isPushNotificationSupported() {
       browserNote = 'Android Chrome/Edge/기타 브라우저 - 정상 지원';
     }
   }
-
-  console.log('[PushNotificationService] 푸시 알림 지원 확인:', {
-    ...mobileEnv,
-    serviceWorker: 'serviceWorker' in navigator,
-    pushManager: 'PushManager' in window,
-    notification: 'Notification' in window,
-    isSupported,
-    browserNote
-  });
 
   return isSupported;
 }
@@ -229,10 +200,10 @@ export async function registerServiceWorker() {
     const registration = await navigator.serviceWorker.register('/service-worker.js', {
       scope: '/'
     });
-    console.log('[PushNotificationService] Service Worker 등록 성공:', registration.scope);
+    
     return registration;
   } catch (error) {
-    console.error('[PushNotificationService] Service Worker 등록 실패:', error);
+    
     throw error;
   }
 }
@@ -254,13 +225,7 @@ export async function subscribeToPush(registration, vapidPublicKey) {
     // 모바일 환경 정보
     const mobileEnv = detectMobileEnvironment();
 
-    console.log('[PushNotificationService] 푸시 구독 시도:', {
-      vapidKeyLength: vapidPublicKey.length,
-      keyArrayLength: keyArray.length,
-      keyBufferLength: keyBuffer.byteLength,
-      firstByte: keyArray[0],
-      lastByte: keyArray[keyArray.length - 1],
-      keyArrayPreview: Array.from(keyArray.slice(0, 10)),
+    ),
       registrationScope: registration.scope,
       registrationActive: registration.active !== null,
       registrationActiveState: registration.active?.state,
@@ -277,8 +242,7 @@ export async function subscribeToPush(registration, vapidPublicKey) {
     try {
       existingSubscription = await registration.pushManager.getSubscription();
       if (existingSubscription) {
-        console.log('[PushNotificationService] 기존 구독 발견:', {
-          endpoint: existingSubscription.endpoint?.substring(0, 50) + '...',
+        + '...',
           expirationTime: existingSubscription.expirationTime,
           options: existingSubscription.options
         });
@@ -292,34 +256,29 @@ export async function subscribeToPush(registration, vapidPublicKey) {
                            currentKeyArray.every((val, idx) => val === keyArray[idx]);
 
           if (isSameKey) {
-            console.log('[PushNotificationService] 기존 구독의 VAPID 키가 일치합니다. 재사용합니다.');
+            
             return existingSubscription;
           } else {
-            console.warn('[PushNotificationService] 기존 구독의 VAPID 키가 다릅니다. 재구독이 필요합니다.');
+            
           }
         }
 
         // VAPID 키가 다르거나 확인 불가능한 경우 기존 구독 해제
         try {
-          console.log('[PushNotificationService] 기존 구독 해제 중...');
+          
           await existingSubscription.unsubscribe();
-          console.log('[PushNotificationService] 기존 구독 해제 완료');
+          
         } catch (unsubscribeError) {
-          console.warn('[PushNotificationService] 기존 구독 해제 실패 (무시하고 계속):', {
+          :', {
             error: unsubscribeError.message,
             errorName: unsubscribeError.name
           });
           // 해제 실패해도 새 구독 시도
         }
       } else {
-        console.log('[PushNotificationService] 기존 구독이 없습니다. 새로 구독합니다.');
+        
       }
     } catch (getSubscriptionError) {
-      console.warn('[PushNotificationService] 기존 구독 조회 실패:', {
-        error: getSubscriptionError.message,
-        errorName: getSubscriptionError.name,
-        note: '새로 구독을 시도합니다.'
-      });
       // 조회 실패해도 계속 진행 (새로 구독 시도)
     }
 
@@ -335,46 +294,34 @@ export async function subscribeToPush(registration, vapidPublicKey) {
 
     // 구독 생성 전 추가 대기 (브라우저가 이전 구독을 완전히 정리할 시간 제공)
     if (existingSubscription) {
-      console.log('[PushNotificationService] 기존 구독 해제 후 추가 대기 중...');
+      
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     try {
       // 먼저 Uint8Array로 시도
-      console.log('[PushNotificationService] 푸시 구독 생성 시도 (Uint8Array)...');
+      
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: keyArray
       });
-      console.log('[PushNotificationService] 푸시 구독 생성 성공 (Uint8Array)');
-    } catch (error1) {
-      console.warn('[PushNotificationService] Uint8Array로 구독 실패:', {
-        error: error1.message,
-        errorName: error1.name,
-        errorStack: error1.stack
-      });
       
+    } catch (error1) {
       // 추가 대기 후 재시도
-      console.log('[PushNotificationService] 잠시 대기 후 재시도...');
+      
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       try {
         // ArrayBuffer로 재시도
-        console.log('[PushNotificationService] 푸시 구독 생성 시도 (ArrayBuffer)...');
+        
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: keyBuffer
         });
-        console.log('[PushNotificationService] 푸시 구독 생성 성공 (ArrayBuffer)');
-      } catch (error2) {
-        console.error('[PushNotificationService] ArrayBuffer로도 구독 실패:', {
-          error: error2.message,
-          errorName: error2.name,
-          errorStack: error2.stack
-        });
         
+      } catch (error2) {
         // 최종 시도: Uint8Array로 다시 시도 (브라우저가 정리되었을 수 있음)
-        console.log('[PushNotificationService] 최종 시도 (Uint8Array)...');
+        
         await new Promise(resolve => setTimeout(resolve, 3000));
         
         try {
@@ -382,43 +329,20 @@ export async function subscribeToPush(registration, vapidPublicKey) {
             userVisibleOnly: true,
             applicationServerKey: keyArray
           });
-          console.log('[PushNotificationService] 푸시 구독 생성 성공 (최종 시도)');
+          
         } catch (error3) {
-          console.error('[PushNotificationService] 모든 구독 시도 실패:', {
-            error1: error1.message,
-            error2: error2.message,
-            error3: error3.message,
-            suggestion: '브라우저 설정에서 알림 권한을 제거하고 다시 허용해보세요. 또는 브라우저를 재시작해보세요.'
-          });
           throw error3;
         }
       }
     }
     
-    console.log('[PushNotificationService] 푸시 구독 생성 성공:', {
-      endpoint: subscription.endpoint,
-      expirationTime: subscription.expirationTime,
-      keys: {
-        p256dh: subscription.getKey('p256dh') ? 'present' : 'missing',
+    ? 'present' : 'missing',
         auth: subscription.getKey('auth') ? 'present' : 'missing'
       }
     });
     return subscription;
   } catch (error) {
-    console.error('[PushNotificationService] 푸시 구독 생성 실패:', {
-      errorName: error.name,
-      errorMessage: error.message,
-      errorStack: error.stack,
-      vapidKeyLength: vapidPublicKey.length,
-      registrationScope: registration?.scope,
-      registrationActive: registration?.active !== null,
-      registrationActiveState: registration?.active?.state,
-      isSecureContext: window.isSecureContext,
-      protocol: window.location.protocol,
-      hostname: window.location.hostname,
-      browser: navigator.userAgent,
-      possibleCauses: [
-        'VAPID 키 쌍 불일치 (백엔드 개인키 확인 필요)',
+    ',
         '브라우저 푸시 서비스 연결 실패 (FCM/autopush)',
         '네트워크 또는 방화벽 문제',
         '브라우저 호환성 문제',
@@ -444,9 +368,9 @@ export async function registerSubscriptionToServer(subscription) {
     };
 
     await pushApi.subscribe(subscriptionData);
-    console.log('[PushNotificationService] 서버에 구독 정보 등록 성공');
+    
   } catch (error) {
-    console.error('[PushNotificationService] 서버에 구독 정보 등록 실패:', error);
+    
     throw error;
   }
 }
@@ -463,16 +387,16 @@ export async function unsubscribeFromPush(registration, endpoint) {
     
     if (subscription) {
       await subscription.unsubscribe();
-      console.log('[PushNotificationService] 푸시 구독 해제 성공 (로컬)');
+      
     }
 
     // 서버에도 구독 해제 요청
     if (endpoint) {
       await pushApi.unsubscribe(endpoint);
-      console.log('[PushNotificationService] 서버에 구독 해제 요청 성공');
+      
     }
   } catch (error) {
-    console.error('[PushNotificationService] 푸시 구독 해제 실패:', error);
+    
     throw error;
   }
 }
@@ -503,7 +427,7 @@ export async function getCurrentSubscription(registration) {
     const subscription = await registration.pushManager.getSubscription();
     return subscription;
   } catch (error) {
-    console.error('[PushNotificationService] 구독 정보 조회 실패:', error);
+    
     return null;
   }
 }
@@ -516,17 +440,17 @@ export async function initializePushNotification() {
   try {
     // 브라우저 지원 확인
     if (!isPushNotificationSupported()) {
-      console.warn('[PushNotificationService] 브라우저가 푸시 알림을 지원하지 않습니다.');
+      
       return null;
     }
 
     // 권한 확인 및 요청
     const permission = await getNotificationPermission();
     if (permission !== 'granted') {
-      console.log('[PushNotificationService] 알림 권한이 없습니다. 권한을 요청합니다...');
+      
       const newPermission = await requestNotificationPermission();
       if (newPermission !== 'granted') {
-        console.warn('[PushNotificationService] 알림 권한이 거부되었습니다.');
+        
         return null;
       }
     }
@@ -536,7 +460,7 @@ export async function initializePushNotification() {
     
     // Service Worker 활성화 대기
     if (registration.installing) {
-      console.log('[PushNotificationService] Service Worker 설치 중...');
+      
       await new Promise((resolve) => {
         registration.installing.addEventListener('statechange', (event) => {
           if (event.target.state === 'installed') {
@@ -547,7 +471,7 @@ export async function initializePushNotification() {
     }
     
     if (registration.waiting) {
-      console.log('[PushNotificationService] Service Worker 대기 중...');
+      
       // 새 Service Worker가 대기 중이면 활성화
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
       await new Promise((resolve) => {
@@ -561,7 +485,7 @@ export async function initializePushNotification() {
     
     // Service Worker 활성화 대기 (최대 5초 대기)
     if (!registration.active) {
-      console.log('[PushNotificationService] Service Worker 활성화 대기...');
+      
       try {
         await Promise.race([
           navigator.serviceWorker.ready,
@@ -570,14 +494,14 @@ export async function initializePushNotification() {
           )
         ]);
       } catch (error) {
-        console.warn('[PushNotificationService] Service Worker 활성화 대기 시간 초과:', error.message);
+        
       }
     }
 
     // Service Worker가 활성화될 때까지 대기
     let activeWorker = registration.active;
     if (!activeWorker) {
-      console.log('[PushNotificationService] Service Worker 활성화 대기 (폴링)...');
+      
       const maxWait = 5000; // 최대 5초 대기
       const startTime = Date.now();
       while (!activeWorker && (Date.now() - startTime) < maxWait) {
@@ -590,16 +514,6 @@ export async function initializePushNotification() {
       throw new Error('Service Worker가 활성화되지 않았습니다.');
     }
 
-    console.log('[PushNotificationService] Service Worker 상태 확인:', {
-      scope: registration.scope,
-      active: registration.active !== null,
-      activeState: registration.active?.state,
-      installing: registration.installing !== null,
-      waiting: registration.waiting !== null,
-      updateViaCache: registration.updateViaCache,
-      pushManager: registration.pushManager !== null
-    });
-
     // 기존 구독 확인 (하지만 VAPID 키 불일치 문제 해결을 위해 재구독 처리)
     // 참고: 브라우저는 동일한 도메인에서 하나의 VAPID 키만 허용하므로,
     // VAPID 키가 변경되면 기존 구독을 해제하고 새로 구독해야 함
@@ -608,11 +522,6 @@ export async function initializePushNotification() {
     // VAPID 공개키 조회
     const vapidPublicKey = await pushApi.getVapidPublicKey();
     if (!vapidPublicKey || typeof vapidPublicKey !== 'string') {
-      console.error('[PushNotificationService] VAPID 공개키 유효성 검증 실패:', {
-        vapidPublicKey,
-        type: typeof vapidPublicKey,
-        isEmpty: !vapidPublicKey
-      });
       throw new Error('VAPID 공개키를 가져올 수 없거나 유효하지 않습니다.');
     }
 
@@ -621,9 +530,7 @@ export async function initializePushNotification() {
       throw new Error('VAPID 공개키가 비어있습니다.');
     }
 
-    console.log('[PushNotificationService] VAPID 공개키 수신:', {
-      length: vapidPublicKey.length,
-      preview: vapidPublicKey.substring(0, 50) + '...',
+    + '...',
       hasPlus: vapidPublicKey.includes('+'),
       hasSlash: vapidPublicKey.includes('/'),
       hasDash: vapidPublicKey.includes('-'),
@@ -637,18 +544,9 @@ export async function initializePushNotification() {
     const isSecureContext = window.isSecureContext;
     const protocol = window.location.protocol;
 
-    console.log('[PushNotificationService] 환경 확인:', {
-      isLocalhost,
-      isSecureContext,
-      protocol,
-      hostname: window.location.hostname,
-      port: window.location.port,
-      fullUrl: window.location.href
-    });
-
     // localhost가 아니고 HTTPS가 아닌 경우 경고
     if (!isLocalhost && protocol !== 'https:') {
-      console.warn('[PushNotificationService] HTTPS가 아닌 환경에서 푸시 알림이 작동하지 않을 수 있습니다.');
+      
     }
 
     // 새 구독 생성 (재시도 로직 포함)
@@ -663,16 +561,11 @@ export async function initializePushNotification() {
         break; // 성공하면 루프 종료
       } catch (error) {
         retryCount++;
-        console.warn(`[PushNotificationService] 푸시 구독 시도 ${retryCount}/${maxRetries} 실패:`, error.message);
+        
         
         if (retryCount >= maxRetries) {
           // 최대 재시도 횟수 초과
-          console.error('[PushNotificationService] 푸시 구독 최대 재시도 횟수 초과:', {
-            error: error.message,
-            retryCount,
-            possibleCauses: [
-              '백엔드 VAPID 개인키가 프론트엔드 공개키와 다른 키 쌍일 수 있습니다.',
-              '브라우저 푸시 서비스(FCM/autopush) 연결에 실패했습니다.',
+          연결에 실패했습니다.',
               '네트워크 또는 방화벽 설정 문제일 수 있습니다.',
               '브라우저 버전 또는 설정 문제일 수 있습니다.',
               'localhost 개발 환경에서 제한이 있을 수 있습니다.'
@@ -689,15 +582,10 @@ export async function initializePushNotification() {
     // 서버에 구독 등록
     await registerSubscriptionToServer(subscription);
 
-    console.log('[PushNotificationService] 푸시 알림 초기화 완료');
+    
     return subscription;
   } catch (error) {
-    console.error('[PushNotificationService] 푸시 알림 초기화 실패:', {
-      error: error.message,
-      errorName: error.name,
-      errorStack: error.stack,
-      possibleCauses: [
-        '브라우저 푸시 서비스(FCM/autopush) 연결 실패 - 네트워크 또는 방화벽 문제일 수 있습니다.',
+    연결 실패 - 네트워크 또는 방화벽 문제일 수 있습니다.',
         '브라우저 설정에서 알림이 차단되었을 수 있습니다.',
         'localhost 개발 환경에서 일부 브라우저 버전에서 제한이 있을 수 있습니다.',
         '브라우저 확장 프로그램이나 보안 소프트웨어가 푸시 서비스를 차단했을 수 있습니다.',

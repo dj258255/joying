@@ -80,7 +80,7 @@ const ProductListMain = () => {
       try {
         selectedHashtags = JSON.parse(hashtagsParam);
       } catch (e) {
-        console.error('해시태그 파싱 오류:', e);
+        
         selectedHashtags = [];
       }
     }
@@ -156,7 +156,7 @@ const ProductListMain = () => {
   React.useEffect(() => {
     if (location.state?.filterByHashtag) {
       const hashtag = location.state.filterByHashtag;
-      console.log('🏷️ [ProductListMain] 상품 상세에서 해시태그 필터 적용:', hashtag);
+      
 
       // 해시태그를 선택 상태에 추가
       setSelectedHashtags([hashtag]);
@@ -173,7 +173,7 @@ const ProductListMain = () => {
   // 컴포넌트 마운트 시 URL에서 필터 복원
   React.useEffect(() => {
     if (isInitialLoad.current && searchParams.toString()) {
-      console.log('🔄 [ProductListMain] 초기 로드 - URL에서 필터 복원');
+      
       const urlFilters = getFiltersFromURL();
 
       // 기본 필터들 복원
@@ -235,7 +235,7 @@ const ProductListMain = () => {
     for (const mainCat of categories) {
       const subCategory = mainCat.children?.find(sub => sub.categoryId === categoryId);
       if (subCategory) {
-        console.log('🏷️ [ProductListMain] URL 카테고리 파라미터 적용:', subCategory.categoryName);
+        
         setSelectedSubcategories([subCategory]);
         setAppliedFilters(prev => ({
           ...prev,
@@ -250,7 +250,7 @@ const ProductListMain = () => {
   // URL 파라미터가 없어지면 (상세 페이지에서 /products로 돌아올 때) ref 초기화
   React.useEffect(() => {
     if (!categoryParam && categoryAppliedRef.current) {
-      console.log('🔄 [ProductListMain] URL 카테고리 파라미터 제거 감지 - ref 초기화');
+      
       categoryAppliedRef.current = false;
     }
   }, [categoryParam]);
@@ -313,19 +313,8 @@ const ProductListMain = () => {
     refetch
   } = useInfiniteSearch(apiFilters.q || '', apiFilters);
 
-  console.log('🎯 [ProductListMain] useInfiniteSearch 결과:', {
-    productsCount: products?.length || 0,
-    total,
-    hashtagsCount: hashtags?.length || 0,
-    isLoading,
-    isFetchingNextPage,
-    isError,
-    error: error?.message,
-    hasNextPage
-  });
-
   React.useEffect(() => {
-    console.log('🔄 [ProductListMain] 컴포넌트 마운트');
+    
     // useInfiniteQuery의 enabled: true로 자동 실행됨
     lastAppliedFilters.current = apiFilters;
   }, [apiFilters]);
@@ -334,12 +323,12 @@ const ProductListMain = () => {
   React.useEffect(() => {
     // 첫 마운트가 아닐 때만 실행 (lastAppliedFilters가 설정된 후)
     if (lastAppliedFilters.current !== null) {
-      console.log('🔄 [ProductListMain] activeTab 변경 감지 - 즉시 refetch:', activeTab);
+      
       // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
       refetch().then((result) => {
-        console.log('✅ [ProductListMain] activeTab refetch 완료:', result);
+        
       }).catch((err) => {
-        console.error('❌ [ProductListMain] activeTab refetch 에러:', err);
+        
       });
       lastAppliedFilters.current = apiFilters;
     }
@@ -365,12 +354,12 @@ const ProductListMain = () => {
   React.useEffect(() => {
     // 첫 마운트는 제외 (lastAppliedFilters가 설정된 후에만 실행)
     if (lastAppliedFilters.current !== null) {
-      console.log('🔄 [ProductListMain] appliedFilters 변경 감지 - refetch 호출');
+      
       // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
       refetch().then((result) => {
-        console.log('✅ [ProductListMain] appliedFilters refetch 완료:', result);
+        
       }).catch((err) => {
-        console.error('❌ [ProductListMain] appliedFilters refetch 에러:', err);
+        
       });
       lastAppliedFilters.current = apiFilters;
     }
@@ -388,7 +377,7 @@ const ProductListMain = () => {
         
         if (event?.type === 'removed' || (event?.type === 'updated' && event?.query?.isInvalidated)) {
           // 쿼리가 무효화되면 refetch
-          console.log('[ProductListMain] SEARCH 쿼리 무효화 감지, refetch 실행');
+          
           refetch();
         }
       }
@@ -402,7 +391,7 @@ const ProductListMain = () => {
     const handleFocus = () => {
       const searchQuery = queryClient.getQueryState([QUERY_KEYS.SEARCH, q || '', apiFilters]);
       if (searchQuery && (searchQuery.isInvalidated || searchQuery.isStale)) {
-        console.log('[ProductListMain] 페이지 포커스, SEARCH 쿼리 refetch');
+        
         refetch();
       }
     };
@@ -420,7 +409,7 @@ const ProductListMain = () => {
           setSuggestions(data || []);
           setShowSuggestions(true);
         } catch (error) {
-          console.error('자동완성 조회 실패:', error);
+          
           setSuggestions([]);
         }
       } else {
@@ -605,7 +594,6 @@ const ProductListMain = () => {
     return `${selectedSubcategories[0].categoryName} 외 ${selectedSubcategories.length - 1}개`;
   };
 
-
   const handleStarClick = (e, starIndex) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -653,7 +641,7 @@ const ProductListMain = () => {
   const handleHashtagSelect = (hashtag, isRemove = false) => {
     // 해시태그 유효성 검사
     if (!hashtag || !hashtag.id || !hashtag.name) {
-      console.warn('[ProductListMain] 잘못된 해시태그:', hashtag);
+      
       return;
     }
 
@@ -686,17 +674,6 @@ const ProductListMain = () => {
   }, [products, selectedHashtags]);
 
   const handleApply = async () => {
-    console.log('🔵 [ProductListMain] 필터 적용 시작:', {
-      searchQuery,
-      dateRange: selectedDates,
-      priceRange,
-      subcategories: selectedSubcategories,
-      region: selectedDong,
-      rating,
-      sameDayRental,
-      hashtags: selectedHashtags
-    });
-
     // useInfiniteSearch가 내부적으로 페이지 및 데이터를 관리하므로 수동 초기화 불필요
 
     const newFilters = {
@@ -718,17 +695,6 @@ const ProductListMain = () => {
     // URL에 필터 상태 저장
     updateURLWithFilters(newFilters);
 
-    console.log('✅ [ProductListMain] 필터 적용:', {
-      searchQuery,
-      dateRange: selectedDates,
-      priceRange,
-      subcategories: selectedSubcategories,
-      region: selectedDong,
-      rating,
-      sameDayRental,
-      hashtags: selectedHashtags
-    });
-
     handleCloseFilter();
   };
 
@@ -746,7 +712,7 @@ const ProductListMain = () => {
       ...prev,
       searchQuery
     }));
-    console.log('🔍 [ProductListMain] 검색 실행:', searchQuery);
+    
   };
 
   // Enter 키 검색
@@ -771,7 +737,7 @@ const ProductListMain = () => {
         const entry = entries[0];
         // 화면에 보이고, 로딩중이 아니고, 다음 페이지가 있으면 자동 로드
         if (entry.isIntersecting && !isLoading && !isFetchingNextPage && hasNextPage) {
-          console.log('👁️ [ProductListMain] Observer 트리거 - fetchNextPage 호출');
+          
           fetchNextPage();
         }
       },
@@ -1413,7 +1379,6 @@ const ProductListMain = () => {
         </button>
        </div>
      </div>
-
 
      {/* 메인 콘텐츠 영역 */}
      <div className="flex-1 overflow-y-auto scrollbar-hide bg-gray-50">

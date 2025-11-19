@@ -38,7 +38,7 @@ export const shippingApi = {
         rawData: trackData, // 원본 데이터도 포함 (디버깅용)
       };
     } catch (error) {
-      console.error('[shippingApi] 배송 추적 조회 실패:', error);
+      
       throw error;
     }
   },

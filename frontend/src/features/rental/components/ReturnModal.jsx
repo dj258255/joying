@@ -73,9 +73,9 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[ReturnModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
+        
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[ReturnModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+        
 
         const url = URL.createObjectURL(blob);
         setRecordedVideoBlob(blob);
@@ -96,7 +96,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('[ReturnModal] 영상 녹화 시작 실패:', err);
+      
       setError('카메라 접근에 실패했습니다. 브라우저 설정을 확인해주세요.');
     }
   };
@@ -129,11 +129,11 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
       setIsLoading(true);
       setError(null);
 
-      console.log('[ReturnModal] 영상 업로드 시작');
+      
 
       // 1. 파일 업로드
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      console.log('[ReturnModal] 파일 업로드 응답:', uploadResult);
+      
 
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
@@ -144,11 +144,11 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ReturnModal] fileId를 찾을 수 없음:', uploadResult);
+        
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
-      console.log('[ReturnModal] 파일 업로드 성공. fileId:', fileId);
+      
 
       // 2. 대여 이력에 영상 등록
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
@@ -156,7 +156,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
         videoType: 'RENTER_RETURN'
       });
 
-      console.log('[ReturnModal] 영상 등록 성공:', videoResult);
+      
 
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
@@ -188,10 +188,10 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
             || videoUrl;
         }
       } catch (err) {
-        console.error('[ReturnModal] 영상 목록 조회 실패:', err);
+        
       }
 
-      console.log('[ReturnModal] 최종 videoUrl:', finalVideoUrl);
+      
 
       // 4. 채팅방에 영상 촬영 완료 메시지 전송
       if (sendMessage) {
@@ -200,7 +200,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
           type: 'TEXT',
           content: messageContent
         });
-        console.log('[ReturnModal] 채팅 메시지 전송 완료');
+        
       }
 
       // 5. 송장 번호 등록 안내 메시지 전송
@@ -211,7 +211,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
             type: 'TEXT',
             content: trackingMessageContent
           });
-          console.log('[ReturnModal] 송장 번호 등록 안내 메시지 전송 완료');
+          
         }, 500);
       }
 
@@ -226,7 +226,7 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
       // 7. 모달 닫기
       onClose();
     } catch (err) {
-      console.error('[ReturnModal] 영상 업로드 실패:', err);
+      
       
       // 에러 메시지 개선
       let errorMessage = '영상 업로드에 실패했습니다.';
@@ -361,6 +361,4 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
 };
 
 export default ReturnModal;
-
-
 

@@ -58,7 +58,7 @@ const ReviewListPage = ({ type }) => {
         reviewList = reviewList.filter((r) => r.reviewId !== reviewId);
         setFilteredList((prev) => prev.filter((r) => r.reviewId !== reviewId));
       } catch (err) {
-        console.error('리뷰 삭제 실패:', err);
+        
         alert('리뷰 삭제에 실패했습니다. 다시 시도해주세요.');
       }
     }
@@ -96,7 +96,6 @@ const ReviewListPage = ({ type }) => {
 
     setFilteredList(result);
   };
-
 
   if (isLoading) {
     return (

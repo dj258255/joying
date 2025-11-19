@@ -40,7 +40,7 @@ export const useUserProfile = (userId) => {
       localStorage.removeItem('refreshToken');
     },
     onError: (error) => {
-      console.error('회원 탈퇴 실패:', error);
+      
       throw error; // 컴포넌트에서 에러 처리할 수 있도록 에러를 다시 throw
     }
   });

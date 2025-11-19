@@ -33,7 +33,7 @@ const ensureClient = () => {
     heartbeatOutgoing: 30000,
     debug: (str) => {
       if (import.meta.env.DEV) {
-        console.debug('[chatRoomsRealtime][STOMP]', str);
+        
       }
     },
     webSocketFactory,
@@ -53,12 +53,12 @@ const ensureClient = () => {
   };
 
   client.onStompError = (frame) => {
-    console.error('[chatRoomsRealtime] STOMP error:', frame.headers['message'], frame.body);
+    
     errorHandler?.(new Error(frame.headers['message'] || frame.body || 'STOMP error'));
   };
 
   client.onWebSocketError = (event) => {
-    console.error('[chatRoomsRealtime] WebSocket error:', event);
+    
     errorHandler?.(event instanceof Error ? event : new Error(event?.message || 'WebSocket error'));
   };
 
@@ -75,7 +75,7 @@ const cleanupSubscriptions = () => {
     try {
       subscription.unsubscribe();
     } catch (error) {
-      console.warn('[chatRoomsRealtime] unsubscribe failed:', error);
+      
     }
   });
   subscriptions.clear();
@@ -101,12 +101,12 @@ const subscribeRoom = (roomId) => {
         const payload = JSON.parse(frame.body);
         messageHandler?.(payload);
       } catch (error) {
-        console.error('[chatRoomsRealtime] payload parse error:', error);
+        
       }
     });
     subscriptions.set(idKey, subscription);
   } catch (error) {
-    console.error('[chatRoomsRealtime] subscribe error:', error);
+    
   }
 };
 
@@ -117,7 +117,7 @@ const unsubscribeRoom = (roomId) => {
     try {
       subscription.unsubscribe();
     } catch (error) {
-      console.warn('[chatRoomsRealtime] unsubscribe error:', error);
+      
     }
     subscriptions.delete(idKey);
   }
@@ -142,7 +142,7 @@ export const stopChatRoomsRealtime = () => {
     try {
       client.deactivate();
     } catch (error) {
-      console.warn('[chatRoomsRealtime] deactivate error:', error);
+      
     }
     client = null;
     isConnected = false;
@@ -176,9 +176,4 @@ export const updateSubscribedRooms = (roomIds) => {
     subscribeRoom(roomId);
   });
 };
-
-
-
-
-
 

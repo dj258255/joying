@@ -76,7 +76,7 @@ const AccountVerifyForm = ({ onComplete }) => {
       
       // 거래 내역 조회 페이지로 자동 이동
       const transactionUrl = `/accounts/transactions?accountNo=${encodeURIComponent(response.accountNo)}&transactionUniqueNo=${encodeURIComponent(response.transactionUniqueNo)}`;
-      console.log('[AccountVerifyForm] 거래 내역 조회 페이지로 이동:', transactionUrl);
+      
       
       // 새 창으로 거래 내역 페이지 열기 (인증 코드 확인용)
       window.open(transactionUrl, '_blank');

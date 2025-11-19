@@ -45,7 +45,7 @@ export const useTrackingStatus = (trackingNumber, courier) => {
     // 수동 조회 함수
     refetch: async () => {
       if (!trackingNumber || !courier) {
-        console.warn('[useTrackingStatus] 운송장 번호 또는 택배사 정보가 없습니다.');
+        
         return;
       }
       return refetch();

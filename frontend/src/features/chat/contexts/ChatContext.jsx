@@ -34,19 +34,41 @@ const createMessageKey = (message) => {
   return `${senderId}-${timestamp}-${type}-${content}`;
 };
 
+// content + timestamp 기반 키 생성 (임시 메시지와 실제 메시지 매칭용)
+const createContentBasedKey = (message) => {
+  if (!message) return 'undefined';
+  const senderId = message.senderId ?? message.sender?.id ?? 'unknown';
+  const content = message.content ?? '';
+  const timestamp = message.timestamp ?? 'no-time';
+  // 타임스탬프를 초 단위로 반올림하여 1초 이내의 메시지는 같은 것으로 간주
+  const timestampSeconds = timestamp ? Math.floor(new Date(timestamp).getTime() / 1000) : 'no-time';
+  const type = message.type ?? 'unknown';
+  return `${senderId}-${timestampSeconds}-${type}-${content.substring(0, 100)}`; // content는 최대 100자만 사용
+};
+
 const mergeMessages = (existing, incoming) => {
   const map = new Map();
+  const contentBasedMap = new Map(); // content 기반 매칭용 (임시 메시지와 실제 메시지 매칭)
 
+  // 기존 메시지 추가
   existing.forEach((message) => {
     if (!message) return;
     // ID가 있으면 ID를 키로 사용, 없으면 createMessageKey 사용
     const key = message.id ? String(message.id) : createMessageKey(message);
     map.set(key, message);
+    
+    // content 기반 키도 저장 (임시 메시지 매칭용)
+    if (message.id && message.id.startsWith('temp_')) {
+      const contentKey = createContentBasedKey(message);
+      contentBasedMap.set(contentKey, message);
+    }
   });
 
+  // 새로 들어온 메시지 처리
   incoming.forEach((message) => {
     if (!message) return;
-    // ID가 있으면 ID를 키로 사용, 없으면 createMessageKey 사용
+    
+    // ID 기반 키
     const key = message.id ? String(message.id) : createMessageKey(message);
     const existingMessage = map.get(key);
     
@@ -59,10 +81,34 @@ const mergeMessages = (existing, incoming) => {
       if (isExistingTemp && isIncomingReal) {
         // 임시 메시지를 실제 메시지로 교체
         map.set(key, message);
+        // content 기반 맵에서도 제거
+        const contentKey = createContentBasedKey(existingMessage);
+        contentBasedMap.delete(contentKey);
       }
       // 그 외의 경우는 기존 메시지 유지 (중복 방지)
     } else {
-      map.set(key, message);
+      // ID가 없는 경우 content 기반으로 임시 메시지와 매칭 시도
+      if (!message.id || !message.id.startsWith('temp_')) {
+        const contentKey = createContentBasedKey(message);
+        const tempMessage = contentBasedMap.get(contentKey);
+        
+        if (tempMessage) {
+          // 임시 메시지를 찾았으면 실제 메시지로 교체
+          const tempKey = String(tempMessage.id);
+          map.delete(tempKey);
+          map.set(key, message);
+          contentBasedMap.delete(contentKey);
+          });
+        } else {
+          // 매칭되는 임시 메시지가 없으면 새로 추가
+          map.set(key, message);
+        }
+      } else {
+        // 임시 메시지인 경우 그냥 추가
+        map.set(key, message);
+        const contentKey = createContentBasedKey(message);
+        contentBasedMap.set(contentKey, message);
+      }
     }
   });
 
@@ -341,7 +387,7 @@ export const ChatProvider = ({ children }) => {
 
   const normalizeMessage = useCallback((rawMessage, chatRoomOverride = null) => {
     if (!rawMessage) {
-      console.warn('[ChatContext] normalizeMessage: rawMessage is null or undefined');
+      
       return null;
     }
 
@@ -377,14 +423,7 @@ export const ChatProvider = ({ children }) => {
     
     // 디버깅: 시스템 메시지 감지 시 로그
     if (type === 'system') {
-      console.log('[ChatContext] normalizeMessage: 시스템 메시지 감지:', {
-        rawMessage,
-        type,
-        content: rawMessage.content,
-        senderId,
-        timestamp
-      });
-    }
+      }
     
     // 답장 정보 정규화
     let replyTo = null;
@@ -464,20 +503,13 @@ export const ChatProvider = ({ children }) => {
         if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
           const jsonStr = contentStr.substring(jsonStartIndex, jsonEndIndex + 1);
           
-          console.log('[ChatContext] normalizeMessage: JSON 문자열 추출:', {
-            originalContent: contentStr.substring(0, 100) + '...',
+          + '...',
             jsonStr: jsonStr.substring(0, 100) + '...',
             jsonStartIndex,
             jsonEndIndex
           });
           
           const parsed = JSON.parse(jsonStr);
-          console.log('[ChatContext] normalizeMessage: JSON 파싱 결과:', {
-            parsed,
-            hasType: !!parsed?.type,
-            type: parsed?.type
-          });
-          
           if (parsed && parsed.type === 'RENTAL_REQUEST') {
             rentalInfo = {
               productId: parsed.productId,
@@ -496,16 +528,10 @@ export const ChatProvider = ({ children }) => {
               status: parsed.status || 'pending'
             };
             
-            console.log('[ChatContext] normalizeMessage: rentalInfo 추출 성공:', {
-              rentalInfo,
-              productId: rentalInfo.productId,
-              productTitle: rentalInfo.productTitle
-            });
-            
             // 대여 요청 메시지인 경우 타입을 rental_request로 설정
             if (type === 'text' && rentalInfo) {
               type = 'rental_request';
-              console.log('[ChatContext] 대여 요청 메시지 감지 (content 파싱): text -> rental_request', {
+              : text -> rental_request', {
                 parsed,
                 rentalInfo,
                 type,
@@ -514,16 +540,12 @@ export const ChatProvider = ({ children }) => {
               });
             }
           } else {
-            console.log('[ChatContext] normalizeMessage: JSON 파싱 성공했지만 RENTAL_REQUEST 타입 아님:', {
-              parsedType: parsed?.type,
-              parsed
-            });
-          }
+            }
         } else {
           // JSON 문자열이 직접 시작하고 끝나는 경우 (단일 JSON 문자열)
           if (contentStr.startsWith('{') && contentStr.endsWith('}')) {
             const parsed = JSON.parse(contentStr);
-            console.log('[ChatContext] normalizeMessage: JSON 파싱 결과 (직접 파싱):', {
+            :', {
               parsed,
               hasType: !!parsed?.type,
               type: parsed?.type
@@ -549,27 +571,27 @@ export const ChatProvider = ({ children }) => {
               
               if (type === 'text' && rentalInfo) {
                 type = 'rental_request';
-                console.log('[ChatContext] 대여 요청 메시지 감지 (직접 파싱): text -> rental_request', {
+                : text -> rental_request', {
                   rentalInfo,
                   type
                 });
               }
             }
           } else {
-            console.log('[ChatContext] normalizeMessage: JSON 문자열이 아님 (일반 텍스트):', {
+            :', {
               content: contentStr.substring(0, 50) + '...'
             });
           }
         }
       } catch (e) {
         // JSON 파싱 실패 시 일반 텍스트 메시지로 처리
-        console.log('[ChatContext] normalizeMessage: JSON 파싱 실패 (일반 텍스트 메시지):', {
+        :', {
           error: e.message,
           content: String(rawMessage.content).substring(0, 50) + '...'
         });
       }
     } else if (rentalInfo) {
-      console.log('[ChatContext] normalizeMessage: rentalInfo가 이미 있음 (rawMessage에서):', {
+      :', {
         rentalInfo,
         productId: rentalInfo.productId,
         productTitle: rentalInfo.productTitle
@@ -579,7 +601,7 @@ export const ChatProvider = ({ children }) => {
     // rentalInfo가 있으면 타입을 rental_request로 설정 (이중 체크)
     if (rentalInfo && type === 'text') {
       type = 'rental_request';
-      console.log('[ChatContext] 대여 요청 메시지 타입 변경: text -> rental_request (rentalInfo 있음)', {
+      ', {
         rentalInfo,
         type,
         productId: rentalInfo.productId,
@@ -702,7 +724,7 @@ export const ChatProvider = ({ children }) => {
 
       return normalized.length > 0;
     } catch (error) {
-      console.error('[ChatContext] 과거 메시지 로드 실패:', error);
+      
       return false;
     } finally {
       isFetchingPastRef.current = false;
@@ -772,7 +794,7 @@ export const ChatProvider = ({ children }) => {
         targetMessageIndex: mergedMessages.findIndex(msg => String(msg.id) === String(messageId))
       };
     } catch (error) {
-      console.error('[ChatContext] 메시지 점프 실패:', error);
+      
       throw error;
     }
   }, [normalizeMessage]);
@@ -918,11 +940,11 @@ export const ChatProvider = ({ children }) => {
       return;
     }
 
-    console.log('[ChatContext] WebSocket 연결 시도:', roomId);
+    
     resetConnectionPromise();
     connect(roomId, {
       onMessage: (rawMessage) => {
-        console.log('[ChatContext] WebSocket 메시지 수신 (raw):', {
+        :', {
           rawMessage,
           type: rawMessage?.type,
           content: rawMessage?.content,
@@ -931,22 +953,10 @@ export const ChatProvider = ({ children }) => {
         });
 
         const normalized = normalizeMessage(rawMessage, chatRoomData);
-        console.log('[ChatContext] WebSocket 메시지 정규화 후:', {
-          normalized,
-          type: normalized?.type,
-          content: normalized?.content,
-          senderId: normalized?.senderId,
-          chatRoomId: normalized?.chatRoomId
-        });
-
         if (normalized) {
           // 중복 메시지 필터링 (메시지 ID 기반)
           const messageId = normalized.id;
           if (messageId && recentlyReceivedMessagesRef.current.has(messageId)) {
-            console.log('[ChatContext] 중복 메시지 수신 무시:', {
-              messageId,
-              type: normalized.type,
-              content: normalized.content?.substring(0, 50)
             });
             return; // 중복 메시지는 무시
           }
@@ -973,11 +983,11 @@ export const ChatProvider = ({ children }) => {
           if (isSystemMessage) {
             // 재입장 메시지는 무시 (표시하지 않음)
             if (normalized.content?.includes('다시 들어왔습니다') || normalized.content?.includes('재입장')) {
-              console.log('[ChatContext] 재입장 시스템 메시지 무시:', normalized);
+              
               return;
             }
             
-            console.log('[ChatContext] 시스템 메시지 감지 (onMessage):', {
+            :', {
               normalized,
               rawMessage,
               type: normalized.type,
@@ -992,7 +1002,7 @@ export const ChatProvider = ({ children }) => {
               
               // 내용이 정확히 일치하면 중복
               if (msg.content === normalized.content) {
-                console.log('[ChatContext] 동일한 내용의 시스템 메시지 발견:', msg);
+                
                 return true;
               }
               
@@ -1000,15 +1010,11 @@ export const ChatProvider = ({ children }) => {
             });
             
             if (existingSystemMessage) {
-              console.log('[ChatContext] 동일한 시스템 메시지가 이미 존재함, 무시:', {
-                existing: existingSystemMessage,
-                incoming: normalized
-              });
               return;
             }
             
             // 시스템 메시지 추가
-            console.log('[ChatContext] 시스템 메시지 추가 (중복 없음):', normalized);
+            
             dispatch({ type: 'ADD_MESSAGE', payload: normalized });
             
             // 채팅 목록 업데이트
@@ -1087,16 +1093,16 @@ export const ChatProvider = ({ children }) => {
             if (isInThisChatRoom && !isOwnMessage) {
               try {
                 websocketApi.sendReadReceipt(roomId);
-                console.log('[ChatContext] 새 메시지 수신 후 자동 읽음 처리 전송:', roomId);
+                
               } catch (error) {
-                console.warn('[ChatContext] 자동 읽음 처리 전송 실패:', error);
+                
               }
             }
         }
       },
       onError: (errorLike) => {
         const error = errorLike instanceof Error ? errorLike : new Error(errorLike?.message || errorLike?.reason || 'WebSocket error');
-        console.error('[ChatContext] WebSocket 오류:', errorLike);
+        
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
         const reject = connectionRejectRef.current;
         connectionRejectRef.current = () => {};
@@ -1105,7 +1111,7 @@ export const ChatProvider = ({ children }) => {
         connectionPromiseRef.current = Promise.resolve();
       },
       onConnect: () => {
-        console.log('[ChatContext] WebSocket 연결 성공:', roomId);
+        
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: true });
         const resolve = connectionResolveRef.current;
         connectionResolveRef.current = () => {};
@@ -1116,7 +1122,7 @@ export const ChatProvider = ({ children }) => {
         try {
           websocketApi.enterChatRoom(roomId);
         } catch (error) {
-          console.warn('[ChatContext] 채팅방 입장 전송 실패:', error);
+          
         }
         
         // Heartbeat 시작 (30초마다 전송, chatRoomId 포함)
@@ -1133,14 +1139,14 @@ export const ChatProvider = ({ children }) => {
         }, 30000);
       },
       onDisconnect: () => {
-        console.log('[ChatContext] WebSocket 연결 종료:', roomId);
+        
         dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
         
         // 채팅방 퇴장 전송
         try {
           websocketApi.leaveChatRoom();
         } catch (error) {
-          console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+          
         }
         
         // 타이핑 상태 초기화
@@ -1207,7 +1213,7 @@ export const ChatProvider = ({ children }) => {
 
         // 본인이 읽음 처리를 한 경우 무시 (내가 내 메시지를 읽은 것이므로 읽음 표시 안함)
         if (readerMemberId && Number(readerMemberId) === Number(currentUserId)) {
-          console.log('[ChatContext] 본인의 읽음 처리 이벤트는 무시 (내 메시지는 읽음 표시 안함)');
+          
           return;
         }
 
@@ -1217,12 +1223,6 @@ export const ChatProvider = ({ children }) => {
           const readAt = typeof readEvent.readAt === 'number'
             ? new Date(readEvent.readAt).toISOString()
             : readEvent.readAt;
-
-          console.log('[ChatContext] 상대방이 메시지를 읽음:', {
-            readerMemberId,
-            readAt,
-            currentUserId
-          });
 
           // 상대방이 읽었으므로 내가 보낸 메시지를 읽음 처리
           dispatch({
@@ -1245,7 +1245,7 @@ export const ChatProvider = ({ children }) => {
       try {
         websocketApi.leaveChatRoom();
       } catch (error) {
-        console.warn('[ChatContext] 채팅방 퇴장 전송 실패:', error);
+        
       }
 
       disconnect();
@@ -1265,16 +1265,16 @@ export const ChatProvider = ({ children }) => {
 
       let chatRoom;
       if (chatRoomData) {
-        console.log('[ChatContext] 생성된 채팅방 데이터 사용 (조회 API 호출 생략):', chatRoomData);
+        
         chatRoom = chatRoomData;
       } else {
-        console.log('[ChatContext] 채팅방 상세 조회 API 호출:', chatRoomId);
+        
         try {
           chatRoom = await chatApi.getChatRoomDetail(chatRoomId, { include: 'member' });
         } catch (error) {
           // 403 에러는 나간 채팅방 접근 시도로 간주
           if (error.response?.status === 403 || error.message?.includes('접근할 권한이 없습니다')) {
-            console.warn('[ChatContext] 나간 채팅방 접근 시도 (403 에러). 접근 차단.');
+            
             dispatch({ type: 'SET_LOADING', payload: false });
             throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
           }
@@ -1288,7 +1288,7 @@ export const ChatProvider = ({ children }) => {
       // 본인이 나간 상태(isLeft=true)인지 확인하여 접근 차단
       // 백엔드 API 응답에 isLeft 필드가 포함되어 있는지 확인
       if (chatRoom.isLeft === true || chatRoom.isLeft === 'true') {
-        console.warn('[ChatContext] 본인이 나간 채팅방에 접근 시도 (isLeft=true). 접근 차단.');
+        
         dispatch({ type: 'SET_LOADING', payload: false });
         throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
       }
@@ -1307,14 +1307,14 @@ export const ChatProvider = ({ children }) => {
           // 목록이 로드되어 있고, 해당 채팅방이 목록에 없으면 나간 채팅방으로 간주
           // 단, 목록이 비어있으면 정상 채팅방일 수도 있으므로 차단하지 않음
           if (chatRoomsData.chatRooms.length > 0 && !roomExists) {
-            console.warn('[ChatContext] 나간 채팅방 접근 시도 (목록에 없음). 접근 차단.');
+            
             dispatch({ type: 'SET_LOADING', payload: false });
             throw new Error('나간 채팅방입니다. 채팅방 목록으로 이동합니다.');
           }
         }
       } catch (error) {
         // 목록 확인 중 에러가 발생하면 무시 (API 응답에 의존)
-        console.warn('[ChatContext] 채팅방 목록 확인 중 에러:', error);
+        
       }
 
       // 채팅방 상태 확인 (자동 종료 여부) 및 입력창 비활성화 설정
@@ -1466,7 +1466,7 @@ export const ChatProvider = ({ children }) => {
             try {
               websocketApi.sendReadReceipt(roomId);
             } catch (readError) {
-              console.warn('[ChatContext] 읽음 처리 실패:', readError);
+              
             }
           }
         })
@@ -1475,7 +1475,7 @@ export const ChatProvider = ({ children }) => {
           // WebSocket 연결이 실패했을 때는 읽음 처리를 시도하지 않음
         });
     } catch (error) {
-      console.error('채팅방 로드 실패:', error);
+      
       dispatch({ type: 'SET_CURRENT_CHAT_ROOM', payload: null });
       dispatch({ type: 'SET_MESSAGES', payload: [] });
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
@@ -1514,7 +1514,7 @@ export const ChatProvider = ({ children }) => {
       };
 
       if (!socketConnected || !websocketApi.isConnected?.()) {
-        console.warn('WebSocket 연결을 기다리는 중입니다.');
+        
         await connectionPromiseRef.current;
       }
 
@@ -1524,7 +1524,7 @@ export const ChatProvider = ({ children }) => {
       let messageType = payload.type.toLowerCase();
       if (payload.rentalInfo && messageType === 'text') {
         messageType = 'rental_request';
-        console.log('[ChatContext] 대여 요청 메시지 감지 (optimistic): text -> rental_request');
+        
       }
       
       const optimisticMessage = {
@@ -1553,7 +1553,7 @@ export const ChatProvider = ({ children }) => {
       updateChatRoomList(optimisticMessage, false);
 
       sendWebSocketMessage(roomId, payload);
-      console.log('[ChatContext] 메시지 전송 요청:', payload);
+      
 
       // 읽음 표시는 onRead 이벤트로만 처리 (상대방이 sendReadReceipt()를 보내면 자동으로 처리됨)
       // typingMemberId로 판단하는 것은 부정확함 (상대방이 채팅방에 있어도 타이핑하지 않으면 null)
@@ -1565,7 +1565,7 @@ export const ChatProvider = ({ children }) => {
             try {
               websocketApi.sendReadReceipt(roomId);
             } catch (readError) {
-              console.warn('[ChatContext] 읽음 처리 실패:', readError);
+              
             }
           }
         })
@@ -1581,7 +1581,7 @@ export const ChatProvider = ({ children }) => {
         window.dispatchEvent(new CustomEvent('chat:message-sent'));
       }, 100);
     } catch (error) {
-      console.error('메시지 전송 실패:', error);
+      
       throw error;
     }
   }, [currentUserId, resolveSenderInfo, sendWebSocketMessage, socketConnected, state.currentChatRoom, updateChatRoomList]);
@@ -1631,7 +1631,7 @@ export const ChatProvider = ({ children }) => {
 
       // WebSocket을 통해 서버에서 삭제된 메시지가 자동으로 수신되면 다시 업데이트됨
     } catch (error) {
-      console.error('메시지 삭제 실패:', error);
+      
       // 실패 시 Optimistic update 롤백
       const currentMessages = stateRef.current.messages || [];
       const rollbackMessages = currentMessages.map((msg) => {
@@ -1694,7 +1694,7 @@ export const ChatProvider = ({ children }) => {
 
       // WebSocket을 통해 서버에서 수정된 메시지가 자동으로 수신되면 다시 업데이트됨
     } catch (error) {
-      console.error('메시지 수정 실패:', error);
+      
       // 실패 시 Optimistic update 롤백
       const rollbackMessages = snapshot.messages.map((msg) => {
         if (msg.id === messageId && msg.status === 'updating') {
@@ -1737,7 +1737,7 @@ export const ChatProvider = ({ children }) => {
       await sendMessage(payload);
       return fileData;
     } catch (error) {
-      console.error('파일 업로드 실패:', error);
+      
       throw error;
     }
   }, [sendMessage]);
@@ -1757,7 +1757,7 @@ export const ChatProvider = ({ children }) => {
     try {
       sendTypingEvent(roomId);
     } catch (error) {
-      console.warn('[ChatContext] 타이핑 이벤트 전송 실패:', error);
+      
     }
   }, [sendTypingEvent]);
 
@@ -1780,7 +1780,7 @@ export const ChatProvider = ({ children }) => {
           try {
             websocketApi.sendReadReceipt(roomId);
           } catch (error) {
-            console.warn('[ChatContext] 읽음 처리 전송 실패:', error);
+            
           }
         }
       })
@@ -1793,17 +1793,8 @@ export const ChatProvider = ({ children }) => {
   // 채팅방 상태 변경 알림 처리 함수
   const handleChatRoomStatusEvent = useCallback((event) => {
     try {
-      console.log('[ChatContext] handleChatRoomStatusEvent 호출:', {
-        event,
-        eventType: event?.eventType,
-        chatRoomId: event?.chatRoomId,
-        memberId: event?.memberId,
-        memberNickname: event?.memberNickname,
-        timestamp: event?.timestamp
-      });
-      
       if (!event || !event.eventType) {
-        console.warn('[ChatContext] 유효하지 않은 채팅방 상태 변경 이벤트:', event);
+        
         return;
       }
       
@@ -1811,9 +1802,7 @@ export const ChatProvider = ({ children }) => {
       const snapshot = stateRef.current;
       const currentRoomId = snapshot.currentChatRoom?.chatRoomId || snapshot.currentChatRoom?.id;
       
-      console.log('[ChatContext] 채팅방 상태 변경 이벤트 처리:', {
-        eventType,
-        chatRoomId: Number(chatRoomId),
+      ,
         currentRoomId: Number(currentRoomId),
         isCurrentRoom: currentRoomId && Number(currentRoomId) === Number(chatRoomId),
         memberId,
@@ -1824,16 +1813,14 @@ export const ChatProvider = ({ children }) => {
       // 현재 채팅방이 해당 채팅방인 경우에만 처리
       const isCurrentRoom = currentRoomId && Number(currentRoomId) === Number(chatRoomId);
       
-      console.log('[ChatContext] 채팅방 상태 변경 이벤트 처리 조건 확인:', {
-        isCurrentRoom,
-        currentRoomId: Number(currentRoomId),
+      ,
         eventChatRoomId: Number(chatRoomId),
         eventType,
         memberNickname
       });
       
       if (isCurrentRoom) {
-        console.log('[ChatContext] 현재 채팅방과 일치, 이벤트 처리 시작:', eventType);
+        
         switch (eventType) {
           case 'MEMBER_LEFT':
             // 상대방이 나갔습니다
@@ -1913,7 +1900,7 @@ export const ChatProvider = ({ children }) => {
           case 'MEMBER_REJOINED':
             // 재입장 이벤트는 무시 (재입장 메시지 표시하지 않음)
             // 상대방 상태만 업데이트
-            console.log('[ChatContext] 재입장 이벤트 수신 (메시지 표시하지 않음):', {
+            :', {
               chatRoomId,
               memberId,
               memberNickname
@@ -2058,7 +2045,7 @@ export const ChatProvider = ({ children }) => {
             break;
             
           default:
-            console.warn('[ChatContext] 알 수 없는 채팅방 상태 변경 이벤트:', eventType);
+            
         }
       } else {
         // 현재 채팅방이 아닌 경우, 채팅방 목록만 업데이트 (시스템 메시지 표시)
@@ -2152,7 +2139,7 @@ export const ChatProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('[ChatContext] 채팅방 상태 변경 이벤트 처리 실패:', error);
+      
     }
   }, [queryClient, updateChatRoomList]);
 
@@ -2167,7 +2154,7 @@ export const ChatProvider = ({ children }) => {
     const connectGlobalWebSocket = () => {
       try {
         const url = getWebSocketUrl();
-        console.log('[ChatContext] 전역 WebSocket 연결 시도 (채팅방 상태 변경 알림):', url);
+        
 
         const socket = url.startsWith('ws://') || url.startsWith('wss://')
           ? new WebSocket(url)
@@ -2182,7 +2169,7 @@ export const ChatProvider = ({ children }) => {
           heartbeatOutgoing: 30000,
           debug: (str) => {
             if (import.meta.env.DEV) {
-              console.debug('[ChatContext Global STOMP]', str);
+              
             }
           },
           webSocketFactory: () => socket,
@@ -2192,18 +2179,18 @@ export const ChatProvider = ({ children }) => {
         });
 
         client.onConnect = (frame) => {
-          console.log('[ChatContext] 전역 WebSocket 연결 성공 (채팅방 상태 변경 알림)');
+          
 
           // 채팅방 상태 변경 알림 구독
           const statusSubscription = client.subscribe('/user/queue/chatroom-status', (message) => {
             try {
-              console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (raw):', {
+              :', {
                 body: message.body,
                 headers: message.headers
               });
 
               const event = JSON.parse(message.body);
-              console.log('[ChatContext] 채팅방 상태 변경 이벤트 수신 (parsed):', {
+              :', {
                 event,
                 eventType: event.eventType,
                 chatRoomId: event.chatRoomId,
@@ -2214,21 +2201,16 @@ export const ChatProvider = ({ children }) => {
 
               handleChatRoomStatusEvent(event);
             } catch (error) {
-              console.error('[ChatContext] 채팅방 상태 변경 이벤트 파싱 오류:', {
-                error,
-                body: message.body,
-                headers: message.headers
-              });
-            }
+              }
           });
 
-          console.log('[ChatContext] 채팅방 상태 변경 알림 구독 완료: /user/queue/chatroom-status');
+          
 
           // 채팅방 목록 업데이트 구독 (unreadCount 실시간 업데이트용)
           const updateSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
               const update = JSON.parse(message.body);
-              console.log('[ChatContext] 채팅방 업데이트 수신:', update);
+              
 
               // React Query 캐시 업데이트
               queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
@@ -2318,11 +2300,11 @@ export const ChatProvider = ({ children }) => {
                 };
               });
             } catch (error) {
-              console.error('[ChatContext] 채팅방 업데이트 처리 오류:', error);
+              
             }
           });
 
-          console.log('[ChatContext] 채팅방 목록 업데이트 구독 완료: /user/queue/chatroom-update');
+          
 
           // 두 구독을 모두 저장
           subscription = { statusSubscription, updateSubscription };
@@ -2336,7 +2318,7 @@ export const ChatProvider = ({ children }) => {
                   body: JSON.stringify({})
                 });
               } catch (error) {
-                console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);
+                
               }
             }
           }, 30000);
@@ -2347,24 +2329,19 @@ export const ChatProvider = ({ children }) => {
         };
 
         client.onStompError = (frame) => {
-          console.error('[ChatContext] 전역 WebSocket STOMP 오류:', frame.headers['message'], frame.body);
+          
         };
 
         client.onWebSocketError = (error) => {
-          console.error('[ChatContext] 전역 WebSocket 오류:', error);
+          
         };
 
         client.onWebSocketClose = (event) => {
-          console.warn('[ChatContext] 전역 WebSocket 종료:', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean
-          });
-        };
+          };
 
         client.activate();
       } catch (error) {
-        console.error('[ChatContext] 전역 WebSocket 연결 실패:', error);
+        
       }
     };
 
@@ -2384,14 +2361,14 @@ export const ChatProvider = ({ children }) => {
             subscription.updateSubscription.unsubscribe();
           }
         } catch (error) {
-          console.warn('[ChatContext] 전역 WebSocket 구독 해제 오류:', error);
+          
         }
       }
       if (client) {
         try {
           client.deactivate();
         } catch (error) {
-          console.warn('[ChatContext] 전역 WebSocket 비활성화 오류:', error);
+          
         }
       }
       globalWebSocketClientRef.current = null;
@@ -2417,7 +2394,7 @@ export const ChatProvider = ({ children }) => {
               body: JSON.stringify({})
             });
           } catch (error) {
-            console.warn('[ChatContext] 전역 WebSocket Heartbeat 전송 실패:', error);
+            
           }
         }
       }
@@ -2444,7 +2421,7 @@ export const ChatProvider = ({ children }) => {
     try {
       websocketApi.enterChatRoom(chatRoomId);
     } catch (error) {
-      console.warn('[ChatContext] 채팅방 입장 알림 실패:', error);
+      
     }
   }, []);
 
@@ -2453,7 +2430,7 @@ export const ChatProvider = ({ children }) => {
     try {
       websocketApi.leaveChatRoom();
     } catch (error) {
-      console.warn('[ChatContext] 채팅방 퇴장 알림 실패:', error);
+      
     }
   }, []);
 
@@ -2463,7 +2440,7 @@ export const ChatProvider = ({ children }) => {
     try {
       websocketApi.refreshChatRoomActivity(chatRoomId);
     } catch (error) {
-      console.warn('[ChatContext] 채팅방 활성 상태 갱신 실패:', error);
+      
     }
   }, []);
 
@@ -2495,7 +2472,6 @@ export const ChatProvider = ({ children }) => {
     setLoading: (loading) =>
       dispatch({ type: 'SET_LOADING', payload: loading })
   };
-
 
   return (
     <ChatContext.Provider value={value}>

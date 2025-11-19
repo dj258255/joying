@@ -5,21 +5,21 @@
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[ServiceWorker] 설치됨');
+  
   // 즉시 활성화
   self.skipWaiting();
 });
 
 // Service Worker 활성화
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] 활성화됨');
+  
   // 모든 클라이언트에 즉시 제어권 부여
   event.waitUntil(self.clients.claim());
 });
 
 // 푸시 알림 수신
 self.addEventListener('push', (event) => {
-  console.log('[ServiceWorker] 푸시 알림 수신:', event);
+  
 
   let notificationData = {
     title: '알림',
@@ -35,7 +35,7 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const data = event.data.json();
-      console.log('[ServiceWorker] 푸시 데이터 파싱 성공:', data);
+      
       notificationData = {
         title: data.title || notificationData.title,
         body: data.body || notificationData.body,
@@ -48,23 +48,23 @@ self.addEventListener('push', (event) => {
         ...(data.actions && { actions: data.actions })
       };
     } catch (e) {
-      console.error('[ServiceWorker] JSON 파싱 실패:', e);
+      
       // JSON 파싱 실패 시 텍스트로 처리
       try {
         const text = event.data.text();
-        console.log('[ServiceWorker] 텍스트로 파싱:', text);
+        
         if (text) {
           notificationData.body = text;
         }
       } catch (textError) {
-        console.error('[ServiceWorker] 텍스트 파싱도 실패:', textError);
+        
       }
     }
   } else {
-    console.warn('[ServiceWorker] 푸시 데이터가 없음');
+    
   }
 
-  console.log('[ServiceWorker] 알림 표시 시도:', notificationData);
+  
 
   // 알림 표시 (각 메시지마다 고유 tag로 쌓임)
   event.waitUntil(
@@ -79,11 +79,6 @@ self.addEventListener('push', (event) => {
             const currentChatRoomId = clientUrl.pathname.match(/\/chats\/(\d+)/)?.[1];
 
             if (currentChatRoomId && String(currentChatRoomId) === String(notificationData.data.chatRoomId)) {
-              console.log('[ServiceWorker] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
-                currentChatRoomId,
-                notificationChatRoomId: notificationData.data.chatRoomId,
-                clientUrl: client.url
-              });
               return; // 알림 표시하지 않음
             }
           }
@@ -94,16 +89,16 @@ self.addEventListener('push', (event) => {
         if (notificationData.data && notificationData.data.messageId) {
           const messageId = notificationData.data.messageId;
 
-          // 최근 5초 이내에 같은 messageId로 표시된 알림이 있는지 확인
+          // 최근 30초 이내에 같은 messageId로 표시된 알림이 있는지 확인 (5초에서 30초로 연장)
           const existingNotifications = await self.registration.getNotifications();
           const now = Date.now();
 
           for (const notification of existingNotifications) {
             if (notification.data && notification.data.messageId === messageId) {
-              // timestamp가 있으면 확인, 없으면 5초 이내로 간주
+              // timestamp가 있으면 확인, 없으면 30초 이내로 간주
               const notifTimestamp = notification.data.timestamp || now;
-              if ((now - notifTimestamp) < 5000) {
-                console.log('[ServiceWorker] 중복 알림 무시 (최근에 표시됨):', messageId);
+              if ((now - notifTimestamp) < 30000) {
+                
                 return; // 중복이므로 표시하지 않음
               }
             }
@@ -126,9 +121,9 @@ self.addEventListener('push', (event) => {
           ...(notificationData.actions && { actions: notificationData.actions })
         });
 
-        console.log('[ServiceWorker] Push 알림 표시 완료:', notificationData.title, 'tag:', notificationData.tag);
+        
       } catch (error) {
-        console.error('[ServiceWorker] 알림 표시 실패:', error);
+        
       }
     })()
   );
@@ -136,7 +131,7 @@ self.addEventListener('push', (event) => {
 
 // 알림 클릭 처리
 self.addEventListener('notificationclick', (event) => {
-  console.log('[ServiceWorker] 알림 클릭:', event);
+  
 
   event.notification.close();
 
@@ -167,12 +162,12 @@ self.addEventListener('notificationclick', (event) => {
 
 // 알림 닫기 처리
 self.addEventListener('notificationclose', (event) => {
-  console.log('[ServiceWorker] 알림 닫힘:', event);
+  
 });
 
 // 메시지 수신 (클라이언트에서 Service Worker로)
 self.addEventListener('message', (event) => {
-  console.log('[ServiceWorker] 메시지 수신:', event.data);
+  
   
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

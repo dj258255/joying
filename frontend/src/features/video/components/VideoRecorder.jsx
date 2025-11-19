@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useVideoRecorder } from '../hooks/useVideoRecorder';
 
 const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
-  console.log('[VideoRecorder] 컴포넌트 렌더링됨');
+  
 
   const videoRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -23,7 +23,7 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
     resetRecording
   } = useVideoRecorder();
 
-  console.log('[VideoRecorder] 현재 상태:', { isRecording, hasBlob: !!recordedBlob, recordingTime });
+  
 
   // 웹캠 접근
   useEffect(() => {
@@ -45,7 +45,7 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
           videoRef.current.srcObject = mediaStream;
         }
       } catch (err) {
-        console.error('카메라 접근 실패:', err);
+        
         setError('카메라에 접근할 수 없습니다. 권한을 확인해주세요.');
       }
     };
@@ -54,11 +54,11 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
 
     // Cleanup: 컴포넌트 언마운트 시 카메라 스트림 종료
     return () => {
-      console.log('[VideoRecorder] 컴포넌트 언마운트 - 카메라 종료');
+      
       if (mediaStream) {
         mediaStream.getTracks().forEach(track => {
           track.stop();
-          console.log('[VideoRecorder] 트랙 종료:', track.kind);
+          
         });
       }
     };
@@ -67,75 +67,64 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
   // 녹화 완료 후 미리보기 URL 생성
   useEffect(() => {
     if (recordedBlob) {
-      console.log('[VideoRecorder] 녹화 완료 - recordedBlob 정보:', {
-        size: recordedBlob.size,
-        type: recordedBlob.type
-      });
-
       const url = URL.createObjectURL(recordedBlob);
       setPreviewUrl(url);
-      console.log('[VideoRecorder] 미리보기 URL 생성 완료:', url);
+      
 
       // 비디오 소스를 녹화된 영상으로 변경
       if (videoRef.current) {
-        console.log('[VideoRecorder] 현재 비디오 상태:', {
-          srcObject: videoRef.current.srcObject,
-          src: videoRef.current.src,
-          readyState: videoRef.current.readyState
-        });
-
         videoRef.current.srcObject = null; // 라이브 스트림 제거
         videoRef.current.src = url;
 
         // 비디오 로드 이벤트 리스너 추가
         videoRef.current.onloadeddata = () => {
-          console.log('[VideoRecorder] 비디오 로드 완료');
+          
           videoRef.current.play().catch(err => {
-            console.error('[VideoRecorder] 비디오 재생 실패:', err);
+            
           });
         };
 
         videoRef.current.onerror = (e) => {
-          console.error('[VideoRecorder] 비디오 로드 에러:', e);
+          
         };
 
         videoRef.current.load();
-        console.log('[VideoRecorder] 비디오 소스 변경 완료 - URL:', url);
+        
       } else {
-        console.error('[VideoRecorder] videoRef.current가 null입니다!');
+        
       }
 
       // Cleanup: URL 해제
       return () => {
-        console.log('[VideoRecorder] 미리보기 URL 해제:', url);
+        
         URL.revokeObjectURL(url);
       };
     } else {
-      console.log('[VideoRecorder] recordedBlob가 없습니다');
+      
     }
   }, [recordedBlob]);
 
   // 녹화 시작
   const handleStartRecording = () => {
-    console.log('[VideoRecorder] 녹화 시작 버튼 클릭 - stream:', stream);
+    
     if (stream) {
       startRecording(stream);
     } else {
-      console.error('[VideoRecorder] stream이 없습니다!');
+      
     }
   };
 
   // 녹화 완료
   const handleStopRecording = () => {
-    console.log('[VideoRecorder] 녹화 중지 버튼 클릭');
-    console.log('recordedBlob 상태:', recordedBlob);
-    console.log('isRecording 상태:', isRecording);
+    
+    
+    
     stopRecording();
   };
 
   // 재촬영
   const handleRetake = () => {
-    console.log('[VideoRecorder] 재촬영 - 미리보기 초기화');
+    
     resetRecording();
     setPreviewUrl(null);
 
@@ -143,7 +132,7 @@ const VideoRecorder = ({ onRecordComplete, purpose = 'delivery' }) => {
     if (videoRef.current && stream) {
       videoRef.current.src = '';
       videoRef.current.srcObject = stream;
-      console.log('[VideoRecorder] 비디오 소스를 라이브 스트림으로 복원');
+      
     }
   };
 

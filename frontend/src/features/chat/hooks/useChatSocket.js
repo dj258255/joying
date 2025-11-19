@@ -14,9 +14,9 @@ export const useChatSocket = () => {
     try {
       if (currentRoomRef.current && Number(currentRoomRef.current) === Number(chatRoomId)) {
         if (!websocketApi.isConnected()) {
-          console.warn('[useChatSocket] 기존 연결이 끊어져 재연결 시도');
+          
         } else {
-          console.log('[useChatSocket] 이미 연결된 채팅방입니다.');
+          
           return;
         }
       }
@@ -40,7 +40,7 @@ export const useChatSocket = () => {
       });
       currentRoomRef.current = chatRoomId;
     } catch (error) {
-      console.error('WebSocket 연결 실패:', error);
+      
       setIsConnected(false);
       onError?.(error);
       throw error;
@@ -65,7 +65,7 @@ export const useChatSocket = () => {
     if (websocketApi.isConnected()) {
       websocketApi.sendTyping(chatRoomId);
     } else {
-      console.warn('[useChatSocket] WebSocket이 연결되지 않아 타이핑 이벤트를 전송할 수 없습니다.');
+      
     }
   }, []);
 

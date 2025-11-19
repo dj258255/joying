@@ -22,7 +22,7 @@ export const useReviews = (type, targetId, filters = {}) => {
     queryFn: async () => {
       if (type === 'product') {
         const data = await productReviewApi.getProductReviews(targetId, filters);
-        console.log(data.data);
+        
         return data.data;
       } else if (type === 'member') {
         const data = await userReviewApi.getUserReviews(targetId, filters);

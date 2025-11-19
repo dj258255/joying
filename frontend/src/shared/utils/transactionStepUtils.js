@@ -76,7 +76,7 @@ export const checkStepCompleted = async (step, rentalData, rentalHisId, videos =
           v.type === 'OWNER_SEND'
         );
       } catch (err) {
-        console.error('[transactionStepUtils] 영상 확인 실패:', err);
+        
         return false;
       }
 
@@ -106,7 +106,7 @@ export const checkStepCompleted = async (step, rentalData, rentalHisId, videos =
           v.type === 'RENTER_RETURN'
         );
       } catch (err) {
-        console.error('[transactionStepUtils] 반납 영상 확인 실패:', err);
+        
         return false;
       }
 
@@ -252,7 +252,7 @@ export const checkAllSteps = async (rentalData, rentalHisId) => {
         || videoResponse?.videos
         || [];
     } catch (err) {
-      console.error('[transactionStepUtils] 영상 목록 조회 실패:', err);
+      
       videos = [];
     }
   }

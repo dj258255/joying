@@ -39,7 +39,7 @@ const UserInfoEditor = ({ userId, onSave }) => {
       await updateUser({ nickname: formData.nickname });
       onSave?.();
     } catch (error) {
-      console.error('사용자 정보 수정 실패:', error);
+      
     }
   };
 

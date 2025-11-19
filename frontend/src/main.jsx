@@ -12,7 +12,6 @@ import { queryClient } from '@/lib/react-query/queryClient';
 import App from './App.jsx';
 import './styles/globalStyles.css';
 
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

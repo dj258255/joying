@@ -79,7 +79,7 @@ const RegisteredProductList = ({
       setTotalElements(response.totalElements || 0);
       setCurrentPage(response.number || page);
     } catch (err) {
-      console.error('등록한 상품 목록 조회 실패:', err);
+      
       setError(err.message || '상품 목록을 불러오는데 실패했습니다.');
       setProducts([]);
     } finally {
@@ -135,7 +135,7 @@ const RegisteredProductList = ({
       
       alert('상품이 삭제되었습니다.');
     } catch (err) {
-      console.error('상품 삭제 실패:', err);
+      
       alert(err.response?.data?.message || err.message || '상품 삭제에 실패했습니다.');
     } finally {
       setIsDeleting(false);

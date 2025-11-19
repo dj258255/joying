@@ -80,7 +80,7 @@ export const useCreateProduct = () => {
       });
     },
     onError: (error) => {
-      console.error('상품 등록 실패:', error);
+      
     }
   });
 };
@@ -105,7 +105,7 @@ export const useUpdateProduct = () => {
       });
     },
     onError: (error) => {
-      console.error('상품 수정 실패:', error);
+      
     }
   });
 };
@@ -120,19 +120,19 @@ export const useDeleteProduct = () => {
   return useMutation({
     mutationFn: deleteProduct,
     onSuccess: (data, productId) => {
-      console.log('🗑️ [useDeleteProduct] 상품 삭제 성공, 캐시 무효화 시작', { productId });
+      
       
       // 상품 목록 캐시 무효화
       queryClient.invalidateQueries({ 
         queryKey: [PRODUCT_QUERY_KEYS.PRODUCTS] 
       });
-      console.log('✅ [useDeleteProduct] PRODUCTS 캐시 무효화');
+      
       
       // 상품 상세 캐시 제거
       queryClient.removeQueries({ 
         queryKey: [PRODUCT_QUERY_KEYS.PRODUCT_DETAIL, productId] 
       });
-      console.log('✅ [useDeleteProduct] PRODUCT_DETAIL 캐시 제거');
+      
       
       // 홈페이지 featured products 캐시 무효화 및 강제 제거 (삭제된 상품이 홈에 표시되지 않도록)
       queryClient.invalidateQueries({ 
@@ -141,24 +141,24 @@ export const useDeleteProduct = () => {
       queryClient.removeQueries({
         queryKey: ['homeProducts']
       });
-      console.log('✅ [useDeleteProduct] homeProducts 캐시 무효화 및 제거');
+      
       
       // 검색 결과 캐시 무효화 (삭제된 상품이 검색 결과에 표시되지 않도록)
       queryClient.invalidateQueries({ 
         queryKey: ['search'] 
       });
-      console.log('✅ [useDeleteProduct] search 캐시 무효화');
+      
       
       // 마이페이지 캐시 무효화
       queryClient.invalidateQueries({ 
         queryKey: ['myProducts'] 
       });
-      console.log('✅ [useDeleteProduct] myProducts 캐시 무효화');
       
-      console.log('🎉 [useDeleteProduct] 모든 캐시 무효화 완료');
+      
+      
     },
     onError: (error) => {
-      console.error('상품 삭제 실패:', error);
+      
     }
   });
 };

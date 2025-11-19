@@ -62,7 +62,7 @@ const cleanupSubscriptions = () => {
     try {
       sub.unsubscribe();
     } catch (error) {
-      console.warn('[websocketApi] 구독 해제 중 오류:', error);
+      
     }
   });
   subscriptions = [];
@@ -70,7 +70,7 @@ const cleanupSubscriptions = () => {
 
 const createSocket = () => {
   const url = websocketConfig.url;
-  console.log('[websocketApi] SockJS 연결 시도 URL:', url);
+  
 
   if (url.startsWith('ws://') || url.startsWith('wss://')) {
     return new WebSocket(url);
@@ -82,7 +82,7 @@ const createSocket = () => {
       withCredentials: true
     });
   } catch (error) {
-    console.error('[websocketApi] SockJS 생성 실패:', error);
+    
     throw error;
   }
 };
@@ -106,7 +106,7 @@ export const websocketApi = {
       heartbeatOutgoing: websocketConfig.heartbeatInterval,
       debug: (str) => {
         if (import.meta.env.DEV) {
-          console.debug('[STOMP]', str);
+          
         }
       },
       webSocketFactory: createSocket,
@@ -116,11 +116,11 @@ export const websocketApi = {
     });
 
     client.onUnhandledFrame = (frame) => {
-      console.warn('[websocketApi] 처리되지 않은 STOMP Frame:', frame);
+      
     };
 
     client.onUnhandledMessage = (message) => {
-      console.warn('[websocketApi] 처리되지 않은 메시지:', message);
+      
     };
 
     client.beforeConnect = () => {
@@ -128,19 +128,19 @@ export const websocketApi = {
     };
 
     client.onConnect = (frame) => {
-      console.log('[websocketApi] STOMP 연결 성공:', frame.command);
+      
       if (!client) return;
       cleanupSubscriptions();
 
       const subscribe = (destination) => {
-        console.log('[websocketApi] 구독 경로:', destination);
+        
         const sub = client.subscribe(destination, (frame) => {
           try {
             const payload = JSON.parse(frame.body);
-            console.log('[websocketApi] 메시지 수신:', { destination, payload });
+            
             onMessage?.(payload);
           } catch (error) {
-            console.error('[websocketApi] 메시지 파싱 오류:', error);
+            
             onError?.(error);
           }
         });
@@ -156,7 +156,7 @@ export const websocketApi = {
           subscribe(`/user/${sessionId}/queue/chat/${chatRoomIdNum}`);
         }
       } catch (error) {
-        console.warn('[websocketApi] 세션 기반 구독 설정 실패:', error?.message || error);
+        
       }
 
       subscribe(`/queue/chat/${chatRoomIdNum}`);
@@ -166,28 +166,28 @@ export const websocketApi = {
 
       // 타이핑 이벤트 구독
       const typingDestination = `/topic/chat/${chatRoomIdNum}/typing`;
-      console.log('[websocketApi] 타이핑 구독 경로:', typingDestination);
+      
       const typingSub = client.subscribe(typingDestination, (frame) => {
         try {
           const payload = JSON.parse(frame.body);
-          console.log('[websocketApi] 타이핑 이벤트 수신:', payload);
+          
           onTyping?.(payload);
         } catch (error) {
-          console.error('[websocketApi] 타이핑 이벤트 파싱 오류:', error);
+          
         }
       });
       subscriptions.push(typingSub);
 
       // 읽음 이벤트 구독
       const readDestination = `/topic/chat/${chatRoomIdNum}/read`;
-      console.log('[websocketApi] 읽음 구독 경로:', readDestination);
+      
       const readSub = client.subscribe(readDestination, (frame) => {
         try {
           const payload = JSON.parse(frame.body);
-          console.log('[websocketApi] 읽음 이벤트 수신:', payload);
+          
           onRead?.(payload);
         } catch (error) {
-          console.error('[websocketApi] 읽음 이벤트 파싱 오류:', error);
+          
         }
       });
       subscriptions.push(readSub);
@@ -196,22 +196,17 @@ export const websocketApi = {
     };
 
     client.onStompError = (frame) => {
-      console.error('[websocketApi] STOMP 오류:', frame.headers['message'], frame.body);
+      
       const error = new Error(frame.headers['message'] || frame.body || 'STOMP error');
       onError?.(error);
     };
 
     client.onWebSocketError = (error) => {
-      console.error('[websocketApi] WebSocket 오류:', error);
+      
       onError?.(error instanceof Error ? error : new Error(error?.message || 'WebSocket error'));
     };
 
     client.onWebSocketClose = (event) => {
-      console.warn('[websocketApi] WebSocket 종료:', {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean
-      });
       cleanupSubscriptions();
       onDisconnect?.(event);
     };
@@ -225,7 +220,7 @@ export const websocketApi = {
       try {
         client.deactivate();
       } catch (error) {
-        console.warn('[websocketApi] 비활성화 오류:', error);
+        
       }
       client = null;
     }
@@ -279,7 +274,7 @@ export const websocketApi = {
 
   sendHeartbeat(chatRoomId) {
     if (!client || !client.connected) {
-      console.warn('[websocketApi] Heartbeat 전송 실패: WebSocket이 연결되지 않았습니다.');
+      
       return false;
     }
 
@@ -294,7 +289,7 @@ export const websocketApi = {
       });
       return true;
     } catch (error) {
-      console.warn('[websocketApi] Heartbeat 전송 오류:', error);
+      
       return false;
     }
   },
@@ -302,11 +297,11 @@ export const websocketApi = {
   enterChatRoom(chatRoomId) {
     const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
     if (!client || !client.connected) {
-      console.warn('[websocketApi] 채팅방 입장 실패: WebSocket이 연결되지 않았습니다.');
+      
       return false;
     }
     if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
-      console.warn('[websocketApi] 채팅방 입장 실패: 유효하지 않은 채팅방 ID입니다.');
+      
       return false;
     }
 
@@ -315,17 +310,17 @@ export const websocketApi = {
         destination: '/app/chat/enter',
         body: JSON.stringify({ chatRoomId: chatRoomIdNum })
       });
-      console.log('[websocketApi] 채팅방 입장 전송:', chatRoomIdNum);
+      
       return true;
     } catch (error) {
-      console.warn('[websocketApi] 채팅방 입장 전송 오류:', error);
+      
       return false;
     }
   },
 
   leaveChatRoom() {
     if (!client || !client.connected) {
-      console.warn('[websocketApi] 채팅방 퇴장 실패: WebSocket이 연결되지 않았습니다.');
+      
       return false;
     }
 
@@ -334,10 +329,10 @@ export const websocketApi = {
         destination: '/app/chat/leave',
         body: JSON.stringify({})
       });
-      console.log('[websocketApi] 채팅방 퇴장 전송');
+      
       return true;
     } catch (error) {
-      console.warn('[websocketApi] 채팅방 퇴장 전송 오류:', error);
+      
       return false;
     }
   },
@@ -345,11 +340,11 @@ export const websocketApi = {
   refreshChatRoomActivity(chatRoomId) {
     const chatRoomIdNum = Number(chatRoomId ?? activeChatRoomId);
     if (!client || !client.connected) {
-      console.warn('[websocketApi] 채팅방 활성 상태 갱신 실패: WebSocket이 연결되지 않았습니다.');
+      
       return false;
     }
     if (!chatRoomIdNum || Number.isNaN(chatRoomIdNum)) {
-      console.warn('[websocketApi] 채팅방 활성 상태 갱신 실패: 유효하지 않은 채팅방 ID입니다.');
+      
       return false;
     }
 
@@ -359,10 +354,10 @@ export const websocketApi = {
         destination: '/app/chat/enter',
         body: JSON.stringify({ chatRoomId: chatRoomIdNum })
       });
-      console.log('[websocketApi] 채팅방 활성 상태 갱신:', chatRoomIdNum);
+      
       return true;
     } catch (error) {
-      console.warn('[websocketApi] 채팅방 활성 상태 갱신 오류:', error);
+      
       return false;
     }
   },

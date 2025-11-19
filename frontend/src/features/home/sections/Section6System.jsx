@@ -68,4 +68,3 @@ const Section6System = () => {
 
 export default Section6System;
 
-

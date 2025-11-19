@@ -25,12 +25,6 @@ export const aiApi = {
       formData.append('image', imageFile);
       formData.append('upload_type', uploadType);
 
-      console.log('[aiApi] AI 게시글 생성 요청:', {
-        fileName: imageFile.name,
-        fileSize: imageFile.size,
-        uploadType: uploadType
-      });
-
       const response = await axios.post(`${AI_API_BASE_URL}/api/generate`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -38,17 +32,10 @@ export const aiApi = {
         timeout: 60000, // 60초 타임아웃
       });
 
-      console.log('[aiApi] AI 게시글 생성 응답:', response.data);
+      
 
       return response.data;
     } catch (error) {
-      console.error('[aiApi] AI 게시글 생성 실패:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       const errorMessage = error.response?.data?.detail
         || error.response?.data?.error
         || error.message
@@ -71,7 +58,7 @@ export const aiApi = {
 
       return response.data?.status === 'healthy';
     } catch (error) {
-      console.warn('[aiApi] AI 서비스 헬스 체크 실패:', error.message);
+      
       return false;
     }
   }

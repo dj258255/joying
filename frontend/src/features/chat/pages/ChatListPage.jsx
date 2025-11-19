@@ -40,7 +40,7 @@ const ChatListPage = () => {
     const connectWebSocket = () => {
       try {
         const url = getWebSocketUrl();
-        console.log('[ChatListPage] WebSocket 연결 시도:', url);
+        
 
         const socket = url.startsWith('ws://') || url.startsWith('wss://')
           ? new WebSocket(url)
@@ -55,7 +55,7 @@ const ChatListPage = () => {
           heartbeatOutgoing: 30000,
           debug: (str) => {
             if (import.meta.env.DEV) {
-              console.debug('[ChatListPage STOMP]', str);
+              
             }
           },
           webSocketFactory: () => socket,
@@ -65,13 +65,13 @@ const ChatListPage = () => {
         });
 
         client.onConnect = (frame) => {
-          console.log('[ChatListPage] WebSocket 연결 성공');
+          
 
           // 채팅방 목록 업데이트 구독
           const chatRoomSubscription = client.subscribe('/user/queue/chatroom-update', (message) => {
             try {
               const update = JSON.parse(message.body);
-              console.log('[ChatListPage] 채팅방 업데이트 수신:', update);
+              
 
               // React Query 캐시 업데이트
               queryClient.setQueryData([QUERY_KEYS.CHATS, 'rooms'], (oldData) => {
@@ -173,7 +173,7 @@ const ChatListPage = () => {
                       });
                     })
                     .catch((err) => {
-                      console.error('[ChatListPage] 새 채팅방 조회 실패:', err);
+                      
                     });
                   return oldData;
                 }
@@ -243,7 +243,7 @@ const ChatListPage = () => {
                 };
               });
             } catch (error) {
-              console.error('[ChatListPage] 채팅방 업데이트 처리 오류:', error);
+              
             }
           });
 
@@ -253,24 +253,19 @@ const ChatListPage = () => {
         };
 
         client.onStompError = (frame) => {
-          console.error('[ChatListPage] STOMP 오류:', frame.headers['message'], frame.body);
+          
         };
 
         client.onWebSocketError = (error) => {
-          console.error('[ChatListPage] WebSocket 오류:', error);
+          
         };
 
         client.onWebSocketClose = (event) => {
-          console.warn('[ChatListPage] WebSocket 종료:', {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean
-          });
-        };
+          };
 
         client.activate();
       } catch (error) {
-        console.error('[ChatListPage] WebSocket 연결 실패:', error);
+        
       }
     };
 
@@ -282,7 +277,7 @@ const ChatListPage = () => {
         try {
           chatRoomSubscriptionRef.current.unsubscribe();
         } catch (error) {
-          console.warn('[ChatListPage] 채팅방 구독 해제 오류:', error);
+          
         }
         chatRoomSubscriptionRef.current = null;
       }
@@ -290,7 +285,7 @@ const ChatListPage = () => {
         try {
           stompClientRef.current.deactivate();
         } catch (error) {
-          console.warn('[ChatListPage] WebSocket 비활성화 오류:', error);
+          
         }
         stompClientRef.current = null;
       }
@@ -303,12 +298,12 @@ const ChatListPage = () => {
       try {
         // 브라우저가 알림을 지원하는지 확인
         if (!('Notification' in window)) {
-          console.log('[ChatListPage] 브라우저가 알림을 지원하지 않습니다.');
+          
           return;
         }
 
         const permission = await getNotificationPermission();
-        console.log('[ChatListPage] 현재 알림 권한:', permission);
+        
 
         // 권한이 'default'(아직 결정 안함)인 경우에만 자동 요청
         if (permission === 'default') {
@@ -318,27 +313,27 @@ const ChatListPage = () => {
           const oneDayInMs = 24 * 60 * 60 * 1000;
 
           if (!lastRequestTime || (now - parseInt(lastRequestTime)) > oneDayInMs) {
-            console.log('[ChatListPage] 알림 권한을 자동으로 요청합니다...');
+            
 
             try {
               const newPermission = await requestNotificationPermission();
-              console.log('[ChatListPage] 알림 권한 요청 결과:', newPermission);
+              
 
               // 요청 시간 기록
               localStorage.setItem('notification_last_request_time', now.toString());
             } catch (error) {
-              console.warn('[ChatListPage] 알림 권한 요청 실패:', error.message);
+              
             }
           } else {
-            console.log('[ChatListPage] 알림 권한은 하루에 한 번만 자동 요청합니다.');
+            
           }
         } else if (permission === 'denied') {
-          console.log('[ChatListPage] 알림 권한이 거부되었습니다. 브라우저 설정에서 수동으로 허용해주세요.');
+          
         } else if (permission === 'granted') {
-          console.log('[ChatListPage] 알림 권한이 이미 허용되어 있습니다.');
+          
         }
       } catch (error) {
-        console.error('[ChatListPage] 알림 권한 체크 중 오류:', error);
+        
       }
     };
 
@@ -372,7 +367,6 @@ const ChatListPage = () => {
     });
   };
 
-
   const closeContextMenu = () => {
     setContextMenu(null);
   };
@@ -387,7 +381,7 @@ const ChatListPage = () => {
       refetch();
       closeContextMenu();
     } catch (error) {
-      console.error('고정 토글 실패:', error);
+      
       alert('고정 상태 변경에 실패했습니다.');
     }
   };
@@ -402,7 +396,7 @@ const ChatListPage = () => {
       refetch();
       closeContextMenu();
     } catch (error) {
-      console.error('알림 토글 실패:', error);
+      
       alert('알림 설정 변경에 실패했습니다.');
     }
   };
@@ -417,12 +411,11 @@ const ChatListPage = () => {
         // refetch()는 필요 없음 (낙관적 업데이트로 즉시 반영됨)
         closeContextMenu();
       } catch (error) {
-        console.error('채팅방 삭제 실패:', error);
+        
         alert(error.message || '채팅방 삭제에 실패했습니다.');
       }
     }
   };
-
 
   if (isLoading) {
     return (

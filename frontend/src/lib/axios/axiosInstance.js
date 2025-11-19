@@ -21,13 +21,6 @@ const getBaseURL = () => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
   
   // 디버깅: baseURL 확인
-  console.log('[axiosInstance] baseURL 설정:', {
-    'import.meta.env.VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
-    'import.meta.env.DEV': import.meta.env.DEV,
-    'import.meta.env.MODE': import.meta.env.MODE,
-    '최종 baseURL': baseURL
-  });
-  
   return baseURL;
 };
 
@@ -78,7 +71,7 @@ axiosInstance.interceptors.request.use(
     }
     
     // 디버깅용 로그 (간소화)
-    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, {
+    } ${config.url}`, {
       hasCredentials: config.withCredentials,
       hasAuthHeader: !!config.headers.Authorization,
       isRetry: config._retry || false
@@ -87,7 +80,7 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('[API Request Error]', error);
+    
     return Promise.reject(error);
   }
 );
@@ -95,7 +88,7 @@ axiosInstance.interceptors.request.use(
 // 응답 인터셉터
 axiosInstance.interceptors.response.use(
   (response) => {
-    console.log(`[API Response] ${response.status} ${response.config.url}`);
+    
     return response;
   },
   async (error) => {
@@ -137,7 +130,7 @@ axiosInstance.interceptors.response.use(
           refreshUrl = `${window.location.origin}${baseURL}${refreshEndpoint}`;
         }
         
-        console.log('[Token Refresh] URL:', refreshUrl);
+        
         const response = await axios.post(refreshUrl, null, { withCredentials: true });
 
         const accessToken = response.data?.accessToken;
@@ -150,14 +143,14 @@ axiosInstance.interceptors.response.use(
         const hasAccessTokenCookie = cookies.includes('access_token=');
         
         if (!hasAccessTokenCookie) {
-          console.warn('[Token Refresh] 쿠키가 설정되지 않았습니다. 백엔드 응답 헤더 확인 필요.');
+          
           // 쿠키가 없으면 Authorization 헤더를 사용 (폴백)
           if (accessToken) {
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-            console.log('[Token Refresh] 쿠키가 설정되지 않았습니다. Authorization 헤더를 사용합니다.');
+            
           }
         } else {
-          console.log('[Token Refresh] 쿠키가 설정되었습니다. 쿠키 기반 인증 사용.');
+          
         }
         
         // originalRequest 재요청 시 baseURL 중복 방지
@@ -185,10 +178,6 @@ axiosInstance.interceptors.response.use(
         // baseURL 초기화 (axiosInstance의 baseURL 사용)
         delete retryConfig.baseURL;
         
-        console.log('[Token Refresh] Retry URL:', retryConfig.url, {
-          hasAuthHeader: !!retryConfig.headers.Authorization,
-          hasCredentials: retryConfig.withCredentials
-        });
         // baseURL이 포함되지 않은 순수 경로로 재요청
         return axiosInstance(retryConfig);
       } catch (refreshError) {
@@ -205,7 +194,7 @@ axiosInstance.interceptors.response.use(
       }
     }
     
-    console.error('[API Response Error]', error.response?.status, error.response?.data);
+    
     return Promise.reject(error);
   }
 );

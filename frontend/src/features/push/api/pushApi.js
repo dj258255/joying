@@ -20,21 +20,11 @@ export const pushApi = {
       const response = await axiosInstance.get(API_ENDPOINTS.PUSH.VAPID_PUBLIC_KEY);
       
       // 응답 데이터 로깅 (디버깅용)
-      console.log('[pushApi] VAPID 공개키 응답:', {
-        status: response.status,
-        dataType: typeof response.data,
-        data: response.data,
-        isString: typeof response.data === 'string',
-        isObject: typeof response.data === 'object',
-        hasPublicKey: response.data?.publicKey !== undefined,
-        hasData: response.data?.data !== undefined
-      });
-      
       // 응답이 문자열인 경우
       if (typeof response.data === 'string') {
         const trimmed = response.data.trim();
         if (trimmed) {
-          console.log('[pushApi] VAPID 공개키 추출 (문자열):', trimmed.substring(0, 50) + '...');
+          
           return trimmed;
         }
       }
@@ -47,7 +37,7 @@ export const pushApi = {
             ? response.data.data.trim() 
             : response.data.data?.publicKey || response.data.data;
           if (publicKey && typeof publicKey === 'string') {
-            console.log('[pushApi] VAPID 공개키 추출 (data.data):', publicKey.substring(0, 50) + '...');
+            
             return publicKey;
           }
         }
@@ -55,22 +45,22 @@ export const pushApi = {
         // publicKey 필드가 있는 경우
         if (response.data.publicKey && typeof response.data.publicKey === 'string') {
           const publicKey = response.data.publicKey.trim();
-          console.log('[pushApi] VAPID 공개키 추출 (publicKey):', publicKey.substring(0, 50) + '...');
+          
           return publicKey;
         }
         
         // 객체 자체가 공개키 정보를 담고 있는 경우
         if (typeof response.data === 'object') {
-          console.warn('[pushApi] 예상치 못한 응답 형식:', response.data);
+          
         }
       }
       
       throw new Error('VAPID 공개키를 응답에서 찾을 수 없습니다.');
     } catch (error) {
-      console.error('[pushApi] VAPID 공개키 조회 실패:', error);
+      
       if (error.response) {
-        console.error('[pushApi] 응답 데이터:', error.response.data);
-        console.error('[pushApi] 응답 상태:', error.response.status);
+        
+        
       }
       throw error;
     }
@@ -101,8 +91,7 @@ export const pushApi = {
         ...(userAgent && { userAgent })
       };
 
-      console.log('[pushApi] 푸시 알림 구독 등록 요청:', {
-        endpoint: endpoint.substring(0, 50) + '...',
+      + '...',
         hasP256dh: !!p256dh,
         hasAuth: !!auth,
         userAgent
@@ -113,10 +102,10 @@ export const pushApi = {
         requestBody
       );
 
-      console.log('[pushApi] 푸시 알림 구독 등록 성공:', response.data);
+      
       return response.data;
     } catch (error) {
-      console.error('[pushApi] 푸시 알림 구독 등록 실패:', error);
+      
       throw error;
     }
   },
@@ -133,8 +122,7 @@ export const pushApi = {
         throw new Error('엔드포인트는 필수입니다');
       }
 
-      console.log('[pushApi] 푸시 알림 구독 해제 요청:', {
-        endpoint: endpoint.substring(0, 50) + '...'
+      + '...'
       });
 
       const response = await axiosInstance.post(
@@ -142,10 +130,10 @@ export const pushApi = {
         { endpoint }
       );
 
-      console.log('[pushApi] 푸시 알림 구독 해제 성공:', response.data);
+      
       return response.data;
     } catch (error) {
-      console.error('[pushApi] 푸시 알림 구독 해제 실패:', error);
+      
       throw error;
     }
   }

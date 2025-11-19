@@ -47,7 +47,7 @@ const Section1Hero = () => {
         const data = await searchApi.autocomplete(searchQuery);
         setSuggestions(data);
       } catch (err) {
-        console.error('자동완성 요청 실패:', err);
+        
       }
     }, 400);
 

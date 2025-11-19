@@ -81,4 +81,3 @@ const Section3Tent = ({ products = [], categoryId }) => {
 
 export default Section3Tent;
 
-

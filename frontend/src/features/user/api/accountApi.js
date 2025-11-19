@@ -17,8 +17,8 @@ export const accountApi = {
    * @returns {Promise<{accountNo: string, transactionUniqueNo: string, message: string}>}
    */
   startVerification: async (data) => {
-    console.log('[accountApi] startVerification 요청 데이터:', data);
-    console.log('[accountApi] 엔드포인트:', API_ENDPOINTS.ACCOUNT.VERIFY_START);
+    
+    
     const response = await axiosInstance.post(API_ENDPOINTS.ACCOUNT.VERIFY_START, data);
     return response.data;
   },

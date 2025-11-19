@@ -46,7 +46,7 @@ const UserDeletePage = () => {
       await logout();
       navigate('/login');
     } catch (error) {
-      console.error('회원 탈퇴 실패:', error);
+      
       const errorMessage = error.response?.data?.message || error.message || '회원 탈퇴에 실패했습니다.';
       alert(errorMessage);
     }

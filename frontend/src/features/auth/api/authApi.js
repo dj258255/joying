@@ -25,8 +25,8 @@ export const kakaoLogin = () => {
     oauthUrl = '/oauth2/authorization/kakao';
   }
   
-  console.log('🔍 OAuth2 Redirect URL:', oauthUrl);
-  console.log('🔍 Environment:', { isDevelopment, backendTarget, mode: import.meta.env.MODE });
+  
+  
   window.location.href = oauthUrl;
 };
 
@@ -39,7 +39,7 @@ export const getCurrentUser = async () => {
     const response = await axiosInstance.get(API_ENDPOINTS.AUTH.ME);
     return response.data;
   } catch (error) {
-    console.error('사용자 정보 조회 실패:', error);
+    
     throw error;
   }
 };
@@ -53,7 +53,7 @@ export const refreshToken = async () => {
     const response = await axiosInstance.post(API_ENDPOINTS.AUTH.REFRESH);
     return response.data;
   } catch (error) {
-    console.error('토큰 갱신 실패:', error);
+    
     throw error;
   }
 };
@@ -67,7 +67,7 @@ export const logout = async () => {
     const response = await axiosInstance.post(API_ENDPOINTS.AUTH.LOGOUT);
     return response.data;
   } catch (error) {
-    console.error('로그아웃 실패:', error);
+    
     throw error;
   }
 };

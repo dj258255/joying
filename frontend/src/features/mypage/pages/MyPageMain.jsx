@@ -172,13 +172,6 @@ const MyPageMain = () => {
           }))
         : [];
       
-      console.log('[MyPageMain] 리뷰 로드 완료:', {
-        receivedBorrowCount: receivedBorrowReviews.length,
-        receivedRentCount: receivedRentReviews.length,
-        writtenBorrowCount: writtenBorrowReviews.length,
-        writtenRentCount: writtenRentReviews.length
-      });
-
       setReceivedBorrowReviews(receivedBorrowReviews);
       setReceivedRentReviews(receivedRentReviews);
       setWrittenBorrowReviews(writtenBorrowReviews);
@@ -188,11 +181,8 @@ const MyPageMain = () => {
       const actualTotalCount = receivedBorrowReviews.length + receivedRentReviews.length + writtenBorrowReviews.length + writtenRentReviews.length;
       setTotalReviewCount(actualTotalCount);
       
-      console.log('[MyPageMain] 리뷰 상세 로드 완료:', {
-        totalCount: actualTotalCount
-      });
-    } catch (error) {
-      console.error('리뷰 로드 실패:', error);
+      } catch (error) {
+      
       setReceivedBorrowReviews([]);
       setReceivedRentReviews([]);
       setWrittenBorrowReviews([]);
@@ -242,15 +232,8 @@ const MyPageMain = () => {
         const totalCount = receivedBorrowCount + receivedRentCount + writtenBorrowCount + writtenRentCount;
         setTotalReviewCount(totalCount);
 
-        console.log('[MyPageMain] 리뷰 개수 조회 완료:', {
-          receivedBorrowCount,
-          receivedRentCount,
-          writtenBorrowCount,
-          writtenRentCount,
-          totalCount
-        });
-      } catch (err) {
-        console.error('[MyPageMain] 리뷰 개수 조회 실패:', err);
+        } catch (err) {
+        
         setTotalReviewCount(0);
       }
     };

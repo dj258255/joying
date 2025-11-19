@@ -102,7 +102,7 @@ const ExtendRentalModal = ({ isOpen, onClose, rentalData, onExtendSuccess }) => 
         additionalFee: additionalFee
       });
 
-      console.log('[ExtendRentalModal] 연장 성공:', result);
+      
 
       if (onExtendSuccess) {
         onExtendSuccess(result);
@@ -110,7 +110,7 @@ const ExtendRentalModal = ({ isOpen, onClose, rentalData, onExtendSuccess }) => 
 
       onClose();
     } catch (err) {
-      console.error('[ExtendRentalModal] 연장 실패:', err);
+      
       const errorMessage = err.response?.data?.error 
         || err.response?.data?.message 
         || err.message 

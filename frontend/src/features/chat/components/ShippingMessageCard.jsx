@@ -93,7 +93,7 @@ const ShippingMessageCard = ({ message, isOwn = false, onReceiveClick }) => {
         const rentalData = rentalResponse.data || rentalResponse;
         setRentalStatus(rentalData?.status || null);
       } catch (error) {
-        console.error('[ShippingMessageCard] 거래 상태 조회 실패:', error);
+        
         // 에러 시 기본값으로 SHIPPED로 가정 (메시지가 발송 메시지이므로)
         setRentalStatus('SHIPPED');
       } finally {
@@ -135,7 +135,7 @@ const ShippingMessageCard = ({ message, isOwn = false, onReceiveClick }) => {
         // 모달 열기
         setShowTrackingModal(true);
       } catch (error) {
-        console.error('[ShippingMessageCard] 배송 조회 실패:', error);
+        
         // 에러 시 채팅 메시지 파싱 값으로 모달 열기
         setTrackingInfo({
           trackingNumber: shippingInfo.trackingNumber,

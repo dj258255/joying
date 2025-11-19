@@ -84,7 +84,7 @@ const ProfileImageManager = () => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || '이미지 업로드에 실패했습니다.';
       setError(errorMessage);
-      console.error('이미지 업로드 실패:', error);
+      
     }
   };
 
@@ -119,7 +119,7 @@ const ProfileImageManager = () => {
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || '이미지 삭제에 실패했습니다.';
       setError(errorMessage);
-      console.error('이미지 삭제 실패:', error);
+      
     }
   };
 

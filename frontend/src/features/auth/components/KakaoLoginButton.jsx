@@ -24,7 +24,7 @@ const KakaoLoginButton = ({
       await login();
       onSuccess?.();
     } catch (error) {
-      console.error('카카오 로그인 실패:', error);
+      
       onError?.(error);
     }
   };

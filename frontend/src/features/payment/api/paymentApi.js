@@ -37,7 +37,7 @@ export const paymentApi = {
       orderName: data.orderName
     };
 
-    console.log('[paymentApi] 결제 생성 요청:', requestBody);
+    
     
     const response = await axiosInstance.post('/payments', requestBody, {
       headers: {
@@ -45,7 +45,7 @@ export const paymentApi = {
       }
     });
     
-    console.log('[paymentApi] 결제 생성 성공:', response.data);
+    
     return response.data;
   },
 
@@ -64,7 +64,7 @@ export const paymentApi = {
       amount: data.amount
     };
 
-    console.log('[paymentApi] 결제 승인 요청:', requestBody);
+    
 
     const response = await axiosInstance.post('/payments/confirm', requestBody, {
       headers: {
@@ -72,7 +72,7 @@ export const paymentApi = {
       }
     });
 
-    console.log('[paymentApi] 결제 승인 성공:', response.data);
+    
     return response.data;
   },
 

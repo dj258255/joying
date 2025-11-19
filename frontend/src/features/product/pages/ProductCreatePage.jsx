@@ -228,18 +228,12 @@ function ProductCreatePage() {
 
   // 폼 상태 변경 디버깅
   useEffect(() => {
-    console.log('[ProductCreatePage] 💰 폼 상태 변경:', {
-      deposit: form.deposit,
-      rentalFee: form.rentalFee,
-      depositType: typeof form.deposit,
-      rentalFeeType: typeof form.rentalFee
-    });
-  }, [form.deposit, form.rentalFee]);
+    }, [form.deposit, form.rentalFee]);
 
   // 수정 모드일 때 기존 상품 정보를 폼에 채우기
   useEffect(() => {
     if (isEditMode && existingProduct && !isProductLoading) {
-      console.log('[ProductCreatePage] 기존 상품 정보 로드:', existingProduct);
+      
       
       // 기본 정보
       setForm(prev => ({
@@ -438,7 +432,7 @@ function ProductCreatePage() {
     setLoadingHashtags(true);
     try {
       const response = await axiosInstance.get(`/hashtag/category/${form.categoryId}`);
-      console.log('카테고리 해시태그 응답:', response);
+      
       
       // 응답 구조에 따라 데이터 추출
       let hashtagData = [];
@@ -458,7 +452,7 @@ function ProductCreatePage() {
       setRecommendedHashtags(hashtagNames);
       setShowHashtagRecommendations(true);
     } catch (err) {
-      console.error('카테고리 해시태그 조회 오류:', err);
+      
       alert(err?.response?.data?.message || '해시태그를 불러오는데 실패했습니다.');
     } finally {
       setLoadingHashtags(false);
@@ -596,23 +590,18 @@ function ProductCreatePage() {
 
     try {
       setAiGenerating(true);
-      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', uploadType);
+      
 
       // 이미지 리사이즈 (용량 줄이기)
       const resizedImage = await resizeImageForAI(imageFile);
-      console.log('[ProductCreatePage] 이미지 리사이즈 완료:', {
-        original: (imageFile.size / 1024).toFixed(2) + 'KB',
+      .toFixed(2) + 'KB',
         resized: (resizedImage.size / 1024).toFixed(2) + 'KB'
       });
 
       // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
       const result = await aiApi.generateProductDescription(resizedImage, uploadType);
 
-      console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
-      console.log('[ProductCreatePage] 🔍 보증금 확인:', {
-        recommended_deposit: result.recommended_deposit,
-        type: typeof result.recommended_deposit,
-        string_value: String(result.recommended_deposit)
+      
       });
 
       // 한 번에 모든 필드 업데이트 (setForm 한 번만 호출)
@@ -625,15 +614,9 @@ function ProductCreatePage() {
         deposit: result.recommended_deposit ? formatCurrency(result.recommended_deposit) : form.deposit,
       };
 
-      console.log('[ProductCreatePage] 📝 업데이트할 폼 데이터:', {
-        title: newFormData.title,
-        rentalFee: newFormData.rentalFee,
-        deposit: newFormData.deposit,
-      });
-
       setForm(newFormData);
 
-      console.log('[ProductCreatePage] ✅ AI 자동 입력 완료!');
+      
 
       // 해시태그 자동 입력 (최대 3개)
       if (result.hashtags && result.hashtags.length > 0) {
@@ -650,22 +633,13 @@ function ProductCreatePage() {
         }
         
         setHashtags(uniqueHashtags);
-        console.log('[ProductCreatePage] ✅ AI 생성 해시태그:', uniqueHashtags);
+        
       }
 
       // 카테고리 자동 선택 (카테고리 데이터가 로드된 후에만)
-      console.log('[ProductCreatePage] 🔍 카테고리 로드 상태:', {
-        categories_exists: !!categories,
-        categories_length: categories?.length,
-        isCategoriesLoading,
-        sub_category: result.sub_category,
-        parent_category: result.parent_category,
-        categories_sample: categories?.[0]
-      });
-
       if (categories && categories.length > 0 && (result.sub_category || result.parent_category)) {
         const categoryName = result.sub_category || result.parent_category;
-        console.log('[ProductCreatePage] 📂 카테고리 검색 시작:', categoryName);
+        
 
         const matchedCategory = findCategoryByName(categories, categoryName);
 
@@ -681,16 +655,13 @@ function ProductCreatePage() {
             setActiveCategoryId(parentCategory.categoryId);
           }
 
-          console.log('[ProductCreatePage] ✅ AI 추천 카테고리 선택:', matchedCategory.categoryName, '(ID:', matchedCategory.categoryId, ')');
+          
         } else {
-          console.warn('[ProductCreatePage] ❌ 카테고리를 찾을 수 없음:', categoryName);
-          console.warn('[ProductCreatePage] 전체 카테고리 목록:', categories.map(c => ({
-            name: c.categoryName,
-            children: c.children?.map(ch => ch.categoryName)
+          
           })));
         }
       } else {
-        console.warn('[ProductCreatePage] ❌ 카테고리 선택 불가 - categories가 아직 로드되지 않았거나 AI 응답에 카테고리 정보가 없음');
+        
       }
 
       // 성공 메시지 표시
@@ -706,8 +677,8 @@ function ProductCreatePage() {
       }, 1000);
 
     } catch (error) {
-      console.error('[ProductCreatePage] AI 게시글 생성 실패:', error);
-      console.warn('[ProductCreatePage] AI 자동 생성을 건너뜁니다:', error.message);
+      
+      
     } finally {
       setAiGenerating(false);
     }
@@ -718,7 +689,7 @@ function ProductCreatePage() {
    */
   const findCategoryByName = (tree, name) => {
     if (!tree || tree.length === 0 || !name) {
-      console.warn('[ProductCreatePage] ❌ findCategoryByName: 유효하지 않은 입력', { tree: !!tree, name });
+      
       return null;
     }
 
@@ -733,17 +704,12 @@ function ProductCreatePage() {
     };
 
     const normalizedName = normalize(name);
-    console.log('[ProductCreatePage] 🔍 카테고리 검색:', {
-      original: name,
-      normalized: normalizedName
-    });
-
     // 1차: 정확한 매칭 (부모 카테고리 포함)
     for (const category of tree) {
       const normalizedCatName = normalize(category.categoryName);
 
       if (normalizedCatName === normalizedName) {
-        console.log('[ProductCreatePage] ✅ 부모 카테고리 정확 매칭:', category.categoryName);
+        
         return category;
       }
 
@@ -753,7 +719,7 @@ function ProductCreatePage() {
           const normalizedChildName = normalize(child.categoryName);
 
           if (normalizedChildName === normalizedName) {
-            console.log('[ProductCreatePage] ✅ 자식 카테고리 정확 매칭:', child.categoryName);
+            
             return child;
           }
         }
@@ -769,7 +735,7 @@ function ProductCreatePage() {
 
           // 완전히 일치하거나, 카테고리 이름에 검색어가 정확히 포함된 경우만
           if (normalizedChildName.includes(normalizedName) && normalizedName.length >= 3) {
-            console.log('[ProductCreatePage] ✅ 자식 카테고리 부분 매칭:', child.categoryName);
+            
             return child;
           }
         }
@@ -777,12 +743,7 @@ function ProductCreatePage() {
     }
 
     // 매칭 실패 - 경고 로깅
-    console.warn('[ProductCreatePage] ⚠️ 카테고리 매칭 실패:', {
-      searchName: name,
-      normalized: normalizedName,
-      availableCategories: tree.map(c => ({
-        parent: c.categoryName,
-        children: c.children?.map(ch => ch.categoryName) || []
+    || []
       }))
     });
 
@@ -900,7 +861,7 @@ function ProductCreatePage() {
         }
       }
     } catch (err) {
-      console.error('파일 업로드 오류:', err);
+      
       setFilePreviews((prev) => {
         const newPreviews = [...prev];
         localUrls.forEach(url => {
@@ -1242,7 +1203,7 @@ function ProductCreatePage() {
     setSubmitting(true);
     try {
       const payload = buildPayload();
-      console.log('📦 전송 데이터:', JSON.stringify(payload, null, 2));
+      
       
       if (USE_FAKE_API) {
         navigate(ROUTE_PATHS.PRODUCT_DETAIL(String(isEditMode ? productId : Date.now())));
@@ -1252,9 +1213,9 @@ function ProductCreatePage() {
       let res;
       if (isEditMode) {
         // 수정 모드: PATCH API 호출
-        console.log('[ProductCreatePage] 상품 수정 요청:', { productId, payload });
+        
         res = await productApi.updateProduct(productId, payload);
-        console.log('[ProductCreatePage] 상품 수정 성공:', res);
+        
       } else {
         // 생성 모드: POST API 호출
         res = await axiosInstance.post('/products', payload);
@@ -1264,10 +1225,10 @@ function ProductCreatePage() {
       
       if (!isEditMode && res) {
         // 생성 모드일 때만 productId 추출
-        console.log('📥 응답 전체:', res);
-        console.log('📥 res.data:', res.data);
-        console.log('📥 res.data.data:', res.data?.data);
-        console.log('📥 res.data.body:', res.data?.body);
+        
+        
+        
+        
         
         if (typeof res === 'number') {
           productIdResult = res;
@@ -1282,11 +1243,11 @@ function ProductCreatePage() {
         } else if (typeof res.data?.productId === 'number') {
           productIdResult = res.data.productId;
         } else {
-          console.error('⚠️ productId를 추출할 수 없습니다. 응답 구조:', res);
+          
         }
       }
       
-      console.log('🎯 최종 productIdResult:', productIdResult, typeof productIdResult);
+      
       
       if (productIdResult && typeof productIdResult === 'number') {
         // 생성 모드일 때는 fromCreate state를 전달하여 상세페이지에서 뒤로가기 시 마이페이지로 이동
@@ -1299,8 +1260,8 @@ function ProductCreatePage() {
           : '상품 등록은 성공했지만 상품 ID를 가져올 수 없습니다.');
       }
     } catch (err) {
-      console.error('❌ 에러:', err);
-      console.error('📋 에러 응답:', err?.response?.data);
+      
+      
       
       setErrorMessage(
         err?.response?.data?.message ||

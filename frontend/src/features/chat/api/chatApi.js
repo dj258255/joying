@@ -54,14 +54,14 @@ export const chatApi = {
         throw new Error('유효하지 않은 상품 ID입니다.');
       }
 
-      console.log('[chatApi] 채팅방 생성 요청:', { productId: productIdNum });
+      
       
       // 백엔드 API 호출
       const response = await axiosInstance.post('/chat-rooms', {
         productId: productIdNum
       });
       
-      console.log('[chatApi] 채팅방 생성 응답:', response.data);
+      
       
       // 백엔드 응답 형식: ApiResponse.SuccessBody<ChatRoomResponse>
       // { status, message, data: ChatRoomResponse, timestamp }
@@ -73,25 +73,11 @@ export const chatApi = {
           throw new Error('채팅방 ID가 응답에 없습니다.');
         }
         
-        console.log('[chatApi] 채팅방 생성 성공:', {
-          chatRoomId: chatRoomData.chatRoomId,
-          productId: chatRoomData.productId,
-          productTitle: chatRoomData.productTitle
-        });
-        
         return chatRoomData;
       }
       
       throw new Error('채팅방 생성 응답 형식이 올바르지 않습니다. 응답 데이터가 없습니다.');
     } catch (error) {
-      console.error('[chatApi] 채팅방 생성 실패:', {
-        productId,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       // HTTP 에러 응답 처리
       if (error.response) {
         const status = error.response.status;
@@ -139,7 +125,7 @@ export const chatApi = {
     try {
       const { includeMember = true } = options; // 기본값: 온라인 상태 포함
 
-      console.log('[chatApi] 채팅방 목록 조회 요청', { includeMember });
+      
 
       const params = {};
       if (includeMember) {
@@ -148,7 +134,7 @@ export const chatApi = {
 
       const response = await axiosInstance.get('/chat-rooms', { params });
 
-      console.log('[chatApi] 채팅방 목록 조회 응답:', response.data);
+      
       
       // 응답 헤더에서 총 안읽은 메시지 개수 추출
       const totalUnreadCount = Number(response.headers['x-total-unread-count']) || 0;
@@ -166,12 +152,12 @@ export const chatApi = {
         totalUnreadCount: 0
       };
     } catch (error) {
-      console.error('[chatApi] 채팅방 목록 조회 실패:', error);
+      
 
       // 404 또는 500은 빈 목록으로 graceful degrade
       const status = error.response?.status;
       if (status === 404 || status === 500) {
-        console.warn(`[chatApi] 채팅방 목록 API ${status} 응답. 빈 배열 반환.`);
+        
         return {
           chatRooms: [],
           totalUnreadCount: 0
@@ -215,7 +201,7 @@ export const chatApi = {
         throw new Error('유효하지 않은 채팅방 ID입니다.');
       }
 
-      console.log('[chatApi] 채팅방 상세 조회 요청:', { chatRoomId: chatRoomIdNum, include: options.include });
+      
       
       // Query Parameter 설정
       const params = {};
@@ -228,7 +214,7 @@ export const chatApi = {
         params
       });
       
-      console.log('[chatApi] 채팅방 상세 조회 응답:', response.data);
+      
       
       // 백엔드 응답 형식: ApiResponse.SuccessBody<ChatRoomResponse>
       if (response.data && response.data.data) {
@@ -239,25 +225,11 @@ export const chatApi = {
           throw new Error('채팅방 ID가 응답에 없습니다.');
         }
         
-        console.log('[chatApi] 채팅방 상세 조회 성공:', {
-          chatRoomId: chatRoomData.chatRoomId,
-          productId: chatRoomData.productId,
-          productTitle: chatRoomData.productTitle
-        });
-        
         return chatRoomData;
       }
       
       throw new Error('채팅방 상세 조회 응답 형식이 올바르지 않습니다. 응답 데이터가 없습니다.');
     } catch (error) {
-      console.error('[chatApi] 채팅방 상세 조회 실패:', {
-        chatRoomId,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      
       // HTTP 에러 응답 처리
       if (error.response) {
         const status = error.response.status;
@@ -319,11 +291,11 @@ export const chatApi = {
     }
 
     try {
-      console.log('[chatApi] 채팅방 설정 업데이트 요청:', { chatRoomId: chatRoomIdNum, payload });
+      
 
       const response = await axiosInstance.patch(`/chat-rooms/${chatRoomIdNum}/settings`, payload);
 
-      console.log('[chatApi] 채팅방 설정 업데이트 응답:', response.data);
+      
 
       if (response.data?.data) {
         return response.data.data;
@@ -334,14 +306,6 @@ export const chatApi = {
         isMuted: payload.isMuted
       };
     } catch (error) {
-      console.error('[chatApi] 채팅방 설정 업데이트 실패:', {
-        chatRoomId: chatRoomIdNum,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       if (error.response?.status === 401) {
         throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
       }
@@ -410,11 +374,11 @@ export const chatApi = {
     }
 
     try {
-      console.log('[chatApi] 채팅방 나가기 요청:', chatRoomIdNum);
+      
 
       await axiosInstance.delete(`/chat-rooms/${chatRoomIdNum}`);
 
-      console.log('[chatApi] 채팅방 나가기 성공:', chatRoomIdNum);
+      
 
       // 캐시/스토리지 정리 (로컬 스토리지에 남아있을 수 있는 기존 데이터 제거)
     const chatRooms = JSON.parse(localStorage.getItem('chatRooms') || '[]');
@@ -424,14 +388,6 @@ export const chatApi = {
     // 커스텀 이벤트 발생
     window.dispatchEvent(new Event('chatRoomsUpdated'));
     } catch (error) {
-      console.error('[chatApi] 채팅방 나가기 실패:', {
-        chatRoomId: chatRoomIdNum,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-
       if (error.response?.status === 401) {
         throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
       }

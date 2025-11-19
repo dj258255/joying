@@ -58,7 +58,7 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
   const handleHashtagClick = (hashtag) => {
     // 해시태그 유효성 검사
     if (!hashtag || !hashtag.id) {
-      console.warn('[HashtagFilter] 잘못된 해시태그:', hashtag);
+      
       return;
     }
     // 이미 선택된 태그인지 확인
@@ -70,7 +70,7 @@ const HashtagFilter = ({ hashtags: searchHashtags = [], onHashtagSelect, selecte
   const handleRemoveHashtag = (hashtagId) => {
     const foundHashtag = hashtags.find(h => h && h.id === hashtagId);
     if (!foundHashtag) {
-      console.warn('[HashtagFilter] 해시태그를 찾을 수 없음:', hashtagId);
+      
       // selectedHashtags에서 직접 찾기 (fallback)
       const selectedHashtag = selectedHashtags.find(h => h && h.id === hashtagId);
       if (selectedHashtag) {

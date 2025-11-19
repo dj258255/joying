@@ -18,15 +18,15 @@ export const useProductLike = (productId) => {
   // 찜하기/찜하기 취소
   const toggleLikeMutation = useMutation({
     mutationFn: async (isLiked) => {
-      console.log('[useProductLike] 찜하기 토글:', { productId, isLiked });
+      
       const result = isLiked 
         ? await productApi.unlikeProduct(productId) 
         : await productApi.likeProduct(productId);
-      console.log('[useProductLike] API 응답:', result);
+      
       return result;
     },
     onSuccess: (data, variables) => {
-      console.log('[useProductLike] 찜하기 성공:', data);
+      
       const newLikedState = !variables; // variables는 이전 상태(isLiked), 반대가 새 상태
       
       // 상품 목록 캐시 무효화
@@ -44,11 +44,6 @@ export const useProductLike = (productId) => {
         const updatedSearchResponses = searchResponses.map((product) => {
           const pid = product.productId || product.id;
           if (String(pid) === String(productId)) {
-            console.log('[useProductLike] SEARCH 쿼리 캐시 업데이트:', {
-              productId: pid,
-              oldLiked: product.liked || product.isLiked,
-              newLiked: newLikedState
-            });
             return {
               ...product,
               liked: newLikedState,
@@ -109,13 +104,8 @@ export const useProductLike = (productId) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.MYPAGE, QUERY_KEYS.LIKED_PRODUCTS] });
     },
     onError: (error) => {
-      console.error('[useProductLike] 찜하기 처리 실패:', error);
-      console.error('[useProductLike] 에러 상세:', {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status
-      });
-    }
+      
+      }
   });
 
   /**
@@ -125,7 +115,7 @@ export const useProductLike = (productId) => {
    */
   const toggleLike = (isLiked) => {
     if (!productId) {
-      console.warn('[useProductLike] productId가 없습니다.');
+      
       return Promise.reject(new Error('productId가 없습니다.'));
     }
     return toggleLikeMutation.mutateAsync(isLiked);

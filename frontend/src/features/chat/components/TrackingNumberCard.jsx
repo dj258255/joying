@@ -86,7 +86,7 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
           setIsTrackingRegistered(!!outboundTracking);
         }
       } catch (err) {
-        console.error('[TrackingNumberCard] 운송장 번호 상태 확인 실패:', err);
+        
       }
     };
 
@@ -118,26 +118,19 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
       setIsLoading(true);
       setError(null);
 
-      console.log('[TrackingNumberCard] 처리 시작:', {
-        rentalHisId: trackingInfo.rentalHisId,
-        courier,
-        trackingNumber,
-        isReturn: trackingInfo.isReturn
-      });
-
       // 반납인 경우 returnItem API, 발송인 경우 shipItem API 호출
       if (trackingInfo.isReturn) {
         await rentalApi.returnItem(trackingInfo.rentalHisId, {
           carrierCode: courier,
           trackingNo: trackingNumber
         });
-        console.log('[TrackingNumberCard] 반납 완료');
+        
       } else {
         await rentalApi.shipItem(trackingInfo.rentalHisId, {
           carrierCode: courier,
           trackingNo: trackingNumber
         });
-        console.log('[TrackingNumberCard] 발송 완료');
+        
       }
 
       // 채팅방에 완료 메시지 전송
@@ -158,14 +151,14 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
             type: 'TEXT',
             content: messageContent
           });
-          console.log('[TrackingNumberCard] 반납 완료 메시지 전송 완료');
+          
         } else {
           const messageContent = `🚚 물건이 발송되었습니다!\n\n택배사: ${courierName}\n운송장 번호: ${trackingNumber}\n\n배송 조회를 통해 물건 위치를 확인할 수 있습니다.\n\nrentalHisId:${trackingInfo.rentalHisId}\nMESSAGE_TYPE:SHIPPING_COMPLETE`;
           await sendMessage({
             type: 'TEXT',
             content: messageContent
           });
-          console.log('[TrackingNumberCard] 발송 완료 메시지 전송 완료');
+          
         }
       }
 
@@ -186,13 +179,7 @@ const TrackingNumberCard = ({ message, isOwn = false, rentalData = null, onShipp
       setCourier('');
       setTrackingNumber('');
     } catch (err) {
-      console.error('[TrackingNumberCard] 발송 처리 실패:', err);
-      console.error('[TrackingNumberCard] 에러 상세:', {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message
-      });
-
+      
       // 에러 메시지 개선
       const actionType = trackingInfo.isReturn ? '반납' : '발송';
       let errorMessage = `${actionType} 처리에 실패했습니다.`;

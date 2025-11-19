@@ -27,9 +27,9 @@ import { API_ENDPOINTS } from '@/shared/constants';
 export const getProducts = async (params = {}) => {
   // 실제 API 호출
   try {
-    console.log('[API] 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.BASE, params });
+    
     const { data } = await axiosInstance.get(API_ENDPOINTS.PRODUCT.BASE, { params });
-    console.log('[API] 상품 목록 조회 성공:', data);
+    
     
     // 응답 형식에 따라 데이터 추출
     let products = [];
@@ -48,7 +48,7 @@ export const getProducts = async (params = {}) => {
     }
     
     // 각 상품에 liked 필드가 있는지 확인 (서버 응답 그대로 표시)
-    console.log('[API] 상품 목록 (liked 필드 포함):', products.map(p => ({ 
+    :', products.map(p => ({ 
       productId: p.productId || p.id, 
       liked: p.liked,
       isLiked: p.isLiked,
@@ -66,13 +66,7 @@ export const getProducts = async (params = {}) => {
       totalPages: data?.body?.data?.totalPages || data?.totalPages || Math.ceil(products.length / (params.limit || 20))
     };
   } catch (error) {
-    console.error('[API] 상품 목록 조회 실패:', error);
-    console.error('[API] 에러 상세:', {
-      message: error?.message,
-      response: error?.response?.data,
-      status: error?.response?.status,
-      url: error?.config?.url
-    });
+    
     throw error;
   }
 };
@@ -88,7 +82,7 @@ export const getProductById = async (id) => {
     const { data } = await axiosInstance.get(`/products/${id}`);
     return data;
   } catch (error) {
-    console.error('[API] 상품 상세 조회 실패:', error);
+    
     throw error;
   }
 };
@@ -105,7 +99,7 @@ export const createProduct = async (productData) => {
     const { data } = await axiosInstance.post('/products', productData);
     return data;
   } catch (error) {
-    console.error('[API] 상품 생성 실패:', error);
+    
     throw error;
   }
 };
@@ -142,11 +136,11 @@ export const updateProduct = async (productId, productData) => {
   }
   
   try {
-    console.log('[productApi] 상품 수정 요청:', { productId: productIdNum, productData });
+    
     
     const response = await axiosInstance.patch(`/products/${productIdNum}`, productData);
     
-    console.log('[productApi] 상품 수정 성공:', response.data);
+    
     
     // 백엔드 응답 형식: ApiResponse.SuccessBody<ProductResponse>
     if (response.data?.body?.data) {
@@ -157,14 +151,6 @@ export const updateProduct = async (productId, productData) => {
     
     return response.data;
   } catch (error) {
-    console.error('[productApi] 상품 수정 실패:', {
-      productId: productIdNum,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    });
-    
     throw error;
   }
 };
@@ -184,20 +170,12 @@ export const deleteProduct = async (productId) => {
   }
   
   try {
-    console.log('[productApi] 상품 삭제 요청:', { productId: productIdNum });
+    
     
     await axiosInstance.delete(`/products/${productIdNum}`);
     
-    console.log('[productApi] 상품 삭제 성공:', productIdNum);
-  } catch (error) {
-    console.error('[productApi] 상품 삭제 실패:', {
-      productId: productIdNum,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    });
     
+  } catch (error) {
     throw error;
   }
 };
@@ -215,7 +193,7 @@ export const getUnavailableDates = async (productId) => {
   } catch (error) {
     // 404 에러는 조용히 처리 (API가 구현되지 않았을 수 있음)
     if (error.response?.status === 404) {
-      console.log(`[productApi] unavailable-dates API가 구현되지 않음 (productId: ${productId})`);
+      
       return { data: [] };
     }
     // 다른 에러는 그대로 throw
@@ -277,13 +255,7 @@ export const getMyProducts = async (params = {}) => {
     }
     
     if (pageData) {
-      console.log('[productApi] 등록한 상품 목록 조회 성공:', {
-        page,
-        size,
-        sort,
-        totalElements: pageData.totalElements || 0,
-        contentLength: pageData.content?.length || 0,
-        uploadTypes: pageData.content?.map(p => p.uploadType) || []
+      || []
       });
       
       return {
@@ -301,23 +273,8 @@ export const getMyProducts = async (params = {}) => {
     }
     
     // 응답 구조가 예상과 다를 경우 상세 로그 출력
-    console.error('[productApi] 예상하지 못한 응답 형식:', {
-      responseData: response.data,
-      responseDataType: typeof response.data,
-      hasData: !!response.data?.data,
-      hasBody: !!response.data?.body,
-      hasContent: response.data?.content !== undefined
-    });
-    
     throw new Error('등록한 상품 목록 응답 형식이 올바르지 않습니다.');
   } catch (error) {
-    console.error('[productApi] 등록한 상품 목록 조회 실패:', {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    });
-    
     // 404 에러는 빈 목록 반환
     if (error.response?.status === 404) {
       return {
@@ -347,10 +304,10 @@ export const likeProduct = async (productId) => {
   // 실제 API 호출
   try {
     const { data } = await axiosInstance.post(API_ENDPOINTS.PRODUCT.LIKE(productId));
-    console.log('[API] 찜하기 성공:', productId, data);
+    
     return data;
   } catch (error) {
-    console.error('[API] 찜하기 실패:', productId, error);
+    
     throw error;
   }
 };
@@ -364,10 +321,10 @@ export const unlikeProduct = async (productId) => {
   // 실제 API 호출
   try {
     const { data } = await axiosInstance.delete(API_ENDPOINTS.PRODUCT.LIKE(productId));
-    console.log('[API] 찜하기 취소 성공:', productId, data);
+    
     return data;
   } catch (error) {
-    console.error('[API] 찜하기 취소 실패:', productId, error);
+    
     throw error;
   }
 };
@@ -382,9 +339,9 @@ export const unlikeProduct = async (productId) => {
 export const getLikedProducts = async (params = {}) => {
   // 실제 API 호출
   try {
-    console.log('[API] 찜한 상품 목록 조회 시작:', { endpoint: API_ENDPOINTS.PRODUCT.MY_LIKES, params });
+    
     const { data } = await axiosInstance.get(API_ENDPOINTS.PRODUCT.MY_LIKES, { params });
-    console.log('[API] 찜한 상품 목록 조회 성공:', data);
+    
     
     // 응답 형식에 따라 데이터 추출
     let result = data;
@@ -399,7 +356,7 @@ export const getLikedProducts = async (params = {}) => {
     // 각 상품에 liked 필드가 있는지 확인
     const content = result?.content || [];
     if (content.length > 0) {
-      console.log('[API] 찜한 상품 목록 (liked 필드 포함):', content.map(p => ({
+      :', content.map(p => ({
         productId: p.productId || p.id,
         liked: p.liked,
         isLiked: p.isLiked,
@@ -410,13 +367,7 @@ export const getLikedProducts = async (params = {}) => {
     
     return result;
   } catch (error) {
-    console.error('[API] 찜한 상품 목록 조회 실패:', error);
-    console.error('[API] 에러 상세:', {
-      message: error?.message,
-      response: error?.response?.data,
-      status: error?.response?.status,
-      url: error?.config?.url
-    });
+    
     throw error;
   }
 };

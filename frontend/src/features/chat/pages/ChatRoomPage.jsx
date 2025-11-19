@@ -48,7 +48,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 import { fileApi } from '../../../shared/api/fileApi';
 
-
 // ddd
 const SEARCH_PAGE_SIZE = 20;
 
@@ -514,8 +513,10 @@ const ChatRoomPage = () => {
     const loadChatRoom = async () => {
       try {
         await setCurrentChatRoom(desiredId, existingChatRoomData);
+        // 채팅방 진입 시 localStorage에 현재 채팅방 ID 저장 (알림 중복 방지용)
+        localStorage.setItem('current_chat_room_id', String(desiredId));
       } catch (error) {
-        console.error('채팅방 로드 실패:', error);
+        
         
         // 나간 채팅방 접근 시도 시 채팅방 목록으로 리다이렉트
         const errorMessage = error.message || '';
@@ -536,6 +537,18 @@ const ChatRoomPage = () => {
 
     loadChatRoom();
   }, [chatRoomId, currentChatRoom?.chatRoomId, currentChatRoom?.id, existingChatRoomData, setCurrentChatRoom, navigate]);
+
+  // 채팅방 나갈 때 localStorage에서 현재 채팅방 ID 제거
+  useEffect(() => {
+    return () => {
+      // 컴포넌트 언마운트 시 (다른 페이지로 이동 시) localStorage에서 제거
+      const currentRoomId = localStorage.getItem('current_chat_room_id');
+      if (currentRoomId && String(currentRoomId) === String(chatRoomId)) {
+        localStorage.removeItem('current_chat_room_id');
+        
+      }
+    };
+  }, [chatRoomId]);
   
   // 대여 요청 메시지 자동 전송 (채팅방 로드 후, WebSocket 연결 후)
   useEffect(() => {
@@ -558,7 +571,7 @@ const ChatRoomPage = () => {
     // 대여 요청 데이터 확인
     const { dateRange, product, rentMethod } = rentalRequestData;
     if (!dateRange || !dateRange.start || !dateRange.end || !product) {
-      console.warn('[ChatRoomPage] 대여 요청 데이터가 불완전합니다:', { dateRange, product });
+      
       return;
     }
     
@@ -566,13 +579,6 @@ const ChatRoomPage = () => {
     const sendRentalRequest = async () => {
       try {
         hasSentRentalRequestRef.current = true;
-        
-        console.log('[ChatRoomPage] 대여 요청 메시지 자동 전송 시작:', {
-          roomId,
-          productId: product.id,
-          dateRange,
-          rentMethod
-        });
         
         // 대여 기간 계산
         const startDate = new Date(dateRange.start);
@@ -602,12 +608,6 @@ const ChatRoomPage = () => {
         // content에 JSON 문자열로 대여 요청 정보 포함
         const rentalRequestContent = JSON.stringify(rentalInfo);
 
-        console.log('[ChatRoomPage] 대여 요청 메시지 전송:', {
-          type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
-          content: rentalRequestContent,
-          rentalInfo
-        });
-
         // 대여 요청 메시지를 WebSocket을 통해 전송 (TEXT 타입으로 전송하되 rentalInfo는 별도로 포함)
         // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT 타입으로 전송
         await sendMessage({
@@ -617,7 +617,7 @@ const ChatRoomPage = () => {
           rentalInfo: rentalInfo
         });
         
-        console.log('[ChatRoomPage] 대여 요청 메시지 자동 전송 완료');
+        
         
         // state에서 대여 요청 정보 제거 (중복 전송 방지)
         navigate(`/chats/${roomId}`, { 
@@ -628,7 +628,7 @@ const ChatRoomPage = () => {
           }
         });
       } catch (error) {
-        console.error('[ChatRoomPage] 대여 요청 메시지 자동 전송 실패:', error);
+        
         hasSentRentalRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
       }
     };
@@ -649,7 +649,7 @@ const ChatRoomPage = () => {
     
     // 본인이 나간 채팅방인지 확인 (isLeft는 본인이 나갔는지 여부)
     if (currentChatRoom.isLeft === true) {
-      console.warn('[ChatRoomPage] 나간 채팅방 접근 차단:', currentChatRoom.chatRoomId || currentChatRoom.id);
+      
       alert('나간 채팅방입니다.');
       navigate('/chats');
       return;
@@ -668,7 +668,7 @@ const ChatRoomPage = () => {
           updateOpponentOnlineStatus(isOnline, lastSeenAt);
         }
       } catch (error) {
-        console.error('온라인 상태 갱신 실패:', error);
+        
       }
     };
 
@@ -703,7 +703,7 @@ const ChatRoomPage = () => {
             content: messageContent
           });
 
-          console.log('[ChatRoomPage] 자동 대여 요청 메시지 전송 성공');
+          
           
           // 상태 초기화 (중복 전송 방지)
           navigate(location.pathname, { 
@@ -715,7 +715,7 @@ const ChatRoomPage = () => {
             } 
           });
         } catch (error) {
-          console.error('[ChatRoomPage] 자동 대여 요청 메시지 전송 실패:', error);
+          
         }
       };
 
@@ -764,7 +764,7 @@ const ChatRoomPage = () => {
 
     if (isProductOwner) {
       // 상품 주인(빌리려는 사람)은 메시지를 전송하지 않음 (수동적)
-      console.log('[ChatRoomPage] BORROW 상품 - 빌리려는 사람(상품 주인)은 메시지를 전송하지 않음');
+      
 
       // location.state 초기화만 수행
       navigate(location.pathname, {
@@ -778,13 +778,13 @@ const ChatRoomPage = () => {
       return;
     }
 
-    console.log('[ChatRoomPage] BORROW 상품 감지 - 간단한 제안 메시지 전송 (빌려줄 사람):', borrowInfo);
+    
 
     // 간단한 제안 메시지 전송 (날짜 선택 없이)
     const sendBorrowRequest = async () => {
       // 중복 전송 방지를 위한 이중 체크
       if (hasSentBorrowRequestRef.current) {
-        console.log('[ChatRoomPage] BORROW 제안 메시지 이미 전송됨, 중복 전송 방지');
+        
         return;
       }
 
@@ -796,18 +796,13 @@ const ChatRoomPage = () => {
         // MESSAGE_TYPE 마커 추가하여 MessageBubble에서 식별 가능하도록
         const messageContent = `💡 ${productTitle}을(를) 빌려드릴 수 있습니다!\n\n\nMESSAGE_TYPE:BORROW_PROPOSAL`;
 
-        console.log('[ChatRoomPage] BORROW 제안 메시지 전송:', {
-          type: 'TEXT',
-          content: messageContent
-        });
-
         // 간단한 텍스트 메시지만 전송
         await sendMessage({
           type: 'TEXT',
           content: messageContent
         });
 
-        console.log('[ChatRoomPage] BORROW 제안 메시지 전송 완료');
+        
 
         // location.state 초기화 (중복 전송 방지)
         navigate(location.pathname, {
@@ -819,7 +814,7 @@ const ChatRoomPage = () => {
           }
         });
       } catch (error) {
-        console.error('[ChatRoomPage] BORROW 제안 메시지 전송 실패:', error);
+        
         hasSentBorrowRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
       }
     };
@@ -854,13 +849,13 @@ const ChatRoomPage = () => {
     if (!force) {
       const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
       if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
-        console.log('[scrollToBottom] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
+        
         return;
       }
 
       // 메시지 점프 중이면 자동 스크롤하지 않음 (force가 아닌 경우에만)
       if (isJumpingToMessage || pendingScrollMessageId || isScrollingToMessage) {
-        console.log('[scrollToBottom] 메시지 점프 중 자동 스크롤 방지');
+        
         return;
       }
     }
@@ -880,7 +875,7 @@ const ChatRoomPage = () => {
     // 메시지 점프 후 일정 시간 동안은 자동 스크롤 완전히 비활성화
     const timeSinceLastJump = Date.now() - lastJumpTimeRef.current;
     if (timeSinceLastJump < 5000) { // 5초 동안 자동 스크롤 방지
-      console.log('[useEffect sortedMessages] 메시지 점프 후 자동 스크롤 방지:', timeSinceLastJump);
+      
       return;
     }
     
@@ -1024,7 +1019,7 @@ const ChatRoomPage = () => {
 
       await sendMessage(payload);
     } catch (error) {
-      console.error('메시지 전송 실패:', error);
+      
       alert('메시지 전송에 실패했습니다.');
     }
   };
@@ -1033,7 +1028,7 @@ const ChatRoomPage = () => {
     try {
       await uploadFile(file);
     } catch (error) {
-      console.error('파일 전송 실패:', error);
+      
       throw error;
     }
   };
@@ -1121,7 +1116,7 @@ const ChatRoomPage = () => {
     try {
       await deleteMessage(messageId);
     } catch (error) {
-      console.error('메시지 삭제 실패:', error);
+      
       throw error;
     }
   };
@@ -1130,7 +1125,7 @@ const ChatRoomPage = () => {
     try {
       await updateMessage(messageId, content);
     } catch (error) {
-      console.error('메시지 수정 실패:', error);
+      
       throw error;
     }
   };
@@ -1169,7 +1164,7 @@ const ChatRoomPage = () => {
     try {
       await applySettingsUpdate(settings);
     } catch (updateError) {
-      console.error('설정 업데이트 실패:', updateError);
+      
       alert(updateError.message || '채팅방 설정 업데이트에 실패했습니다.');
     }
   };
@@ -1183,7 +1178,7 @@ const ChatRoomPage = () => {
     // 사용자 정보 확인 (여러 경로에서 시도)
     const currentUserId = user?.id || user?.memberId || user?.member_id;
     if (!currentUserId) {
-      console.error('[handleRentalAccept] 사용자 정보 없음:', { user });
+      
       alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
       return;
     }
@@ -1195,7 +1190,7 @@ const ChatRoomPage = () => {
       message.rentalInfo?.renterId;
 
     if (!renterId) {
-      console.error('[handleRentalAccept] 대여자 ID를 찾을 수 없습니다.', message);
+      
       alert('대여자 정보를 찾을 수 없습니다.');
       return;
     }
@@ -1237,16 +1232,13 @@ const ChatRoomPage = () => {
         renterId
       };
 
-      console.log('[handleRentalAccept] API 호출 전:', {
-        productId,
-        rentalData,
-        'rentalData (stringified)': JSON.stringify(rentalData)
+      ': JSON.stringify(rentalData)
       });
 
       // 1. 대여 거래 생성 (예약)
       const rentalResult = await rentalApi.createRentalReservation(productId, rentalData);
       
-      console.log('[handleRentalAccept] 대여 거래 생성 성공:', rentalResult);
+      
 
       // 2. 결제 생성 (OrderId 발급)
       const productTitle = productData?.title || productData?.name || '상품';
@@ -1259,11 +1251,11 @@ const ChatRoomPage = () => {
         orderName: orderName
       };
 
-      console.log('[handleRentalAccept] 결제 생성 요청:', paymentData);
+      
 
       const paymentResult = await paymentApi.createPayment(paymentData);
       
-      console.log('[handleRentalAccept] 결제 생성 성공:', paymentResult);
+      
 
       // 현재 사용자 정보 (이미 위에서 확인된 currentUserId 사용)
       const currentUserInfo = {
@@ -1287,7 +1279,7 @@ const ChatRoomPage = () => {
 
       alert(`대여 요청을 승인했습니다. 결제가 생성되었습니다.\n주문번호: ${paymentResult.data.orderId}\n결제 금액: ${paymentResult.data.totalAmount.toLocaleString()}원`);
     } catch (error) {
-      console.error('대여 승인 실패:', error);
+      
       alert(`대여 승인에 실패했습니다: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsCreatingRental(false);
@@ -1304,10 +1296,7 @@ const ChatRoomPage = () => {
     // 사용자 정보 확인
     const currentUserId = user?.id || user?.memberId || user?.member_id;
     if (!currentUserId) {
-      console.error('[handlePaymentConfirmClick] 사용자 정보 없음:', { 
-        user, 
-        isAuthenticated: user !== null,
-        userKeys: user ? Object.keys(user) : []
+      : []
       });
       alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
       return;
@@ -1315,9 +1304,7 @@ const ChatRoomPage = () => {
 
     // 결제 모달 열기 전 환경 변수 확인
     const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
-    console.log('[ChatRoomPage] 결제 모달 열기 전 VITE_TOSS_CLIENT_KEY 확인:', {
-      exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
-      value: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    }...` : 'undefined',
       length: clientKey?.length || 0,
       messageId: message.id,
       orderId: message.paymentInfo?.orderId
@@ -1341,7 +1328,7 @@ const ChatRoomPage = () => {
     try {
       setIsProcessingCancel(true);
 
-      console.log('[ChatRoomPage] 취소 승인:', { cancelId: cancelDetailInfo.cancelId });
+      
 
       // 취소 승인 API 호출
       await rentalApi.approveCancel(cancelDetailInfo.cancelId);
@@ -1357,7 +1344,7 @@ const ChatRoomPage = () => {
       setShowCancelDetailModal(false);
       setCancelDetailInfo(null);
     } catch (err) {
-      console.error('[ChatRoomPage] 취소 승인 실패:', err);
+      
       alert(err.response?.data?.message || err.message || '취소 승인에 실패했습니다.');
     } finally {
       setIsProcessingCancel(false);
@@ -1378,7 +1365,7 @@ const ChatRoomPage = () => {
     try {
       setIsProcessingCancel(true);
 
-      console.log('[ChatRoomPage] 취소 거절:', { cancelId: cancelDetailInfo.cancelId });
+      
 
       // 취소 거절 API 호출
       await rentalApi.rejectCancel(cancelDetailInfo.cancelId, {
@@ -1396,7 +1383,7 @@ const ChatRoomPage = () => {
       setShowCancelDetailModal(false);
       setCancelDetailInfo(null);
     } catch (err) {
-      console.error('[ChatRoomPage] 취소 거절 실패:', err);
+      
       alert(err.response?.data?.message || err.message || '취소 거절에 실패했습니다.');
     } finally {
       setIsProcessingCancel(false);
@@ -1420,11 +1407,11 @@ const ChatRoomPage = () => {
         amount: amount
       };
 
-      console.log('[handlePaymentSuccess] 결제 승인 요청:', confirmData);
+      
 
       const result = await paymentApi.confirmPayment(confirmData);
       
-      console.log('[handlePaymentSuccess] 결제 승인 성공:', result);
+      
 
       // 현재 사용자 정보
       const currentUserId = user?.id || user?.memberId || user?.member_id;
@@ -1444,8 +1431,8 @@ const ChatRoomPage = () => {
 
       // 결제 완료 시스템 메시지는 useEffect에서 발송 (중복 방지)
       const rentalHisId = result?.data?.rentalHisId || result?.rentalHisId || result?.data?.data?.rentalHisId;
-      console.log('[handlePaymentSuccess] rentalHisId:', rentalHisId, 'result:', result);
-      console.log('[handlePaymentSuccess] 메시지는 PaymentSuccessPage에서 돌아올 때 useEffect에서 발송됨');
+      
+      
 
       // PaymentSuccessPage로 이동 (거기서 돌아올 때 useEffect에서 메시지 발송)
       setTimeout(() => {
@@ -1456,7 +1443,7 @@ const ChatRoomPage = () => {
       setPaymentMessage(null);
       alert('결제가 완료되었습니다.');
     } catch (error) {
-      console.error('결제 승인 실패:', error);
+      
       alert(`결제 승인에 실패했습니다: ${error.response?.data?.message || error.message}`);
     } finally {
       setIsConfirmingPayment(false);
@@ -1477,7 +1464,7 @@ const ChatRoomPage = () => {
     const amount = searchParams.get('amount');
 
     if (paymentComplete === 'true' && rentalHisId && sendMessage && productData) {
-      console.log('[ChatRoomPage] 결제 완료 URL 파라미터 감지, 시스템 메시지 전송');
+      
 
       const sendPaymentCompleteMessages = async () => {
         try {
@@ -1489,7 +1476,7 @@ const ChatRoomPage = () => {
             content: paymentCompleteMessage
           });
 
-          console.log('[ChatRoomPage] 결제 완료 메시지 전송 완료');
+          
 
           // 2. 운송장 입력 요청 메시지
           const isBorrowType = productData?.uploadType === 'BORROW';
@@ -1502,12 +1489,12 @@ const ChatRoomPage = () => {
             content: trackingRequestMessage
           });
 
-          console.log('[ChatRoomPage] 운송장 요청 메시지 전송 완료');
+          
 
           // URL 파라미터 제거 (중복 전송 방지)
           navigate(`/chats/${chatRoomId}`, { replace: true });
         } catch (err) {
-          console.error('[ChatRoomPage] 시스템 메시지 전송 실패:', err);
+          
         }
       };
 
@@ -1524,7 +1511,7 @@ const ChatRoomPage = () => {
     // 사용자 정보 확인 (여러 경로에서 시도)
     const currentUserId = user?.id || user?.memberId || user?.member_id;
     if (!currentUserId) {
-      console.error('[handleRentalReject] 사용자 정보 없음:', { user });
+      
       alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
       return;
     }
@@ -1548,7 +1535,7 @@ const ChatRoomPage = () => {
 
       alert('대여 요청을 거절했습니다.');
     } catch (error) {
-      console.error('대여 거절 실패:', error);
+      
       alert('대여 거절에 실패했습니다.');
     }
   };
@@ -1568,10 +1555,7 @@ const ChatRoomPage = () => {
     // 사용자 정보 확인 (여러 경로에서 시도)
     const currentUserId = user?.id || user?.memberId || user?.member_id;
     if (!currentUserId) {
-      console.error('[handleCreateRental] 사용자 정보 없음:', { 
-        user, 
-        isAuthenticated: user !== null,
-        userKeys: user ? Object.keys(user) : []
+      : []
       });
       alert('로그인이 필요합니다. 사용자 정보를 확인할 수 없습니다.');
       return;
@@ -1614,7 +1598,7 @@ const ChatRoomPage = () => {
       // content에 JSON 문자열로 대여 요청 정보 포함
       const rentalRequestContent = JSON.stringify(rentalInfo);
 
-      console.log('[ChatRoomPage] 대여 요청 메시지 전송 (handleCreateRental):', {
+      :', {
         type: 'TEXT', // 백엔드가 RENTAL_REQUEST 타입을 지원하지 않으므로 TEXT로 전송
         content: rentalRequestContent,
         rentalInfo
@@ -1629,20 +1613,11 @@ const ChatRoomPage = () => {
         rentalInfo: rentalInfo
       });
       
-      console.log('[ChatRoomPage] 대여 요청 메시지 전송 성공:', {
-        productId,
-        productTitle: productData.title || productData.name,
-        startDate: rentalData.startRen,
-        endDate: rentalData.endRen,
-        days,
-        rentMethod: rentalData.rentMethod
-      });
-      
       // 모달은 TransactionProcessModal이 관리하므로 여기서는 닫지 않음
       
       alert('대여 요청을 전송했습니다. 상대방의 승인을 기다려주세요.');
     } catch (error) {
-      console.error('[ChatRoomPage] 대여 요청 전송 실패:', error);
+      
       alert('대여 요청 전송에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
       hasSentRentalRequestRef.current = false; // 실패 시 다시 시도할 수 있도록
     } finally {
@@ -1698,7 +1673,7 @@ const ChatRoomPage = () => {
       setHasMoreSearch(hasMore);
       setSearchPage(page);
     } catch (err) {
-      console.error('메시지 검색 실패:', err);
+      
       setSearchError(err.message || '메시지 검색에 실패했습니다.');
     } finally {
       setIsSearching(false);
@@ -1718,12 +1693,12 @@ const ChatRoomPage = () => {
   // 메시지 점프 및 스크롤 (메시지 점프 API 사용)
   const scrollToMessage = useCallback(async (messageId, options = {}) => {
     if (!messageId || !currentChatRoom) {
-      console.warn('[scrollToMessage] 메시지 ID 또는 채팅방이 없습니다:', { messageId, currentChatRoom });
+      
       return false;
     }
 
     const messageIdStr = String(messageId);
-    console.log('[scrollToMessage] 시작:', { messageId: messageIdStr, currentMessagesCount: sortedMessages.length });
+    
 
     try {
       // 먼저 현재 메시지 목록에서 메시지가 있는지 확인
@@ -1732,7 +1707,7 @@ const ChatRoomPage = () => {
         return msgId === messageIdStr;
       });
       
-      console.log('[scrollToMessage] 현재 목록에 메시지 존재 여부:', messageExists);
+      
 
       if (messageExists) {
         // 현재 목록에 있으면 바로 스크롤 (API 호출 없이)
@@ -1743,7 +1718,7 @@ const ChatRoomPage = () => {
       }
 
       // 현재 목록에 없으면 메시지 점프 API 호출
-      console.log('[scrollToMessage] 메시지 점프 API 호출 시작:', messageIdStr);
+      
       setIsJumpingToMessage(true);
       setSearchError('');
       // 메시지 점프 시작 시간 기록
@@ -1752,17 +1727,11 @@ const ChatRoomPage = () => {
       const result = await jumpToMessage(messageIdStr, { before: 20, after: 20, ...options });
       
       if (!result || !result.success) {
-        console.error('[scrollToMessage] 메시지 점프 API 실패:', result);
+        
         setSearchError('메시지를 찾을 수 없습니다.');
         setIsJumpingToMessage(false);
         return false;
       }
-
-      console.log('[scrollToMessage] 메시지 점프 API 성공:', { 
-        messageId: messageIdStr, 
-        mergedMessagesCount: result.messages?.length,
-        targetMessageIndex: result.targetMessageIndex 
-      });
 
       // 메시지가 업데이트되면 useEffect가 자동으로 스크롤 처리
       // 메시지 점프 시작 시간 기록
@@ -1770,7 +1739,7 @@ const ChatRoomPage = () => {
       setPendingScrollMessageId(messageIdStr);
           return true;
     } catch (error) {
-      console.error('[scrollToMessage] 메시지 점프 실패:', error);
+      
       setSearchError(error.message || '메시지 점프에 실패했습니다.');
       setIsJumpingToMessage(false);
       return false;
@@ -1788,7 +1757,7 @@ const ChatRoomPage = () => {
     
     try {
       setSearchError('');
-      console.log('[handleDateSearch] 날짜 검색 시작:', { date, targetDate: targetDate.toISOString(), nextDay: nextDay.toISOString() });
+      
       
       const roomId = currentChatRoom.chatRoomId || currentChatRoom.id;
       if (!roomId) {
@@ -1796,7 +1765,7 @@ const ChatRoomPage = () => {
         return;
       }
 
-      console.log('[handleDateSearch] API로 메시지 조회 시작:', roomId);
+      
       
       // 날짜 시작 시간 이후의 메시지 조회 (더 많은 메시지를 가져와서 해당 날짜의 메시지를 찾을 수 있도록)
       const dateMessages = await messageApi.getMessages(roomId, {
@@ -1804,7 +1773,7 @@ const ChatRoomPage = () => {
         size: 200 // 더 많은 메시지를 가져와서 해당 날짜의 메시지를 찾을 수 있도록
       });
 
-      console.log('[handleDateSearch] API로 조회한 메시지 수:', dateMessages.length);
+      
 
       // 해당 날짜의 메시지 필터링 (다음 날 이전)
       const messagesOnTargetDate = dateMessages.filter((msg) => {
@@ -1813,7 +1782,7 @@ const ChatRoomPage = () => {
         return msgDate >= targetDate && msgDate < nextDay;
       });
       
-      console.log('[handleDateSearch] 필터링된 메시지 수:', messagesOnTargetDate.length);
+      
       
       if (messagesOnTargetDate.length > 0) {
         // 시간순으로 정렬하여 가장 첫 메시지 찾기
@@ -1823,14 +1792,14 @@ const ChatRoomPage = () => {
           return aTime - bTime;
         });
         const firstMessage = sortedMessagesOnTargetDate[0];
-        console.log('[handleDateSearch] API에서 첫 메시지 찾음:', firstMessage.id || firstMessage._id);
+        
         
         // 메시지 ID 확인 (다양한 형식 지원)
         const messageId = firstMessage.id || firstMessage._id || firstMessage.messageId;
         if (messageId) {
           await scrollToMessage(messageId);
         } else {
-          console.error('[handleDateSearch] 메시지 ID를 찾을 수 없음:', firstMessage);
+          
           setSearchError('메시지 ID를 찾을 수 없습니다.');
         }
       } else {
@@ -1846,7 +1815,7 @@ const ChatRoomPage = () => {
         setShowNoMessageModal(true);
       }
     } catch (error) {
-      console.error('[handleDateSearch] 날짜 검색 실패:', error);
+      
       setSearchError(error.message || '날짜 검색에 실패했습니다.');
     }
   }, [currentChatRoom, scrollToMessage, setSearchError]);
@@ -1862,7 +1831,7 @@ const ChatRoomPage = () => {
     const messageExists = sortedMessages.some(msg => String(msg.id) === String(pendingScrollMessageId));
     if (!messageExists) {
       // 메시지가 아직 목록에 없으면 대기 (다음 업데이트 때 다시 확인)
-      console.log('[useEffect scroll] 메시지가 아직 목록에 없음, 대기 중:', pendingScrollMessageId);
+      
       return;
     }
 
@@ -1878,7 +1847,7 @@ const ChatRoomPage = () => {
 
         const container = messagesContainerRef.current;
         if (!container) {
-        console.warn('[useEffect scroll] 컨테이너를 찾을 수 없습니다');
+        
         setPendingScrollMessageId(null);
         setIsJumpingToMessage(false);
         return;
@@ -1889,14 +1858,14 @@ const ChatRoomPage = () => {
       for (let attempt = 0; attempt < 100; attempt++) {
         element = document.getElementById(`message-${messageId}`);
           if (element) {
-          console.log('[useEffect scroll] DOM 요소 찾음 (시도 횟수):', attempt + 1);
+          
           break;
           }
         await wait(50);
       }
         
           if (element) {
-        console.log('[useEffect scroll] DOM 요소 찾음, 스크롤 실행:', messageId);
+        
             setIsNearBottom(false);
             setIsSearchOpen(false);
         
@@ -1905,10 +1874,10 @@ const ChatRoomPage = () => {
         
         // 요소가 컨테이너 내에 있는지 확인
         const isElementInContainer = container.contains(element);
-        console.log('[useEffect scroll] 요소가 컨테이너 내에 있음:', isElementInContainer);
+        
         
         if (!isElementInContainer) {
-          console.error('[useEffect scroll] 요소가 컨테이너 내에 없습니다!');
+          
           setPendingScrollMessageId(null);
           setIsJumpingToMessage(false);
           return;
@@ -1933,44 +1902,21 @@ const ChatRoomPage = () => {
         const maxScrollTop = container.scrollHeight - container.clientHeight;
         const finalScrollTop = Math.min(targetScrollTop, maxScrollTop);
         
-        console.log('[useEffect scroll] 스크롤 위치 계산:', { 
-          elementTopFromContainer,
-          targetScrollTop,
-          finalScrollTop,
-          currentScrollTop: container.scrollTop,
-          maxScrollTop,
-          containerHeight: container.clientHeight,
-          scrollHeight: container.scrollHeight,
-          elementHeight: targetElement.offsetHeight,
-          elementRectTop: elementRect.top,
-          containerRectTop: containerRect.top,
-          elementId: targetElement.id
-        });
-        
         // 스크롤 실행
-        console.log('[useEffect scroll] 스크롤 실행 전:', {
-          currentScrollTop: container.scrollTop,
-          targetScrollTop: finalScrollTop,
-          scrollDifference: finalScrollTop - container.scrollTop
-        });
-        
         // 먼저 즉시 스크롤 (사용자가 즉시 볼 수 있도록)
         container.scrollTop = finalScrollTop;
         
         // 강제로 리플로우 발생 (스크롤이 즉시 적용되도록)
         void container.offsetHeight;
         
-        console.log('[useEffect scroll] 즉시 스크롤 실행 후:', {
-          scrollTop: container.scrollTop,
-          expected: finalScrollTop,
-          matched: Math.abs(container.scrollTop - finalScrollTop) < 1
+        < 1
         });
         
         // 추가 확인: 만약 스크롤이 적용되지 않았다면 다시 시도
         requestAnimationFrame(() => {
           const actualScroll = container.scrollTop;
           if (Math.abs(actualScroll - finalScrollTop) > 5) {
-            console.warn('[useEffect scroll] 스크롤이 적용되지 않음, 재시도');
+            
             container.scrollTop = finalScrollTop;
           }
         });
@@ -1982,10 +1928,7 @@ const ChatRoomPage = () => {
           const containerRectAfter = container.getBoundingClientRect();
           const elementTopRelative = elementRectAfter.top - containerRectAfter.top;
           
-          console.log('[useEffect scroll] 스크롤 후 확인:', {
-            actualScrollTop,
-            finalScrollTop,
-            diff: Math.abs(actualScrollTop - finalScrollTop),
+          ,
             elementTopRelative,
             isVisible: elementTopRelative >= -10 && elementTopRelative < containerRectAfter.height + 10,
             containerScrollTop: container.scrollTop,
@@ -1994,7 +1937,7 @@ const ChatRoomPage = () => {
           
           // 요소가 여전히 보이지 않으면 다시 시도
           if (elementTopRelative < -100 || elementTopRelative > containerRectAfter.height + 100) {
-            console.warn('[useEffect scroll] 요소가 여전히 보이지 않음, 재시도');
+            
             const newElementRect = targetElement.getBoundingClientRect();
             const newContainerRect = container.getBoundingClientRect();
             const newRelativeTop = newElementRect.top - newContainerRect.top + container.scrollTop;
@@ -2010,10 +1953,6 @@ const ChatRoomPage = () => {
         // 디버깅을 위해 모든 메시지 ID 출력
         const allMessageElements = document.querySelectorAll('[id^="message-"]');
         const allMessageIds = Array.from(allMessageElements).map(el => el.id);
-        console.error('[useEffect scroll] DOM 요소를 찾을 수 없음:', {
-          messageId,
-          totalElements: allMessageIds.length,
-          sampleIds: allMessageIds.slice(0, 10)
         });
       }
 
@@ -2044,7 +1983,7 @@ const ChatRoomPage = () => {
 
     try {
       const messageId = String(message.id);
-      console.log('[handleResultClick] 검색 결과 클릭:', messageId);
+      
       
       // 먼저 현재 목록에서 확인
       const messageExists = sortedMessages.some(msg => String(msg.id) === messageId);
@@ -2072,13 +2011,13 @@ const ChatRoomPage = () => {
             setIsJumpingToMessage(false);
           }
         } catch (error) {
-          console.error('[handleResultClick] 메시지 점프 실패:', error);
+          
           setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
       setIsJumpingToMessage(false);
     }
       }
     } catch (error) {
-      console.error('[handleResultClick] 검색 결과 클릭 실패:', error);
+      
       setSearchError(error.message || '메시지로 이동하는데 실패했습니다.');
       setIsJumpingToMessage(false);
     }
@@ -2313,7 +2252,6 @@ const ChatRoomPage = () => {
         </div>
       </div>
 
-
       {/* 메시지 목록 */}
       <div
         ref={messagesContainerRef}
@@ -2458,7 +2396,7 @@ const ChatRoomPage = () => {
                         // 원본 메시지도 업데이트 (로컬에서만)
                         // 실제로는 새 승인 메시지가 전송되므로 원본 메시지는 그대로 유지
                       } catch (error) {
-                        console.error('[ChatRoomPage] 승인 메시지 전송 실패:', error);
+                        
                         alert('승인 메시지 전송에 실패했습니다.');
                       }
                     }
@@ -2495,7 +2433,7 @@ const ChatRoomPage = () => {
                       // 기간 계산
                       const days = startDate && endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1 : 0;
 
-                      console.log('[ChatRoomPage] BORROW 거래 생성하기 버튼 클릭 (상품 주인):', {
+                      :', {
                         productId: productIdToUse,
                         startDate,
                         endDate,
@@ -2512,16 +2450,6 @@ const ChatRoomPage = () => {
                       // otherMemberId는 B(채팅 건 사람)의 ID (renterId로 전달됨)
                       const messageSenderId = message.sender?.id || message.senderId || message.memberId;
                       const otherMemberIdForBorrow = messageSenderId ? Number(messageSenderId) : null;
-
-                      console.log('[ChatRoomPage] BORROW 거래 생성 - 상품 주인이 거래 생성:', {
-                        productOwnerId: currentUserId,
-                        otherMemberId: otherMemberIdForBorrow,
-                        messageSenderId,
-                        productData: {
-                          uploadType: productData?.uploadType,
-                          productId: productData?.id || productData?.productId
-                        }
-                      });
 
                       if (!otherMemberIdForBorrow) {
                         alert('상대방 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
@@ -2619,7 +2547,6 @@ const ChatRoomPage = () => {
                       return null;
                     };
 
-
                       const startDate = parseKoreanDate(dateMatch[1]);
                       const endDate = parseKoreanDate(dateMatch[2]);
 
@@ -2635,14 +2562,6 @@ const ChatRoomPage = () => {
 
                       // 기간 계산
                       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-                      console.log('[ChatRoomPage] 거래 생성하기 버튼 클릭:', {
-                        productId: productIdToUse,
-                        startDate,
-                        endDate,
-                        rentMethod,
-                        days
-                      });
 
                       // rentalData를 null로 설정하고, requestedDateRange만 전달
                       // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
@@ -2694,13 +2613,13 @@ const ChatRoomPage = () => {
                       }
 
                       const rentalHisId = Number(rentalHisIdMatch[1]);
-                      console.log('[ChatRoomPage] rentalHisId 추출:', rentalHisId);
+                      
 
                       // rentalHisId로 거래 상세 조회
                       const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                       const rentalData = rentalResponse.data;
 
-                      console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                      
 
                       // 순서 중요: requestedDateRange를 먼저 초기화한 후 rentalData 설정
                       setRequestedDateRange(null);
@@ -2711,7 +2630,7 @@ const ChatRoomPage = () => {
                         setShowTransactionModal(true);
                       }, 50);
                     } catch (err) {
-                      console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                      
                       alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                     }
                   }
@@ -2721,9 +2640,7 @@ const ChatRoomPage = () => {
               // 취소 요청 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
               const isCancelRequest = message.type === 'cancel_request' || (message.type === 'text' && content?.includes('MESSAGE_TYPE:CANCEL_REQUEST'));
               if (isCancelRequest) {
-                console.log('[ChatRoomPage] 취소 요청 메시지 감지:', {
-                  messageType: message.type,
-                  content: content.substring(0, 100),
+                ,
                   currentUserId,
                   senderId: message.sender?.id
                 });
@@ -2736,7 +2653,7 @@ const ChatRoomPage = () => {
                 const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
                 const cancelId = cancelIdMatch ? Number(cancelIdMatch[1]) : null;
 
-                console.log('[ChatRoomPage] 추출된 ID:', { rentalHisId, cancelId });
+                
 
                 // 취소 승인 메시지가 이미 있는지 확인 (이 rentalHisId에 대해)
                 const isCancelApproved = messages.some(msg => {
@@ -2746,7 +2663,7 @@ const ChatRoomPage = () => {
                   return msgContent?.includes('MESSAGE_TYPE:CANCEL_APPROVED') && msgRentalId === rentalHisId;
                 });
 
-                console.log('[ChatRoomPage] 취소 승인 확인:', { rentalHisId, isCancelApproved });
+                
 
                 // 취소가 승인되었으면 버튼 숨김
                 if (isCancelApproved) {
@@ -2766,20 +2683,13 @@ const ChatRoomPage = () => {
                 const senderId = message.sender?.id;
                 const isOwn = Number(currentUserId) === Number(senderId);
 
-                console.log('[ChatRoomPage] 버튼 표시 조건 체크:', {
-                  isOwn,
-                  rentalHisId,
-                  cancelId,
-                  shouldShowButton: !isOwn && rentalHisId && cancelId
-                });
-
                 if (!isOwn && rentalHisId && cancelId) {
                   buttons.push({
                     label: '📋 취소 사유 보기',
                     className: 'bg-orange-600 text-white hover:bg-orange-700',
                     onClick: async () => {
                       try {
-                        console.log('[ChatRoomPage] 취소 사유 보기 클릭:', { rentalHisId, cancelId });
+                        
 
                         // 취소 상세 모달 열기
                         setShowCancelDetailModal(true);
@@ -2792,14 +2702,14 @@ const ChatRoomPage = () => {
                           requesterName: message.sender?.username || message.sender?.name || '상대방'
                         });
                       } catch (err) {
-                        console.error('[ChatRoomPage] 취소 정보 표시 실패:', err);
+                        
                         alert('취소 정보를 불러올 수 없습니다.');
                       }
                     }
                   });
                 }
 
-                console.log('[ChatRoomPage] 반환할 버튼:', buttons);
+                
                 return buttons.length > 0 ? buttons : null;
               }
 
@@ -2827,15 +2737,6 @@ const ChatRoomPage = () => {
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
               const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
-
-              console.log('[ChatRoomPage] getRentMethodSelector 조건 체크:', {
-                messageSenderId,
-                currentUserId,
-                isMessageSender,
-                sellerId,
-                isProductOwner,
-                shouldShow: isMessageSender && !isProductOwner
-              });
 
               // 메시지 보낸 사람(제안한 사람)에게만 거래 방법 선택 UI 표시
               if (!isMessageSender || isProductOwner) {
@@ -3041,43 +2942,21 @@ const ChatRoomPage = () => {
                         const rentalInfo = message.rentalInfo || (message.content ? JSON.parse(message.content) : null);
                         requesterId = rentalInfo?.requesterId || message.senderId || message.memberId;
                       } catch (e) {
-                        console.warn('[ChatRoomPage] requesterId 추출 실패, senderId 사용:', message.senderId);
+                        
                         requesterId = message.senderId || message.memberId;
                       }
 
                       // otherMemberId 정의
                       const otherMemberId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
 
-                      console.log('[ChatRoomPage] 거래 생성 권한 검증:', {
-                        requesterId,
-                        otherMemberId,
-                        currentUserId,
-                        messageSenderId: message.senderId,
-                        isSeller
-                      });
-
                       // 판매자만 거래를 생성할 수 있도록 검증
                       if (!isSeller) {
                         alert('판매자만 거래를 생성할 수 있습니다.');
-                        console.error('[ChatRoomPage] 권한 검증 실패: 판매자가 아님', {
-                          currentUserId,
-                          sellerId,
-                          isSeller
-                        });
                         return;
                       }
 
                       // 기간 계산
                       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-                      console.log('[ChatRoomPage] 거래 생성하기 버튼 클릭:', {
-                        productId: productIdToUse,
-                        startDate,
-                        endDate,
-                        rentMethod,
-                        days,
-                        requesterId
-                      });
 
                       // rentalData를 null로 설정하고, requestedDateRange만 전달
                       // 이렇게 하면 TransactionProcessModal이 새 거래 생성 모드로 작동함
@@ -3160,7 +3039,7 @@ const ChatRoomPage = () => {
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
 
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
 
                         // 거래 상태 확인 - PENDING 상태가 아니면 TransactionProcessModal 열기
                         const status = rentalData.status || rentalData.rentalStatus;
@@ -3190,7 +3069,7 @@ const ChatRoomPage = () => {
                         };
 
                         const paymentResult = await paymentApi.createPayment(paymentData);
-                        console.log('[ChatRoomPage] 결제 생성 완료:', paymentResult);
+                        
 
                         // PaymentModal 열기
                         setPaymentMessage({
@@ -3206,7 +3085,7 @@ const ChatRoomPage = () => {
                         });
                         setShowPaymentModal(true);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 결제 처리 실패:', err);
+                        
                         alert(err.response?.data?.message || err.message || '결제 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
@@ -3254,11 +3133,11 @@ const ChatRoomPage = () => {
                           // RENT 상품: 거래 상세 조회
                           const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                           const rentalData = rentalResponse.data || rentalResponse;
-                          console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                          
                           setCurrentRentalData(rentalData);
                         } else {
                           // BORROW 상품: rentalHisId만 저장 (getRentalDetail 호출 안 함)
-                          console.log('[ChatRoomPage] BORROW 상품 - rentalHisId만 저장:', rentalHisId);
+                          
                           setCurrentRentalData({ rentalHisId });
                         }
 
@@ -3267,11 +3146,11 @@ const ChatRoomPage = () => {
                           setShowShippingModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         // BORROW 상품의 경우 getRentalDetail 에러는 무시하고 모달 열기
                         const isBorrowProduct = productData?.uploadType === 'BORROW';
                         if (isBorrowProduct && err.response?.status === 500) {
-                          console.log('[ChatRoomPage] BORROW 상품 - getRentalDetail 권한 에러 무시, 모달 열기');
+                          
                           setCurrentRentalData({ rentalHisId });
                           setTimeout(() => {
                             setShowShippingModal(true);
@@ -3325,11 +3204,11 @@ const ChatRoomPage = () => {
                           // RENT 상품: 거래 상세 조회
                           const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                           const rentalData = rentalResponse.data || rentalResponse;
-                          console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                          
                           setCurrentRentalData(rentalData);
                         } else {
                           // BORROW 상품: rentalHisId만 저장 (getRentalDetail 호출 안 함)
-                          console.log('[ChatRoomPage] BORROW 상품 - rentalHisId만 저장:', rentalHisId);
+                          
                           setCurrentRentalData({ rentalHisId });
                         }
 
@@ -3338,11 +3217,11 @@ const ChatRoomPage = () => {
                           setShowShippingModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         // BORROW 상품의 경우 getRentalDetail 에러는 무시하고 모달 열기
                         const isBorrowProduct = productData?.uploadType === 'BORROW';
                         if (isBorrowProduct && err.response?.status === 500) {
-                          console.log('[ChatRoomPage] BORROW 상품 - getRentalDetail 권한 에러 무시, 모달 열기');
+                          
                           setCurrentRentalData({ rentalHisId });
                           setTimeout(() => {
                             setShowShippingModal(true);
@@ -3398,7 +3277,7 @@ const ChatRoomPage = () => {
                     rentalData={currentRentalData}
                     sendMessage={sendMessage}
                     onShippingComplete={async ({ rentalHisId, trackingNo, courier }) => {
-                      console.log('[ChatRoomPage] 발송 완료:', { rentalHisId, trackingNo, courier });
+                      
                       
                       // 거래 상태 업데이트 - 운송장 번호 필드도 업데이트
                       try {
@@ -3408,7 +3287,7 @@ const ChatRoomPage = () => {
                         // 운송장 번호 등록 상태 업데이트 (버튼 레이블 변경용)
                         setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+                        
                         // 실패해도 로컬 상태 업데이트
                         if (currentRentalData) {
                           const updatedData = {
@@ -3440,13 +3319,13 @@ const ChatRoomPage = () => {
                     isOwn={isOwn}
                     onReceiveClick={async (rentalHisId) => {
                       try {
-                        console.log('[ChatRoomPage] 물품 수령 확인하기 클릭:', rentalHisId);
+                        
                         
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
                         
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
                         
                         setCurrentRentalData(rentalData);
                         
@@ -3455,7 +3334,7 @@ const ChatRoomPage = () => {
                           setShowReceiveModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
@@ -3499,13 +3378,13 @@ const ChatRoomPage = () => {
                     rentalData={currentRentalData}
                     onExtendClick={async (rentalHisId) => {
                       try {
-                        console.log('[ChatRoomPage] 거래 연장하기 클릭:', rentalHisId);
+                        
                         
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
                         
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
                         
                         setCurrentRentalData(rentalData);
                         
@@ -3514,19 +3393,19 @@ const ChatRoomPage = () => {
                           setShowExtendRentalModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
                     onReturnClick={async (rentalHisId) => {
                       try {
-                        console.log('[ChatRoomPage] 반납하기 클릭:', rentalHisId);
+                        
                         
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
                         
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
                         
                         setCurrentRentalData(rentalData);
                         
@@ -3535,19 +3414,19 @@ const ChatRoomPage = () => {
                           setShowReturnModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
                     onCancelClick={async (rentalHisId) => {
                       try {
-                        console.log('[ChatRoomPage] 거래 중단하기 클릭:', rentalHisId);
+                        
                         
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
                         
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
                         
                         setCurrentRentalData(rentalData);
                         
@@ -3556,7 +3435,7 @@ const ChatRoomPage = () => {
                           setShowTransactionModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     }}
@@ -3594,13 +3473,13 @@ const ChatRoomPage = () => {
                     isOwn={isOwn}
                     onReceiveConfirmClick={!isOwn && isSeller ? async (rentalHisId) => {
                       try {
-                        console.log('[ChatRoomPage] 반납 수령 확인하기 클릭:', rentalHisId);
+                        
                         
                         // rentalHisId로 거래 상세 조회
                         const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
                         const rentalData = rentalResponse.data || rentalResponse;
                         
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
+                        
                         
                         setCurrentRentalData(rentalData);
                         
@@ -3609,7 +3488,7 @@ const ChatRoomPage = () => {
                           setShowReturnReceiveModal(true);
                         }, 50);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
+                        
                         alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
                       }
                     } : undefined}
@@ -3645,7 +3524,7 @@ const ChatRoomPage = () => {
                         const updatedRentalData = updatedRentalResponse.data || updatedRentalResponse;
                         setCurrentRentalData(updatedRentalData);
                       } catch (err) {
-                        console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+                        
                       }
                     }}
                     onCancelRequest={(rentalData) => {
@@ -3817,7 +3696,7 @@ const ChatRoomPage = () => {
           rentalHisId={paymentMessage.rentalHisId}
           onSuccess={handlePaymentSuccess}
           onError={(error) => {
-            console.error('결제 오류:', error);
+            
             alert(`결제 처리 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
           }}
         />
@@ -3841,9 +3720,9 @@ const ChatRoomPage = () => {
               content: messageContent
             });
 
-            console.log('대여 요청 메시지 전송 성공');
+            
           } catch (error) {
-            console.error('대여 요청 전송 실패:', error);
+            
             throw error;
           } finally {
             setIsCreatingRental(false);
@@ -4085,7 +3964,7 @@ const ChatRoomPage = () => {
           return null;
         })()}
         onTransactionCreated={(newRentalData) => {
-          console.log('[ChatRoomPage] 거래 생성됨:', newRentalData);
+          
           setCurrentRentalData(newRentalData);
         }}
         sendMessage={sendMessage}
@@ -4097,24 +3976,23 @@ const ChatRoomPage = () => {
             // requestedDateRange에서 otherMemberId가 있으면 우선 사용
             const fromRequestedRange = requestedDateRange?.otherMemberId;
             if (fromRequestedRange) {
-              console.log('[ChatRoomPage] BORROW 타입 - otherMemberId (requestedDateRange에서):', fromRequestedRange);
+              
               return Number(fromRequestedRange);
             }
             
             // requestedDateRange에 없으면 채팅방 상대방 ID 사용
             const otherId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
-            console.log('[ChatRoomPage] BORROW 타입 - otherMemberId (채팅방 상대방):', otherId);
+            
             return otherId ? Number(otherId) : null; // Number로 변환
           } else {
             // RENT: 기존 로직 - 상대방의 ID
             const otherId = currentChatRoom?.otherMember?.id || currentChatRoom?.otherMember?.memberId;
-            console.log('[ChatRoomPage] RENT 타입 - otherMemberId (renterId로 사용):', otherId);
+            
             return otherId ? Number(otherId) : null; // Number로 변환
           }
         })()}
         chatRoomId={chatRoomId}
       />
-
 
       {/* 발송 모달 */}
       {showShippingModal && currentRentalData && (
@@ -4124,7 +4002,7 @@ const ChatRoomPage = () => {
           rentalHisId={currentRentalData.rentalHisId}
           sendMessage={sendMessage}
           onVideoUploaded={({ videoUrl, rentalHisId }) => {
-            console.log('[ChatRoomPage] 영상 업로드 완료:', { videoUrl, rentalHisId });
+            
             // 영상 업로드 완료 후 추가 작업이 필요하면 여기에 작성
             // 채팅 메시지는 ShippingModal 내부에서 전송됨
           }}
@@ -4138,7 +4016,7 @@ const ChatRoomPage = () => {
           onClose={() => setShowReceiveModal(false)}
           rentalHisId={currentRentalData.rentalHisId}
           onReceiveComplete={async ({ videoUrl }) => {
-            console.log('[ChatRoomPage] 수령 완료:', { videoUrl });
+            
 
             // 채팅방에 수령 완료 메시지 전송
             const messageContent = `✅ 물품을 수령했습니다!\n\n${videoUrl ? `[개봉 영상 보기](${videoUrl})` : ''}\n\nrentalHisId:${currentRentalData.rentalHisId}`;
@@ -4172,7 +4050,7 @@ const ChatRoomPage = () => {
           onClose={() => setShowReturnModal(false)}
           rentalHisId={currentRentalData.rentalHisId}
           onVideoUploaded={async ({ videoUrl, rentalHisId }) => {
-            console.log('[ChatRoomPage] 반납 영상 업로드 완료:', { videoUrl, rentalHisId });
+            
             
             // 거래 상태 업데이트
             if (currentRentalData) {
@@ -4194,7 +4072,7 @@ const ChatRoomPage = () => {
           onClose={() => setShowExtendRentalModal(false)}
           rentalData={currentRentalData}
           onExtendSuccess={async (result) => {
-            console.log('[ChatRoomPage] 거래 연장 성공:', result);
+            
 
             // 채팅방에 연장 완료 메시지 전송
             const messageContent = `⏰ 대여 기간이 연장되었습니다!\n\n기존 종료일: ${new Date(result.originalEndRen).toLocaleDateString('ko-KR')}\n새 종료일: ${new Date(result.newEndRen).toLocaleDateString('ko-KR')}\n추가 대여료: ${result.additionalFee.toLocaleString()}원\n\n${result.message || '추가 대여료를 결제해주세요.'}\n\nrentalHisId:${result.rentalHisId}`;
@@ -4209,7 +4087,7 @@ const ChatRoomPage = () => {
               const updatedRentalData = await rentalApi.getRentalDetail(result.rentalHisId);
               setCurrentRentalData(updatedRentalData.data || updatedRentalData);
             } catch (err) {
-              console.error('[ChatRoomPage] 거래 데이터 갱신 실패:', err);
+              
             }
 
             alert('대여 기간이 연장되었습니다. 추가 대여료를 결제해주세요.');
@@ -4225,7 +4103,7 @@ const ChatRoomPage = () => {
           rentalHisId={currentRentalData.rentalHisId}
           sendMessage={sendMessage}
           onConfirmComplete={async ({ videoUrl }) => {
-            console.log('[ChatRoomPage] 반납 수령 확인 완료:', { videoUrl });
+            
 
             // 채팅방에 반납 수령 확인 완료 메시지 전송
             const messageContent = `반납 수령을 확인했습니다!\n\n${videoUrl ? `[회수 영상 보기](${videoUrl})` : ''}\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nMESSAGE_TYPE:RETURN_RECEIVED`;
@@ -4278,7 +4156,7 @@ const ChatRoomPage = () => {
             
             try {
               setIsCheckingTransaction(true);
-              console.log('[ChatRoomPage] 거래 내역 조회 시작:', { accountNo, transactionUniqueNo });
+              
               
               // 외부 API 호출 (SSAFY 금융망)
               const response = await accountApi.getTransactionHistory({
@@ -4286,10 +4164,10 @@ const ChatRoomPage = () => {
                 transactionUniqueNo
               });
               
-              console.log('[ChatRoomPage] 거래 내역 조회 성공:', response);
+              
               setTransactionCheckData(response.data || response);
             } catch (err) {
-              console.error('[ChatRoomPage] 거래 내역 조회 실패:', err);
+              
               alert(err.response?.data?.message || '거래 내역을 조회할 수 없습니다. 계좌번호와 거래 고유번호를 확인해주세요.');
             } finally {
               setIsCheckingTransaction(false);
@@ -4502,7 +4380,7 @@ const ChatRoomPage = () => {
                         const uploadedFileIds = await Promise.all(uploadPromises);
                         setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
                       } catch (err) {
-                        console.error('이미지 업로드 실패:', err);
+                        
                         alert('이미지 업로드에 실패했습니다.');
                       } finally {
                         setReviewUploading(false);
@@ -4594,7 +4472,7 @@ const ChatRoomPage = () => {
                       setReviewFileIds([]);
                       setReviewImagePreviews([]);
                     } catch (error) {
-                      console.error('리뷰 작성 실패:', error);
+                      
                       alert(error.response?.data?.message || '리뷰 작성에 실패했습니다. 다시 시도해주세요.');
                     }
                   }}

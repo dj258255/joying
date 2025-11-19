@@ -73,9 +73,9 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
       };
 
       mediaRecorder.onstop = () => {
-        console.log('[ShippingModal] 녹화 중지 - 청크 수:', chunksRef.current.length);
+        
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        console.log('[ShippingModal] Blob 생성 완료:', { size: blob.size, type: blob.type });
+        
 
         const url = URL.createObjectURL(blob);
         setRecordedVideoBlob(blob);
@@ -96,7 +96,7 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
       mediaRecorder.start();
       setIsRecording(true);
     } catch (err) {
-      console.error('[ShippingModal] 영상 녹화 시작 실패:', err);
+      
       setError('카메라 접근에 실패했습니다. 브라우저 설정을 확인해주세요.');
     }
   };
@@ -129,11 +129,11 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
       setIsLoading(true);
       setError(null);
 
-      console.log('[ShippingModal] 영상 업로드 시작');
+      
 
       // 1. 파일 업로드
       const uploadResult = await fileApi.uploadFile(recordedVideoBlob);
-      console.log('[ShippingModal] 파일 업로드 응답:', uploadResult);
+      
 
       const fileId = uploadResult.body?.fileId
         || uploadResult.body?.data?.fileId
@@ -144,11 +144,11 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
         || uploadResult.data?.id;
 
       if (!fileId) {
-        console.error('[ShippingModal] fileId를 찾을 수 없음:', uploadResult);
+        
         throw new Error('파일 업로드 응답에서 fileId를 찾을 수 없습니다.');
       }
 
-      console.log('[ShippingModal] 파일 업로드 성공. fileId:', fileId);
+      
 
       // 2. 대여 이력에 영상 등록
       const videoResult = await rentalApi.uploadVideo(rentalHisId, {
@@ -156,7 +156,7 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
         videoType: 'OWNER_SEND'
       });
 
-      console.log('[ShippingModal] 영상 등록 성공:', videoResult);
+      
 
       const videoUrl = videoResult.data?.videoUrl
         || videoResult.data?.url
@@ -188,10 +188,10 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
             || videoUrl;
         }
       } catch (err) {
-        console.error('[ShippingModal] 영상 목록 조회 실패:', err);
+        
       }
 
-      console.log('[ShippingModal] 최종 videoUrl:', finalVideoUrl);
+      
 
       // 4. 채팅방에 영상 촬영 완료 메시지 전송
       if (sendMessage) {
@@ -200,7 +200,7 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
           type: 'TEXT',
           content: messageContent
         });
-        console.log('[ShippingModal] 채팅 메시지 전송 완료');
+        
       }
 
       // 5. 송장 번호 등록 안내 메시지 전송
@@ -211,7 +211,7 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
             type: 'TEXT',
             content: trackingMessageContent
           });
-          console.log('[ShippingModal] 송장 번호 등록 안내 메시지 전송 완료');
+          
         }, 500);
       }
 
@@ -226,7 +226,7 @@ const ShippingModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMess
       // 7. 모달 닫기
       onClose();
     } catch (err) {
-      console.error('[ShippingModal] 영상 업로드 실패:', err);
+      
       
       // 에러 메시지 개선
       let errorMessage = '영상 업로드에 실패했습니다.';

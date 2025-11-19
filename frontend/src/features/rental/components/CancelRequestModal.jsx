@@ -68,7 +68,7 @@ const CancelRequestModal = ({ isOpen, onClose, rentalData, onSubmit, isSubmittin
         sellerRefund: Number(sellerDeposit)
       });
     } catch (err) {
-      console.error('[CancelRequestModal] 취소 신청 실패:', err);
+      
       setError(err.response?.data?.message || err.message || '취소 신청에 실패했습니다.');
     }
   };

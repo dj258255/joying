@@ -98,7 +98,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
     if (reviewerId) {
       navigate(`/members/${reviewerId}`);
     } else {
-      console.warn('[ReviewCard] reviewerId를 찾을 수 없습니다:', review);
+      
     }
   };
   
@@ -115,7 +115,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
         navigate(`/products/${productId}`);
         return;
       } else {
-        console.warn('[ReviewCard] productId를 찾을 수 없습니다:', review);
+        
         return;
       }
     }
@@ -141,7 +141,7 @@ const ReviewCard = ({ review, showProductInfo = true, showRating = false, onClic
         navigate(`/mypage/borrowed/${rentalId}`);
       }
     } else {
-      console.warn('[ReviewCard] rentalHistoryId를 찾을 수 없습니다:', review);
+      
     }
   };
 

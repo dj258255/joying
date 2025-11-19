@@ -66,7 +66,7 @@ const ReturnReceiveConfirmMessageCard = ({
     try {
       setIsLoading(true);
       
-      console.log('[ReturnReceiveConfirmMessageCard] 최종 수령 확인 시작:', confirmInfo.rentalHisId);
+      
 
       // 반납 수령 확인 API 호출
       await rentalApi.confirmReturnReceive(confirmInfo.rentalHisId);
@@ -85,7 +85,7 @@ const ReturnReceiveConfirmMessageCard = ({
         onConfirmComplete(confirmInfo.rentalHisId);
       }
     } catch (err) {
-      console.error('[ReturnReceiveConfirmMessageCard] 최종 수령 확인 실패:', err);
+      
       alert(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
     } finally {
       setIsLoading(false);
@@ -110,7 +110,7 @@ const ReturnReceiveConfirmMessageCard = ({
         onCancelRequest(rentalData);
       }
     } catch (err) {
-      console.error('[ReturnReceiveConfirmMessageCard] 거래 정보 조회 실패:', err);
+      
       alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsLoading(false);

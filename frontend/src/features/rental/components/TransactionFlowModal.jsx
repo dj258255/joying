@@ -109,15 +109,15 @@ const TransactionFlowModal = ({ isOpen, onClose, rentalHisId, rentalData: initia
         setIsLoading(true);
         setError(null);
 
-        console.log('[TransactionFlowModal] 거래 데이터 조회 시작:', rentalHisId);
+        
 
         const response = await rentalApi.getRentalDetail(rentalHisId);
         const data = response?.data || response?.body || response;
         
-        console.log('[TransactionFlowModal] 거래 데이터 로드 성공:', data);
+        
         setRentalData(data);
       } catch (err) {
-        console.error('[TransactionFlowModal] 거래 데이터 조회 실패:', err);
+        
         setError(err.response?.data?.message || err.message || '거래 정보를 불러올 수 없습니다.');
       } finally {
         setIsLoading(false);

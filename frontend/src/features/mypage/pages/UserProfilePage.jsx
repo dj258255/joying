@@ -37,7 +37,7 @@ const UserProfilePage = () => {
 
   useEffect(() => {
     if (error) {
-      console.error('사용자 프로필 로드 실패:', error);
+      
       navigate('/404');
     }
   }, [error, navigate]);
@@ -64,11 +64,11 @@ const UserProfilePage = () => {
         const rentCount = rentData.totalCount || rentData.total_count || rentData.totalElements || 0;
         const borrowCount = borrowData.totalCount || borrowData.total_count || borrowData.totalElements || 0;
         
-        console.log('[UserProfilePage] 리뷰 개수:', { rentCount, borrowCount, rentRes: rentRes.data, borrowRes: borrowRes.data });
+        
         
         setTotalReviewCount(rentCount + borrowCount);
       } catch (err) {
-        console.error("리뷰 개수 로드 실패:", err);
+        
         setTotalReviewCount(0);
       }
     };
@@ -118,7 +118,7 @@ const UserProfilePage = () => {
           currentPage: (responseData.page || 1) - 1
         }));
       } catch (err) {
-        console.error("리뷰 로드 실패:", err);
+        
         setReviewPageInfo(prev => ({
           ...prev,
           content: []

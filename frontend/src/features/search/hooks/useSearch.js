@@ -9,7 +9,7 @@ import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
 
 // 무한스크롤용 검색 훅 (현업 표준)
 export const useInfiniteSearch = (query, filters = {}) => {
-  console.log('🔍 [useInfiniteSearch] 훅 호출됨 - 파라미터:', { query, filters });
+  
 
   const {
     data,
@@ -23,7 +23,7 @@ export const useInfiniteSearch = (query, filters = {}) => {
   } = useInfiniteQuery({
     queryKey: [QUERY_KEYS.SEARCH, query, filters],
     queryFn: ({ pageParam = 1 }) => {
-      console.log('🚀 [useInfiniteSearch] queryFn 실행 - page:', pageParam);
+      
       // 백엔드는 q 파라미터를 기대하므로, query를 q로 변환
       // filters에 q가 있으면 우선적으로 사용, 없으면 query를 q로 사용
       return searchApi.search({ 
@@ -43,14 +43,6 @@ export const useInfiniteSearch = (query, filters = {}) => {
       // 현재 페이지의 결과 개수가 size와 같으면 다음 페이지가 있다고 가정
       const hasMore = searchResponses.length === size;
 
-      console.log('📄 [useInfiniteSearch] getNextPageParam:', {
-        currentPage,
-        receivedCount: searchResponses.length,
-        size,
-        hasMore,
-        nextPage: hasMore ? currentPage + 1 : undefined
-      });
-
       // 다음 페이지가 있으면 페이지 번호 반환, 없으면 undefined
       return hasMore ? currentPage + 1 : undefined;
     },
@@ -67,18 +59,6 @@ export const useInfiniteSearch = (query, filters = {}) => {
 
   // 첫 페이지의 메타데이터
   const firstPageData = data?.pages?.[0]?.data?.data;
-
-  console.log('📊 [useInfiniteSearch] 상태:', {
-    query,
-    filters,
-    isLoading,
-    isFetchingNextPage,
-    isError,
-    error: error?.message,
-    totalProducts: allProducts.length,
-    totalElements: firstPageData?.totalElements || 0,
-    hasNextPage
-  });
 
   return {
     products: allProducts,
@@ -97,7 +77,7 @@ export const useInfiniteSearch = (query, filters = {}) => {
 
 // 기존 호환성을 위한 레거시 훅 (deprecated)
 export const useSearch = (query, filters = {}, page) => {
-  console.log('🔍 [useSearch] 훅 호출됨 - 파라미터:', { query, filters, page });
+  
 
   // 통합 검색
   const {
@@ -110,7 +90,7 @@ export const useSearch = (query, filters = {}, page) => {
   } = useQuery({
     queryKey: [QUERY_KEYS.SEARCH, query, filters, page],
     queryFn: () => {
-      console.log('🚀 [useSearch] queryFn 실행 중...');
+      
       return searchApi.search({ query, ...filters, page, size: 20 });
     },
     enabled: false,
@@ -119,18 +99,6 @@ export const useSearch = (query, filters = {}, page) => {
   });
 
   const data = searchResults?.data?.data;
-
-  console.log('📊 [useSearch] 상태:', {
-    query,
-    filters,
-    page,
-    isLoading,
-    isError,
-    error: error?.message,
-    hasSearchResults: !!searchResults,
-    searchResponsesCount: data?.searchResponses?.length || 0,
-    totalElements: data?.totalElements || 0
-  });
 
   return {
     searchResponses: data?.searchResponses || [],

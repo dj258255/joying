@@ -31,4 +31,3 @@ export const getProductDetail = async (productId) => {
   return response.data; // 서버가 { status, message, data, timestamp } 형태를 반환하면 상위에서 data 사용
 };
 
-

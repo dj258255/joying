@@ -120,7 +120,7 @@ const ReviewWriteForm = ({
         setErrorMessage(`${failedIndices.length}개의 이미지 업로드에 실패했습니다.`);
       }
     } catch (err) {
-      console.error('이미지 업로드 오류:', err);
+      
       setErrorMessage('이미지 업로드 중 오류가 발생했습니다.');
     } finally {
       setUploading(false);

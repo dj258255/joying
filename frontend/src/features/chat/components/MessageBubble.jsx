@@ -147,7 +147,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
       try {
         await onReplyClick(replyTo.id);
       } catch (error) {
-        console.error('[MessageBubble] 답장 메시지 점프 실패:', error);
+        
       }
       return;
     }
@@ -453,7 +453,7 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
     
     // rentalInfo가 없으면 렌더링하지 않음 (데이터 오류)
     // normalizeMessage에서 rentalInfo를 파싱해야 하는데 실패한 경우
-    console.warn('[MessageBubble] rental_request 타입이지만 rentalInfo가 없음:', message);
+    
     return null;
   }
 

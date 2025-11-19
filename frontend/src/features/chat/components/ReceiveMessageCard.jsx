@@ -94,7 +94,7 @@ const ReceiveMessageCard = ({ message, isOwn = false, isBuyer = false, rentalDat
           cancel: cancelState
         });
       } catch (err) {
-        console.error('[ReceiveMessageCard] 버튼 상태 확인 실패:', err);
+        
       }
     };
 

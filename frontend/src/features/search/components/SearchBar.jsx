@@ -34,7 +34,7 @@ const SearchBar = ({
           setSuggestions(data || []);
           setShowSuggestions(true);
         } catch (error) {
-          console.error('자동완성 조회 실패:', error);
+          
           setSuggestions([]);
         }
       } else {

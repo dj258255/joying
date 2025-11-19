@@ -36,7 +36,7 @@ const SearchResultsPage = () => {
 
   const handleResultClick = (result) => {
     // TODO: 결과 상세 페이지로 이동
-    console.log('검색 결과 클릭:', result);
+    
   };
 
   const typeOptions = [

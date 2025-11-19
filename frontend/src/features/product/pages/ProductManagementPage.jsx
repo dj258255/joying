@@ -19,7 +19,7 @@ const ProductManagementPage = () => {
       setIsEditing(false);
       setSelectedProduct(null);
     } catch (error) {
-      console.error('상품 생성 실패:', error);
+      
     }
   };
 
@@ -29,7 +29,7 @@ const ProductManagementPage = () => {
       setIsEditing(false);
       setSelectedProduct(null);
     } catch (error) {
-      console.error('상품 수정 실패:', error);
+      
     }
   };
 
@@ -38,7 +38,7 @@ const ProductManagementPage = () => {
       try {
         await deleteProduct(productId);
       } catch (error) {
-        console.error('상품 삭제 실패:', error);
+        
       }
     }
   };
@@ -97,7 +97,7 @@ const ProductManagementPage = () => {
           <div key={product.id} className="relative">
             <ProductCard
               product={product}
-              onClick={(id) => console.log('상품 클릭:', id)}
+              onClick={(id) => }
             />
             <div className="absolute top-2 right-2 flex space-x-2">
               <button

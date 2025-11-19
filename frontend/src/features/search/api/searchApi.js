@@ -31,13 +31,7 @@ export const searchApi = {
       const response = await axiosInstance.get('/search', { params });
       return response;
     } catch (error) {
-      console.error('[SearchAPI] 검색 실패:', error);
-      console.error('[SearchAPI] 에러 상세:', {
-        message: error?.message,
-        response: error?.response?.data,
-        status: error?.response?.status,
-        url: error?.config?.url
-      });
+      
       throw error;
     }
   },

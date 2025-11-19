@@ -103,7 +103,7 @@ const ProductDetailPage = () => {
         const rentCount = rentRes.data.data.totalCount || 0;
         setSellerReviewCount(borrowCount + rentCount);
       } catch (error) {
-        console.error('판매자 리뷰 개수 조회 실패:', error);
+        
         setSellerReviewCount(0);
       }
     };
@@ -140,7 +140,7 @@ const ProductDetailPage = () => {
 
         setReviewsWithImages(reviewImageMap);
       } catch (error) {
-        console.error('리뷰 이미지 조회 실패:', error);
+        
         setReviewsWithImages({});
       }
     };
@@ -160,11 +160,7 @@ const ProductDetailPage = () => {
         : (productResponse?.isLiked !== undefined 
           ? productResponse.isLiked 
           : (productResponse?.isLike !== undefined ? productResponse.isLike : undefined));
-      console.log('[ProductDetailPage] productResponse 변경 감지:', { 
-        productId, 
-        oldLiked: isLiked, 
-        newLiked,
-        hasLikedField: 'liked' in (productResponse || {}),
+      ,
         hasIsLikedField: 'isLiked' in (productResponse || {}),
         hasIsLikeField: 'isLike' in (productResponse || {})
       });
@@ -175,14 +171,14 @@ const ProductDetailPage = () => {
   
   const handleLikeClick = () => {
     if (isLikeLoading || !productResponse || !productId) {
-      console.warn('[ProductDetailPage] 찜하기 불가:', { isLikeLoading, productResponse: !!productResponse, productId });
+      
       return;
     }
     // 현재 상태 저장
     const currentLiked = isLiked;
     const previousLiked = isLiked;
     const newLikedState = !currentLiked;
-    console.log('[ProductDetailPage] 찜하기 클릭:', { productId, currentLiked, newLikedState });
+    
     // 즉시 UI 업데이트 (optimistic update)
     setIsLiked(newLikedState);
     // 상품 상세 캐시도 즉시 업데이트
@@ -198,7 +194,7 @@ const ProductDetailPage = () => {
     // API 호출 (이전 상태 전달)
     toggleLike(currentLiked).catch((error) => {
       // 에러 발생 시 이전 상태로 롤백
-      console.error('[ProductDetailPage] 찜하기 실패, 상태 롤백:', error);
+      
       setIsLiked(previousLiked);
       queryClient.setQueryData([QUERY_KEYS.PRODUCT_DETAIL, productId], (oldData) => {
         if (oldData) {
@@ -434,7 +430,7 @@ const ProductDetailPage = () => {
       }
 
       // 현재 사용자 정보 확인
-      console.log('🔍 사용자 정보 확인:', { isAuthenticated, user });
+      
 
       if (!isAuthenticated || !user) {
         alert('로그인이 필요합니다.');
@@ -449,10 +445,10 @@ const ProductDetailPage = () => {
       }
 
       // 채팅방 생성 또는 기존 채팅방 조회 (백엔드 API 호출)
-      console.log('[ProductDetailPage] 대여 요청 - 채팅방 생성 요청:', { productId: product.id });
+      
       const chatRoomData = await chatApi.createChatRoom(product.id);
 
-      console.log('[ProductDetailPage] 채팅방 생성 완료:', chatRoomData);
+      
 
       // 채팅방 ID 추출 (백엔드 응답: ChatRoomResponse.chatRoomId)
       const chatRoomId = chatRoomData.chatRoomId;
@@ -476,13 +472,6 @@ const ProductDetailPage = () => {
         deposit: product.deposit || 0
       };
       
-      console.log('[ProductDetailPage] 대여 요청 데이터 전달:', {
-        chatRoomId,
-        dateRange,
-        product: productDataForRental,
-        rentMethod: 'BOTH'
-      });
-      
       // 채팅방으로 이동하면서 대여 요청 정보 전달
       navigate(`/chats/${chatRoomId}`, {
         state: {
@@ -502,7 +491,7 @@ const ProductDetailPage = () => {
         }
       });
     } catch (error) {
-      console.error('대여 요청 실패:', error);
+      
       alert(`대여 요청에 실패했습니다: ${error.message || '알 수 없는 오류가 발생했습니다.'}`);
     }
   };
@@ -917,7 +906,7 @@ const ProductDetailPage = () => {
                               state: navigationState
                             });
                           } catch (error) {
-                            console.error('채팅방 생성 실패:', error);
+                            
                             alert('채팅방 생성에 실패했습니다.');
                           }
                         }}
@@ -1271,7 +1260,7 @@ const ProductDetailPage = () => {
                       state: navigationState
                     });
                   } catch (error) {
-                    console.error('채팅방 생성 실패:', error);
+                    
                     alert('채팅방 생성에 실패했습니다.');
                   }
                 }}
@@ -1322,7 +1311,6 @@ const ProductDetailPage = () => {
                       availableEndDate={product.endRent}
                     />
                 </div>
-
 
                 {/* 가격 계산 */}
                 {dateRange && dateRange.start && dateRange.end && (

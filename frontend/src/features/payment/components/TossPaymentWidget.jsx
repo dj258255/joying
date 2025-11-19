@@ -29,9 +29,7 @@ const TossPaymentWidget = ({
 
   // 환경 변수 확인 로그
   const envClientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
-  console.log('[TossPaymentWidget] VITE_TOSS_CLIENT_KEY 확인:', {
-    exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
-    envValue: envClientKey ? `${envClientKey.substring(0, 15)}...` : 'undefined',
+  }...` : 'undefined',
     propValue: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
     match: envClientKey === clientKey
   });
@@ -39,17 +37,12 @@ const TossPaymentWidget = ({
   useEffect(() => {
     // 토스 페이먼츠 SDK 로드
     const loadWidget = async () => {
-      console.log('[TossPaymentWidget] SDK 로드 시작:', {
-        clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+      }...` : 'undefined',
         orderId,
         amount
       });
 
       if (!clientKey) {
-        console.error('[TossPaymentWidget] ❌ clientKey가 없습니다!', {
-          envKey: import.meta.env.VITE_TOSS_CLIENT_KEY,
-          propKey: clientKey
-        });
         onError?.(new Error('클라이언트 키가 제공되지 않았습니다.'));
         return;
       }
@@ -57,10 +50,9 @@ const TossPaymentWidget = ({
       try {
         const tossPayments = await loadTossPayments(clientKey);
         tossPaymentsRef.current = tossPayments;
-        console.log('[TossPaymentWidget] ✅ SDK 로드 성공');
+        
       } catch (error) {
-        console.error('[TossPaymentWidget] ❌ SDK 로드 실패:', error, {
-          clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined'
+        }...` : 'undefined'
         });
         onError?.(error);
       }
@@ -69,12 +61,7 @@ const TossPaymentWidget = ({
     if (clientKey && amount > 0) {
       loadWidget();
     } else {
-      console.warn('[TossPaymentWidget] SDK 로드 조건 불만족:', {
-        hasClientKey: !!clientKey,
-        amount,
-        amountValid: amount > 0
-      });
-    }
+      }
 
     // 정리 함수
     return () => {
@@ -103,7 +90,7 @@ const TossPaymentWidget = ({
         customerName: '고객명', // TODO: 실제 고객명 사용
       });
     } catch (error) {
-      console.error('결제 요청 실패:', error);
+      
       onError?.(error);
     }
   };

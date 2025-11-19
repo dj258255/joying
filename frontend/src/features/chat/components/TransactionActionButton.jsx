@@ -80,8 +80,8 @@ const TransactionActionButton = ({
 
   return (
     <div className="flex gap-2">
-      {/* 거래 보기 버튼 - 전체 플로우 모달 */}
-      {currentRentalData?.rentalHisId && onTransactionView && (
+      {/* 거래 보기 버튼 - 항시 표시 */}
+      {onTransactionView && (
         <button
           onClick={onTransactionView}
           className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"
@@ -90,8 +90,8 @@ const TransactionActionButton = ({
         </button>
       )}
 
-      {/* 거래 처리 버튼 - 거래는 있지만 거래 보기 버튼이 표시되지 않을 때 */}
-      {currentRentalData?.rentalHisId && !onTransactionView && onTransactionProcess && (
+      {/* 거래 처리 버튼 - 거래 보기 버튼이 없을 때만 표시 */}
+      {!onTransactionView && onTransactionProcess && (
         <button
           onClick={onTransactionProcess}
           className="px-2 py-1.5 sm:px-4 sm:py-2 bg-gray-900 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors whitespace-nowrap"

@@ -41,9 +41,7 @@ const PaymentModal = ({
   const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY?.trim();
 
   // 환경 변수 확인 로그
-  console.log('[PaymentModal] VITE_TOSS_CLIENT_KEY 확인:', {
-    exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
-    value: import.meta.env.VITE_TOSS_CLIENT_KEY ? `${import.meta.env.VITE_TOSS_CLIENT_KEY.substring(0, 15)}...` : 'undefined',
+  }...` : 'undefined',
     trimmed: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
     length: clientKey?.length || 0,
     allEnvKeys: Object.keys(import.meta.env).filter(key => key.includes('TOSS') || key.includes('VITE'))
@@ -64,17 +62,13 @@ const PaymentModal = ({
     if (!isOpen) return;
 
     // 클라이언트 키 검증
-    console.log('[PaymentModal] 클라이언트 키 검증 시작:', {
-      clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+    }...` : 'undefined',
       isEmpty: !clientKey || clientKey === '' || clientKey === "''" || clientKey === '""',
       rawValue: import.meta.env.VITE_TOSS_CLIENT_KEY
     });
 
     if (!clientKey || clientKey === '' || clientKey === "''" || clientKey === '""') {
-      console.error('[PaymentModal] ❌ 클라이언트 키가 없습니다!', {
-        rawEnv: import.meta.env.VITE_TOSS_CLIENT_KEY,
-        trimmed: clientKey,
-        allEnv: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+      .filter(key => key.startsWith('VITE_'))
       });
       const err = new Error('토스 페이먼츠 클라이언트 키가 설정되지 않았습니다. .env 파일에 VITE_TOSS_CLIENT_KEY를 설정해주세요.');
       setError(err.message);
@@ -82,8 +76,7 @@ const PaymentModal = ({
       return;
     }
 
-    console.log('[PaymentModal] ✅ 클라이언트 키 검증 통과:', {
-      prefix: clientKey.substring(0, 10),
+    ,
       length: clientKey.length
     });
 
@@ -106,18 +99,17 @@ const PaymentModal = ({
         setIsLoading(true);
         setError(null);
 
-        console.log('[PaymentModal] 토스 페이먼츠 SDK 로드 시작:', {
-          clientKey: clientKey.substring(0, 15) + '...',
+        + '...',
           clientKeyLength: clientKey.length
         });
 
         const tossPayments = await loadTossPayments(clientKey);
         tossPaymentsRef.current = tossPayments;
 
-        console.log('[PaymentModal] 토스 페이먼츠 SDK 로드 성공');
+        
         setIsLoading(false);
       } catch (err) {
-        console.error('[PaymentModal] 토스 페이먼츠 SDK 로드 실패:', err);
+        
         setError('결제 시스템을 불러오는데 실패했습니다. 클라이언트 키를 확인해주세요.');
         setIsLoading(false);
         onError?.(err);
@@ -158,15 +150,6 @@ const PaymentModal = ({
       const customerEmail = user?.email || user?.memberEmail || 'customer@example.com';
       const customerName = user?.name || user?.memberName || user?.username || '고객';
 
-      console.log('[PaymentModal] 결제 요청 시작:', {
-        method: selectedMethod,
-        orderId,
-        orderName,
-        amount,
-        customerEmail,
-        customerName
-      });
-
       // 결제창 URL 생성
       const successUrl = new URL(`${window.location.origin}/payments/success`);
       successUrl.searchParams.set('orderId', orderId);
@@ -187,16 +170,16 @@ const PaymentModal = ({
         failUrl: failUrl.toString()
       });
 
-      console.log('[PaymentModal] 결제창 호출 성공');
+      
       // 결제창이 열리면 모달은 자동으로 닫힘
       // 실제 결제 완료는 PaymentSuccessPage에서 처리됨
     } catch (err) {
-      console.error('[PaymentModal] 결제 요청 실패:', err);
+      
       const errorMessage = err.message || '결제 요청에 실패했습니다.';
 
       if (errorMessage.includes('USER_CANCEL')) {
         // 사용자가 결제를 취소한 경우 에러 메시지 표시 안 함
-        console.log('[PaymentModal] 사용자가 결제를 취소했습니다.');
+        
       } else {
         setError(errorMessage);
         onError?.(err);
@@ -209,9 +192,7 @@ const PaymentModal = ({
   if (!isOpen) return null;
 
   // 모달이 열릴 때마다 환경 변수 확인
-  console.log('[PaymentModal] 모달 렌더링 - VITE_TOSS_CLIENT_KEY 최종 확인:', {
-    isOpen,
-    clientKey: clientKey ? `${clientKey.substring(0, 15)}...` : 'undefined',
+  }...` : 'undefined',
     exists: !!import.meta.env.VITE_TOSS_CLIENT_KEY,
     orderId,
     amount
