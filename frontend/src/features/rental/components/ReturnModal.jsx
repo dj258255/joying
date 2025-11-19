@@ -34,7 +34,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef(null);
   const streamRef = useRef(null);
-  const trackingMessageTimeoutRef = useRef(null); // 운송장 번호 등록 안내 메시지 전송 타이머
 
   // 영상 녹화 시작
   const startRecording = async () => {
@@ -204,30 +203,20 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
         console.log('[ReturnModal] 채팅 메시지 전송 완료');
       }
 
-      // 5. 송장 번호 등록 안내 메시지 전송 (중복 방지)
+      // 5. 송장 번호 등록 안내 메시지 전송 (모달 닫기 전에 전송)
       if (sendMessage) {
-        // 기존 타이머가 있으면 취소
-        if (trackingMessageTimeoutRef.current) {
-          clearTimeout(trackingMessageTimeoutRef.current);
-          trackingMessageTimeoutRef.current = null;
-        }
-
         const trackingMessageContent = `운송장 번호를 등록해주세요.\n\n영상 촬영이 완료되었습니다. 물건을 포장한 후 운송장 번호를 등록해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:RETURN_TRACKING_NUMBER_REGISTRATION`;
         
-        // 타이머를 ref에 저장하여 cleanup 가능하도록 함
-        trackingMessageTimeoutRef.current = setTimeout(async () => {
-          try {
-            await sendMessage({
-              type: 'TEXT',
-              content: trackingMessageContent
-            });
-            console.log('[ReturnModal] 송장 번호 등록 안내 메시지 전송 완료');
-          } catch (err) {
-            console.error('[ReturnModal] 송장 번호 등록 안내 메시지 전송 실패:', err);
-          } finally {
-            trackingMessageTimeoutRef.current = null;
-          }
-        }, 500);
+        // 모달이 닫히기 전에 메시지 전송 (await로 완료 대기)
+        try {
+          await sendMessage({
+            type: 'TEXT',
+            content: trackingMessageContent
+          });
+          console.log('[ReturnModal] 송장 번호 등록 안내 메시지 전송 완료');
+        } catch (err) {
+          console.error('[ReturnModal] 송장 번호 등록 안내 메시지 전송 실패:', err);
+        }
       }
 
       // 6. 부모 컴포넌트에 완료 알림
@@ -268,12 +257,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
 
   // 완료 후 닫기
   const handleClose = () => {
-    // 타이머 정리
-    if (trackingMessageTimeoutRef.current) {
-      clearTimeout(trackingMessageTimeoutRef.current);
-      trackingMessageTimeoutRef.current = null;
-    }
-
     if (recordedVideoUrl) {
       URL.revokeObjectURL(recordedVideoUrl);
     }
@@ -287,16 +270,6 @@ const ReturnModal = ({ isOpen, onClose, rentalHisId, onVideoUploaded, sendMessag
 
     onClose();
   };
-
-  // 컴포넌트 언마운트 시 타이머 정리
-  React.useEffect(() => {
-    return () => {
-      if (trackingMessageTimeoutRef.current) {
-        clearTimeout(trackingMessageTimeoutRef.current);
-        trackingMessageTimeoutRef.current = null;
-      }
-    };
-  }, []);
 
   if (!isOpen) return null;
 
