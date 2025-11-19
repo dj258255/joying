@@ -40,7 +40,7 @@ export const parseTransactionCompleteMessage = (content) => {
 /**
  * 거래 완료 메시지 카드 컴포넌트
  */
-const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false, onReviewClick }) => {
+const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false, uploadType, onReviewClick }) => {
   const [showVideoListModal, setShowVideoListModal] = useState(false);
 
   const completeInfo = parseTransactionCompleteMessage(message.content);
@@ -53,7 +53,8 @@ const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = fal
   // 리뷰 작성하기 버튼 클릭 핸들러
   const handleReviewClick = () => {
     if (onReviewClick) {
-      onReviewClick(completeInfo.rentalHisId, isBuyer ? 'BORROW' : 'RENT');
+      // 상품의 uploadType을 그대로 전달 (BORROW 또는 RENT)
+      onReviewClick(completeInfo.rentalHisId, uploadType || 'RENT');
     }
   };
 

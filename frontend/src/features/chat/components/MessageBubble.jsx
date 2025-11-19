@@ -549,18 +549,28 @@ const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, mess
 
               {/* 액션 버튼들 */}
               {actionButtons && actionButtons.length > 0 && (
-                <div className="pt-3 mt-3 border-t border-gray-200 space-y-2">
-                  {actionButtons.map((button, index) => (
-                    <button
-                      key={index}
-                      onClick={button.onClick}
-                      className={`glass-button w-full text-sm py-2`}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <span>{button.text}</span>
-                      </div>
-                    </button>
-                  ))}
+                <div className="pt-3 mt-3 border-t border-gray-200">
+                  {/* 거래 방법 선택 (거래 생성하기 버튼이 있을 때만 표시) */}
+                  {actionButtons.some(btn => btn.text?.includes('거래 생성하기')) && rentMethodSelector && (
+                    <div className="mb-3">
+                      {rentMethodSelector}
+                    </div>
+                  )}
+
+                  {/* 버튼들 */}
+                  <div className="space-y-2">
+                    {actionButtons.map((button, index) => (
+                      <button
+                        key={index}
+                        onClick={button.onClick}
+                        className={`glass-button w-full text-sm py-2`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <span>{button.text}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -422,6 +422,8 @@ const ChatRoomPage = () => {
   const [reviewRentalHisId, setReviewRentalHisId] = useState(null);
   const [reviewUploadType, setReviewUploadType] = useState('BORROW'); // 'BORROW' 또는 'RENT'
   const [reviewRating, setReviewRating] = useState(0);
+  // BORROW 거래 방법 선택 (메시지별로 저장)
+  const [borrowRentMethods, setBorrowRentMethods] = useState({});
   const [reviewTitle, setReviewTitle] = useState('');
   const [reviewContent, setReviewContent] = useState('');
   const [reviewFileIds, setReviewFileIds] = useState([]);
@@ -2401,8 +2403,9 @@ const ChatRoomPage = () => {
                         alert('희망 대여 기간이 설정되어 있지 않습니다.\n날짜를 직접 선택해주세요.');
                       }
 
-                      // 거래 방법 (기본값: BOTH)
-                      const rentMethod = productData?.rentMethod || 'BOTH';
+                      // 선택된 거래 방법 사용 (기본값: ONLY_ONLINE)
+                      const messageKey = message.id || `${message.timestamp || 'message'}-${index}`;
+                      const selectedRentMethod = borrowRentMethods[messageKey] || 'ONLY_ONLINE';
 
                       // 기간 계산
                       const days = startDate && endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1 : 0;
@@ -2411,7 +2414,7 @@ const ChatRoomPage = () => {
                         productId: productIdToUse,
                         startDate,
                         endDate,
-                        rentMethod,
+                        rentMethod: selectedRentMethod,
                         days
                       });
 
@@ -2422,7 +2425,7 @@ const ChatRoomPage = () => {
                       setRequestedDateRange({
                         start: startDate,
                         end: endDate,
-                        rentMethod,
+                        rentMethod: selectedRentMethod,
                         rentalFee: defaultRentalFee,
                         deposit: defaultDeposit
                       });
@@ -2703,332 +2706,86 @@ const ChatRoomPage = () => {
                 return buttons.length > 0 ? buttons : null;
               }
 
-              // 결제 완료 메시지 - MESSAGE_TYPE 마커로 확인 (type은 소문자로 정규화됨)
-              const isPaymentComplete = message.type === 'payment_complete'
-                || (message.type === 'text' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'))
-                || (message.type === 'system' && content?.includes('MESSAGE_TYPE:PAYMENT_COMPLETE'));
-              if (isPaymentComplete) {
-                const buttons = [];
-
-                // rentalHisId 추출
-                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
-                const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                console.log('[ChatRoomPage] 결제 완료 메시지 감지:', {
-                  rentalHisId,
-                  sellerId,
-                  currentUserId,
-                  isSeller,
-                  productData
-                });
-
-                // 판매자/구매자 모두 배송 조회 버튼 처리
-                if (rentalHisId) {
-                  // 운송장 번호가 등록되었는지 확인
-                  const hasTracking = trackedRentalIds.has(rentalHisId);
-                  
-                  buttons.push({
-                    label: hasTracking ? '🚚 배송 조회' : (isSeller ? '📦 물품 보내기' : '📋 거래 확인'),
-                    className: hasTracking 
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
-                      : (isSeller ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'),
-                    onClick: async () => {
-                      try {
-                        console.log('[ChatRoomPage] 버튼 클릭:', { isSeller, rentalHisId, hasTracking });
-
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data || rentalResponse;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
-
-                        // 운송장 번호 확인
-                        const trackingNumber = rentalData?.trackingNo || rentalData?.trackingNumber;
-                        const courier = rentalData?.carrierCode || rentalData?.courier;
-
-                        if (trackingNumber && courier) {
-                          // 운송장 번호가 있으면 버튼 레이블만 변경 (배송 조회는 ShippingMessageCard에서 처리)
-                          setTrackedRentalIds(prev => new Set([...prev, rentalHisId]));
-                        } else {
-                          // 운송장 번호가 없으면 기존 동작
-                          if (isSeller) {
-                            // 판매자: 발송 모달 열기
-                            setTimeout(() => {
-                              setShowShippingModal(true);
-                            }, 50);
-                          } else {
-                            // 구매자: 거래 내역 조회 모달 열기
-                            setShowTransactionCheckModal(true);
-                          }
-                        }
-                      } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                      }
-                    }
-                  });
-                }
-
-                return buttons.length > 0 ? buttons : null;
-              }
-
-              // 물품 발송 완료 메시지
-              if (content.includes('📦 물품을 발송했습니다')) {
-                const buttons = [];
-
-                // rentalHisId 추출
-                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
-                const rentalHisId = rentalHisIdMatch ? Number(rentalHisIdMatch[1]) : null;
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                // 구매자에게만 "물품 수령 확인하기" 버튼 표시
-                if (!isSeller && rentalHisId) {
-                  // 수령 완료 여부 확인
-                  const isReceiveCompleted = currentRentalData?.status === 'RENTING' ||
-                                             currentRentalData?.status === 'RETURN_REQUESTED' ||
-                                             currentRentalData?.status === 'RETURNED' ||
-                                             currentRentalData?.status === 'COMPLETED' ||
-                                             currentRentalData?.rentalStatus === 'RENTING';
-                  
-                  buttons.push({
-                    text: isReceiveCompleted ? '✅ 수령 완료' : '✅ 물품 수령 확인하기',
-                    style: 'primary',
-                    disabled: isReceiveCompleted,
-                    onClick: async () => {
-                      try {
-                        console.log('[ChatRoomPage] 물품 수령 확인하기 클릭:', rentalHisId);
-
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
-
-                        // 수령 모달 열기
-                        setTimeout(() => {
-                          setShowReceiveModal(true);
-                        }, 50);
-                      } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                      }
-                    }
-                  });
-                }
-
-                return buttons.length > 0 ? buttons : null;
-              }
-
-              // 물품 수령 완료 메시지
-              if (content.includes('✅ 물품을 수령했습니다')) {
-                const buttons = [];
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                // 구매자에게만 "반납하기", "거래 중단하기" 버튼 표시
-                if (!isSeller && currentRentalData?.rentalHisId) {
-                  // 반납 완료 여부 확인
-                  const isReturnCompleted = !!(currentRentalData?.returnTrackingNo || currentRentalData?.returnTrackingNumber) ||
-                                            currentRentalData?.status === 'RETURNED' ||
-                                            currentRentalData?.status === 'COMPLETED' ||
-                                            currentRentalData?.rentalStatus === 'RETURNED';
-                  
-                  buttons.push(
-                    {
-                      text: isReturnCompleted ? '✅ 반납 완료' : '📦 반납하기',
-                      style: 'primary',
-                      disabled: isReturnCompleted,
-                      onClick: () => {
-                        setShowTransactionModal(true);
-                      }
-                    },
-                    {
-                      text: '🚫 거래 중단하기',
-                      style: 'danger',
-                      onClick: () => {
-                        // 취소 모달 열기 (TransactionProcessModal 내부에 있음)
-                        setShowTransactionModal(true);
-                      }
-                    }
-                  );
-                }
-
-                return buttons.length > 0 ? buttons : null;
-              }
-
-              // 반납 완료 메시지 - 판매자에게 "반납 수령 확인하기" 버튼 표시
-              if (content.includes('📦 반납을 완료했습니다')) {
-                const buttons = [];
-                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
-                const rentalHisId = rentalHisIdMatch ? parseInt(rentalHisIdMatch[1]) : null;
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                // 판매자에게만 "반납 수령 확인하기" 버튼 표시
-                if (isSeller && rentalHisId) {
-                  // 반납 수령 완료 여부 확인
-                  const isReturnReceiveCompleted = currentRentalData?.status === 'COMPLETED' ||
-                                                    currentRentalData?.status === 'DEPOSIT_RETURNED' ||
-                                                    currentRentalData?.rentalStatus === 'COMPLETED';
-                  
-                  buttons.push({
-                    text: isReturnReceiveCompleted ? '✅ 반납 수령 완료' : '✅ 반납 수령 확인하기',
-                    style: 'primary',
-                    disabled: isReturnReceiveCompleted,
-                    onClick: async () => {
-                      try {
-                        console.log('[ChatRoomPage] 반납 수령 확인하기 클릭:', rentalHisId);
-
-                        // rentalHisId로 거래 상세 조회
-                        const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                        const rentalData = rentalResponse.data;
-
-                        console.log('[ChatRoomPage] 거래 데이터 로드 성공:', rentalData);
-
-                        setCurrentRentalData(rentalData);
-
-                        // 반납 수령 모달 열기
-                        setTimeout(() => {
-                          setShowReturnReceiveModal(true);
-                        }, 50);
-                      } catch (err) {
-                        console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                        alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                      }
-                    }
-                  });
-                }
-
-                return buttons.length > 0 ? buttons : null;
-              }
-
-              // 반납 수령 확인 선택 메시지 - 판매자에게 "최종 수령 확인" / "거래 중단" 버튼 표시
-              const isReturnReceiveConfirm = message.type === 'return_receive_confirm' || (message.type === 'text' && content?.includes('MESSAGE_TYPE:RETURN_RECEIVE_CONFIRM'));
-              if (isReturnReceiveConfirm) {
-                console.log('[ChatRoomPage] 반납 수령 확인 선택 메시지 감지:', {
-                  messageType: message.type,
-                  content: content.substring(0, 100),
-                  currentUserId,
-                  senderId: message.sender?.id
-                });
-
-                const buttons = [];
-                const rentalHisIdMatch = content.match(/rentalHisId:(\d+)/);
-                const rentalHisId = rentalHisIdMatch ? parseInt(rentalHisIdMatch[1]) : null;
-
-                // 판매자 확인
-                const sellerId = productData?.sellerId
-                  || productData?.writer?.memberId
-                  || productData?.writer?.member_id
-                  || productData?.seller?.id
-                  || productData?.seller?.memberId
-                  || productData?.seller?.member_id;
-                const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
-
-                // 메시지 발신자가 판매자이고, 현재 사용자도 판매자인 경우 버튼 표시
-                const senderId = message.sender?.id;
-                const isOwn = Number(currentUserId) === Number(senderId);
-
-                console.log('[ChatRoomPage] 버튼 표시 조건 체크:', {
-                  isOwn,
-                  isSeller,
-                  rentalHisId,
-                  shouldShowButton: isOwn && isSeller && rentalHisId
-                });
-
-                if (isOwn && isSeller && rentalHisId) {
-                  buttons.push(
-                    {
-                      label: '✅ 최종 수령 확인',
-                      className: 'bg-green-600 text-white hover:bg-green-700',
-                      onClick: async () => {
-                        try {
-                          console.log('[ChatRoomPage] 최종 수령 확인 클릭:', { rentalHisId });
-
-                          if (!window.confirm('반납품을 최종 확인하고 거래를 완료하시겠습니까?')) {
-                            return;
-                          }
-
-                          // 반납 수령 확인 API 호출
-                          await rentalApi.confirmReturnReceive(rentalHisId);
-
-                          // 채팅방에 완료 메시지 전송
-                          await sendMessage({
-                            type: 'TEXT',
-                            content: `반납 수령을 최종 확인했습니다!\n\n거래가 완료되었습니다. 정산이 진행됩니다.\n\nMESSAGE_TYPE:RETURN_RECEIVED`
-                          });
-
-                          alert('반납 수령이 확인되었습니다! 정산이 진행됩니다.');
-                        } catch (err) {
-                          console.error('[ChatRoomPage] 최종 수령 확인 실패:', err);
-                          alert(err.response?.data?.message || err.message || '수령 확인에 실패했습니다.');
-                        }
-                      }
-                    },
-                    {
-                      label: '🚫 거래 중단',
-                      className: 'bg-red-600 text-white hover:bg-red-700',
-                      onClick: async () => {
-                        try {
-                          console.log('[ChatRoomPage] 거래 중단 클릭:', { rentalHisId });
-
-                          // rentalHisId로 거래 상세 조회
-                          const rentalResponse = await rentalApi.getRentalDetail(rentalHisId);
-                          const rentalData = rentalResponse.data;
-
-                          setCurrentRentalData(rentalData);
-
-                          // 취소 모달 열기
-                          setShowTransactionModal(true);
-                        } catch (err) {
-                          console.error('[ChatRoomPage] 거래 정보 조회 실패:', err);
-                          alert('거래 정보를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.');
-                        }
-                      }
-                    }
-                  );
-                }
-
-                console.log('[ChatRoomPage] 반환할 버튼:', buttons);
-                return buttons.length > 0 ? buttons : null;
-              }
-
               return null;
+            };
+
+            // BORROW 제안 메시지에 대한 거래 방법 선택 UI 생성
+            const getRentMethodSelector = () => {
+              const content = message.content || '';
+
+              // BORROW 상품 '채팅으로 제안하기' 메시지인지 확인
+              if (!content.includes('💡') || !content.includes('빌려드릴 수 있습니다') || !content.includes('거래를 원하시면')) {
+                return null;
+              }
+
+              // 메시지를 보낸 사람인지 확인 (판매자)
+              const messageSenderId = message.sender?.id || message.senderId;
+              const isMessageSender = messageSenderId && Number(messageSenderId) === Number(currentUserId);
+
+              // 상품 주인인지 확인
+              const sellerId = productData?.sellerId
+                || productData?.writer?.memberId
+                || productData?.writer?.member_id
+                || productData?.seller?.id
+                || productData?.seller?.memberId
+                || productData?.seller?.member_id;
+              const isProductOwner = sellerId && Number(sellerId) === Number(currentUserId);
+
+              // 메시지 보낸 사람(제안한 사람)에게만 거래 방법 선택 UI 표시
+              if (!isMessageSender || isProductOwner) {
+                return null;
+              }
+
+              const messageKey = message.id || `${message.timestamp || 'message'}-${index}`;
+              const selectedMethod = borrowRentMethods[messageKey] || 'ONLY_ONLINE';
+
+              return (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    거래 방법 *
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-2.5 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name={`rentMethod-${messageKey}`}
+                        value="ONLY_ONLINE"
+                        checked={selectedMethod === 'ONLY_ONLINE'}
+                        onChange={(e) => {
+                          setBorrowRentMethods(prev => ({
+                            ...prev,
+                            [messageKey]: e.target.value
+                          }));
+                        }}
+                        className="mr-2.5"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">택배거래</div>
+                        <div className="text-xs text-gray-500">택배로 배송합니다</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-2.5 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name={`rentMethod-${messageKey}`}
+                        value="ONLY_OFFLINE"
+                        checked={selectedMethod === 'ONLY_OFFLINE'}
+                        onChange={(e) => {
+                          setBorrowRentMethods(prev => ({
+                            ...prev,
+                            [messageKey]: e.target.value
+                          }));
+                        }}
+                        className="mr-2.5"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">직거래</div>
+                        <div className="text-xs text-gray-500">직접 만나서 전달합니다</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              );
             };
 
             // 판매자이고 pending 상태면 RentalRequestCard 표시
@@ -3244,6 +3001,17 @@ const ChatRoomPage = () => {
             // 거래 생성 완료 메시지 감지 (카드로 렌더링)
             const transactionInfo = parseTransactionCreatedMessage(message.content);
             if (transactionInfo) {
+              // rentalHisId가 있으면 거래 상태 확인하여 이미 결제 완료된 경우 처리하지 않음
+              // (결제 완료된 경우 PaymentCompleteMessageCard로 렌더링)
+              if (transactionInfo.rentalHisId && currentRentalData) {
+                const status = currentRentalData.status || currentRentalData.rentalStatus;
+                // 결제 완료 상태면 TransactionCreatedMessageCard를 표시하지 않음
+                if (status && status !== 'PENDING') {
+                  // PaymentCompleteMessageCard가 따로 렌더링되므로 여기서는 skip
+                  return null;
+                }
+              }
+
               // 상품 올린 사람 ID
               const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
@@ -3330,15 +3098,24 @@ const ChatRoomPage = () => {
             // 결제 완료 메시지 감지 (카드로 렌더링)
             const paymentInfo = parsePaymentCompleteMessage(message.content);
             if (paymentInfo) {
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
               const currentUserId = user?.id || user?.memberId;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+              const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
 
               return (
                 <React.Fragment key={key}>
@@ -3374,15 +3151,24 @@ const ChatRoomPage = () => {
             // 송장 번호 등록 메시지 감지 (카드로 렌더링)
             const trackingInfo = parseTrackingNumberMessage(message.content);
             if (trackingInfo) {
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
               const currentUserId = user?.id || user?.memberId;
-              const isSeller = sellerId && currentUserId && Number(sellerId) === Number(currentUserId);
+              const isProductOwner = productOwnerId && currentUserId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
               const isBuyer = !isSeller && currentUserId;
               
               // 발송(isReturn=false)이면 소유자만, 반납(isReturn=true)이면 대여자만 보이도록
@@ -3474,15 +3260,24 @@ const ChatRoomPage = () => {
             if (receiveInfo) {
               // 현재 사용자 ID 확인
               const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
-              
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
-              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+              const isProductOwner = productOwnerId && currentUserIdForCheck && Number(productOwnerId) === Number(currentUserIdForCheck);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
               const isBuyer = !isSeller; // 판매자가 아니면 구매자
 
               return (
@@ -3564,14 +3359,23 @@ const ChatRoomPage = () => {
             // 반납 완료 메시지 감지 (카드로 렌더링)
             const returnInfo = parseReturnMessage(message.content);
             if (returnInfo) {
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
-              const isSeller = sellerId && Number(sellerId) === Number(currentUserId);
+              const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
 
               return (
                 <React.Fragment key={key}>
@@ -3610,15 +3414,24 @@ const ChatRoomPage = () => {
             if (completeInfo) {
               // 현재 사용자 ID 확인
               const currentUserIdForCheck = user?.id || user?.memberId || user?.member_id;
-              
-              // 판매자 확인
-              const sellerId = productData?.sellerId
+
+              // 상품 올린 사람 ID
+              const productOwnerId = productData?.sellerId
                 || productData?.writer?.memberId
                 || productData?.writer?.member_id
                 || productData?.seller?.id
                 || productData?.seller?.memberId
                 || productData?.seller?.member_id;
-              const isSeller = sellerId && currentUserIdForCheck && Number(sellerId) === Number(currentUserIdForCheck);
+              const isProductOwner = productOwnerId && currentUserIdForCheck && Number(productOwnerId) === Number(currentUserIdForCheck);
+
+              // BORROW 타입 확인
+              const isBorrowType = productData?.uploadType === 'BORROW';
+
+              // RENT: 상품 올린 사람 = 판매자, 채팅 건 사람 = 구매자
+              // BORROW: 상품 올린 사람 = 구매자, 채팅 건 사람 = 판매자
+              const isSeller = isBorrowType
+                ? !isProductOwner  // BORROW: 상품 올린 사람이 아니면 판매자
+                : isProductOwner;  // RENT: 상품 올린 사람이 판매자
               const isBuyer = !isSeller; // 판매자가 아니면 구매자
 
               return (
@@ -3629,6 +3442,7 @@ const ChatRoomPage = () => {
                     isOwn={isOwn}
                     isSeller={isSeller}
                     isBuyer={isBuyer}
+                    uploadType={productData?.uploadType}
                     onReviewClick={(rentalHisId, uploadType) => {
                       setReviewRentalHisId(rentalHisId);
                       setReviewUploadType(uploadType);
@@ -3661,6 +3475,7 @@ const ChatRoomPage = () => {
                   onRentalAccept={message.type === 'rental_request' && isSeller && message.status === 'pending' ? handleRentalAccept : undefined}
                   onRentalReject={message.type === 'rental_request' && isSeller && message.status === 'pending' ? handleRentalReject : undefined}
                   actionButtons={getActionButtons()}
+                  rentMethodSelector={getRentMethodSelector()}
                 />
               </React.Fragment>
             );

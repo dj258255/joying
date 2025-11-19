@@ -9,7 +9,7 @@ import DateRangeCalendar from '../../../features/checkout/components/DateRangeCa
 
 const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [], onSubmit, isLoading = false }) => {
   const [dateRange, setDateRange] = useState(null);
-  const [rentMethod, setRentMethod] = useState('BOTH');
+  const [rentMethod, setRentMethod] = useState('ONLY_ONLINE');
   const [error, setError] = useState(null);
 
   const handleDateRangeChange = (range) => {
@@ -41,9 +41,8 @@ const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [
       return;
     }
 
-    const rentMethodText = 
-      rentMethod === 'ONLY_ONLINE' ? '택배거래' :
-      rentMethod === 'ONLY_OFFLINE' ? '직거래' : '둘 다 가능';
+    const rentMethodText =
+      rentMethod === 'ONLY_ONLINE' ? '택배거래' : '직거래';
 
     const rentalInfo = {
       startDate: dateRange.start.toISOString(),
@@ -62,7 +61,7 @@ const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [
 
   const handleClose = () => {
     setDateRange(null);
-    setRentMethod('BOTH');
+    setRentMethod('ONLY_ONLINE');
     setError(null);
     onClose();
   };
@@ -123,20 +122,6 @@ const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [
                 <div className="text-sm text-gray-500">직접 만나서 받습니다</div>
               </div>
             </label>
-            <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-              <input
-                type="radio"
-                name="rentMethod"
-                value="BOTH"
-                checked={rentMethod === 'BOTH'}
-                onChange={(e) => setRentMethod(e.target.value)}
-                className="mr-3"
-              />
-              <div>
-                <div className="font-medium text-gray-900">둘 다 가능</div>
-                <div className="text-sm text-gray-500">택배거래 또는 직거래 둘 다 가능합니다</div>
-              </div>
-            </label>
           </div>
         </div>
 
@@ -176,7 +161,6 @@ const RentalRequestModal = ({ isOpen, onClose, productData, unavailableDates = [
                 <span className="font-medium">거래 방법:</span>{' '}
                 {rentMethod === 'ONLY_ONLINE' && '택배거래'}
                 {rentMethod === 'ONLY_OFFLINE' && '직거래'}
-                {rentMethod === 'BOTH' && '둘 다 가능'}
               </div>
             </div>
           </div>
