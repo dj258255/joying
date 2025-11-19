@@ -71,7 +71,7 @@ public class SearchController {
 		@RequestParam(required = false, defaultValue = "14") int size,
 		Authentication authentication) {
 
-		if (q.length() > 50) {
+		if (q != null && q.length() > 50) {
 			q = q.trim();
 			q = q.substring(0, 50);
 		}
