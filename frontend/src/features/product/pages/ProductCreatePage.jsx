@@ -87,6 +87,7 @@ function ProductCreatePage() {
   // 파일 업로드 상태
   const [fileIds, setFileIds] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
+  const [originalFiles, setOriginalFiles] = useState([]); // AI용 원본 파일 저장
   const [dragActive, setDragActive] = useState(false);
   const dndZoneRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -172,8 +173,6 @@ function ProductCreatePage() {
   // AI 자동 생성 상태
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(true);
-  const [aiAutoFill, setAiAutoFill] = useState(true); // AI 자동 입력 사용 여부
-  const [aiUploadType, setAiUploadType] = useState('RENT'); // AI용 업로드 타입 (빌려줘/구해요)
 
   const updateField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -584,12 +583,20 @@ function ProductCreatePage() {
   /**
    * AI로 게시글 제목과 내용 자동 생성 (GPT-4o 기반)
    */
-  const generateWithAI = async (imageFile) => {
-    if (!aiAvailable || !aiAutoFill) return;
+  const generateWithAI = async (imageFile, uploadType = form.uploadType) => {
+    if (!aiAvailable) {
+      alert('AI 서비스를 사용할 수 없습니다.');
+      return;
+    }
+
+    if (!imageFile) {
+      alert('이미지를 먼저 업로드해주세요.');
+      return;
+    }
 
     try {
       setAiGenerating(true);
-      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', aiUploadType);
+      console.log('[ProductCreatePage] AI 게시글 생성 시작:', imageFile.name, '업로드 타입:', uploadType);
 
       // 이미지 리사이즈 (용량 줄이기)
       const resizedImage = await resizeImageForAI(imageFile);
@@ -599,7 +606,7 @@ function ProductCreatePage() {
       });
 
       // AI API 호출 (GPT-4o: 제목, 내용, 해시태그, 카테고리, 대여료, 보증금)
-      const result = await aiApi.generateProductDescription(resizedImage, aiUploadType);
+      const result = await aiApi.generateProductDescription(resizedImage, uploadType);
 
       console.log('[ProductCreatePage] AI 게시글 생성 완료:', result);
       console.log('[ProductCreatePage] 🔍 보증금 확인:', {
@@ -792,6 +799,9 @@ function ProductCreatePage() {
     const localUrls = fileArr.map((f) => URL.createObjectURL(f));
     const previewStartIndex = filePreviews.length;
     setFilePreviews((prev) => [...prev, ...localUrls]);
+    
+    // 원본 파일 저장 (AI용)
+    setOriginalFiles((prev) => [...prev, ...fileArr]);
 
     if (USE_FAKE_API) {
       const tmpIds = fileArr.map((_, i) => `tmp_${Date.now()}_${i}`);
@@ -838,12 +848,6 @@ function ProductCreatePage() {
       const successfulUploads = uploadedResults.filter(r => r.fileId !== undefined && r.fileId !== null);
       if (successfulUploads.length > 0) {
         setFileIds((prev) => [...prev, ...successfulUploads.map(r => r.fileId)]);
-
-        // 첫 번째 이미지 업로드 성공 시 AI 자동 생성 (이미지가 없었을 때)
-        if (previewStartIndex === 0 && fileArr.length > 0) {
-          console.log('[ProductCreatePage] 첫 이미지 업로드 완료, AI 자동 생성 시작');
-          await generateWithAI(fileArr[0]);
-        }
       }
 
       if (failedIndices.length > 0) {
@@ -859,6 +863,17 @@ function ProductCreatePage() {
             }
           });
           return newPreviews;
+        });
+        
+        // 원본 파일도 함께 삭제
+        setOriginalFiles((prev) => {
+          const newFiles = [...prev];
+          failedIndices.reverse().forEach(idx => {
+            if (idx < newFiles.length) {
+              newFiles.splice(idx, 1);
+            }
+          });
+          return newFiles;
         });
 
         if (successfulUploads.length === 0) {
@@ -922,6 +937,14 @@ function ProductCreatePage() {
       }
       return newPreviews;
     });
+    // 원본 파일도 함께 삭제
+    setOriginalFiles((prev) => {
+      const newFiles = [...prev];
+      if (idx < newFiles.length) {
+        newFiles.splice(idx, 1);
+      }
+      return newFiles;
+    });
   };
 
   const onThumbDragStart = (index) => (e) => {
@@ -939,6 +962,13 @@ function ProductCreatePage() {
       return arr;
     });
     setFilePreviews((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(index, 0, moved);
+      return arr;
+    });
+    // 원본 파일도 함께 순서 변경
+    setOriginalFiles((prev) => {
       const arr = [...prev];
       const [moved] = arr.splice(from, 1);
       arr.splice(index, 0, moved);
@@ -1385,17 +1415,17 @@ function ProductCreatePage() {
   // Step - 상품 설명 (제목, 해시태그, 내용, 보증금, 일일요금)
   const renderStepDescription = () => (
     <div className="space-y-4">
-      {/* 헤더 + 보증금/일일요금 */}
-      <div className="flex items-start justify-between gap-4">
+      {/* 헤더 + 보증금/일일요금 - 모바일에서는 세로, 데스크톱에서는 가로 */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         {/* 왼쪽: 헤더 */}
-        <div>
+        <div className="flex-1">
           <h2 className="text-xl font-bold text-black mb-2">상품 설명</h2>
           <p className="text-gray-600">상품의 상세 정보를 입력해주세요</p>
         </div>
 
-        {/* 오른쪽: 보증금 + 일일요금 (가로 배치) */}
-        <div className="flex gap-3">
-          <div className="w-40">
+        {/* 오른쪽: 보증금 + 일일요금 (모바일에서는 세로, 데스크톱에서는 가로 배치) */}
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="w-full md:w-40">
             <label className="block text-sm font-medium text-black mb-1">보증금</label>
             <input
               type="text"
@@ -1433,7 +1463,7 @@ function ProductCreatePage() {
               </div>
             )}
           </div>
-          <div className="w-40">
+          <div className="w-full md:w-40">
             <label className="block text-sm font-medium text-black mb-1">일일요금</label>
             <input
               type="text"
@@ -1473,6 +1503,40 @@ function ProductCreatePage() {
           </div>
         </div>
       </div>
+
+      {/* AI 자동 작성 버튼 - 독립된 공간 */}
+      {aiAvailable && originalFiles.length > 0 && (
+        <div className="max-w-4xl mx-auto py-2">
+          <button
+            type="button"
+            onClick={async () => {
+              if (originalFiles.length > 0) {
+                await generateWithAI(originalFiles[0], form.uploadType);
+              } else {
+                alert('이미지를 먼저 업로드해주세요.');
+              }
+            }}
+            disabled={aiGenerating}
+            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+          >
+            {aiGenerating ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                AI 작성 중...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                AI 자동 작성
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto space-y-3">
           {/* 제목 - 전체 너비 */}
@@ -1655,27 +1719,6 @@ function ProductCreatePage() {
           <h2 className="text-xl font-bold text-black mb-1">이미지 업로드</h2>
           <p className="text-gray-600 text-sm">상품 이미지를 업로드해주세요 (첫 번째 이미지가 대표 이미지입니다)</p>
         </div>
-
-        {/* AI 자동 입력 체크박스 */}
-        {aiAvailable && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg">
-              <input
-                type="checkbox"
-                id="aiAutoFill"
-                checked={aiAutoFill}
-                onChange={(e) => setAiAutoFill(e.target.checked)}
-                className="w-4 h-4 rounded accent-gray-600"
-              />
-              <label htmlFor="aiAutoFill" className="text-sm font-medium text-white cursor-pointer whitespace-nowrap flex items-center gap-1.5">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                AI 자동 입력
-              </label>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 드래그 영역과 미리보기를 가로로 배치 */}
@@ -1698,19 +1741,8 @@ function ProductCreatePage() {
             <FiUpload className="w-10 h-10 text-gray-400 mb-2" />
             <p className="text-black font-medium mb-1 text-center px-4 text-sm">여기로 드래그 또는 클릭하여 이미지 추가</p>
             <p className="text-gray-600 text-xs text-center px-4">여러 이미지를 한번에 업로드할 수 있습니다</p>
-            {aiAvailable && aiAutoFill && (
-              <p className="text-gray-600 text-xs text-center px-4 mt-1">첫 이미지 업로드 시 AI가 제목과 설명을 작성합니다</p>
-            )}
             <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={(e) => handleFiles(e.target.files)} className="hidden" disabled={uploading || aiGenerating} />
             {uploading && <p className="text-gray-600 text-xs mt-2">업로드 중...</p>}
-            {aiGenerating && (
-              <p className="text-gray-600 text-xs mt-2 animate-pulse flex items-center gap-1.5 justify-center">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                AI가 게시글을 작성하고 있습니다...
-              </p>
-            )}
           </div>
         </div>
 
