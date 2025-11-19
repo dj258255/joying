@@ -69,14 +69,6 @@ const TransactionActionButton = ({
     checkButtons();
   }, [currentRentalData, isSeller, onShipping]);
 
-  // 결제 완료 상태인지 확인 (ESCROW 또는 PAYMENT_COMPLETED)
-  const isPaymentCompleted = currentRentalData?.status === 'ESCROW' ||
-                              currentRentalData?.status === 'PAYMENT_COMPLETED' ||
-                              currentRentalData?.rentalStatus === 'ESCROW';
-
-  // 판매자이고 결제 완료 상태이면 "물품 보내기" 버튼도 표시
-  const showShippingButton = isSeller && isPaymentCompleted && onShipping;
-
   return (
     <div className="flex gap-2">
       {/* 거래 보기 버튼 - 전체 플로우 모달 */}
@@ -98,21 +90,7 @@ const TransactionActionButton = ({
           거래 보기
         </button>
       )}
-
-      {showShippingButton && (
-        <button
-          onClick={onShipping}
-          disabled={!buttonStates.shipping.enabled}
-          title={!buttonStates.shipping.enabled ? '이미 발송이 완료되었습니다' : ''}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200 shadow-sm ${
-            buttonStates.shipping.enabled
-              ? 'bg-green-600 text-white hover:bg-green-700 hover:shadow-md'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-          }`}
-        >
-          📦 물품 보내기
-        </button>
-      )}
+      {/* 물품 보내기 버튼 삭제 - 모든 거래 단계를 시스템 메시지로 통합 */}
     </div>
   );
 };
