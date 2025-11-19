@@ -276,6 +276,7 @@ export const ChatProvider = ({ children }) => {
   const globalHeartbeatIntervalRef = useRef(null); // 전역 WebSocket Heartbeat 인터벌
   const activeRoomIdRef = useRef(null); // 현재 활성화된 채팅방 ID (자동 읽음 처리용)
   const recentlyReceivedMessagesRef = useRef(new Set()); // 최근 수신한 메시지 ID (중복 방지용)
+  const pendingSendMessagesRef = useRef(new Set()); // 전송 중인 메시지 키 (중복 전송 방지용)
   const queryClient = useQueryClient();
   const { connect, disconnect, sendMessage: sendWebSocketMessage, sendTyping: sendTypingEvent, isConnected: socketConnected } = useChatSocket();
   const { user } = useAuth();
@@ -1254,6 +1255,7 @@ export const ChatProvider = ({ children }) => {
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: false });
       connectionPromiseRef.current = Promise.resolve();
       activeRoomIdRef.current = null; // 채팅방 퇴장 시 ref 초기화
+      window.__activeChatRoomId__ = null; // 전역 변수도 초기화
       return;
     }
 
@@ -1395,6 +1397,8 @@ export const ChatProvider = ({ children }) => {
       dispatch({ type: 'SET_HAS_MORE_PAST', payload: (messages?.length ?? 0) >= DEFAULT_MESSAGE_PAGE_SIZE });
 
       activeRoomIdRef.current = roomId; // 채팅방 입장 시 ref 설정
+      // 전역 변수에 현재 활성 채팅방 ID 저장 (알림 중복 방지용)
+      window.__activeChatRoomId__ = roomId;
 
       initializeConnection(roomId, normalizedChatRoom);
 
@@ -1512,6 +1516,28 @@ export const ChatProvider = ({ children }) => {
         productId: messageData.productId ?? null,
         rentalInfo: messageData.rentalInfo ?? null
       };
+
+      // 중복 전송 방지: 같은 내용의 메시지를 짧은 시간 내에 여러 번 보내는 것을 방지
+      const messageKey = `${roomId}-${payload.type}-${payload.content}-${payload.imageUrl || payload.fileUrl || ''}-${Date.now()}`;
+      const recentKey = Array.from(pendingSendMessagesRef.current).find(key => {
+        const [keyRoomId, keyType, keyContent, keyUrl] = key.split('-');
+        return keyRoomId === String(roomId) && 
+               keyType === payload.type && 
+               keyContent === payload.content &&
+               (keyUrl === (payload.imageUrl || payload.fileUrl || ''));
+      });
+
+      if (recentKey) {
+        console.log('[ChatContext] 중복 메시지 전송 방지:', payload);
+        return; // 중복 전송 방지
+      }
+
+      // 전송 중인 메시지 키 추가
+      pendingSendMessagesRef.current.add(messageKey);
+      // 2초 후 자동 제거 (같은 메시지를 2초 내에 다시 보낼 수 없음)
+      setTimeout(() => {
+        pendingSendMessagesRef.current.delete(messageKey);
+      }, 2000);
 
       if (!socketConnected || !websocketApi.isConnected?.()) {
         console.warn('WebSocket 연결을 기다리는 중입니다.');

@@ -278,8 +278,8 @@ const TransactionProcessModal = ({
       // RENT 타입: 상품 주인이 거래 생성 시 renterId = 상대방(buyer)의 ID
       renterId: renterIdValue,
       // 커스텀 대여료와 보증금 전달 (할인 등 금액 조정 시)
-      fee: rentalFee || null,      // 1일 대여료 (null이면 상품 기본값 사용)
-      deposit: deposit || null      // 보증금 (null이면 상품 기본값 사용)
+      fee: rentalFee && Number(rentalFee) > 0 ? Number(rentalFee) : null,      // 1일 대여료 (null이면 상품 기본값 사용)
+      deposit: deposit && Number(deposit) >= 0 ? Number(deposit) : null      // 보증금 (null이면 상품 기본값 사용)
     };
     
     try {
@@ -331,7 +331,9 @@ const TransactionProcessModal = ({
 
       // 결제 생성
       const days = Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1;
-      const totalAmount = (rentalFee * days) + deposit;
+      const rentalFeeNum = Number(rentalFee) || 0;
+      const depositNum = Number(deposit) || 0;
+      const totalAmount = (rentalFeeNum * days) + depositNum;
 
       const paymentData = {
         rentalHisId: result.data.rentalHisId,
@@ -357,7 +359,9 @@ const TransactionProcessModal = ({
 
       // 채팅방에 거래 생성 완료 메시지 전송
       if (sendMessage) {
-        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFee * days).toLocaleString()}원\n보증금: ${deposit.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\nrentalHisId:${result.data.rentalHisId}`;
+        const rentalFeeNum = Number(rentalFee) || 0;
+        const depositNum = Number(deposit) || 0;
+        const messageContent = `✅ 거래 생성 완료\n\n상품: ${productData.title || productData.name}\n기간: ${new Date(dateRange.start).toLocaleDateString('ko-KR')} ~ ${new Date(dateRange.end).toLocaleDateString('ko-KR')} (${days}일)\n대여료: ${(rentalFeeNum * days).toLocaleString()}원\n보증금: ${depositNum.toLocaleString()}원\n총 결제금액: ${totalAmount.toLocaleString()}원\n\n[결제하러 가기] 버튼을 눌러주세요!\n\nrentalHisId:${result.data.rentalHisId}`;
 
         await sendMessage({
           type: 'TEXT',
@@ -1124,19 +1128,20 @@ const TransactionProcessModal = ({
                   </label>
                   <input
                     type="number"
-                    value={rentalFee}
+                    value={rentalFee || ''}
                     onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setRentalFee(value >= 0 ? value : 0);
+                      const value = e.target.value;
+                      setRentalFee(value === '' ? '' : (Number(value) >= 0 ? Number(value) : ''));
                     }}
                     onBlur={(e) => {
                       const value = Number(e.target.value);
-                      if (value < 0 || isNaN(value)) {
-                        setRentalFee(0);
+                      if (isNaN(value) || value < 0) {
+                        setRentalFee('');
                       }
                     }}
                     min="0"
                     className="glass-input w-full"
+                    placeholder="대여료를 입력하세요"
                   />
                 </div>
                 <div>
@@ -1145,19 +1150,20 @@ const TransactionProcessModal = ({
                   </label>
                   <input
                     type="number"
-                    value={deposit}
+                    value={deposit || ''}
                     onChange={(e) => {
-                      const value = Number(e.target.value);
-                      setDeposit(value >= 0 ? value : 0);
+                      const value = e.target.value;
+                      setDeposit(value === '' ? '' : (Number(value) >= 0 ? Number(value) : ''));
                     }}
                     onBlur={(e) => {
                       const value = Number(e.target.value);
-                      if (value < 0 || isNaN(value)) {
-                        setDeposit(0);
+                      if (isNaN(value) || value < 0) {
+                        setDeposit('');
                       }
                     }}
                     min="0"
                     className="glass-input w-full"
+                    placeholder="보증금을 입력하세요"
                   />
                 </div>
               </div>
@@ -1173,15 +1179,25 @@ const TransactionProcessModal = ({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700">대여료</span>
-                      <span className="text-gray-900 font-medium">{rentalFee.toLocaleString()}원 × {Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일</span>
+                      <span className="text-gray-900 font-medium">
+                        {rentalFee && Number(rentalFee) > 0 
+                          ? `${Number(rentalFee).toLocaleString()}원 × ${Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1}일`
+                          : '-'}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700">보증금</span>
-                      <span className="text-gray-900 font-medium">{deposit.toLocaleString()}원</span>
+                      <span className="text-gray-900 font-medium">
+                        {deposit && Number(deposit) > 0 ? `${Number(deposit).toLocaleString()}원` : '-'}
+                      </span>
                     </div>
                     <div className="pt-2 border-t border-white/50 flex justify-between">
                       <span className="font-semibold text-gray-900">총 결제 금액</span>
-                      <span className="font-bold text-lg text-gray-900">{((rentalFee * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + deposit).toLocaleString()}원</span>
+                      <span className="font-bold text-lg text-gray-900">
+                        {rentalFee && Number(rentalFee) > 0 && deposit && Number(deposit) >= 0
+                          ? `${((Number(rentalFee) * (Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)) + 1)) + Number(deposit)).toLocaleString()}원`
+                          : '-'}
+                      </span>
                     </div>
                   </div>
                 </div>

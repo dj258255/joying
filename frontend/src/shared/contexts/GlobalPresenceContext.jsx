@@ -132,7 +132,11 @@ export const GlobalPresenceProvider = ({ children }) => {
               if (update.lastMessage && update.chatRoomId) {
                 const currentPath = window.location.pathname;
                 const currentChatRoomId = currentPath.match(/\/chats\/(\d+)/)?.[1];
-                const isInCurrentChatRoom = currentChatRoomId && String(currentChatRoomId) === String(update.chatRoomId);
+                const activeChatRoomId = window.__activeChatRoomId__ || null;
+                
+                // 경로나 활성 채팅방 ID가 일치하면 알림 표시 안함
+                const isInCurrentChatRoom = (currentChatRoomId && String(currentChatRoomId) === String(update.chatRoomId)) ||
+                                            (activeChatRoomId && String(activeChatRoomId) === String(update.chatRoomId));
 
                 if (!isInCurrentChatRoom) {
                   // 브라우저 알림 표시
@@ -145,6 +149,12 @@ export const GlobalPresenceProvider = ({ children }) => {
                       chatRoomId: update.chatRoomId,
                       url: `/chats/${update.chatRoomId}`
                     }
+                  });
+                } else {
+                  console.log('[GlobalPresence] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
+                    currentChatRoomId,
+                    activeChatRoomId,
+                    updateChatRoomId: update.chatRoomId
                   });
                 }
               }
