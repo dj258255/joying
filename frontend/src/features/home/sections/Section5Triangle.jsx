@@ -48,13 +48,13 @@ const Section5Triangle = () => {
           </p>
           <div className="flex items-center justify-end gap-4">
             {!isAuthenticated && (
-              <img
-                src={kakaoLoginBtn}
-                alt="카카오로 로그인하기"
-                onClick={handleKakaoLogin}
-                className="h-12 w-auto object-contain cursor-pointer transition-all hover:scale-105"
-                style={{ imageRendering: 'crisp-edges' }}
-              />
+            <img
+              src={kakaoLoginBtn}
+              alt="카카오로 로그인하기"
+              onClick={handleKakaoLogin}
+              className="h-12 w-auto object-contain cursor-pointer transition-all hover:scale-105"
+              style={{ imageRendering: 'crisp-edges' }}
+            />
             )}
             <button
               onClick={() => navigate(ROUTE_PATHS.PRODUCTS)}

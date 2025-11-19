@@ -610,17 +610,20 @@ const LentHistoryPage = () => {
                   {formatDate(myReview.createdAt || new Date())}
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setReviewTitle(myReview.title || '');
-                      setReviewContent(myReview.content || '');
-                      setReviewRating(myReview.rating || 0);
-                      setShowEditReviewModal(true);
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    수정
-                  </button>
+                <button
+                  onClick={() => {
+                    setReviewTitle(myReview.title || '');
+                    setReviewContent(myReview.content || '');
+                    setReviewRating(myReview.rating || 0);
+                    // 기존 이미지 정보 복원
+                    setReviewFileIds(myReview.imageFileIds || myReview.fileIds || []);
+                    setReviewImagePreviews(myReview.imageUrls || []);
+                    setShowEditReviewModal(true);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  수정
+                </button>
                   <button
                     onClick={() => {
                       setConfirmMessage('리뷰를 삭제하시겠습니까?');
@@ -756,7 +759,7 @@ const LentHistoryPage = () => {
       {/* 리뷰 작성 모달 */}
       {showReviewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto scrollbar-hide">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">리뷰 작성</h3>
               <button
@@ -816,38 +819,68 @@ const LentHistoryPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 제목 (선택)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  리뷰 제목 (선택)
+                  <span className="ml-2 text-xs text-gray-500">({reviewTitle.length}/20)</span>
+                </label>
                 <input
                   type="text"
                   value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
+                  onChange={(e) => setReviewTitle(e.target.value.slice(0, 20))}
+                  maxLength={20}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
                   placeholder="리뷰 제목을 입력해주세요..."
                 />
+                {reviewTitle.length >= 18 && (
+                  <p className="text-xs text-orange-600 mt-1">제목은 최대 20자까지 입력 가능합니다.</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  리뷰 내용
+                  <span className="ml-2 text-xs text-gray-500">({reviewContent.length}/100)</span>
+                </label>
                 <textarea
                   value={reviewContent}
-                  onChange={(e) => setReviewContent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
+                  onChange={(e) => setReviewContent(e.target.value.slice(0, 100))}
+                  maxLength={100}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 resize-none overflow-y-auto scrollbar-hide"
                   rows={4}
                   placeholder="리뷰를 작성해주세요..."
                 />
+                {reviewContent.length >= 90 && (
+                  <p className="text-xs text-orange-600 mt-1">내용은 최대 100자까지 입력 가능합니다.</p>
+                )}
               </div>
 
               {/* 이미지 업로드 섹션 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">이미지 업로드 (선택)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이미지 업로드 (선택)
+                  <span className="ml-2 text-xs text-gray-500">({reviewImagePreviews.length}/3)</span>
+                </label>
                 <div
-                  onClick={() => reviewFileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-gray-500 transition bg-gray-50"
+                  onClick={() => {
+                    if (reviewImagePreviews.length < 3) {
+                      reviewFileInputRef.current?.click();
+                    } else {
+                      setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                      setAlertType('warning');
+                    }
+                  }}
+                  className={`w-full border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition bg-gray-50 ${
+                    reviewImagePreviews.length >= 3
+                      ? 'border-gray-300 cursor-not-allowed opacity-50'
+                      : 'border-gray-300 cursor-pointer hover:border-gray-500'
+                  }`}
                 >
                   <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <p className="text-sm text-gray-600">
-                    클릭하여 이미지 추가
+                    {reviewImagePreviews.length >= 3 
+                      ? '이미지는 최대 3개까지 업로드할 수 있습니다.' 
+                      : '클릭하여 이미지 추가 (최대 3개)'}
                   </p>
                   <input
                     ref={reviewFileInputRef}
@@ -859,12 +892,31 @@ const LentHistoryPage = () => {
                       const files = Array.from(e.target.files || []);
                       if (files.length === 0) return;
                       
+                      // 최대 3개 제한
+                      const currentCount = reviewImagePreviews.length;
+                      const remainingSlots = 3 - currentCount;
+                      
+                      if (remainingSlots <= 0) {
+                        setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                        setAlertType('warning');
+                        e.target.value = '';
+                        return;
+                      }
+                      
+                      // 남은 슬롯만큼만 처리
+                      const filesToUpload = files.slice(0, remainingSlots);
+                      if (files.length > remainingSlots) {
+                        setAlertMessage(`${remainingSlots}개의 이미지만 추가되었습니다. (최대 3개)`);
+                        setAlertType('info');
+                        setTimeout(() => setAlertMessage(null), 3000);
+                      }
+                      
                       setReviewUploading(true);
-                      const localUrls = files.map(f => URL.createObjectURL(f));
+                      const localUrls = filesToUpload.map(f => URL.createObjectURL(f));
                       setReviewImagePreviews(prev => [...prev, ...localUrls]);
                       
                       try {
-                        const uploadPromises = files.map(async (file) => {
+                        const uploadPromises = filesToUpload.map(async (file) => {
                           const uploadResult = await fileApi.uploadFile(file);
                           const fileId = uploadResult.body?.data?.fileId
                             || uploadResult.data?.fileId
@@ -880,13 +932,15 @@ const LentHistoryPage = () => {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
                         setAlertType('error');
+                        // 실패한 이미지 제거
+                        setReviewImagePreviews(prev => prev.slice(0, currentCount));
                       } finally {
                         setReviewUploading(false);
                       }
                       
                       e.target.value = '';
                     }}
-                    disabled={reviewUploading}
+                    disabled={reviewUploading || reviewImagePreviews.length >= 3}
                   />
                 </div>
 
@@ -984,7 +1038,7 @@ const LentHistoryPage = () => {
       {/* 리뷰 수정 모달 */}
       {showEditReviewModal && myReview && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto scrollbar-hide">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">리뷰 수정</h3>
               <button
@@ -993,6 +1047,8 @@ const LentHistoryPage = () => {
                   setReviewTitle('');
                   setReviewContent('');
                   setReviewRating(0);
+                  setReviewFileIds([]);
+                  setReviewImagePreviews([]);
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1048,24 +1104,160 @@ const LentHistoryPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 제목 (선택)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  리뷰 제목 (선택)
+                  <span className="ml-2 text-xs text-gray-500">({reviewTitle.length}/20)</span>
+                </label>
                 <input
                   type="text"
                   value={reviewTitle}
-                  onChange={(e) => setReviewTitle(e.target.value)}
+                  onChange={(e) => setReviewTitle(e.target.value.slice(0, 20))}
+                  maxLength={20}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 mb-4"
                   placeholder="리뷰 제목을 입력해주세요..."
                 />
+                {reviewTitle.length >= 18 && (
+                  <p className="text-xs text-orange-600 mt-1">제목은 최대 20자까지 입력 가능합니다.</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">리뷰 내용</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  리뷰 내용
+                  <span className="ml-2 text-xs text-gray-500">({reviewContent.length}/100)</span>
+                </label>
                 <textarea
                   value={reviewContent}
-                  onChange={(e) => setReviewContent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900"
+                  onChange={(e) => setReviewContent(e.target.value.slice(0, 100))}
+                  maxLength={100}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent text-gray-900 resize-none overflow-y-auto scrollbar-hide"
                   rows={4}
                   placeholder="리뷰를 작성해주세요..."
                 />
+                {reviewContent.length >= 90 && (
+                  <p className="text-xs text-orange-600 mt-1">내용은 최대 100자까지 입력 가능합니다.</p>
+                )}
+              </div>
+
+              {/* 이미지 업로드 섹션 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  이미지 업로드 (선택)
+                  <span className="ml-2 text-xs text-gray-500">({reviewImagePreviews.length}/3)</span>
+                </label>
+                <div
+                  onClick={() => {
+                    if (reviewImagePreviews.length < 3) {
+                      reviewFileInputRef.current?.click();
+                    } else {
+                      setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                      setAlertType('warning');
+                    }
+                  }}
+                  className={`w-full border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center transition bg-gray-50 ${
+                    reviewImagePreviews.length >= 3
+                      ? 'border-gray-300 cursor-not-allowed opacity-50'
+                      : 'border-gray-300 cursor-pointer hover:border-gray-500'
+                  }`}
+                >
+                  <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="text-sm text-gray-600">
+                    {reviewImagePreviews.length >= 3 
+                      ? '이미지는 최대 3개까지 업로드할 수 있습니다.' 
+                      : '클릭하여 이미지 추가 (최대 3개)'}
+                  </p>
+                  <input
+                    ref={reviewFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      
+                      // 최대 3개 제한
+                      const currentCount = reviewImagePreviews.length;
+                      const remainingSlots = 3 - currentCount;
+                      
+                      if (remainingSlots <= 0) {
+                        setAlertMessage('이미지는 최대 3개까지 업로드할 수 있습니다.');
+                        setAlertType('warning');
+                        e.target.value = '';
+                        return;
+                      }
+                      
+                      // 남은 슬롯만큼만 처리
+                      const filesToUpload = files.slice(0, remainingSlots);
+                      if (files.length > remainingSlots) {
+                        setAlertMessage(`${remainingSlots}개의 이미지만 추가되었습니다. (최대 3개)`);
+                        setAlertType('info');
+                        setTimeout(() => setAlertMessage(null), 3000);
+                      }
+                      
+                      setReviewUploading(true);
+                      const localUrls = filesToUpload.map(f => URL.createObjectURL(f));
+                      setReviewImagePreviews(prev => [...prev, ...localUrls]);
+                      
+                      try {
+                        const uploadPromises = filesToUpload.map(async (file) => {
+                          const uploadResult = await fileApi.uploadFile(file);
+                          const fileId = uploadResult.body?.data?.fileId
+                            || uploadResult.data?.fileId
+                            || uploadResult.body?.fileId
+                            || uploadResult.fileId
+                            || uploadResult.data?.id;
+                          return fileId;
+                        });
+                        
+                        const uploadedFileIds = await Promise.all(uploadPromises);
+                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                      } catch (err) {
+                        console.error('이미지 업로드 실패:', err);
+                        setAlertMessage('이미지 업로드에 실패했습니다.');
+                        setAlertType('error');
+                        // 실패한 이미지 제거
+                        setReviewImagePreviews(prev => prev.slice(0, currentCount));
+                      } finally {
+                        setReviewUploading(false);
+                      }
+                      
+                      e.target.value = '';
+                    }}
+                    disabled={reviewUploading || reviewImagePreviews.length >= 3}
+                  />
+                </div>
+
+                {/* 미리보기 */}
+                {reviewImagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    {reviewImagePreviews.map((src, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={src}
+                          alt={`preview-${idx}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                            setReviewFileIds(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-1 right-1 bg-gray-900/80 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reviewUploading && (
+                  <p className="text-sm text-gray-500 mt-2">이미지 업로드 중...</p>
+                )}
               </div>
 
               <div className="flex gap-3">
@@ -1075,6 +1267,8 @@ const LentHistoryPage = () => {
                     setReviewTitle('');
                     setReviewContent('');
                     setReviewRating(0);
+                    setReviewFileIds([]);
+                    setReviewImagePreviews([]);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -1093,7 +1287,8 @@ const LentHistoryPage = () => {
                         reviewId: myReview.reviewId,
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
-                        rating: reviewRating
+                        rating: reviewRating,
+                        fileIds: reviewFileIds
                       });
                       
                       setAlertMessage('리뷰가 수정되었습니다.');
@@ -1102,6 +1297,8 @@ const LentHistoryPage = () => {
                       setReviewTitle('');
                       setReviewContent('');
                       setReviewRating(0);
+                      setReviewFileIds([]);
+                      setReviewImagePreviews([]);
                       // 리뷰 다시 불러오기
                       await loadReviews();
                     } catch (error) {
