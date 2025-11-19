@@ -140,6 +140,16 @@ const MyChatRoomsList = () => {
     }
   };
 
+  // MESSAGE_TYPE: 으로 시작하는 텍스트 제거 함수
+  const removeMessageType = (content) => {
+    if (!content || typeof content !== 'string') return content;
+    const messageTypeIndex = content.indexOf('MESSAGE_TYPE:');
+    if (messageTypeIndex !== -1) {
+      return content.substring(0, messageTypeIndex).trim();
+    }
+    return content;
+  };
+
   return (
     <div className="p-4 lg:p-6">
       <div className="mb-4 lg:mb-6">
@@ -217,7 +227,7 @@ const MyChatRoomsList = () => {
                   <div className="flex items-center space-x-2">
                     {getMessageIcon(chatRoom.lastMessage.type)}
                     <p className="text-sm text-gray-600 truncate">
-                      {chatRoom.lastMessage.senderName}: {chatRoom.lastMessage.content}
+                      {chatRoom.lastMessage.senderName}: {removeMessageType(chatRoom.lastMessage.content)}
                     </p>
                   </div>
                 </div>

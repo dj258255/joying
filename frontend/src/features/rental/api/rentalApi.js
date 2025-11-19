@@ -49,7 +49,9 @@ export const rentalApi = {
       requestBody,
       'requestBody (stringified)': JSON.stringify(requestBody),
       'startRen 타입': typeof startRen,
-      'endRen 타입': typeof endRen
+      'endRen 타입': typeof endRen,
+      'renterId': requestBody.renterId,
+      'renterId 타입': typeof requestBody.renterId
     });
 
     try {
@@ -66,12 +68,18 @@ export const rentalApi = {
       console.log('[rentalApi] 응답 성공:', response.data);
       return response.data;
     } catch (error) {
+      const errorData = error.response?.data || {};
       console.error('[rentalApi] 요청 실패:', {
         url: `/rentals/${productIdNum}/reservations`,
         requestBody,
-        error: error.response?.data || error.message,
+        'requestBody (stringified)': JSON.stringify(requestBody),
+        error: errorData,
+        errorMessage: errorData.message || error.message,
+        errorCode: errorData.code,
         status: error.response?.status,
-        statusText: error.response?.statusText
+        statusText: error.response?.statusText,
+        'renterId 전달 여부': !!requestBody.renterId,
+        'renterId 값': requestBody.renterId
       });
       throw error;
     }

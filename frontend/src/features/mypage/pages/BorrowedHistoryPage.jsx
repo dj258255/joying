@@ -180,9 +180,9 @@ const BorrowedHistoryPage = () => {
       setLoadingReviews(true);
       
       // 내가 작성한 리뷰 조회 (빌린 사람이 작성한 리뷰)
-      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member (빌린 사람이 작성한 리뷰)
+      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member (빌린 사람에 대한 리뷰)
       try {
-        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
+        const myReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
         // API 응답 구조: { status, message, data: { reviewId, title, content, rating, reviewerName } }
         const myReviewData = myReviewResponse?.data?.data;
         if (myReviewData && myReviewData.reviewId) {
@@ -201,9 +201,9 @@ const BorrowedHistoryPage = () => {
       }
       
       // 판매자가 작성한 리뷰 조회 (빌린 사람에 대한 리뷰)
-      // 백엔드 쿼리: uploadType='BORROW' AND reviewed=rh.member (빌린 사람에 대한 리뷰)
+      // 백엔드 쿼리: uploadType='RENT' AND reviewer=rh.member (빌린 사람이 작성한 리뷰)
       try {
-        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'borrow');
+        const ownerReviewResponse = await reviewApi.getRentalReview(rentalId, 'rent');
         const ownerReviewData = ownerReviewResponse?.data?.data;
         if (ownerReviewData && ownerReviewData.reviewId) {
           setOwnerReview(ownerReviewData);
@@ -227,7 +227,7 @@ const BorrowedHistoryPage = () => {
   };
 
   // 리뷰 조회 재시도 헬퍼 함수
-  const retryLoadMyReview = async (type = 'rent', maxRetries = 5) => {
+  const retryLoadMyReview = async (type = 'borrow', maxRetries = 5) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         const response = await reviewApi.getRentalReview(rentalId, type);

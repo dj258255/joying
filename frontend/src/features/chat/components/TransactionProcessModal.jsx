@@ -218,34 +218,110 @@ const TransactionProcessModal = ({
       return;
     }
 
+    // productId와 rentalRequestData를 try 블록 밖에서 선언 (catch 블록에서 사용하기 위해)
+    const productId = productData.id || productData.productId;
+    const isBorrowProduct = productData?.uploadType === 'BORROW';
+    const currentUserId = user?.id || user?.memberId;
+    
+    // renterId 설정: seller가 거래를 생성하는 경우 필수
+    let renterIdValue = null;
+    
+    if (userRole === 'seller') {
+      if (isBorrowProduct) {
+        // BORROW 타입: 상품 주인(A)이 거래 생성하므로, renterId는 상품 주인 자신의 ID
+        // 백엔드 검증: BORROW 상품은 renterId가 상품 주인이어야 함
+        const productOwnerId = productData?.writer?.memberId
+          || productData?.writer?.member_id
+          || productData?.writer?.id;
+        
+        if (!productOwnerId) {
+          setError('상품 주인 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+          return;
+        }
+        
+        const isProductOwner = productOwnerId && Number(productOwnerId) === Number(currentUserId);
+        if (!isProductOwner) {
+          setError('BORROW 상품은 상품 주인만 거래를 생성할 수 있습니다.');
+          return;
+        }
+        
+        // 상품 주인 자신의 ID를 renterId로 전달
+        renterIdValue = Number(productOwnerId);
+        console.log('[TransactionProcessModal] BORROW 타입 - 상품 주인이 거래 생성, renterId = 상품 주인 ID:', renterIdValue);
+      } else {
+        // RENT 타입: 상품 주인이 거래 생성하므로, renterId는 상대방(buyer)의 ID
+        if (!otherMemberId) {
+          setError('상대방 정보를 찾을 수 없습니다. 채팅방을 새로고침해주세요.');
+          return;
+        }
+        renterIdValue = Number(otherMemberId);
+        if (isNaN(renterIdValue) || renterIdValue <= 0) {
+          setError('유효하지 않은 상대방 ID입니다.');
+          return;
+        }
+        console.log('[TransactionProcessModal] RENT 타입 - 상품 주인이 거래 생성, renterId = 상대방 ID:', renterIdValue);
+      }
+    }
+    
+    // renterId가 null이면 에러 (백엔드에서 필수)
+    if (!renterIdValue) {
+      setError('대여자 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+      return;
+    }
+    
+    const rentalRequestData = {
+      startRen: new Date(dateRange.start).toISOString(),
+      endRen: new Date(dateRange.end).toISOString(),
+      rentMethod: rentMethod,
+      // 판매자가 거래를 생성하는 경우, renterId 필수 전달
+      // BORROW 타입: 상품 주인(A)이 거래 생성 시 renterId = 상품 주인 자신의 ID
+      // RENT 타입: 상품 주인이 거래 생성 시 renterId = 상대방(buyer)의 ID
+      renterId: renterIdValue,
+      // 커스텀 대여료와 보증금 전달 (할인 등 금액 조정 시)
+      fee: rentalFee || null,      // 1일 대여료 (null이면 상품 기본값 사용)
+      deposit: deposit || null      // 보증금 (null이면 상품 기본값 사용)
+    };
+    
     try {
       setIsLoading(true);
       setError(null);
 
-      const productId = productData.id || productData.productId;
       console.log('[TransactionProcessModal] 거래 생성 시작:', {
         productId,
         dateRange,
         rentMethod,
         userRole,
         otherMemberId,
-        productData
+        productData,
+        isBorrowProduct,
+        renterIdValue
       });
 
-      const rentalRequestData = {
-        startRen: new Date(dateRange.start).toISOString(),
-        endRen: new Date(dateRange.end).toISOString(),
-        rentMethod: rentMethod,
-        // 판매자가 거래를 생성하는 경우, 상대방(구매자)의 memberId를 renterId로 전달
-        ...(userRole === 'seller' && otherMemberId ? { renterId: otherMemberId } : {}),
-        // 커스텀 대여료와 보증금 전달 (할인 등 금액 조정 시)
-        fee: rentalFee,      // 1일 대여료
-        deposit: deposit      // 보증금
-      };
-
-      console.log('[TransactionProcessModal] 요청 데이터:', {
-        productId,
-        rentalRequestData
+      console.log('[TransactionProcessModal] 거래 생성 요청 데이터:', {
+        isBorrowProduct,
+        userRole,
+        otherMemberId,
+        renterIdValue,
+        rentalRequestData,
+        'rentalRequestData (stringified)': JSON.stringify(rentalRequestData),
+        'renterId 전달 여부': !!rentalRequestData.renterId,
+        'renterId 값': rentalRequestData.renterId,
+        'renterId 타입': typeof rentalRequestData.renterId,
+        'fee 값': rentalRequestData.fee,
+        'fee 타입': typeof rentalRequestData.fee,
+        'deposit 값': rentalRequestData.deposit,
+        'deposit 타입': typeof rentalRequestData.deposit,
+        'startRen': rentalRequestData.startRen,
+        'endRen': rentalRequestData.endRen,
+        'rentMethod': rentalRequestData.rentMethod,
+        'productData': {
+          id: productData?.id,
+          productId: productData?.productId,
+          rentalFee: productData?.rentalFee,
+          deposit: productData?.deposit,
+          startRent: productData?.startRent,
+          endRent: productData?.endRent
+        }
       });
 
       // 대여 거래 생성
@@ -300,27 +376,54 @@ const TransactionProcessModal = ({
 
       // 에러 메시지 개선
       let errorMessage = '거래 생성에 실패했습니다.';
+      const errorData = err.response?.data || {};
+      
+      console.error('[TransactionProcessModal] 에러 상세 정보:', {
+        status: err.response?.status,
+        errorData,
+        errorMessage: errorData.message,
+        errorCode: errorData.code,
+        requestData: {
+          productId,
+          userRole,
+          otherMemberId,
+          renterId: rentalRequestData.renterId,
+          isBorrowProduct
+        }
+      });
       
       if (err.response?.status === 400) {
-        errorMessage = err.response?.data?.message || '잘못된 요청입니다. 입력 정보를 확인해주세요.';
+        errorMessage = errorData.message || '잘못된 요청입니다. 입력 정보를 확인해주세요.';
       } else if (err.response?.status === 404) {
         errorMessage = '상품 정보를 찾을 수 없습니다.';
       } else if (err.response?.status === 403) {
         errorMessage = '거래 생성 권한이 없습니다.';
       } else if (err.response?.status === 409) {
-        errorMessage = err.response?.data?.message || '이미 진행 중인 거래가 있습니다.';
+        errorMessage = errorData.message || '이미 진행 중인 거래가 있습니다.';
       } else if (err.response?.status === 500) {
-        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-      } else if (err.response?.data) {
-        // 백엔드 에러 응답 구조에 따라 메시지 추출
-        if (err.response.data.message) {
-          errorMessage = err.response.data.message;
-        } else if (err.response.data.error) {
-          errorMessage = err.response.data.error;
-        } else if (err.response.data.errors && Array.isArray(err.response.data.errors)) {
-          // 배열 형태의 에러 메시지
-          errorMessage = err.response.data.errors.map(e => e.message || e).join(', ');
+        // 500 에러의 경우 더 자세한 정보 제공
+        if (errorData.message) {
+          errorMessage = `서버 오류: ${errorData.message}`;
+        } else if (!rentalRequestData?.renterId && userRole === 'seller') {
+          errorMessage = '상대방 정보를 찾을 수 없습니다. 채팅방을 새로고침해주세요.';
+        } else if (isBorrowProduct && rentalRequestData?.renterId) {
+          // BORROW 상품의 경우 상품 주인 ID와 일치하는지 확인
+          const productOwnerId = productData?.writer?.memberId || productData?.writer?.member_id;
+          if (productOwnerId && Number(rentalRequestData.renterId) !== Number(productOwnerId)) {
+            errorMessage = `BORROW 상품은 상품 주인만 빌릴 수 있습니다.\n전달된 renterId: ${rentalRequestData.renterId}\n상품 주인 ID: ${productOwnerId}`;
+          } else {
+            errorMessage = `서버 오류가 발생했습니다.\n전달된 renterId: ${rentalRequestData.renterId}\n상품 주인 ID: ${productOwnerId || '찾을 수 없음'}\n잠시 후 다시 시도해주세요.`;
+          }
+        } else {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
         }
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      } else if (errorData.errors && Array.isArray(errorData.errors)) {
+        // 배열 형태의 에러 메시지
+        errorMessage = errorData.errors.map(e => e.message || e).join(', ');
       } else if (err.message) {
         errorMessage = err.message;
       }
