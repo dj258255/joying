@@ -3,8 +3,7 @@
  * 거래 완료 메시지 카드 컴포넌트
  */
 
-import React, { useState } from 'react';
-import VideoListModal from '../../rental/components/VideoListModal';
+import React from 'react';
 
 /**
  * 거래 완료 메시지 내용 파싱
@@ -41,8 +40,6 @@ export const parseTransactionCompleteMessage = (content) => {
  * 거래 완료 메시지 카드 컴포넌트
  */
 const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = false, isBuyer = false, onReviewClick }) => {
-  const [showVideoListModal, setShowVideoListModal] = useState(false);
-
   const completeInfo = parseTransactionCompleteMessage(message.content);
 
   if (!completeInfo) {
@@ -79,34 +76,18 @@ const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = fal
           <div className="p-4 space-y-3 bg-white/80">
             <div className="text-center py-2">
               <p className="text-sm text-gray-900 font-medium mb-1">
-                ✅ 반납 수령을 확인했습니다!
+                반납 수령을 확인했습니다!
               </p>
               <p className="text-xs text-gray-600">
                 거래가 완료되었습니다. 정산이 진행됩니다.
               </p>
             </div>
 
-            {/* 버튼 그룹 */}
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {/* 거래 영상 보기 버튼 */}
-              {completeInfo.rentalHisId && (
-                <button
-                  onClick={() => setShowVideoListModal(true)}
-                  className="glass-button text-sm py-2.5"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span>거래 영상</span>
-                  </div>
-                </button>
-              )}
-
-              {/* 리뷰 작성하기 버튼 */}
+            {/* 리뷰 작성하기 버튼 */}
+            <div className="mt-4">
               <button
                 onClick={handleReviewClick}
-                className="glass-button text-sm py-2.5"
+                className="glass-button w-full text-sm py-2.5"
               >
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,17 +107,8 @@ const TransactionCompleteMessageCard = ({ message, isOwn = false, isSeller = fal
             minute: '2-digit'
           })}
         </div>
+        </div>
       </div>
-    </div>
-
-    {/* 거래 영상 조회 모달 */}
-    {completeInfo.rentalHisId && (
-      <VideoListModal
-        isOpen={showVideoListModal}
-        onClose={() => setShowVideoListModal(false)}
-        rentalHisId={completeInfo.rentalHisId}
-      />
-    )}
     </>
   );
 };
