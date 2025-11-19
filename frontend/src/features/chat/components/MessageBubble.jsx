@@ -18,8 +18,9 @@ import DeleteMessageModal from './DeleteMessageModal';
  * @param {Function} [props.onRentalAccept] - 대여 요청 승인 핸들러
  * @param {Function} [props.onRentalReject] - 대여 요청 거절 핸들러
  * @param {Array} [props.actionButtons] - 메시지 하단에 표시할 액션 버튼들
+ * @param {React.ReactNode} [props.rentMethodSelector] - 거래 방법 선택 컴포넌트
  */
-const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick, onRentalAccept, onRentalReject }) => {
+const MessageBubble = ({ message, isOwn = false, onReply, onDelete, onEdit, messageId, actionButtons, onReplyClick, onRentalAccept, onRentalReject, rentMethodSelector }) => {
   const { content = '', sender, timestamp, type, replyTo, isRead, showReadIndicator, isDeleted, isEdited } = message;
   const id = messageId || message.id;
   const [showActions, setShowActions] = useState(false);
