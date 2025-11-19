@@ -610,13 +610,31 @@ export const ChatProvider = ({ children }) => {
       messageContent = rawMessage.content || '';
     }
 
-    // 읽음 상태 계산: lastReadAt과 비교 (내가 보낸 메시지만)
+    // 읽음 상태 계산
     const userIdForCheck = user?.memberId ?? user?.id ?? user?.member_id ?? null;
     const isOwnMessage = userIdForCheck != null && Number(senderId) === Number(userIdForCheck);
-    let isRead = rawMessage.isRead ?? false;
 
-    // 내가 보낸 메시지이고 lastReadAt이 있으면, 메시지 시간과 비교
-    if (isOwnMessage && state.lastReadAt && timestamp) {
+    // 읽음 상태 결정 우선순위:
+    // 1. rawMessage.isRead가 명시적으로 있으면 사용
+    // 2. rawMessage.readBy 배열 확인 (상대방 ID가 포함되어 있으면 읽음)
+    // 3. lastReadAt 시간과 비교
+    let isRead = false;
+
+    if (rawMessage.isRead !== undefined && rawMessage.isRead !== null) {
+      // 백엔드에서 isRead를 명시적으로 보낸 경우
+      isRead = rawMessage.isRead;
+    } else if (isOwnMessage && Array.isArray(rawMessage.readBy) && rawMessage.readBy.length > 0) {
+      // readBy 배열에 상대방이 포함되어 있으면 읽음 처리
+      // readBy에는 읽은 사람들의 ID가 들어있음 (본인 제외)
+      const otherMemberId = state.currentChatRoom?.otherMember?.memberId ??
+                           state.currentChatRoom?.otherMember?.id ??
+                           state.currentChatRoom?.otherMember?.member_id;
+
+      if (otherMemberId && rawMessage.readBy.some(id => Number(id) === Number(otherMemberId))) {
+        isRead = true;
+      }
+    } else if (isOwnMessage && state.lastReadAt && timestamp) {
+      // lastReadAt 시간과 비교
       const msgTimestamp = new Date(timestamp).getTime();
       const readTimestamp = new Date(state.lastReadAt).getTime();
       if (msgTimestamp <= readTimestamp) {
@@ -1060,13 +1078,23 @@ export const ChatProvider = ({ children }) => {
               return;
             }
           }
-          
+
             // 새 메시지 추가
             dispatch({ type: 'ADD_MESSAGE', payload: normalized });
             // 채팅 목록 업데이트
             // 채팅방 안에 있으면 자동 읽음 처리, 밖에 있으면 안읽음으로 표시
             const isInThisChatRoom = activeRoomIdRef.current === roomId;
             updateChatRoomList(normalized, isInThisChatRoom);
+
+            // 채팅방 안에 있고 상대방이 보낸 메시지면 즉시 읽음 처리
+            if (isInThisChatRoom && !isOwnMessage) {
+              try {
+                websocketApi.sendReadReceipt(roomId);
+                console.log('[ChatContext] 새 메시지 수신 후 자동 읽음 처리 전송:', roomId);
+              } catch (error) {
+                console.warn('[ChatContext] 자동 읽음 처리 전송 실패:', error);
+              }
+            }
         }
       },
       onError: (errorLike) => {

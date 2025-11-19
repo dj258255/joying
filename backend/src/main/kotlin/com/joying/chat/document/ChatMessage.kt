@@ -73,7 +73,10 @@ data class ChatMessage(
     var originalContent: String? = null,
 
     @Field("isDeleted")
-    var isDeleted: Boolean = false
+    var isDeleted: Boolean = false,
+
+    @Field("isRead")
+    var isRead: Boolean = false
 
 ) {
     companion object {

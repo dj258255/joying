@@ -17,6 +17,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -43,6 +47,7 @@ class ChatService(
     private val chatPresenceService: ChatPresenceService,
     private val messagingTemplate: SimpMessagingTemplate,
     private val chatRoomService: ChatRoomService,
+    private val mongoTemplate: MongoTemplate,
 ) {
     private val logger = LoggerFactory.getLogger(ChatService::class.java)
 
@@ -255,7 +260,7 @@ class ChatService(
 
     /**
      * 메시지 읽음 처리
-     * (lastReadAt 업데이트)
+     * (lastReadAt 업데이트 + MongoDB 메시지 isRead 업데이트)
      *
      * @param chatRoomId 채팅방 ID
      * @param memberId 회원 ID
@@ -275,6 +280,48 @@ class ChatService(
 
         // Redis 안읽은 개수 초기화
         unreadCountService.reset(chatRoomId, memberId)
+
+        // MongoDB 메시지 읽음 처리 (비동기)
+        // 상대방이 보낸 메시지들을 isRead = true로 업데이트
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return@launch
+
+                // 상대방 ID 계산
+                val otherMemberId = if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.seller.memberId!!
+                } else {
+                    chatRoom.buyer.memberId!!
+                }
+
+                // 상대방이 보낸 메시지 중 읽지 않은 메시지들을 isRead = true로 업데이트
+                val query = Query.query(
+                    Criteria.where("chatRoomId").`is`(chatRoomId)
+                        .and("senderId").`is`(otherMemberId)
+                        .and("isRead").`is`(false)
+                        .and("isDeleted").`is`(false)
+                )
+
+                val update = Update().set("isRead", true)
+
+                val result = mongoTemplate.updateMulti(query, update, ChatMessage::class.java)
+
+                logger.debug(
+                    "MongoDB 메시지 읽음 처리 완료: chatRoomId={}, memberId={}, updatedCount={}",
+                    chatRoomId,
+                    memberId,
+                    result.modifiedCount
+                )
+            } catch (e: Exception) {
+                logger.error(
+                    "MongoDB 메시지 읽음 처리 실패: chatRoomId={}, memberId={}, error={}",
+                    chatRoomId,
+                    memberId,
+                    e.message,
+                    e
+                )
+            }
+        }
 
         logger.debug("메시지 읽음 처리: chatRoomId={}, memberId={}", chatRoomId, memberId)
     }

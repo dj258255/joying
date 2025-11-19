@@ -26,6 +26,7 @@ data class ChatMessageResponse(
     val isEdited: Boolean = false,
     val originalContent: String? = null,
     val isDeleted: Boolean = false,
+    val isRead: Boolean = false,
     val replyTo: ReplyMessageInfo? = null,
 ) {
     data class ReplyMessageInfo(
@@ -58,6 +59,7 @@ data class ChatMessageResponse(
                 isEdited = message.isEdited,
                 originalContent = message.originalContent,
                 isDeleted = message.isDeleted,
+                isRead = message.isRead,
                 replyTo = replyMessage?.let {
                     ReplyMessageInfo(
                         id = it.id,
