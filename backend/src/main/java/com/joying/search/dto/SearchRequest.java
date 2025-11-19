@@ -2,6 +2,7 @@ package com.joying.search.dto;
 
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Optional;
 
 import com.joying.product.domain.Product;
 
@@ -61,7 +62,9 @@ public record SearchRequest(
 			.rentMethod(product.getRentMethod().name())
 			.videoNecessary(product.getVideoNecessary())
 			.startRent(Timestamp.from(product.getStartRent()))
-			.endRent(Timestamp.from(product.getEndRent()))
+			.endRent(Optional.ofNullable(product.getEndRent())
+				.map(Timestamp::from)
+				.orElse(null))
 			.rating(product.getRating())
 			.thumbnailFileId(thumbnailFileId)
 			.uploadType(product.getUploadType().name())
