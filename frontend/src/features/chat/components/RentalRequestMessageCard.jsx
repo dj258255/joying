@@ -71,7 +71,7 @@ const RentalRequestMessageCard = ({
   onRentalRequestAgain,
   onCreateTransaction
 }) => {
-  const [selectedRentMethod, setSelectedRentMethod] = React.useState('BOTH');
+  const [selectedRentMethod, setSelectedRentMethod] = React.useState('DELIVERY');
   // 메시지에서 대여 정보 추출 (rentalInfo 객체 또는 content 파싱)
   let rentalInfoFromMessage = null;
 
@@ -209,7 +209,7 @@ const RentalRequestMessageCard = ({
     }
 
     // 선택된 거래 방법 또는 rentalInfo에 있는 거래 방법 사용
-    const rentMethod = selectedRentMethod || rentalInfo.rentMethod || 'BOTH';
+    const rentMethod = selectedRentMethod || rentalInfo.rentMethod || 'DELIVERY';
 
     await onCreateTransaction({
       startDate,
@@ -340,17 +340,6 @@ const RentalRequestMessageCard = ({
                           }`}
                         >
                           직거래
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRentMethod('BOTH')}
-                          className={`flex-1 py-2 px-3 text-xs rounded-lg font-medium transition-colors ${
-                            selectedRentMethod === 'BOTH'
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          둘 다 가능
                         </button>
                       </div>
                     </div>

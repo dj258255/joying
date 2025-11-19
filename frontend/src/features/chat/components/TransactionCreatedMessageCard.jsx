@@ -55,7 +55,7 @@ export const parseTransactionCreatedMessage = (content) => {
 /**
  * 거래 생성 완료 메시지 카드 컴포넌트
  */
-const TransactionCreatedMessageCard = ({ message, isOwn = false, onPaymentClick }) => {
+const TransactionCreatedMessageCard = ({ message, isOwn = false, isBuyer = false, onPaymentClick }) => {
   const transactionInfo = parseTransactionCreatedMessage(message.content);
 
   if (!transactionInfo) {
@@ -113,8 +113,8 @@ const TransactionCreatedMessageCard = ({ message, isOwn = false, onPaymentClick 
               </div>
             </div>
 
-            {/* 결제하러 가기 버튼 */}
-            {transactionInfo.rentalHisId && (
+            {/* 결제하러 가기 버튼 - 구매자에게만 표시 */}
+            {isBuyer && transactionInfo.rentalHisId && onPaymentClick && (
               <button
                 onClick={handlePaymentClick}
                 className="glass-button w-full text-sm mt-4 py-2.5"
