@@ -46,6 +46,23 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
   // 채팅방 이름 (상품 제목 또는 기존 name)
   const roomName = productTitle || name || otherMemberNickname || '채팅방';
   
+  // 모바일에서 상품명 길이 제한 (10글자)
+  const truncateProductTitle = (title, maxLength = 10) => {
+    if (!title) return '';
+    if (title.length <= maxLength) return title;
+    return title.substring(0, maxLength) + '...';
+  };
+  
+  // 상품명이 있는 경우 모바일에서만 자르기
+  const displayRoomName = productTitle 
+    ? (
+        <>
+          <span className="sm:hidden">{truncateProductTitle(roomName, 10)}</span>
+          <span className="hidden sm:inline">{roomName}</span>
+        </>
+      )
+    : roomName;
+  
   // 프로필 이미지 (상대방 프로필 또는 상품 이미지)
   const profileImage = otherMemberProfileUrl || productImageUrl || participants?.find(p => p.id !== 101)?.profileImage;
 
@@ -276,9 +293,9 @@ const ChatRoomListItem = ({ chatRoom, onClick, onContextMenuOpen, isActive = fal
         {/* 채팅방 정보 */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <h3 className="text-base font-medium text-gray-900 truncate">
-                {roomName}
+                {displayRoomName}
               </h3>
               {/* 알림 꺼짐 표시 */}
               {isMuted && (
