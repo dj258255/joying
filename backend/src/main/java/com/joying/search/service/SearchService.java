@@ -143,8 +143,8 @@ public class SearchService {
 	public SearchResponseDto search(
 		String uploadTypeStr,
 		String q,
-		Integer priceMin,
-		Integer priceMax,
+		Long priceMin,
+		Long priceMax,
 		Long sido,
 		Long gungu,
 		Long dong,
@@ -173,10 +173,13 @@ public class SearchService {
 			dateTo = temp;
 		}
 
-		if (priceMin != null && priceMax != null && priceMin > priceMax) {
-			Integer temp = priceMin;
-			priceMin = priceMax;
-			priceMax = temp;
+		int minPrice = normalizePrice(priceMin);
+		int maxPrice = normalizePrice(priceMax);
+
+		if (minPrice != -1 && maxPrice != -1 && minPrice > maxPrice) {
+			int temp = minPrice;
+			minPrice = maxPrice;
+			maxPrice = temp;
 		}
 
 		Instant dateFromInstant = (dateFrom == null) ? null : Instant.parse(dateFrom + "T00:00:00Z");
@@ -256,16 +259,16 @@ public class SearchService {
 			filterQueries.add(uploadTypeQuery._toQuery());
 
 			// 가격 필터
-			if (priceMin != null || priceMax != null) {
+			if (minPrice != -1 || maxPrice != -1) {
 				NumberRangeQuery.Builder numberRangeBuilder = new NumberRangeQuery.Builder()
 					.field("rentalFee");
 
-				if (priceMin != null) {
-					numberRangeBuilder.gte(Double.valueOf(priceMin));
+				if (minPrice != -1) {
+					numberRangeBuilder.gte((double)minPrice);
 				}
 
-				if (priceMax != null) {
-					numberRangeBuilder.lte(Double.valueOf(priceMax));
+				if (maxPrice != -1) {
+					numberRangeBuilder.lte((double)maxPrice);
 				}
 
 				RangeQuery feeRange = new RangeQuery.Builder()
@@ -630,5 +633,14 @@ public class SearchService {
 		} catch (IOException e) {
 			throw new ElasticsearchSearchException("Nori analyzer 실행 중 오류가 발생했습니다.", e);
 		}
+	}
+
+	private int normalizePrice(Long price) {
+		if (price == null) return -1;
+
+		if (price < 0) return 0;
+		if (price > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+
+		return price.intValue();
 	}
 }

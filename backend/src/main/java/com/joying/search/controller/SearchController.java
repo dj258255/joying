@@ -55,8 +55,8 @@ public class SearchController {
 	public ResponseEntity<?> search(
 		@RequestParam String uploadType,
 		@RequestParam(required = false) String q,
-		@RequestParam(required = false, name = "price-min") Integer priceMin,
-		@RequestParam(required = false, name = "price-max") Integer priceMax,
+		@RequestParam(required = false, name = "price-min") Long priceMin,
+		@RequestParam(required = false, name = "price-max") Long priceMax,
 		@RequestParam(required = false) Long sido,
 		@RequestParam(required = false) Long gungu,
 		@RequestParam(required = false) Long dong,
@@ -70,6 +70,12 @@ public class SearchController {
 		@RequestParam(required = false, defaultValue = "1") int page,
 		@RequestParam(required = false, defaultValue = "14") int size,
 		Authentication authentication) {
+
+		if (q.length() > 50) {
+			q = q.trim();
+			q = q.substring(0, 50);
+		}
+
 		Long authId = null;
 		if (authentication != null) {
 			authId = Long.parseLong(authentication.getName());
