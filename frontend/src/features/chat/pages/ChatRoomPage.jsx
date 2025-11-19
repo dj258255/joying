@@ -1445,6 +1445,8 @@ const ChatRoomPage = () => {
       console.log('[handlePaymentSuccess] rentalHisId:', rentalHisId, 'result:', result);
 
       if (sendMessage) {
+        console.log('[handlePaymentSuccess] 결제 완료 메시지 전송 시작');
+
         // 1. 결제 완료 메시지
         const paymentCompleteMessage = rentalHisId
           ? `💳 결제가 완료되었습니다!\n\n결제 금액: ${amount.toLocaleString()}원\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:PAYMENT_COMPLETE`
@@ -1455,25 +1457,30 @@ const ChatRoomPage = () => {
           content: paymentCompleteMessage
         });
 
+        console.log('[handlePaymentSuccess] 결제 완료 메시지 전송 완료');
+
         // 2. rentalHisId가 있을 때만 운송장 번호 입력 요청 메시지 전송
         if (rentalHisId) {
-          setTimeout(async () => {
-            // BORROW/RENT 타입에 따라 메시지 내용 결정
-            const isBorrowType = productData?.uploadType === 'BORROW';
-            const trackingRequestMessage = isBorrowType
-              ? `📦 구매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`
-              : `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
+          // BORROW/RENT 타입에 따라 메시지 내용 결정
+          const isBorrowType = productData?.uploadType === 'BORROW';
+          const trackingRequestMessage = isBorrowType
+            ? `📦 구매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`
+            : `📦 판매자님, 물품 발송을 시작해주세요!\n\n아래에 택배사와 운송장 번호를 입력해주세요.\n\nrentalHisId:${rentalHisId}\nMESSAGE_TYPE:TRACKING_NUMBER_REQUEST`;
 
-            await sendMessage({
-              type: 'TEXT',
-              content: trackingRequestMessage
-            });
-          }, 1000);
+          // setTimeout 제거하고 바로 전송
+          await sendMessage({
+            type: 'TEXT',
+            content: trackingRequestMessage
+          });
+
+          console.log('[handlePaymentSuccess] 운송장 요청 메시지 전송 완료');
         }
       }
 
-      // 메시지 새로고침을 위해 채팅방 다시 로드
-      setCurrentChatRoom(chatRoomId);
+      // 메시지 전송 완료 후 약간의 딜레이를 주고 채팅방 리로드
+      setTimeout(() => {
+        setCurrentChatRoom(chatRoomId);
+      }, 500);
 
       setShowPaymentModal(false);
       setPaymentMessage(null);
