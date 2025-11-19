@@ -1499,7 +1499,14 @@ const ProductListMain = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length > 50) {
+                  setSearchQuery(value.slice(0, 50));
+                } else {
+                  setSearchQuery(value);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault();
@@ -1894,24 +1901,37 @@ const ProductListMain = () => {
                    placeholder="최소 금액"
                    value={priceRange.min}
                    onChange={(e) => {
-                     const newMin = e.target.value.replace(/[^0-9]/g, '');
-                     setPriceRange(prev => {
-                       const newRange = { ...prev, min: newMin };
-                       // 실시간 검증
-                       if (newMin && prev.max) {
-                         const minNum = parseInt(newMin.replace(/,/g, ''), 10);
-                         const maxNum = parseInt(prev.max.replace(/,/g, ''), 10);
-                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                         } else {
-                           setPriceError('');
-                         }
-                       } else {
-                         setPriceError('');
-                       }
-                       return newRange;
-                     });
-                   }}
+                    let newMin = e.target.value.replace(/[^0-9]/g, '');
+
+                    let num = Number(newMin);
+
+                    const MAX_INT = 2147483647;
+                    if (num > MAX_INT) {
+                      num = MAX_INT;
+                    }
+                    if (num < 0) {
+                      num = 0;
+                    }
+
+                    newMin = String(num);
+
+                    setPriceRange(prev => {
+                      const newRange = { ...prev, min: newMin };
+
+                      if (newMin && prev.max) {
+                        const minNum = Number(newMin);
+                        const maxNum = Number(prev.max);
+                        if (minNum > maxNum) {
+                          setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                        } else {
+                          setPriceError('');
+                        }
+                      } else {
+                        setPriceError('');
+                      }
+                      return newRange;
+                    });
+                  }}
                    onBlur={() => handlePriceBlur('min')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
@@ -1927,24 +1947,37 @@ const ProductListMain = () => {
                    placeholder="최대 금액"
                    value={priceRange.max}
                    onChange={(e) => {
-                     const newMax = e.target.value.replace(/[^0-9]/g, '');
-                     setPriceRange(prev => {
-                       const newRange = { ...prev, max: newMax };
-                       // 실시간 검증
-                       if (newMax && prev.min) {
-                         const minNum = parseInt(prev.min.replace(/,/g, ''), 10);
-                         const maxNum = parseInt(newMax.replace(/,/g, ''), 10);
-                         if (!isNaN(minNum) && !isNaN(maxNum) && minNum > maxNum) {
-                           setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
-                         } else {
-                           setPriceError('');
-                         }
-                       } else {
-                         setPriceError('');
-                       }
-                       return newRange;
-                     });
-                   }}
+                      let newMax = e.target.value.replace(/[^0-9]/g, '');
+                      let num = Number(newMax);
+
+                      const MAX_INT = 2147483647;
+                      if (num > MAX_INT) {
+                        num = MAX_INT;
+                      }
+                      if (num < 0) {
+                        num = 0;
+                      }
+
+                      newMax = String(num);
+
+                      setPriceRange(prev => {
+                        const newRange = { ...prev, max: newMax };
+
+                        if (newMax && prev.min) {
+                          const minNum = Number(prev.min);
+                          const maxNum = Number(newMax);
+                          if (minNum > maxNum) {
+                            setPriceError('최소 금액은 최대 금액보다 클 수 없습니다.');
+                          } else {
+                            setPriceError('');
+                          }
+                        } else {
+                          setPriceError('');
+                        }
+
+                        return newRange;
+                      });
+                    }}
                    onBlur={() => handlePriceBlur('max')}
                    className="flex-1 px-2 py-2 text-xs text-gray-800 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2"
                    style={{ 
