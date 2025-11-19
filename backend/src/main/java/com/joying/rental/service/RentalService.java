@@ -18,6 +18,7 @@ import com.joying.payment.dto.request.PaymentCancelRequest;
 import com.joying.payment.repository.PaymentRepository;
 import com.joying.payment.service.PaymentService;
 import com.joying.product.domain.Product;
+import com.joying.product.domain.UploadType;
 import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalCancel;
 import com.joying.rental.domain.RentalHistory;
@@ -269,10 +270,17 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 권한 검증 (상품 소유자만 발송 가능)
-        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
-        if (!memberId.equals(ownerId)) {
-            throw new IllegalArgumentException("상품 소유자만 발송할 수 있습니다");
+        // 권한 검증 (발송자만 발송 가능)
+        // RENT: productWriter(상품 올린 사람)가 발송
+        // BORROW: rentalMember(거래 생성한 사람)가 발송
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
+        UploadType uploadType = rental.getRentalProduct().getUploadType();
+
+        Long senderId = (uploadType == UploadType.RENT) ? productWriterId : rentalMemberId;
+
+        if (!memberId.equals(senderId)) {
+            throw new IllegalArgumentException("발송 권한이 없습니다");
         }
 
         // 발송 처리
@@ -303,10 +311,17 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 권한 검증 (빌린 사람만 수령 확인 가능)
-        Long renterId = rental.getMember().getMemberId();
-        if (!memberId.equals(renterId)) {
-            throw new IllegalArgumentException("빌린 사람만 수령 확인할 수 있습니다");
+        // 권한 검증 (수령자만 수령 확인 가능)
+        // RENT: rentalMember(거래 생성한 사람)가 수령
+        // BORROW: productWriter(상품 올린 사람)가 수령
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
+        UploadType uploadType = rental.getRentalProduct().getUploadType();
+
+        Long receiverId = (uploadType == UploadType.RENT) ? rentalMemberId : productWriterId;
+
+        if (!memberId.equals(receiverId)) {
+            throw new IllegalArgumentException("수령 확인 권한이 없습니다");
         }
 
         // 수령 확인
@@ -340,10 +355,17 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 권한 검증 (빌린 사람만 반납 가능)
-        Long renterId = rental.getMember().getMemberId();
-        if (!memberId.equals(renterId)) {
-            throw new IllegalArgumentException("빌린 사람만 반납할 수 있습니다");
+        // 권한 검증 (반납자만 반납 가능)
+        // RENT: rentalMember(거래 생성한 사람)가 반납
+        // BORROW: productWriter(상품 올린 사람)가 반납
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
+        UploadType uploadType = rental.getRentalProduct().getUploadType();
+
+        Long returnerId = (uploadType == UploadType.RENT) ? rentalMemberId : productWriterId;
+
+        if (!memberId.equals(returnerId)) {
+            throw new IllegalArgumentException("반납 권한이 없습니다");
         }
 
         // 반납 처리
@@ -387,10 +409,17 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 권한 검증 (상품 소유자만 회수 확인 가능)
-        Long ownerId = rental.getRentalProduct().getWriter().getMemberId();
-        if (!memberId.equals(ownerId)) {
-            throw new IllegalArgumentException("상품 소유자만 회수 확인할 수 있습니다");
+        // 권한 검증 (회수 확인자만 회수 확인 가능)
+        // RENT: productWriter(상품 올린 사람)가 회수 확인
+        // BORROW: rentalMember(거래 생성한 사람)가 회수 확인
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
+        UploadType uploadType = rental.getRentalProduct().getUploadType();
+
+        Long retrieverId = (uploadType == UploadType.RENT) ? productWriterId : rentalMemberId;
+
+        if (!memberId.equals(retrieverId)) {
+            throw new IllegalArgumentException("회수 확인 권한이 없습니다");
         }
 
         // 회수 확인
@@ -615,10 +644,17 @@ public class RentalService {
         RentalHistory rental = rentalHistoryRepository.findById(rentalHisId)
                 .orElseThrow(() -> new IllegalArgumentException("거래 내역을 찾을 수 없습니다: " + rentalHisId));
 
-        // 2. 권한 검증 (빌린 사람만 연장 가능)
-        Long renterId = rental.getMember().getMemberId();
-        if (!memberId.equals(renterId)) {
-            throw new IllegalArgumentException("빌린 사람만 대여 기간을 연장할 수 있습니다");
+        // 2. 권한 검증 (물건 사용자만 연장 가능)
+        // RENT: rentalMember(거래 생성한 사람)가 연장
+        // BORROW: productWriter(상품 올린 사람)가 연장
+        Long productWriterId = rental.getRentalProduct().getWriter().getMemberId();
+        Long rentalMemberId = rental.getMember().getMemberId();
+        UploadType uploadType = rental.getRentalProduct().getUploadType();
+
+        Long userId = (uploadType == UploadType.RENT) ? rentalMemberId : productWriterId;
+
+        if (!memberId.equals(userId)) {
+            throw new IllegalArgumentException("대여 기간 연장 권한이 없습니다");
         }
 
         // 3. 상태 검증 (RENTING 상태에서만 연장 가능)
