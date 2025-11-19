@@ -73,18 +73,61 @@ self.addEventListener('push', (event) => {
         // 현재 채팅방에 있는지 확인 (채팅방 안에 있으면 알림 표시 안함)
         if (notificationData.data && notificationData.data.chatRoomId) {
           const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+          const notificationChatRoomId = String(notificationData.data.chatRoomId);
 
           for (const client of clients) {
             const clientUrl = new URL(client.url);
             const currentChatRoomId = clientUrl.pathname.match(/\/chats\/(\d+)/)?.[1];
 
-            if (currentChatRoomId && String(currentChatRoomId) === String(notificationData.data.chatRoomId)) {
-              console.log('[ServiceWorker] 현재 채팅방 안에 있으므로 알림 표시 안함:', {
+            // 경로에서 채팅방 ID 확인
+            if (currentChatRoomId && String(currentChatRoomId) === notificationChatRoomId) {
+              console.log('[ServiceWorker] 현재 채팅방 안에 있으므로 알림 표시 안함 (경로 확인):', {
                 currentChatRoomId,
-                notificationChatRoomId: notificationData.data.chatRoomId,
+                notificationChatRoomId,
                 clientUrl: client.url
               });
               return; // 알림 표시하지 않음
+            }
+
+            // 클라이언트에 메시지를 보내서 활성 채팅방 ID 확인
+            try {
+              const response = await new Promise((resolve) => {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                  resolve(event.data);
+                };
+                messageChannel.port1.onmessageerror = () => {
+                  resolve(null);
+                };
+                
+                try {
+                  client.postMessage({ 
+                    type: 'CHECK_ACTIVE_CHAT_ROOM', 
+                    chatRoomId: notificationChatRoomId,
+                    port: messageChannel.port2
+                  }, [messageChannel.port2]);
+                } catch (postError) {
+                  console.warn('[ServiceWorker] 메시지 전송 실패:', postError);
+                  resolve(null);
+                }
+                
+                // 200ms 타임아웃
+                setTimeout(() => {
+                  messageChannel.port1.close();
+                  resolve(null);
+                }, 200);
+              });
+
+              if (response && response.isActive) {
+                console.log('[ServiceWorker] 현재 채팅방 안에 있으므로 알림 표시 안함 (활성 상태 확인):', {
+                  notificationChatRoomId,
+                  clientUrl: client.url
+                });
+                return; // 알림 표시하지 않음
+              }
+            } catch (error) {
+              console.warn('[ServiceWorker] 활성 채팅방 확인 실패:', error);
+              // 에러가 나도 계속 진행 (알림 표시)
             }
           }
         }

@@ -3,7 +3,7 @@
  * 메인 애플리케이션 컴포넌트
  */
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
 import { ROUTE_PATHS } from '@/shared/constants'
@@ -41,6 +41,30 @@ const ReviewWritePage = React.lazy(() => import('@/features/review/pages/ReviewW
 const AccountTransactionPage = React.lazy(() => import('@/features/mypage/pages/AccountTransactionPage'))
 
 function App() {
+  // Service Worker 메시지 리스너 (채팅방 활성 상태 확인용)
+  useEffect(() => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const messageHandler = (event) => {
+        if (event.data && event.data.type === 'CHECK_ACTIVE_CHAT_ROOM') {
+          const { chatRoomId } = event.data;
+          const activeChatRoomId = window.__activeChatRoomId__ || null;
+          const isActive = activeChatRoomId && String(activeChatRoomId) === String(chatRoomId);
+          
+          // event.ports 배열에서 port 가져오기
+          if (event.ports && event.ports.length > 0) {
+            event.ports[0].postMessage({ isActive });
+          }
+        }
+      };
+
+      navigator.serviceWorker.addEventListener('message', messageHandler);
+
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', messageHandler);
+      };
+    }
+  }, []);
+
   return (
     <ErrorBoundary>
       <AuthProvider>
