@@ -60,6 +60,10 @@ public class ReviewService {
 		Review review = reviewRepository.findRentalReview(
 			rentalId, uploadType.name()
 		);
+		// 리뷰가 없는 경우 null 반환
+		if (review == null) {
+			return null;
+		}
 		return toResponseDto(review);
 	}
 
