@@ -140,7 +140,14 @@ const Section1Hero = () => {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length > 50) {
+                  setSearchQuery(value.slice(0, 50));
+                } else {
+                  setSearchQuery(value);
+                }
+              }}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setTimeout(() => setIsFocused(false), 150)} // 클릭 시 바로 안 닫히게 살짝 delay
               placeholder="무엇이든 빌려보세요! 카메라, 캠핑용품, 게임기..."
