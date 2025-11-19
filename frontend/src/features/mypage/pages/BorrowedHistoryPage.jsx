@@ -539,6 +539,19 @@ const BorrowedHistoryPage = () => {
                   <h4 className="font-semibold text-gray-900 mb-2">{ownerReview.title}</h4>
                 )}
                 <p className="text-gray-700 mb-3">"{ownerReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {ownerReview.imageUrls && ownerReview.imageUrls.length > 0 && (
+                  <div className="mb-3 flex gap-2 overflow-x-auto">
+                    {ownerReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
                 <div className="text-sm text-gray-500">
                   {ownerReview.reviewerName || '판매자'} • {ownerReview.createdAt ? formatDate(ownerReview.createdAt) : ''}
                 </div>
@@ -571,6 +584,19 @@ const BorrowedHistoryPage = () => {
                   <h4 className="font-semibold text-gray-900 mb-2">{myReview.title}</h4>
                 )}
                 <p className="text-gray-700 mb-3">"{myReview.content}"</p>
+                {/* 리뷰 이미지 표시 */}
+                {myReview.imageUrls && myReview.imageUrls.length > 0 && (
+                  <div className="mb-3 flex gap-2 overflow-x-auto">
+                    {myReview.imageUrls.map((imageUrl, imgIndex) => (
+                      <img
+                        key={imgIndex}
+                        src={imageUrl}
+                        alt={`리뷰 이미지 ${imgIndex + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
                 <div className="text-sm text-gray-500 mb-4">
                   {formatDate(myReview.createdAt || new Date())}
                 </div>
@@ -859,7 +885,9 @@ const BorrowedHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
+                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
@@ -925,13 +953,15 @@ const BorrowedHistoryPage = () => {
                     }
                     
                     try {
+                      // fileIds 배열 정리: 유효한 값만 포함하고, 빈 배열이면 null로 전송
+                      const validFileIds = reviewFileIds.filter(id => id != null && id !== undefined && id !== 0);
                       await createReview({
                         rentalHistoryId: Number(rentalId),
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
                         uploadType: 'BORROW', // 빌린 내역이므로 BORROW
-                        fileIds: reviewFileIds
+                        fileIds: validFileIds.length > 0 ? validFileIds : null
                       });
                       
                       // 모달 닫기 및 상태 초기화
@@ -1140,7 +1170,9 @@ const BorrowedHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
+                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
@@ -1211,12 +1243,14 @@ const BorrowedHistoryPage = () => {
                     }
                     
                     try {
+                      // fileIds 배열 정리: 유효한 값만 포함하고, 빈 배열이면 null로 전송
+                      const validFileIds = reviewFileIds.filter(id => id != null && id !== undefined && id !== 0);
                       await updateReview({
                         reviewId: myReview.reviewId,
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
-                        fileIds: reviewFileIds
+                        fileIds: validFileIds.length > 0 ? validFileIds : null
                       });
                       
                       setAlertMessage('리뷰가 수정되었습니다.');

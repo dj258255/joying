@@ -927,7 +927,9 @@ const LentHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
+                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
@@ -995,13 +997,15 @@ const LentHistoryPage = () => {
                     }
                     
                     try {
+                      // fileIds 배열 정리: 유효한 값만 포함하고, 빈 배열이면 null로 전송
+                      const validFileIds = reviewFileIds.filter(id => id != null && id !== undefined && id !== 0);
                       await createReview({
                         rentalHistoryId: Number(rentalId),
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
                         uploadType: 'RENT', // 빌려준 내역이므로 RENT
-                        fileIds: reviewFileIds
+                        fileIds: validFileIds.length > 0 ? validFileIds : null
                       });
                       
                       // 모달 닫기 및 상태 초기화
@@ -1212,7 +1216,9 @@ const LentHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        setReviewFileIds(prev => [...prev, ...uploadedFileIds.filter(id => id)]);
+                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
+                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
                         setAlertMessage('이미지 업로드에 실패했습니다.');
@@ -1283,12 +1289,14 @@ const LentHistoryPage = () => {
                     }
                     
                     try {
+                      // fileIds 배열 정리: 유효한 값만 포함하고, 빈 배열이면 null로 전송
+                      const validFileIds = reviewFileIds.filter(id => id != null && id !== undefined && id !== 0);
                       await updateReview({
                         reviewId: myReview.reviewId,
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
                         rating: reviewRating,
-                        fileIds: reviewFileIds
+                        fileIds: validFileIds.length > 0 ? validFileIds : null
                       });
                       
                       setAlertMessage('리뷰가 수정되었습니다.');
