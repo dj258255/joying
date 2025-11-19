@@ -56,6 +56,8 @@ const BorrowedHistoryPage = () => {
   const [reviewFileIds, setReviewFileIds] = useState([]);
   const [reviewImagePreviews, setReviewImagePreviews] = useState([]);
   const [reviewUploading, setReviewUploading] = useState(false);
+  const [originalReviewFileIds, setOriginalReviewFileIds] = useState([]); // 원본 fileIds 저장
+  const [reviewIdToDelete, setReviewIdToDelete] = useState(null); // 삭제할 리뷰 ID 저장
   const reviewFileInputRef = useRef(null);
 
   useEffect(() => {
@@ -410,12 +412,44 @@ const BorrowedHistoryPage = () => {
       )}
       
       {/* 커스텀 확인 모달 */}
-      {confirmMessage && confirmCallback && (
+      {confirmMessage && reviewIdToDelete !== null && (
         <CustomConfirm
           message={confirmMessage}
-          onConfirm={confirmCallback}
+          onConfirm={async () => {
+            // 확인 버튼을 클릭했을 때만 실행되는 삭제 로직
+            if (!reviewIdToDelete) return;
+            
+            try {
+              await deleteReview(reviewIdToDelete);
+              setAlertMessage('리뷰가 삭제되었습니다.');
+              setAlertType('success');
+              setMyReview(null);
+              
+              // 모달 먼저 닫기
+              setConfirmMessage(null);
+              setReviewIdToDelete(null);
+              setConfirmCallback(null);
+              
+              // 리뷰 목록 다시 로드 (에러가 나도 무시)
+              try {
+                await loadReviews();
+              } catch (loadError) {
+                console.error('리뷰 조회 실패:', loadError);
+                // 조회 실패는 무시 (이미 모달은 닫힘)
+              }
+            } catch (error) {
+              console.error('리뷰 삭제 실패:', error);
+              setAlertMessage('리뷰 삭제에 실패했습니다.');
+              setAlertType('error');
+              // 삭제 실패 시에도 모달 닫기
+              setConfirmMessage(null);
+              setReviewIdToDelete(null);
+              setConfirmCallback(null);
+            }
+          }}
           onCancel={() => {
             setConfirmMessage(null);
+            setReviewIdToDelete(null);
             setConfirmCallback(null);
           }}
           type="warning"
@@ -606,8 +640,11 @@ const BorrowedHistoryPage = () => {
                       setReviewTitle(myReview.title || '');
                       setReviewContent(myReview.content || '');
                       setReviewRating(myReview.rating || 0);
-                      // 기존 이미지 정보 복원
-                      setReviewFileIds(myReview.imageFileIds || myReview.fileIds || []);
+                      // 기존 이미지 정보 복원 (유효한 fileId만 포함)
+                      const existingFileIds = myReview.imageFileIds || myReview.fileIds || [];
+                      const validExistingFileIds = existingFileIds.filter(id => id != null && id !== undefined && id !== 0 && typeof id === 'number');
+                      setReviewFileIds(validExistingFileIds);
+                      setOriginalReviewFileIds([...validExistingFileIds]); // 원본 저장 (깊은 복사)
                       setReviewImagePreviews(myReview.imageUrls || []);
                       setShowEditReviewModal(true);
                     }}
@@ -617,22 +654,10 @@ const BorrowedHistoryPage = () => {
                   </button>
                   <button
                     onClick={() => {
+                      // 삭제할 리뷰 ID를 저장하고 모달만 표시
+                      setReviewIdToDelete(myReview.reviewId);
                       setConfirmMessage('리뷰를 삭제하시겠습니까?');
-                      setConfirmCallback(async () => {
-                        try {
-                          await deleteReview(myReview.reviewId);
-                          setAlertMessage('리뷰가 삭제되었습니다.');
-                          setAlertType('success');
-                          setMyReview(null);
-                          loadReviews();
-                        } catch (error) {
-                          console.error('리뷰 삭제 실패:', error);
-                          setAlertMessage('리뷰 삭제에 실패했습니다.');
-                          setAlertType('error');
-                        }
-                        setConfirmMessage(null);
-                        setConfirmCallback(null);
-                      });
+                      setConfirmCallback(() => {}); // 빈 함수로 설정 (실제 실행은 handleConfirmDelete에서)
                     }}
                     disabled={isDeletingReview}
                     className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
@@ -885,8 +910,15 @@ const BorrowedHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
-                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        // 유효한 fileId만 추가 (null, undefined, 0, NaN, 음수 제외)
+                        const validFileIds = uploadedFileIds.filter(id => 
+                          id != null && 
+                          id !== undefined && 
+                          id !== 0 && 
+                          typeof id === 'number' && 
+                          !isNaN(id) &&
+                          id > 0
+                        );
                         setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
@@ -1170,8 +1202,15 @@ const BorrowedHistoryPage = () => {
                         });
                         
                         const uploadedFileIds = await Promise.all(uploadPromises);
-                        // 유효한 fileId만 추가 (null, undefined, 0 제외)
-                        const validFileIds = uploadedFileIds.filter(id => id != null && id !== undefined && id !== 0);
+                        // 유효한 fileId만 추가 (null, undefined, 0, NaN, 음수 제외)
+                        const validFileIds = uploadedFileIds.filter(id => 
+                          id != null && 
+                          id !== undefined && 
+                          id !== 0 && 
+                          typeof id === 'number' && 
+                          !isNaN(id) &&
+                          id > 0
+                        );
                         setReviewFileIds(prev => [...prev, ...validFileIds]);
                       } catch (err) {
                         console.error('이미지 업로드 실패:', err);
@@ -1229,6 +1268,7 @@ const BorrowedHistoryPage = () => {
                     setReviewRating(0);
                     setReviewFileIds([]);
                     setReviewImagePreviews([]);
+                    setOriginalReviewFileIds([]);
                   }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -1243,15 +1283,48 @@ const BorrowedHistoryPage = () => {
                     }
                     
                     try {
-                      // fileIds 배열 정리: 유효한 값만 포함하고, 빈 배열이면 null로 전송
-                      const validFileIds = reviewFileIds.filter(id => id != null && id !== undefined && id !== 0);
-                      await updateReview({
+                      // fileIds 배열 정리: 유효한 값만 포함
+                      const validFileIds = reviewFileIds.filter(id => 
+                        id != null && 
+                        id !== undefined && 
+                        id !== 0 && 
+                        typeof id === 'number' && 
+                        !isNaN(id) &&
+                        id > 0
+                      );
+                      
+                      // 원본 fileIds와 비교하여 변경 여부 확인
+                      const originalIds = originalReviewFileIds.map(String).sort().join(',');
+                      const currentIds = validFileIds.map(String).sort().join(',');
+                      const isFileIdsChanged = originalIds !== currentIds;
+                      
+                      // fileIds 전송 로직:
+                      // 1. 변경되지 않았으면 undefined (백엔드에서 기존 파일 유지)
+                      // 2. 변경되었으면 새로운 fileIds 배열 (빈 배열이면 모든 파일 삭제)
+                      const fileIdsToSend = isFileIdsChanged ? validFileIds : undefined;
+                      
+                      console.log('[BorrowedHistoryPage] 리뷰 수정 요청:', {
+                        reviewId: myReview.reviewId,
+                        fileIds: fileIdsToSend,
+                        fileIdsLength: fileIdsToSend?.length || 0,
+                        originalFileIds: originalReviewFileIds,
+                        currentFileIds: validFileIds,
+                        isFileIdsChanged: isFileIdsChanged
+                      });
+                      
+                      const updateData = {
                         reviewId: myReview.reviewId,
                         title: reviewTitle.trim() || `리뷰`,
                         content: reviewContent.trim(),
-                        rating: reviewRating,
-                        fileIds: validFileIds.length > 0 ? validFileIds : null
-                      });
+                        rating: reviewRating
+                      };
+                      
+                      // fileIds가 변경된 경우에만 포함
+                      if (isFileIdsChanged) {
+                        updateData.fileIds = fileIdsToSend;
+                      }
+                      
+                      await updateReview(updateData);
                       
                       setAlertMessage('리뷰가 수정되었습니다.');
                       setAlertType('success');
@@ -1261,6 +1334,7 @@ const BorrowedHistoryPage = () => {
                       setReviewRating(0);
                       setReviewFileIds([]);
                       setReviewImagePreviews([]);
+                      setOriginalReviewFileIds([]);
                       // 리뷰 다시 불러오기
                       await loadReviews();
                     } catch (error) {

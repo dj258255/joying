@@ -1,6 +1,6 @@
 /**
  * CustomAlert Component
- * 커스텀 알림 메시지 컴포넌트
+ * 커스텀 알림 메시지 컴포넌트 (글래스모피즘 디자인)
  */
 
 import React, { useEffect } from 'react';
@@ -14,30 +14,6 @@ const CustomAlert = ({ message, type = 'success', onClose, duration = 3000 }) =>
       return () => clearTimeout(timer);
     }
   }, [duration, onClose]);
-
-  const bgColor = type === 'success' 
-    ? 'bg-green-50 border-green-200' 
-    : type === 'error'
-    ? 'bg-red-50 border-red-200'
-    : type === 'warning'
-    ? 'bg-yellow-50 border-yellow-200'
-    : 'bg-blue-50 border-blue-200';
-
-  const textColor = type === 'success'
-    ? 'text-green-800'
-    : type === 'error'
-    ? 'text-red-800'
-    : type === 'warning'
-    ? 'text-yellow-800'
-    : 'text-blue-800';
-
-  const iconColor = type === 'success'
-    ? 'text-green-600'
-    : type === 'error'
-    ? 'text-red-600'
-    : type === 'warning'
-    ? 'text-yellow-600'
-    : 'text-blue-600';
 
   const icon = type === 'success' ? (
     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -59,16 +35,16 @@ const CustomAlert = ({ message, type = 'success', onClose, duration = 3000 }) =>
 
   return (
     <div className="fixed top-4 right-4 z-[9999]" style={{ animation: 'slideInRight 0.3s ease-out forwards' }}>
-      <div className={`${bgColor} ${textColor} border-2 rounded-xl shadow-lg p-4 min-w-[300px] max-w-[500px] flex items-start gap-3 backdrop-blur-sm`}>
-        <div className={`${iconColor} flex-shrink-0 mt-0.5`}>
+      <div className="bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-2xl p-4 min-w-[300px] max-w-[500px] flex items-start gap-3">
+        <div className="text-gray-900 flex-shrink-0 mt-0.5">
           {icon}
         </div>
         <div className="flex-1">
-          <p className="font-medium text-sm leading-relaxed">{message}</p>
+          <p className="text-gray-900 font-medium text-sm leading-relaxed">{message}</p>
         </div>
         <button
           onClick={onClose}
-          className={`${textColor} opacity-70 hover:opacity-100 transition-opacity flex-shrink-0`}
+          className="text-gray-700 opacity-70 hover:opacity-100 transition-opacity flex-shrink-0"
         >
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
