@@ -1,0 +1,89 @@
+{
+  "properties": {
+    "productId": {
+      "type": "long"
+    },
+    "title": {
+      "type": "text",
+      "analyzer": "korean",
+      "search_analyzer": "korean",
+      "fields": {
+        "syn": {
+          "type": "text",
+          "analyzer": "synonym_search",
+          "search_analyzer": "synonym_search"
+        },
+        "autocomplete": {
+          "type": "text",
+          "analyzer": "korean_autocomplete",
+          "search_analyzer": "standard"
+        }
+      }
+    },
+    "content": {
+      "type": "text",
+      "analyzer": "korean",
+      "search_analyzer": "korean",
+      "fields": {
+        "syn": {
+          "type": "text",
+          "analyzer": "synonym_search",
+          "search_analyzer": "synonym_search"
+        }
+      }
+    },
+    "categoryId": {
+      "type": "long"
+    },
+    "hashtags": {
+      "type": "keyword"
+    },
+    "deposit": {
+      "type": "integer"
+    },
+    "rentalFee": {
+      "type": "integer"
+    },
+    "sido": {
+      "type": "keyword"
+    },
+    "sidoId": {
+      "type": "integer"
+    },
+    "gugun": {
+      "type": "keyword"
+    },
+    "gugunId": {
+      "type": "long"
+    },
+    "dong": {
+      "type": "keyword"
+    },
+    "dongId": {
+      "type": "long"
+    },
+    "rentMethod": {
+      "type": "keyword"
+    },
+    "videoNecessary": {
+      "type": "boolean"
+    },
+    "startRent": {
+      "type": "date",
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis"
+    },
+    "endRent": {
+      "type": "date",
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS||epoch_millis"
+    },
+    "rating": {
+      "type": "float"
+    },
+    "thumbnailFileId": {
+      "type": "long"
+    },
+    "uploadType": {
+      "type": "keyword"
+    }
+  }
+}

@@ -1,0 +1,271 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: joying-mysql
+    env_file:
+      - .env.prod
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      TZ: Asia/Seoul
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+      - --max-connections=200
+      - --innodb-buffer-pool-size=1536M
+      - --innodb-log-file-size=256M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2.11-alpine
+    container_name: joying-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    env_file:
+      - .env.prod
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:7.0
+    container_name: joying-mongodb
+    env_file:
+      - .env.prod
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
+      TZ: Asia/Seoul
+    ports:
+      - "${MONGODB_PORT}:27017"
+    volumes:
+      - mongodb-data:/data/db
+      - mongodb-config:/data/configdb
+    command: mongod --wiredTigerCacheSizeGB 1.0
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.5'
+          memory: 768M
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: joying-backend
+    env_file:
+      - .env.prod
+    environment:
+      TZ: Asia/Seoul
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_ELASTICSEARCH_URIS: http://joying-elasticsearch:9200
+      SPRING_ELASTICSEARCH_USERNAME: elastic
+      SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_started
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 6G
+        reservations:
+          cpus: '1.0'
+          memory: 4G
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: joying-ai
+    env_file:
+      - ai/.env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.nginx
+    container_name: joying-nginx
+    depends_on:
+      - backend
+      - ai
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:ro
+      - /home/ubuntu/joying/certbot/www:/var/www/certbot:ro
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: joying-certbot
+    volumes:
+      - /home/ubuntu/joying/certbot/www:/var/www/certbot:rw
+      - /home/ubuntu/joying/certbot/conf:/etc/letsencrypt:rw
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet
+          sleep 12h
+        done
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  jenkins:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.jenkins
+    container_name: joying-jenkins
+    user: root
+    environment:
+      - JENKINS_OPTS=--prefix=/jenkins
+    volumes:
+      - jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ubuntu/joying/.env.prod:/run/secrets/env.prod:ro
+      - /home/ubuntu/joying:/home/ubuntu/joying:ro
+    networks:
+      - joying-network
+    restart: unless-stopped
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.18.5
+    container_name: joying-elasticsearch
+    env_file:
+      - .env.prod
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - network.host=0.0.0.0
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+      - es-plugins:/usr/share/elasticsearch/plugins
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    networks:
+      - joying-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200 >/dev/null" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    command:
+      - /bin/bash
+      - -c
+      - |
+        if [ ! -d "/usr/share/elasticsearch/plugins/analysis-nori" ]; then
+          echo "📦 Installing analysis-nori plugin..."
+          elasticsearch-plugin install --batch analysis-nori
+        fi
+        echo "✅ Starting Elasticsearch..."
+        /usr/local/bin/docker-entrypoint.sh elasticsearch
+
+networks:
+  joying-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  mongodb-data:
+  mongodb-config:
+  jenkins-data:
+  es-data:
+  es-plugins:
