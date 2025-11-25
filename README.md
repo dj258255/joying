@@ -26,10 +26,10 @@
 
 | 범수 | 이유희 | 김소연 |
 |:-:|:-:|:-:|
-| ![](README_img/profile1.png) | ![](README_img/profile2.png) | ![](README_img/profile4.png) |
+| ![](README_img/profile1.png) | ![](README_img/profile2.png) | ![](README_img/profile3.png) |
 | Leader, Backend | Backend, Infra | Backend, Infra |
 | 이승민 | 정용균 | 황성헌 |
-| ![](README_img/profile6.png) | ![](README_img/profile5.png) | ![](README_img/profile3.png) |
+| ![](README_img/profile4.png) | ![](README_img/profile5.png) | ![](README_img/profile6.png) |
 | Frontend | Frontend | Backend, Elasticsearch |
 
 
