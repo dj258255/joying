@@ -1,8 +1,11 @@
 package com.joying.escrow.service;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import com.joying.account.domain.Account;
 import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.escrow.domain.Escrow;
+import com.joying.ssafy.dto.TransferOutcome;
 import com.joying.escrow.dto.request.EscrowCreateRequest;
 import com.joying.escrow.dto.response.EscrowResponse;
 import com.joying.escrow.repository.EscrowRepository;
@@ -57,7 +60,8 @@ public class EscrowService {
         }
 
         // 4. Escrow 생성
-        Escrow escrow = Escrow.createHeld(
+        // 이 경로도 금융망 입금을 하지 않으므로 예치 완료를 주장하지 않는다.
+        Escrow escrow = Escrow.createPending(
                 rental,
                 payment,
                 rental.getFee(),
@@ -144,40 +148,60 @@ public class EscrowService {
         String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
 
         // 4. SSAFY 금융망으로 대여료 지급 (Joying 중개 계좌 → 대여자)
-        try {
-            String rentalFeeTxNo = financeApiService.transferMoney(
+        //
+        // 송금 두 건이 순차로 나간다. 예전에는 뒤엣것이 실패하면 예외를 던져 트랜잭션을
+        // 되돌렸는데, 롤백은 DB만 되돌리고 이미 나간 돈은 되돌리지 못한다. 그 상태로
+        // 정산을 다시 돌리면 앞엣것이 한 번 더 나갔다.
+        //
+        // 그래서 확정된 송금은 거래고유번호를 남겨 두고, 다시 돌 때 그 단계를 건너뛴다.
+        // 확정한 뒤에는 예외를 던지지 않는다. 던지면 방금 남긴 기록까지 같이 사라진다.
+        if (!escrow.isRentalFeeSent()) {
+            TransferOutcome outcome = financeApiService.transferMoney(
                     escrowAccountNo,
                     lenderAccount.getAccountNo(),
                     escrow.getRentalFee().longValue(),
                     "Joying 대여료 지급",
                     escrowUserKey
             );
-            log.info("[대여료 지급 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                    rental.getRentalHisId(), rentalFeeTxNo, escrow.getRentalFee(), lenderAccount.getAccountNo());
-        } catch (Exception e) {
-            log.error("[대여료 지급 실패] rentalHisId={}, lenderMemberId={}",
-                    rental.getRentalHisId(), lender.getMemberId(), e);
-            throw new IllegalStateException("대여료 지급 중 오류가 발생했습니다", e);
+
+            if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+                escrow.markRentalFeeSent(succeeded.transactionUniqueNo(),
+                        Timestamp.from(Instant.now()));
+                log.info("[대여료 지급 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                        rental.getRentalHisId(), succeeded.transactionUniqueNo(),
+                        escrow.getRentalFee(), lenderAccount.getAccountNo());
+            } else {
+                log.error("[대여료 지급 미완료 - 정산 중단] holdId={}, rentalHisId={}, outcome={}",
+                        holdId, rental.getRentalHisId(), outcome);
+                return convertToResponse(escrow);
+            }
         }
 
         // 5. SSAFY 금융망으로 보증금 반환 (Joying 중개 계좌 → 차용자)
-        try {
-            String depositTxNo = financeApiService.transferMoney(
+        if (!escrow.isDepositReturned()) {
+            TransferOutcome outcome = financeApiService.transferMoney(
                     escrowAccountNo,
                     renterAccount.getAccountNo(),
                     escrow.getDepositAmount().longValue(),
                     "Joying 보증금 반환",
                     escrowUserKey
             );
-            log.info("[보증금 반환 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                    rental.getRentalHisId(), depositTxNo, escrow.getDepositAmount(), renterAccount.getAccountNo());
-        } catch (Exception e) {
-            log.error("[보증금 반환 실패] rentalHisId={}, renterMemberId={}",
-                    rental.getRentalHisId(), renter.getMemberId(), e);
-            throw new IllegalStateException("보증금 반환 중 오류가 발생했습니다", e);
+
+            if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+                escrow.markDepositReturned(succeeded.transactionUniqueNo(),
+                        Timestamp.from(Instant.now()));
+                log.info("[보증금 반환 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                        rental.getRentalHisId(), succeeded.transactionUniqueNo(),
+                        escrow.getDepositAmount(), renterAccount.getAccountNo());
+            } else {
+                // 대여료는 이미 나갔고 그 기록이 남아 있다. 다시 돌리면 여기서부터 이어간다.
+                log.error("[보증금 반환 미완료 - 정산 중단] holdId={}, rentalHisId={}, outcome={}",
+                        holdId, rental.getRentalHisId(), outcome);
+                return convertToResponse(escrow);
+            }
         }
 
-        // 6. Escrow 상태 변경 (HELD → SETTLED)
+        // 6. 두 송금이 모두 확정됐을 때만 정산을 닫는다
         escrow.settle();
 
         // 7. RentalHistory 상태 업데이트 (RETURNED → DEPOSIT_RETURNED)

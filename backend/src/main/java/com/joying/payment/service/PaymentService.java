@@ -23,6 +23,7 @@ import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.escrow.domain.Escrow;
+import com.joying.ssafy.dto.TransferOutcome;
 import com.joying.escrow.repository.EscrowRepository;
 import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
@@ -385,45 +386,52 @@ public class PaymentService {
                 Integer depositAmount = rentalHistory.getDeposit().intValue();  // 보증금
                 Integer totalRentalFee = payment.getTotalAmount() - depositAmount;  // 전체 대여료 (결제금액 - 보증금)
 
-                Escrow escrow = Escrow.createHeld(rentalHistory, payment, totalRentalFee, depositAmount);
+                // 금융망 입금이 확정되기 전이므로 PENDING으로 만들어 먼저 저장한다.
+                // 이 행이 있어야 입금 결과가 미확정으로 남았을 때 나중에 찾아서 확정할 수 있다.
+                Escrow escrow = Escrow.createPending(rentalHistory, payment, totalRentalFee, depositAmount);
                 escrowRepository.save(escrow);
                 log.info("Escrow 생성 완료: escrowId={}, paymentId={}, rentalFee={}, deposit={}",
                         escrow.getHoldId(), payment.getPaymentId(), totalRentalFee, depositAmount);
 
                 // 토스 결제 완료 후 Joying 에스크로 계좌로 입금 (SSAFY 금융망)
                 // 실제 돈은 토스에 있고, SSAFY 금융망에는 논리적으로만 입금
-                try {
-                    String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
-                    String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
-                    // 실제 결제 금액 = (일일요금 × 일수) + 보증금 (payment.getTotalAmount()에 저장됨)
-                    long totalAmount = payment.getTotalAmount().longValue();
+                String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
+                String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
+                // 실제 결제 금액 = (일일요금 × 일수) + 보증금 (payment.getTotalAmount()에 저장됨)
+                long totalAmount = payment.getTotalAmount().longValue();
 
-                    // 에스크로 계좌에 입금 (출금 없이 입금만 수행)
-                    String txNo = financeApiService.depositMoney(
-                            escrowAccountNo,
-                            totalAmount,
-                            "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")",
-                            escrowUserKey
-                    );
+                TransferOutcome outcome = financeApiService.depositMoney(
+                        escrowAccountNo,
+                        totalAmount,
+                        "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")",
+                        escrowUserKey
+                );
 
+                if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+                    escrow.markHeld(succeeded.transactionUniqueNo());
                     log.info("[에스크로 계좌 입금 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                            rentalHistory.getRentalHisId(), txNo, totalAmount, escrowAccountNo);
-                } catch (Exception e) {
-                    log.error("[에스크로 입금 실패] orderId={}, paymentKey={}",
-                             payment.getOrderId(), payment.getPaymentKey(), e);
+                            rentalHistory.getRentalHisId(), succeeded.transactionUniqueNo(),
+                            totalAmount, escrowAccountNo);
 
-                    // Toss 결제는 이미 승인되었으므로, 보상 트랜잭션으로 취소 시도
-                    try {
-                        log.info("[에스크로 입금 실패 - Toss 결제 자동 취소 시도] orderId={}", payment.getOrderId());
-                        tossClient.cancel(tossResponse.getPaymentKey(), "에스크로 계좌 입금 실패");
-                        log.info("[Toss 결제 취소 완료] orderId={}", payment.getOrderId());
-                    } catch (Exception cancelEx) {
-                        log.error("[Toss 결제 취소 실패 - 수동 처리 필요] orderId={}, paymentKey={}",
-                                 payment.getOrderId(), payment.getPaymentKey(), cancelEx);
-                    }
+                } else if (outcome instanceof TransferOutcome.Rejected rejected) {
+                    // 금융망이 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,
+                    // 이미 승인된 토스 결제를 되돌리는 것이 맞다.
+                    log.error("[에스크로 입금 거절] orderId={}, code={}, message={}",
+                            payment.getOrderId(), rejected.responseCode(), rejected.responseMessage());
+                    cancelTossPaymentForFailedDeposit(payment, tossResponse.getPaymentKey(),
+                            "에스크로 계좌 입금 거절");
+                    throw new IllegalStateException("에스크로 계좌 입금이 거절되었습니다: "
+                            + rejected.responseCode());
 
-                    // 트랜잭션 롤백을 위해 예외 재발생
-                    throw new IllegalStateException("에스크로 계좌 입금에 실패했습니다", e);
+                } else {
+                    // 입금이 됐는지 알 수 없다. 여기서 토스 결제를 취소하면
+                    // 실제로 입금이 성공했을 때 고객 돈만 돌아가고 에스크로 계좌에는 돈이 남는다.
+                    // 되돌리지 않고 PENDING으로 남겨 두었다가 거래내역 재조회로 확정한다.
+                    // 예외를 던지지 않는 이유는, 롤백하면 방금 남긴 PENDING 행까지 같이 사라져
+                    // 나중에 이 건을 찾을 방법이 없어지기 때문이다.
+                    TransferOutcome.Unconfirmed unconfirmed = (TransferOutcome.Unconfirmed) outcome;
+                    log.warn("[에스크로 입금 미확정 - 재조회 대상] orderId={}, escrowId={}, amount={}, reason={}",
+                            payment.getOrderId(), escrow.getHoldId(), totalAmount, unconfirmed.reason());
                 }
             }
 
@@ -538,4 +546,22 @@ public class PaymentService {
         public Long getBuyerId() { return buyerId; }
         public Long getSellerId() { return sellerId; }
     }
+
+    /**
+     * 에스크로 입금이 거절돼 토스 결제를 되돌린다.
+     *
+     * <p>입금이 거절된 것이 확정일 때만 부른다. 입금 결과가 미확정일 때 부르면
+     * 실제로는 옮겨진 돈을 고객에게 돌려주고 에스크로 계좌에는 남기게 된다.
+     */
+    private void cancelTossPaymentForFailedDeposit(Payment payment, String paymentKey, String reason) {
+        try {
+            log.info("[에스크로 입금 실패 - Toss 결제 자동 취소 시도] orderId={}", payment.getOrderId());
+            tossClient.cancel(paymentKey, reason);
+            log.info("[Toss 결제 취소 완료] orderId={}", payment.getOrderId());
+        } catch (Exception cancelEx) {
+            log.error("[Toss 결제 취소 실패 - 수동 처리 필요] orderId={}, paymentKey={}",
+                    payment.getOrderId(), paymentKey, cancelEx);
+        }
+    }
+
 }

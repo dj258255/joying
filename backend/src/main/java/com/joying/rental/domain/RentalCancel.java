@@ -73,6 +73,14 @@ public class RentalCancel {
     @Column(name = "expires_at")
     private Timestamp expiresAt;
 
+    @Comment("차용자 환불 거래고유번호. 있으면 이미 나간 것이므로 다시 보내지 않는다")
+    @Column(name = "renter_refund_tx_no")
+    private String renterRefundTxNo;
+
+    @Comment("대여자 보증금 분배 거래고유번호. 있으면 이미 나간 것이므로 다시 보내지 않는다")
+    @Column(name = "lender_share_tx_no")
+    private String lenderShareTxNo;
+
     @Comment("취소 거래 완료 일시")
     @Column(name = "created_at", nullable = false)
     private Timestamp createdAt;
@@ -168,6 +176,36 @@ public class RentalCancel {
     /**
      * 양측 승인 여부
      */
+    /**
+     * 차용자 환불이 성공으로 확정됐다. 거래고유번호를 남긴다.
+     *
+     * <p>이 번호가 남아 있으면 이미 나간 돈이다. 환불을 다시 돌려도 이 단계는 건너뛴다.
+     */
+    public void markRenterRefundSent(String transactionUniqueNo) {
+        this.renterRefundTxNo = transactionUniqueNo;
+    }
+
+    /**
+     * 대여자 보증금 분배가 성공으로 확정됐다. 거래고유번호를 남긴다.
+     */
+    public void markLenderShareSent(String transactionUniqueNo) {
+        this.lenderShareTxNo = transactionUniqueNo;
+    }
+
+    /**
+     * 차용자 환불이 이미 나갔는지. 참이면 다시 보내면 안 된다.
+     */
+    public boolean isRenterRefundSent() {
+        return this.renterRefundTxNo != null;
+    }
+
+    /**
+     * 대여자 보증금 분배가 이미 나갔는지. 참이면 다시 보내면 안 된다.
+     */
+    public boolean isLenderShareSent() {
+        return this.lenderShareTxNo != null;
+    }
+
     public boolean isBothApproved() {
         return status == CancelStatus.APPROVED;
     }

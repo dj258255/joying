@@ -137,7 +137,11 @@ public class OutboxEventProcessor {
         Integer rentalFee = rentalHistory.getFee();
         Integer depositAmount = rentalHistory.getDeposit().intValue();
 
-        Escrow escrow = Escrow.createHeld(rentalHistory, payment, rentalFee, depositAmount);
+        // 이 경로는 금융망 입금을 하지 않는다. 예전에는 여기서 바로 HELD로 만들었는데,
+        // 결제 쪽 동기 경로와 경합해 이쪽이 먼저 이기면 결제 쪽 입금 블록이 통째로
+        // 건너뛰어지면서 기록만 예치 완료가 되고 계좌에는 돈이 들어가지 않았다.
+        // 입금이 확정되기 전에는 PENDING으로 두고, 재조회 작업이 확정하게 한다.
+        Escrow escrow = Escrow.createPending(rentalHistory, payment, rentalFee, depositAmount);
         escrowRepository.save(escrow);
 
         log.info("[Outbox] Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), paymentId);
