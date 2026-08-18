@@ -92,6 +92,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers") // Testcontainers BOM 관리
+    testImplementation("org.testcontainers:mongodb")
+    testImplementation("org.testcontainers:mysql")
     // Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
 
     implementation("software.amazon.awssdk:s3:2.28.23")
