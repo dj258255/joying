@@ -1,5 +1,7 @@
 package com.joying.account.domain;
 
+import java.util.Optional;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -19,18 +21,21 @@ public enum AccountState {
 	private final String description;
 
 	/**
-	 * 코드로 AccountState 조회
+	 * 코드로 AccountState 조회.
+	 *
+	 * <p>모르는 코드를 정상으로 되돌리면 휴면이나 해지된 계좌가 정상으로 통과한다.
+	 * 그래서 모르는 코드는 비어 있는 값으로 돌려주고, 무엇으로 볼지는 부르는 쪽이 정한다.
 	 *
 	 * @param code 상태 코드
-	 * @return AccountState
+	 * @return 아는 코드면 해당 상태, 모르는 코드면 비어 있음
 	 */
-	public static AccountState fromCode(String code) {
+	public static Optional<AccountState> fromCode(String code) {
 		for (AccountState state : values()) {
 			if (state.code.equals(code)) {
-				return state;
+				return Optional.of(state);
 			}
 		}
-		return ACTIVE; // 기본값
+		return Optional.empty();
 	}
 
 	/**

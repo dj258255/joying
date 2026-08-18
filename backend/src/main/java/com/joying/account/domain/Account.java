@@ -82,9 +82,14 @@ public class Account extends BaseEntity {
     }
 
     /**
-     * 계좌 사용 가능 여부 확인
+     * 계좌 사용 가능 여부 확인.
      *
-     * @return 정상 상태 여부 (Account 테이블에 있으면 이미 1원 인증 완료)
+     * <p>여기서 보는 상태는 우리 기록이지 금융망이 알려 준 값이 아니다. 계좌 조회 API가
+     * 상태 코드를 돌려주지 않아 등록 시점에 정상으로 두고 그 뒤로 갱신하지 않는다.
+     * 따라서 이 값이 참이라는 것은 해지나 휴면이 아니라는 뜻이 아니라,
+     * 1원 인증을 통과해 등록됐고 우리가 막지 않았다는 뜻이다.
+     *
+     * @return 우리 기록상 정상 상태인지
      */
     public boolean isUsable() {
         return this.accountState.isActive();
