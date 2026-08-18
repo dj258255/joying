@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,12 +32,16 @@ import lombok.extern.slf4j.Slf4j;
  * 입금할 때 거래 요약에 주문번호를 심어 두었고, 계좌의 기간별 거래 목록에서 그 주문번호로
  * 찾는다. 같은 주문번호로 두 번 입금되는 일이 없으므로 이 요약이 사실상의 열쇠가 된다.
  *
+ * <p>내부 원장으로 돈을 옮길 때는 이 작업이 돌지 않는다. 커밋되거나 롤백되거나
+ * 둘뿐이라 미확정이 생기지 않기 때문이다. 외부 금융망 구현을 켤 때만 함께 켜진다.
+ *
  * <p>찾지 못했다고 해서 실패로 확정하지 않는다. 조회가 실패했을 수도 있고 금융망 반영이
  * 늦을 수도 있다. 확정할 근거가 없으면 그대로 두고 다음 주기에 다시 묻는다.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "joying.money.transfer", havingValue = "ssafy")
 public class EscrowDepositRecoveryService {
 
 	private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");

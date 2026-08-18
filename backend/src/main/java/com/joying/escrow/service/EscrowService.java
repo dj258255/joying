@@ -6,6 +6,7 @@ import com.joying.account.domain.Account;
 import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.escrow.domain.Escrow;
 import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.dto.request.EscrowCreateRequest;
 import com.joying.escrow.dto.response.EscrowResponse;
 import com.joying.escrow.repository.EscrowRepository;
@@ -32,7 +33,7 @@ public class EscrowService {
     private final EscrowRepository escrowRepository;
     private final RentalHistoryRepository rentalHistoryRepository;
     private final PaymentRepository paymentRepository;
-    private final FinanceApiService financeApiService;
+    private final MoneyTransferPort moneyTransferPort;
     private final FinanceApiProperties financeApiProperties;
 
     /**
@@ -156,12 +157,11 @@ public class EscrowService {
         // 그래서 확정된 송금은 거래고유번호를 남겨 두고, 다시 돌 때 그 단계를 건너뛴다.
         // 확정한 뒤에는 예외를 던지지 않는다. 던지면 방금 남긴 기록까지 같이 사라진다.
         if (!escrow.isRentalFeeSent()) {
-            TransferOutcome outcome = financeApiService.transferMoney(
-                    escrowAccountNo,
-                    lenderAccount.getAccountNo(),
+            TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
+                    lender.getMemberId(),
                     escrow.getRentalFee().longValue(),
-                    "Joying 대여료 지급",
-                    escrowUserKey
+                    "settle-fee-" + escrow.getHoldId(),
+                    "Joying 대여료 지급"
             );
 
             if (outcome instanceof TransferOutcome.Succeeded succeeded) {
@@ -179,12 +179,11 @@ public class EscrowService {
 
         // 5. SSAFY 금융망으로 보증금 반환 (Joying 중개 계좌 → 차용자)
         if (!escrow.isDepositReturned()) {
-            TransferOutcome outcome = financeApiService.transferMoney(
-                    escrowAccountNo,
-                    renterAccount.getAccountNo(),
+            TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
+                    renter.getMemberId(),
                     escrow.getDepositAmount().longValue(),
-                    "Joying 보증금 반환",
-                    escrowUserKey
+                    "settle-deposit-" + escrow.getHoldId(),
+                    "Joying 보증금 반환"
             );
 
             if (outcome instanceof TransferOutcome.Succeeded succeeded) {
