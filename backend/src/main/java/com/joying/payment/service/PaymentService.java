@@ -1,5 +1,6 @@
 package com.joying.payment.service;
 
+import java.time.Duration;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.payment.domain.Payment;
@@ -22,6 +23,7 @@ import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.escrow.domain.Escrow;
 import com.joying.wallet.port.TransferOutcome;
+import com.joying.payment.port.DepositHoldPort;
 import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.repository.EscrowRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +65,7 @@ public class PaymentService {
     private final TossPaymentsClient tossClient;
     private final ApplicationEventPublisher eventPublisher;
     private final MoneyTransferPort moneyTransferPort;
+    private final DepositHoldPort depositHoldPort;
 
     /**
      * 1. 결제 생성 (orderId 발급)
@@ -374,6 +377,13 @@ public class PaymentService {
         RentalHistory rentalHistory = payment.getRentalHistory();
 
         // PaymentType에 따라 분기 처리
+        // 대여 기간이 보증금을 붙잡아 둘 수 있는 기간을 넘으면 받지 않는다.
+        //
+        // 반납 시점에 카드를 건드릴 수 없으면 보증금을 돌려줄 방법이 사라진다. 그때
+        // 남는 선택지는 우리가 대신 보내는 것뿐이고, 그것을 피하려고 이 구조를 만들었다.
+        // 그래서 결제를 받기 전에 막는다. 기술이 아니라 서비스가 정하는 상한이다.
+        rejectIfRentalPeriodExceedsHoldLimit(rentalHistory);
+
         if (payment.getPaymentType() == PaymentType.INITIAL) {
             // 최초 결제: RentalHistory 상태 업데이트 (ESCROW) + Escrow 생성
             rentalHistory.markAsEscrow();
@@ -390,46 +400,47 @@ public class PaymentService {
                 log.info("Escrow 생성 완료: escrowId={}, paymentId={}, rentalFee={}, deposit={}",
                         escrow.getHoldId(), payment.getPaymentId(), totalRentalFee, depositAmount);
 
-                // 토스 결제 완료 후 Joying 에스크로 계좌로 입금 (SSAFY 금융망)
-                // 실제 돈은 토스에 있고, SSAFY 금융망에는 논리적으로만 입금
-                // 실제 결제 금액 = (일일요금 × 일수) + 보증금 (payment.getTotalAmount()에 저장됨)
-                long totalAmount = payment.getTotalAmount().longValue();
+                // 대여료만 중개 장부에 적립한다.
+                //
+                // 예전에는 보증금까지 전액을 적립했다. 보증금은 얼마를 돌려줄지가 나중에
+                // 정해지는 돈이라, 우리 장부로 옮기는 순간 우리가 책임지는 돈이 된다.
+                // 그리고 그것을 대여자에게 보내는 일이 정산 대행이 되어 전자지급결제
+                // 대행업 등록 대상이 된다.
+                //
+                // 보증금은 결제에 그대로 남겨 두고 금액만 기록한다. 반납이 확정되면
+                // 카드에서 직접 풀거나 배상액만 확정한다. 플랫폼 장부를 지나지 않는다.
+                long rentalFeeAmount = totalRentalFee.longValue();
 
                 // 주문번호를 참조로 쓴다. 같은 주문으로 두 번 불러도 돈은 한 번만 움직인다.
                 TransferOutcome outcome = moneyTransferPort.creditToEscrow(
-                        totalAmount,
-                        "escrow-deposit-" + payment.getOrderId(),
-                        "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")"
+                        rentalFeeAmount,
+                        "rental-fee-" + payment.getOrderId(),
+                        "대여료 적립 (orderId: " + payment.getOrderId() + ")"
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
                     escrow.markHeld(succeeded.transferId());
-                    log.info("[에스크로 적립 완료] rentalHisId={}, transferId={}, amount={}, via={}",
+                    log.info("[대여료 적립 완료] rentalHisId={}, transferId={}, amount={}, via={}",
                             rentalHistory.getRentalHisId(), succeeded.transferId(),
-                            totalAmount, moneyTransferPort.name());
+                            rentalFeeAmount, moneyTransferPort.name());
 
                 } else if (outcome instanceof TransferOutcome.Rejected rejected) {
                     // 상대가 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,
                     // 이미 승인된 토스 결제를 되돌리는 것이 맞다.
-                    log.error("[에스크로 적립 거절] orderId={}, code={}, reason={}",
+                    log.error("[대여료 적립 거절] orderId={}, code={}, reason={}",
                             payment.getOrderId(), rejected.reasonCode(), rejected.reason());
                     cancelTossPaymentForFailedDeposit(payment, tossResponse.getPaymentKey(),
-                            "에스크로 적립 거절");
-                    throw new IllegalStateException("에스크로 적립이 거절되었습니다: "
+                            "대여료 적립 거절");
+                    throw new IllegalStateException("대여료 적립이 거절되었습니다: "
                             + rejected.reasonCode());
 
                 } else {
                     // 옮겨졌는지 알 수 없다. 여기서 토스 결제를 취소하면 실제로 적립이
-                    // 성공했을 때 고객 돈만 돌아가고 에스크로에는 돈이 남는다. 되돌리지
-                    // 않고 PENDING으로 남겨 두었다가 재조회가 확정한다. 예외를 던지지
-                    // 않는 이유는, 롤백하면 방금 남긴 PENDING 행까지 같이 사라져
-                    // 나중에 이 건을 찾을 방법이 없어지기 때문이다.
-                    //
-                    // 내부 원장 구현에서는 이 갈래로 오지 않는다. 밖으로 나가는 구현으로
-                    // 바꿔도 코드가 그대로 맞도록 남겨 둔다.
+                    // 성공했을 때 고객 돈만 돌아간다. 되돌리지 않고 PENDING으로 남긴다.
                     TransferOutcome.Unconfirmed unconfirmed = (TransferOutcome.Unconfirmed) outcome;
-                    log.warn("[에스크로 적립 미확정 - 재조회 대상] orderId={}, escrowId={}, amount={}, reason={}",
-                            payment.getOrderId(), escrow.getHoldId(), totalAmount, unconfirmed.reason());
+                    log.warn("[대여료 적립 미확정 - 재조회 대상] orderId={}, escrowId={}, amount={}, reason={}",
+                            payment.getOrderId(), escrow.getHoldId(), rentalFeeAmount,
+                            unconfirmed.reason());
                 }
             }
 
@@ -559,6 +570,29 @@ public class PaymentService {
         } catch (Exception cancelEx) {
             log.error("[Toss 결제 취소 실패 - 수동 처리 필요] orderId={}, paymentKey={}",
                     payment.getOrderId(), paymentKey, cancelEx);
+        }
+    }
+
+
+    /**
+     * 대여 기간이 보증금 보류 한도를 넘으면 결제를 막는다.
+     *
+     * <p>승인일로부터 매입을 요청할 수 있는 기간이 정해져 있어, 그보다 긴 대여는 반납
+     * 시점에 카드를 건드릴 수 없다.
+     */
+    private void rejectIfRentalPeriodExceedsHoldLimit(RentalHistory rentalHistory) {
+        if (rentalHistory.getStartRen() == null || rentalHistory.getEndRen() == null) {
+            return;
+        }
+        long days = Duration.between(
+                rentalHistory.getStartRen().toInstant(),
+                rentalHistory.getEndRen().toInstant()).toDays();
+        int limit = depositHoldPort.holdLimitDays();
+        if (days > limit) {
+            log.warn("[대여 기간 초과] rentalHisId={}, days={}, limit={}",
+                    rentalHistory.getRentalHisId(), days, limit);
+            throw new IllegalStateException(
+                    "대여 기간이 " + limit + "일을 넘어 결제할 수 없습니다: " + days + "일");
         }
     }
 

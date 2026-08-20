@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import com.joying.escrow.domain.Escrow;
 import com.joying.wallet.port.TransferOutcome;
+import com.joying.payment.port.DepositHoldPort;
 import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.dto.request.EscrowCreateRequest;
 import com.joying.escrow.dto.response.EscrowResponse;
@@ -31,6 +32,7 @@ public class EscrowService {
     private final RentalHistoryRepository rentalHistoryRepository;
     private final PaymentRepository paymentRepository;
     private final MoneyTransferPort moneyTransferPort;
+    private final DepositHoldPort depositHoldPort;
 
     /**
      * 에스크로 홀드 생성 (결제 완료 후)
@@ -161,21 +163,34 @@ public class EscrowService {
             }
         }
 
-        // 보증금 반환 (중개 지갑 → 차용자 지갑)
+        // 보증금 반환은 송금이 아니다.
+        //
+        // 예전에는 중개 지갑에서 차용자 지갑으로 옮겼다. 그러려면 차용자의 계좌를 알아야
+        // 하고, 옮기다 실패하면 우리가 책임져야 하고, 그 일 자체가 정산 대행이 되어
+        // 전자지급결제대행업 등록 대상이 된다.
+        //
+        // 보증금은 결제에 그대로 남아 있으므로 카드에서 직접 되돌린다. 받는 사람의
+        // 계좌를 알 필요도, 우리가 그 돈을 들고 있을 필요도 없다.
         if (!escrow.isDepositReturned()) {
-            TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
-                    renter.getMemberId(),
+            String paymentKey = escrow.getPayment() == null ? null : escrow.getPayment().getPaymentKey();
+            if (paymentKey == null) {
+                log.error("[보증금 반환 불가 - 결제 정보 없음] holdId={}", holdId);
+                return convertToResponse(escrow);
+            }
+
+            TransferOutcome outcome = depositHoldPort.release(
+                    paymentKey,
                     escrow.getDepositAmount().longValue(),
-                    "settle-deposit-" + escrow.getHoldId(),
-                    "Joying 보증금 반환"
+                    "deposit-release-" + escrow.getHoldId(),
+                    "대여 정상 종료에 따른 보증금 반환"
             );
 
             if (outcome instanceof TransferOutcome.Succeeded succeeded) {
                 escrow.markDepositReturned(succeeded.transferId(),
                         Timestamp.from(Instant.now()));
-                log.info("[보증금 반환 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                log.info("[보증금 반환 요청 완료] rentalHisId={}, ref={}, amount={}, via={}",
                         rental.getRentalHisId(), succeeded.transferId(),
-                        escrow.getDepositAmount(), renter.getMemberId());
+                        escrow.getDepositAmount(), depositHoldPort.name());
             } else {
                 // 대여료는 이미 나갔고 그 기록이 남아 있다. 다시 돌리면 여기서부터 이어간다.
                 log.error("[보증금 반환 미완료 - 정산 중단] holdId={}, rentalHisId={}, outcome={}",
@@ -184,7 +199,7 @@ public class EscrowService {
             }
         }
 
-        // 6. 두 송금이 모두 확정됐을 때만 정산을 닫는다
+        // 대여료 지급과 보증금 반환이 모두 처리됐을 때만 정산을 닫는다
         escrow.settle();
 
         // 7. RentalHistory 상태 업데이트 (RETURNED → DEPOSIT_RETURNED)
