@@ -3,38 +3,39 @@ package com.joying;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Spring Boot 애플리케이션 컨텍스트 로딩 테스트
  *
- * Testcontainers를 사용하여 실제 Redis 컨테이너와 함께 테스트합니다.
- * TestcontainersConfiguration이 Redis 컨테이너를 자동으로 시작하고
- * @DynamicPropertySource가 컨테이너의 연결 정보를 Spring 환경에 주입합니다.
+ * TestcontainersConfiguration이 MySQL, MongoDB, Redis 컨테이너를 띄우고
+ * 접속 정보를 설정으로 넣어 준다. 컨텍스트가 실제로 뜨는지만 확인한다.
  */
 @SpringBootTest
+// local을 같이 켜는 이유는 TossPaymentsClientImpl이 @Profile({"prod","local"})이라
+// test만으로는 그 빈이 없어 결제 쪽 배선이 통째로 빠지기 때문이다. 붙는 주소는
+// 컨테이너가 덮어쓴다.
+@ActiveProfiles({"local", "test"})
 @Import(TestcontainersConfiguration.class)
 class JoyingApplicationTests {
 
 	/**
-	 * Redis 컨테이너의 연결 정보를 Spring 환경에 동적으로 주입
-	 *
-	 * TestcontainersConfiguration에서 시작된 Redis 컨테이너의
-	 * 호스트와 포트 정보를 가져와서 spring.data.redis 설정을 오버라이드합니다.
+	 * RedisConfig가 연결 팩토리를 설정값으로 직접 만들어 컨테이너 접속 정보를 보지 않는다.
+	 * 그래서 이 자리만 손으로 넣어 준다.
 	 */
 	@DynamicPropertySource
 	static void redisProperties(DynamicPropertyRegistry registry) {
 		registry.add("spring.data.redis.host",
 			() -> TestcontainersConfiguration.getRedisContainer().getHost());
 		registry.add("spring.data.redis.port",
-			() -> TestcontainersConfiguration.getRedisContainer().getMappedPort(6379).toString());
+			() -> TestcontainersConfiguration.getRedisContainer().getMappedPort(6379));
 	}
 
 	@Test
 	void contextLoads() {
-		// Spring Boot 컨텍스트가 정상적으로 로딩되는지 확인
-		// Redis 컨테이너가 자동으로 시작되어 연결됨
+		// 컨텍스트가 뜨면 통과다. 빈 하나가 잘못 묶여 있어도 여기서 걸린다.
 	}
 
 }
