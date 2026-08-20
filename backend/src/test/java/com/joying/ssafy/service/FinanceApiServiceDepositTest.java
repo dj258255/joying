@@ -22,7 +22,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import com.joying.common.config.ssafy.FinanceApiProperties;
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 
 /**
  * 금융망 입금 결과 판정.
@@ -69,7 +69,7 @@ class FinanceApiServiceDepositTest {
 		TransferOutcome outcome = deposit();
 
 		assertThat(outcome).isInstanceOf(TransferOutcome.Succeeded.class);
-		assertThat(outcome.transactionUniqueNoOrNull()).isEqualTo("TX-1");
+		assertThat(outcome.transferIdOrNull()).isEqualTo("TX-1");
 	}
 
 	@Test
@@ -79,7 +79,7 @@ class FinanceApiServiceDepositTest {
 			"Header", Map.of("responseCode", "H0000"),
 			"REC", List.of(Map.of("transactionUniqueNo", "TX-2"))));
 
-		assertThat(deposit().transactionUniqueNoOrNull()).isEqualTo("TX-2");
+		assertThat(deposit().transferIdOrNull()).isEqualTo("TX-2");
 	}
 
 	@Test
@@ -91,7 +91,7 @@ class FinanceApiServiceDepositTest {
 		TransferOutcome outcome = deposit();
 
 		assertThat(outcome).isInstanceOf(TransferOutcome.Rejected.class);
-		assertThat(((TransferOutcome.Rejected) outcome).responseCode()).isEqualTo("A1001");
+		assertThat(((TransferOutcome.Rejected) outcome).reasonCode()).isEqualTo("A1001");
 	}
 
 	@Test

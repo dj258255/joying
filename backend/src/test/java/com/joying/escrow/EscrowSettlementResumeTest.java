@@ -13,7 +13,7 @@ import com.joying.escrow.domain.Escrow;
 /**
  * 정산 송금이 중간에 멈춘 뒤 다시 돌 때 이미 나간 돈을 또 보내지 않는지 확인한다.
  *
- * <p>예전에는 대여료 지급이 성공한 뒤 보증금 반환이 실패하면 예외를 던져 트랜잭션을
+ * <p>대여료 지급이 성공한 뒤 보증금 반환이 실패하면 예전에는 예외를 던져 트랜잭션을
  * 되돌렸다. 롤백은 DB만 되돌리고 이미 나간 대여료는 되돌리지 못하므로, 정산을 다시
  * 돌리면 대여료가 한 번 더 나갔다. 거래고유번호를 남겨 그 단계를 건너뛰게 한 것이
  * 이 테스트가 지키는 규칙이다.
@@ -52,12 +52,12 @@ class EscrowSettlementResumeTest {
 	}
 
 	@Test
-	@DisplayName("대여료만 나가고 보증금이 미확정으로 멈춰도 대여료 기록은 남는다")
+	@DisplayName("대여료만 나가고 보증금에서 멈춰도 대여료 기록은 남는다")
 	void partialSettlementKeepsWhatAlreadyWentOut() {
 		Escrow escrow = newEscrow();
 		escrow.markHeld("TX-DEPOSIT");
 
-		// 1단계는 확정, 2단계는 미확정으로 멈춘 상태
+		// 1단계는 확정, 2단계는 거절돼 멈춘 상태
 		escrow.markRentalFeeSent("TX-FEE", Timestamp.from(Instant.now()));
 
 		assertThat(escrow.isRentalFeeSent()).isTrue();

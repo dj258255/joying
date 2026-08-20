@@ -1,13 +1,11 @@
 package com.joying.rental.service;
 
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
 import com.joying.file.repository.FileRepository;
-import com.joying.account.domain.Account;
-import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.common.config.DevModeProperties;
 import com.joying.escrow.domain.Escrow;
 import com.joying.escrow.repository.EscrowRepository;
@@ -27,7 +25,6 @@ import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.domain.RentalStatus;
 import com.joying.rental.domain.RentalVideo;
 import com.joying.rental.domain.VideoType;
-import com.joying.ssafy.service.FinanceApiService;
 import com.joying.rental.dto.request.ReservationCreateRequest;
 import com.joying.rental.dto.request.ShipRequest;
 import com.joying.rental.dto.request.VideoUploadRequest;
@@ -74,7 +71,6 @@ public class RentalService {
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final MoneyTransferPort moneyTransferPort;
-    private final FinanceApiProperties financeApiProperties;
     private final DevModeProperties devModeProperties;
 
     /**
@@ -859,25 +855,11 @@ public class RentalService {
                         .build();
             }
 
-            // 5-3. 계좌 정보 조회
+            // 5-3. 대여자와 차용자. 지갑은 회원으로 찾으므로 계좌를 요구하지 않는다.
             Member lender = rental.getRentalProduct().getWriter();
             Member renter = rental.getMember();
 
-            Account lenderAccount = lender.getAccounts().stream()
-                    .filter(Account::isUsable)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("대여자의 사용 가능한 계좌가 없습니다: memberId=" + lender.getMemberId()));
-
-            Account renterAccount = renter.getAccounts().stream()
-                    .filter(Account::isUsable)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("차용자의 사용 가능한 계좌가 없습니다: memberId=" + renter.getMemberId()));
-
-            // 5-4. Joying 중개 계좌 정보
-            String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
-            String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
-
-            // 5-5. SSAFY 금융망으로 환불 분배
+            // 5-5. 환불 분배 (중개 지갑 → 회원 지갑)
             //
             // 송금 두 건이 순차로 나간다. 예전에는 뒤엣것이 실패하면 예외를 던져 트랜잭션을
             // 되돌렸는데, 롤백은 DB만 되돌리고 이미 나간 돈은 되돌리지 못한다. 그 상태로
@@ -897,10 +879,10 @@ public class RentalService {
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
-                    cancel.markRenterRefundSent(succeeded.transactionUniqueNo());
-                    log.info("[차용자 환불 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                            rentalHisId, succeeded.transactionUniqueNo(), renterRefundAmt,
-                            renterAccount.getAccountNo());
+                    cancel.markRenterRefundSent(succeeded.transferId());
+                    log.info("[차용자 환불 완료] rentalHisId={}, transferId={}, amount={}, toMemberId={}",
+                            rentalHisId, succeeded.transferId(), renterRefundAmt,
+                            renter.getMemberId());
                 } else {
                     log.error("[차용자 환불 미완료 - 환불 중단] rentalHisId={}, outcome={}",
                             rentalHisId, outcome);
@@ -918,10 +900,10 @@ public class RentalService {
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
-                    cancel.markLenderShareSent(succeeded.transactionUniqueNo());
-                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                            rentalHisId, succeeded.transactionUniqueNo(),
-                            cancel.getDepositOwnerAmt(), lenderAccount.getAccountNo());
+                    cancel.markLenderShareSent(succeeded.transferId());
+                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, transferId={}, amount={}, toMemberId={}",
+                            rentalHisId, succeeded.transferId(),
+                            cancel.getDepositOwnerAmt(), lender.getMemberId());
                 } else {
                     // 차용자 환불은 이미 나갔고 그 기록이 남아 있다. 다시 돌리면 여기서부터 이어간다.
                     log.error("[대여자 보증금 분배 미완료 - 환불 중단] rentalHisId={}, outcome={}",

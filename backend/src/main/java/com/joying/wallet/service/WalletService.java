@@ -6,7 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.domain.EntryDirection;
 import com.joying.wallet.domain.Wallet;
 import com.joying.wallet.domain.WalletEntry;

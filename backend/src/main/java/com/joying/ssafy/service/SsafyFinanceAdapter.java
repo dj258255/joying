@@ -4,7 +4,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.joying.common.config.ssafy.FinanceApiProperties;
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.port.MoneyTransferPort;
 
 import lombok.RequiredArgsConstructor;

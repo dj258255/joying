@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +31,7 @@ import java.util.List;
  * - DELETE /api/v1/members/{memberId}/accounts/{accountId}  계좌 삭제
  */
 @Slf4j
+@ConditionalOnProperty(name = "joying.money.transfer", havingValue = "ssafy")
 @RestController
 @RequiredArgsConstructor
 @Tag(
