@@ -17,7 +17,7 @@ import org.springframework.data.domain.Sort
  * MongoDB Blocking 설정
  *
  * 채팅 메시지 저장용 NoSQL 설정
- * - Blocking MongoDB + Coroutine withContext(Dispatchers.IO) 패턴 (현업 표준)
+ * - 블로킹 MongoDB. 서비스에서 그대로 부른다
  * - MongoDB Auditing 활성화 (@CreatedDate 자동 설정)
  * - _class 필드 제거 (불필요한 메타데이터 저장 방지)
  */

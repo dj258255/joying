@@ -88,7 +88,7 @@ interface ChatRoomRepository : JpaRepository<ChatRoom, Long> {
      * Product, Buyer, Seller, ProfileImage(File)를 한 번에 조회
      *
      * 푸시 알림 전송 시 LazyInitializationException 방지용
-     * - withContext(Dispatchers.IO)에서 별도 스레드로 전환되면 Hibernate Session이 끊김
+     * - 트랜잭션 밖에서 지연 로딩을 만지면 Hibernate Session이 끊겨 있다
      * - Member.profileImage (File 엔티티)까지 미리 로드하여 세션 없이도 접근 가능
      */
     @Query("""

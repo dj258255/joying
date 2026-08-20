@@ -3,7 +3,6 @@ package com.joying.chat.service
 import com.joying.chat.domain.ChatRoom
 import com.joying.chat.repository.ChatRoomRepository
 import com.joying.member.domain.Member
-import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -62,7 +61,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("캐시에 ALLOWED가 있으면 저장소를 보지 않는다")
-    fun cacheHitSkipsDatabase() = runBlocking<Unit> {
+    fun cacheHitSkipsDatabase() {
         whenever(valueOps.get(key(buyerId))).thenReturn("ALLOWED")
 
         assertThat(cache.hasPermission(roomId, buyerId)).isTrue()
@@ -71,7 +70,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("캐시에 DENIED가 있으면 거절이다")
-    fun cachedDenialIsHonored() = runBlocking<Unit> {
+    fun cachedDenialIsHonored() {
         whenever(valueOps.get(key(strangerId))).thenReturn("DENIED")
 
         assertThat(cache.hasPermission(roomId, strangerId)).isFalse()
@@ -80,7 +79,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("캐시가 비었으면 저장소를 보고 결과를 캐싱한다")
-    fun cacheMissChecksDatabaseAndCaches() = runBlocking<Unit> {
+    fun cacheMissChecksDatabaseAndCaches() {
         val room = roomWith(buyerId, sellerId)
         whenever(valueOps.get(key(buyerId))).thenReturn(null)
         whenever(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room))
@@ -91,7 +90,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("방에 없는 사람은 거절이고 그것도 캐싱한다")
-    fun strangerIsDeniedAndCached() = runBlocking<Unit> {
+    fun strangerIsDeniedAndCached() {
         val room = roomWith(buyerId, sellerId)
         whenever(valueOps.get(key(strangerId))).thenReturn(null)
         whenever(chatRoomRepository.findById(roomId)).thenReturn(Optional.of(room))
@@ -102,7 +101,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("방이 없으면 거절이다")
-    fun missingRoomIsDenied() = runBlocking<Unit> {
+    fun missingRoomIsDenied() {
         whenever(valueOps.get(key(buyerId))).thenReturn(null)
         whenever(chatRoomRepository.findById(roomId)).thenReturn(Optional.empty())
 
@@ -111,7 +110,7 @@ class ChatRoomPermissionCacheTest {
 
     @Test
     @DisplayName("알려진 결함: 판정 근거가 buyer/seller뿐이라 방을 나갔는지는 보지 않는다")
-    fun knownDefect_ignoresWhetherMemberLeft() = runBlocking<Unit> {
+    fun knownDefect_ignoresWhetherMemberLeft() {
         // 판정은 chatRoom의 buyer/seller와 같은 사람인가만 본다. ChatRoomMember의
         // isLeft도, 방의 status도 보지 않는다.
         //
