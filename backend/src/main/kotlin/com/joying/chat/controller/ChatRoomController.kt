@@ -9,7 +9,6 @@ import com.joying.chat.service.ChatService
 import com.joying.common.response.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.reactor.mono
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
@@ -80,7 +79,6 @@ class ChatRoomController(
         val includes = include?.split(",")?.map { it.trim() } ?: emptyList()
         val includeMember = includes.contains("member")
 
-        // Service에서 runBlocking 처리 (HTTP Thread에서 완료)
         val chatRooms = chatRoomService.getMyChatRooms(memberId, includeMember)
 
         logger.info("채팅방 목록 조회 완료: memberId={}, 채팅방 개수={}", memberId, chatRooms.size)
@@ -121,7 +119,6 @@ class ChatRoomController(
         val includes = include?.split(",")?.map { it.trim() } ?: emptyList()
         val includeMember = includes.contains("member")
 
-        // Service에서 runBlocking 처리 (HTTP Thread에서 완료)
         val chatRoom = chatRoomService.getChatRoomDetail(chatRoomId, memberId, includeMember)
 
         return ApiResponse.ok("채팅방 상세 조회 완료", chatRoom)

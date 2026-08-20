@@ -19,15 +19,13 @@ import com.joying.member.domain.Member
 import com.joying.member.repository.MemberRepository
 import com.joying.product.domain.Product
 import com.joying.product.repository.ProductRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 import java.time.Instant
 
 /**
@@ -45,6 +43,7 @@ class ChatRoomService(
     private val productRepository: ProductRepository,
     private val chatPresenceService: ChatPresenceService,
     private val unreadCountService: UnreadCountService,
+    @Qualifier("chatQueryExecutor") private val queryExecutor: Executor,
     private val productFileRepository: ProductFileRepository,
     private val fileUrlResolver: FileUrlResolver,
     private val permissionCache: ChatRoomPermissionCache,
@@ -110,7 +109,7 @@ class ChatRoomService(
                 logger.info("채팅방 재입장 (요청자): chatRoomId={}, memberId={}", chatRoom.chatRoomId, requestMemberId)
 
                 // 재입장 알림 전송 (비동기)
-                CoroutineScope(Dispatchers.IO).launch {
+                queryExecutor.execute {
                     try {
                         sendRejoinNotification(chatRoom.chatRoomId!!, requestMemberId)
                     } catch (e: Exception) {
@@ -179,7 +178,7 @@ class ChatRoomService(
         )
 
         // 권한 캐시 Warmup (비동기)
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        queryExecutor.execute {
             try {
                 permissionCache.warmupPermissions(savedChatRoom.chatRoomId!!)
             } catch (e: Exception) {
@@ -247,17 +246,16 @@ class ChatRoomService(
     }
 
     /**
-     * 내 채팅방 목록 조회 (runBlocking 방식)
+     * 내 채팅방 목록 조회
      *
      * 최적화:
      * - Fetch Join으로 Product, Buyer, Seller 한 번에 조회 (N+1 방지)
      * - ProductFile은 배치 조회 (1:N 관계라 Fetch Join 불가)
      * - Redis MGET으로 안읽은 개수 배치 조회
      *
-     * runBlocking 사용 이유:
-     * - Spring MVC 환경에서 SecurityContext 유지
-     * - HTTP Thread에서 응답 반환 보장
-     * - 내부에서 코루틴 기능(병렬 처리) 사용 가능
+     * 예전에는 이 자리를 코루틴이 맡았다. 밑에 있는 저장소가 전부 블로킹이라
+     * 코루틴이 사 주는 것이 없었고, 톰캣 워커를 잡아 둔 채 IO 스레드를 하나 더
+     * 쓰고 있었다. 지금은 그냥 부른다.
      *
      * @param memberId 회원 ID
      * @param includeMember 참여자 온라인 상태 포함 여부
@@ -267,7 +265,7 @@ class ChatRoomService(
         memberId: Long,
         includeMember: Boolean = false,
     ): List<ChatRoomResponse> =
-        kotlinx.coroutines.runBlocking {
+        run {
             logger.info("[getMyChatRooms] 시작: memberId={}, includeMember={}", memberId, includeMember)
 
             // JPA Repository 조회 (Blocking이지만 충분히 빠름)
@@ -281,7 +279,7 @@ class ChatRoomService(
             val memberSettingsMap = chatRoomMembers.associateBy { it.chatRoomId }
             logger.info("[getMyChatRooms] memberSettingsMap 생성 완료")
 
-            // Redis에서 안읽은 개수 배치 조회 (suspend fun이므로 코루틴 내에서 호출)
+            // Redis에서 안읽은 개수 배치 조회
             val chatRoomIds = chatRooms.map { it.chatRoomId!! }
             logger.info("[getMyChatRooms] Redis 배치 조회 시작: chatRoomIds={}", chatRoomIds)
             val unreadCountMap = unreadCountService.getBatch(chatRoomIds, memberId)
@@ -361,12 +359,11 @@ class ChatRoomService(
         }
 
     /**
-     * 채팅방 상세 조회 (단일) - runBlocking 방식
+     * 채팅방 상세 조회 (단일)
      *
-     * runBlocking 사용 이유:
-     * - Spring MVC 환경에서 SecurityContext 유지
-     * - HTTP Thread에서 응답 반환 보장
-     * - 내부에서 코루틴 기능(병렬 처리) 사용 가능
+     * 예전에는 이 자리를 코루틴이 맡았다. 밑에 있는 저장소가 전부 블로킹이라
+     * 코루틴이 사 주는 것이 없었고, 톰캣 워커를 잡아 둔 채 IO 스레드를 하나 더
+     * 쓰고 있었다. 지금은 그냥 부른다.
      *
      * @param chatRoomId 채팅방 ID
      * @param memberId 회원 ID
@@ -379,7 +376,7 @@ class ChatRoomService(
         includeMember: Boolean = false,
     ): ChatRoomResponse =
         @Suppress("ktlint:standard:max-line-length")
-        kotlinx.coroutines.runBlocking {
+        run {
             // 1. ChatRoom 조회 (Fetch Join으로 Product, Buyer, Seller 한 번에 로드)
             val chatRoom =
                 chatRoomRepository
@@ -391,20 +388,20 @@ class ChatRoomService(
                 throw BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다")
             }
 
-            // 2. Settings와 Redis 병렬 조회 (의존성 없음)
-            val settingsDeferred =
-                async {
+            // 2. Settings와 안읽음 개수는 서로 의존하지 않으므로 동시에 조회한다.
+            val settingsFuture =
+                CompletableFuture.supplyAsync({
                     chatRoomMemberRepository
                         .findByChatRoomIdAndMemberId(chatRoomId, memberId)
                         .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방 설정을 찾을 수 없습니다") }
-                }
-            val unreadCountDeferred =
-                async {
+                }, queryExecutor)
+            val unreadCountFuture =
+                CompletableFuture.supplyAsync({
                     unreadCountService.get(chatRoomId, memberId)
-                }
+                }, queryExecutor)
 
-            val settings = settingsDeferred.await()
-            val unreadCount = unreadCountDeferred.await()
+            val settings = settingsFuture.join()
+            val unreadCount = unreadCountFuture.join()
 
             // 상대방 정보 (Fetch Join으로 이미 로드됨)
             val otherMember =
@@ -500,7 +497,7 @@ class ChatRoomService(
         logger.info("채팅방 나가기 (개별): chatRoomId={}, memberId={}", chatRoomId, memberId)
 
         // 시스템 메시지 저장 (MongoDB) 및 실시간 알림 전송 (비동기)
-        CoroutineScope(Dispatchers.IO).launch {
+        queryExecutor.execute {
             try {
                 // 1. 시스템 메시지 생성 및 저장
                 val systemMessage =
@@ -588,7 +585,7 @@ class ChatRoomService(
             logger.info("채팅방 자동 종료: chatRoomId={}, lastMessageAt={}", chatRoom.chatRoomId, chatRoom.lastMessageAt)
 
             // 시스템 메시지 저장 및 양쪽 멤버에게 실시간 알림 전송 (비동기)
-            CoroutineScope(Dispatchers.IO).launch {
+            queryExecutor.execute {
                 try {
                     // 1. 시스템 메시지 생성 및 저장
                     val systemMessage =
@@ -651,9 +648,9 @@ class ChatRoomService(
      * @param memberId 회원 ID
      * @return 모든 채팅방의 안읽은 메시지 총 개수
      */
-    suspend fun getTotalUnreadCount(memberId: Long): Long {
+    fun getTotalUnreadCount(memberId: Long): Long {
         val chatRoomMembers =
-            withContext(Dispatchers.IO) {
+            run {
                 chatRoomMemberRepository.findByMemberId(memberId)
             }
         val chatRoomIds = chatRoomMembers.map { it.chatRoomId!! } // FK 직접 접근
@@ -780,70 +777,68 @@ class ChatRoomService(
      * @param chatRoomId 채팅방 ID
      * @param memberId 재입장한 회원 ID
      */
-    private suspend fun sendRejoinNotification(
+    private fun sendRejoinNotification(
         chatRoomId: Long,
         memberId: Long,
     ) {
-        withContext(Dispatchers.IO) {
-            try {
-                // 채팅방 정보 조회
-                val chatRoom =
-                    chatRoomRepository
-                        .findById(chatRoomId)
-                        .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
+        try {
+            // 채팅방 정보 조회
+            val chatRoom =
+                chatRoomRepository
+                    .findById(chatRoomId)
+                    .orElseThrow { BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다") }
 
-                // 재입장한 사용자 닉네임
-                val rejoiningMemberNickname =
-                    if (memberId == chatRoom.buyer.memberId) {
-                        chatRoom.buyer.nickname
-                    } else {
-                        chatRoom.seller.nickname
-                    }
+            // 재입장한 사용자 닉네임
+            val rejoiningMemberNickname =
+                if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.buyer.nickname
+                } else {
+                    chatRoom.seller.nickname
+                }
 
-                // 상대방 ID 계산
-                val receiverId =
-                    if (memberId == chatRoom.buyer.memberId) {
-                        chatRoom.seller.memberId!!
-                    } else {
-                        chatRoom.buyer.memberId!!
-                    }
+            // 상대방 ID 계산
+            val receiverId =
+                if (memberId == chatRoom.buyer.memberId) {
+                    chatRoom.seller.memberId!!
+                } else {
+                    chatRoom.buyer.memberId!!
+                }
 
-                // 1. 시스템 메시지 생성 및 저장 (MongoDB)
-                val systemMessage =
-                    com.joying.chat.document.ChatMessage.createSystemMessage(
-                        chatRoomId = chatRoomId,
-                        content = "${rejoiningMemberNickname}님이 다시 들어왔습니다",
-                    )
-                systemMessage.createdAt = Instant.now()
+            // 1. 시스템 메시지 생성 및 저장 (MongoDB)
+            val systemMessage =
+                com.joying.chat.document.ChatMessage.createSystemMessage(
+                    chatRoomId = chatRoomId,
+                    content = "${rejoiningMemberNickname}님이 다시 들어왔습니다",
+                )
+            systemMessage.createdAt = Instant.now()
 
-                val savedMessage = chatMessageRepository.save(systemMessage)
+            val savedMessage = chatMessageRepository.save(systemMessage)
 
-                logger.info("재입장 시스템 메시지 MongoDB 저장: chatRoomId={}, memberId={}", chatRoomId, memberId)
+            logger.info("재입장 시스템 메시지 MongoDB 저장: chatRoomId={}, memberId={}", chatRoomId, memberId)
 
-                // 2. Redis Pub/Sub로 발행 (실시간 전달)
-                val messageDto =
-                    com.joying.chat.dto.ChatMessageResponse
-                        .from(savedMessage, null)
-                        .copy(receiverId = receiverId)
-                redisPubSubPublisher.publish(messageDto)
+            // 2. Redis Pub/Sub로 발행 (실시간 전달)
+            val messageDto =
+                com.joying.chat.dto.ChatMessageResponse
+                    .from(savedMessage, null)
+                    .copy(receiverId = receiverId)
+            redisPubSubPublisher.publish(messageDto)
 
-                logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
+            logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
 
-                // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
-                val event =
-                    ChatRoomStatusEvent(
-                        chatRoomId = chatRoomId,
-                        eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
-                        memberId = memberId,
-                        memberNickname = rejoiningMemberNickname,
-                    )
+            // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
+            val event =
+                ChatRoomStatusEvent(
+                    chatRoomId = chatRoomId,
+                    eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
+                    memberId = memberId,
+                    memberNickname = rejoiningMemberNickname,
+                )
 
-                chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
+            chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
 
-                logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
-            } catch (e: Exception) {
-                logger.error("채팅방 재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}", chatRoomId, memberId, e.message, e)
-            }
+            logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
+        } catch (e: Exception) {
+            logger.error("채팅방 재입장 알림 전송 실패: chatRoomId={}, memberId={}, error={}", chatRoomId, memberId, e.message, e)
         }
     }
 }

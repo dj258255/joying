@@ -2,8 +2,6 @@ package com.joying.chat.service
 
 import com.joying.chat.config.RedisPubSubConfig
 import com.joying.chat.dto.ChatMessageResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
@@ -27,31 +25,29 @@ class RedisPubSubPublisher(
      *
      * @param message 발행할 메시지
      */
-    suspend fun publish(message: ChatMessageResponse) {
-        withContext(Dispatchers.IO) {
-            try {
-                // Redis Pub/Sub로 발행 (PUBLISH 명령)
-                chatMessageRedisTemplate.convertAndSend(
-                    RedisPubSubConfig.CHAT_MESSAGE_CHANNEL,
-                    message
-                )
+    fun publish(message: ChatMessageResponse) {
+        try {
+            // Redis Pub/Sub로 발행 (PUBLISH 명령)
+            chatMessageRedisTemplate.convertAndSend(
+                RedisPubSubConfig.CHAT_MESSAGE_CHANNEL,
+                message
+            )
 
-                logger.debug(
-                    "Redis Pub/Sub 발행 성공: chatRoomId={}, senderId={}, messageId={}",
-                    message.chatRoomId,
-                    message.senderId,
-                    message.id
-                )
-            } catch (e: Exception) {
-                logger.error(
-                    "Redis Pub/Sub 발행 실패: chatRoomId={}, senderId={}, error={}",
-                    message.chatRoomId,
-                    message.senderId,
-                    e.message,
-                    e
-                )
-                throw RuntimeException("메시지 발행 실패", e)
-            }
+            logger.debug(
+                "Redis Pub/Sub 발행 성공: chatRoomId={}, senderId={}, messageId={}",
+                message.chatRoomId,
+                message.senderId,
+                message.id
+            )
+        } catch (e: Exception) {
+            logger.error(
+                "Redis Pub/Sub 발행 실패: chatRoomId={}, senderId={}, error={}",
+                message.chatRoomId,
+                message.senderId,
+                e.message,
+                e
+            )
+            throw RuntimeException("메시지 발행 실패", e)
         }
     }
 }
