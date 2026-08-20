@@ -79,11 +79,8 @@ class PaymentEventListener(
                 return
             }
 
-            chatService.sendMessage(
-                chatRoomId = chatRoomId,
-                senderId = event.buyerId, // 구매자 ID로 전송
-                request = messageRequest
-            )
+            // 구매자 ID로 보낸다
+            chatService.sendMessage(chatRoomId, event.buyerId, messageRequest)
 
             logger.info("[결제 완료 메시지 전송 완료] chatRoomId={}, paymentId={}", chatRoom.chatRoomId, event.paymentId)
 
