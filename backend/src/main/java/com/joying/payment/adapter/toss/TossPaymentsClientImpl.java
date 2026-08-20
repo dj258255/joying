@@ -212,6 +212,44 @@ public class TossPaymentsClientImpl implements TossPaymentsClient {
         }
     }
 
+    @Override
+    public TossConfirmResponse getPaymentByPaymentKey(String paymentKey) {
+        log.info("[Toss API] 결제 조회 요청: paymentKey={}", paymentKey);
+
+        try {
+            TossConfirmResponse response = tossWebClient.get()
+                    .uri("/v1/payments/{paymentKey}", paymentKey)
+                    .header(HttpHeaders.AUTHORIZATION, "Basic " + basic(secretKey + ":"))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 결제 조회 4xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("CLIENT_ERROR", errorBody));
+                                    })
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 결제 조회 5xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("SERVER_ERROR", errorBody));
+                                    })
+                    )
+                    .bodyToMono(TossConfirmResponse.class)
+                    .block();
+
+            log.info("[Toss API] 결제 조회 성공: paymentKey={}, status={}", paymentKey, response.getStatus());
+            return response;
+
+        } catch (WebClientResponseException e) {
+            log.error("[Toss API] 결제 조회 실패: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new TossPaymentException("TOSS_API_ERROR", e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("[Toss API] 결제 조회 예외: {}", e.getMessage(), e);
+            throw new TossPaymentException("TOSS_API_ERROR", e.getMessage(), e);
+        }
+    }
+
     /**
      * Base64 인코딩 (Basic Auth)
      */

@@ -25,4 +25,12 @@ public interface TossPaymentsClient {
      * @return 결제 정보
      */
     TossConfirmResponse getPaymentByOrderId(String orderId);
+
+    /**
+     * paymentKey로 결제를 조회한다.
+     *
+     * <p>취소가 실제로 반영됐는지 확인할 때 쓴다. 응답의 남은 금액이 되돌린 만큼
+     * 줄어 있으면 반영된 것이다.
+     */
+    TossConfirmResponse getPaymentByPaymentKey(String paymentKey);
 }

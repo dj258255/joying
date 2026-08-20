@@ -71,6 +71,14 @@ public class Escrow {
     @Column(name = "rental_fee_released_at")
     private Timestamp rentalFeeReleasedAt;
 
+    @Comment("보증금 반환을 요청한 시각. 요청했다는 뜻이지 반영됐다는 뜻이 아니다")
+    @Column(name = "deposit_release_requested_at")
+    private Timestamp depositReleaseRequestedAt;
+
+    @Comment("보증금 반환이 카드사에 반영된 것을 확인한 시각")
+    @Column(name = "deposit_release_confirmed_at")
+    private Timestamp depositReleaseConfirmedAt;
+
     @Comment("보증금 반환 일시")
     @Column(name = "deposit_returned_at")
     private Timestamp depositReturnedAt;
@@ -160,6 +168,25 @@ public class Escrow {
     public void markDepositReturned(String transactionUniqueNo, Timestamp returnedAt) {
         this.depositReturnTxNo = transactionUniqueNo;
         this.depositReturnedAt = returnedAt;
+        this.depositReleaseRequestedAt = returnedAt;
+    }
+
+    /**
+     * 보증금 반환이 카드사에 반영된 것을 확인했다.
+     *
+     * <p>요청과 확정을 가르는 이유는, 부분취소가 매입 뒤에 도는 절차라 영업일이 걸리기
+     * 때문이다. 요청한 자리에서 완료로 적으면 반영되지 않았을 때 고객은 돈을 못 받았는데
+     * 우리 기록만 돌려준 것이 된다.
+     */
+    public void confirmDepositRelease(Timestamp confirmedAt) {
+        this.depositReleaseConfirmedAt = confirmedAt;
+    }
+
+    /**
+     * 반환을 요청했지만 아직 반영을 확인하지 못했는지.
+     */
+    public boolean isDepositReleasePending() {
+        return this.depositReleaseRequestedAt != null && this.depositReleaseConfirmedAt == null;
     }
 
     /**

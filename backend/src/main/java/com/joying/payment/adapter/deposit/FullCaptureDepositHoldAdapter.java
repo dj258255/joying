@@ -96,6 +96,21 @@ public class FullCaptureDepositHoldAdapter implements DepositHoldPort {
 	}
 
 	@Override
+	public java.util.Optional<Long> remainingAmount(String paymentKey) {
+		try {
+			var payment = tossClient.getPaymentByPaymentKey(paymentKey);
+			if (payment == null || payment.getBalanceAmount() == null) {
+				return java.util.Optional.empty();
+			}
+			return java.util.Optional.of(payment.getBalanceAmount());
+		} catch (Exception e) {
+			// 조회가 실패한 것을 "반영되지 않았다"로 읽으면 안 된다. 모른다고 답한다.
+			log.warn("[보증금] 남은 금액 조회 실패: paymentKey={}, error={}", paymentKey, e.getMessage());
+			return java.util.Optional.empty();
+		}
+	}
+
+	@Override
 	public String name() {
 		return "full-capture";
 	}

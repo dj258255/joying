@@ -25,6 +25,11 @@ public interface EscrowRepository extends JpaRepository<Escrow, Long> {
     List<Escrow> findByStatus(Status status);
 
     /**
+     * 보증금 반환을 요청했지만 아직 반영을 확인하지 못한 건.
+     */
+    List<Escrow> findByDepositReleaseRequestedAtIsNotNullAndDepositReleaseConfirmedAtIsNull();
+
+    /**
      * 결제 ID로 Escrow 존재 여부 확인
      */
     boolean existsByPayment_PaymentId(Long paymentId);
