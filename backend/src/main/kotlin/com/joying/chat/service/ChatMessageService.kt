@@ -442,23 +442,15 @@ class ChatMessageService(
                 throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "수정할 내용이 기존 내용과 동일합니다")
             }
 
-            // 수정 (MongoDB data class는 불변이므로 새 객체 생성)
-            val updatedMessage = message.copy(
-                content = newContent,
-                updatedAt = Instant.now(),
-                isEdited = true,
-                // 첫 수정 시에만 원본 저장 (이후 수정은 최초 원본 유지)
-                originalContent = message.originalContent ?: message.content
-            )
-
-            val savedMessage = chatMessageRepository.save(updatedMessage)
+            val firstEdit = message.edit(newContent, Instant.now())
+            val savedMessage = chatMessageRepository.save(message)
 
             logger.info(
                 "메시지 수정 완료: messageId={}, chatRoomId={}, memberId={}, isFirstEdit={}",
                 messageId,
                 chatRoomId,
                 memberId,
-                message.originalContent == null
+                firstEdit
             )
 
             // 답장 메시지 조회

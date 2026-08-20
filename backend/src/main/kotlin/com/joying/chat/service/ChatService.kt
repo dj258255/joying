@@ -126,38 +126,16 @@ class ChatService(
         val chatMessage =
             when (request.type) {
                 MessageType.TEXT -> {
-                    ChatMessage.createTextMessage(
-                        chatRoomId = chatRoomId,
-                        senderId = senderId,
-                        content = request.content,
-                        replyToMessageId = request.replyToMessageId,
-                    )
+                    ChatMessage.createTextMessage(chatRoomId, senderId, request.content, request.replyToMessageId)
                 }
                 MessageType.IMAGE -> {
-                    ChatMessage.createImageMessage(
-                        chatRoomId = chatRoomId,
-                        senderId = senderId,
-                        imageUrl = request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"),
-                        fileName = request.fileName ?: "image.jpg",
-                        fileSize = request.fileSize ?: 0L,
-                        replyToMessageId = request.replyToMessageId,
-                    )
+                    ChatMessage.createImageMessage(chatRoomId, senderId, request.imageUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "이미지 URL이 필요합니다"), request.fileName ?: "image.jpg", request.fileSize ?: 0L, request.replyToMessageId)
                 }
                 MessageType.FILE -> {
-                    ChatMessage.createFileMessage(
-                        chatRoomId = chatRoomId,
-                        senderId = senderId,
-                        fileUrl = request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"),
-                        fileName = request.fileName ?: "file",
-                        fileSize = request.fileSize ?: 0L,
-                        replyToMessageId = request.replyToMessageId,
-                    )
+                    ChatMessage.createFileMessage(chatRoomId, senderId, request.fileUrl ?: throw BusinessException(ErrorCode.INVALID_INPUT_VALUE, "파일 URL이 필요합니다"), request.fileName ?: "file", request.fileSize ?: 0L, request.replyToMessageId)
                 }
                 MessageType.SYSTEM -> {
-                    ChatMessage.createSystemMessage(
-                        chatRoomId = chatRoomId,
-                        content = request.content,
-                    )
+                    ChatMessage.createSystemMessage(chatRoomId, request.content)
                 }
             }
 
@@ -466,10 +444,7 @@ class ChatService(
             }
 
             // 1. 시스템 메시지 생성 및 저장 (MongoDB)
-            val systemMessage = ChatMessage.createSystemMessage(
-                chatRoomId = chatRoomId,
-                content = "${rejoiningMemberNickname}님이 다시 들어왔습니다"
-            )
+            val systemMessage = ChatMessage.createSystemMessage(chatRoomId, "${rejoiningMemberNickname}님이 다시 들어왔습니다")
             systemMessage.createdAt = Instant.now()
 
             val savedMessage = chatMessageRepository.save(systemMessage)

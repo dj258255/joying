@@ -445,10 +445,7 @@ class ChatRoomService(
             try {
                 // 1. 시스템 메시지 생성 및 저장
                 val systemMessage =
-                    com.joying.chat.document.ChatMessage.createSystemMessage(
-                        chatRoomId = chatRoomId,
-                        content = "${leavingMember.getNickname()}님이 채팅방을 나갔습니다",
-                    )
+                    com.joying.chat.document.ChatMessage.createSystemMessage(chatRoomId, "${leavingMember.getNickname()}님이 채팅방을 나갔습니다")
                 systemMessage.createdAt = Instant.now()
 
                 val savedMessage = chatMessageRepository.save(systemMessage)
@@ -528,10 +525,7 @@ class ChatRoomService(
                 try {
                     // 1. 시스템 메시지 생성 및 저장
                     val systemMessage =
-                        com.joying.chat.document.ChatMessage.createSystemMessage(
-                            chatRoomId = chatRoom.chatRoomId!!,
-                            content = "채팅방이 30일 미사용으로 자동 종료되었습니다",
-                        )
+                        com.joying.chat.document.ChatMessage.createSystemMessage(chatRoom.chatRoomId!!, "채팅방이 30일 미사용으로 자동 종료되었습니다")
                     systemMessage.createdAt = Instant.now()
 
                     val savedMessage = chatMessageRepository.save(systemMessage)
@@ -728,10 +722,7 @@ class ChatRoomService(
 
             // 1. 시스템 메시지 생성 및 저장 (MongoDB)
             val systemMessage =
-                com.joying.chat.document.ChatMessage.createSystemMessage(
-                    chatRoomId = chatRoomId,
-                    content = "${rejoiningMemberNickname}님이 다시 들어왔습니다",
-                )
+                com.joying.chat.document.ChatMessage.createSystemMessage(chatRoomId, "${rejoiningMemberNickname}님이 다시 들어왔습니다")
             systemMessage.createdAt = Instant.now()
 
             val savedMessage = chatMessageRepository.save(systemMessage)
