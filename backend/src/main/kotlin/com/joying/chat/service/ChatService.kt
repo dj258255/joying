@@ -177,7 +177,7 @@ class ChatService(
             }
 
         // 5. DTO 변환 (답장 정보 + 수신자 정보 포함)
-        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
+        val messageDto = ChatMessageResponse.from(savedMessage, replyMessage).toBuilder().receiverId(receiverId).build()
 
         // 7. Redis Pub/Sub로 발행 (실시간 전달)
         redisPubSubPublisher.publish(messageDto)
@@ -214,12 +214,7 @@ class ChatService(
 
         // 11. 채팅방 목록 업데이트 이벤트 전송 (실시간 반영)
         val unreadCount = unreadCountService.get(chatRoomId, receiverId)
-        val chatRoomUpdate = ChatRoomUpdateEvent(
-            chatRoomId = chatRoomId,
-            lastMessage = savedMessage.content,
-            lastMessageAt = savedMessage.createdAt!!,
-            unreadCount = unreadCount
-        )
+        val chatRoomUpdate = ChatRoomUpdateEvent.builder().chatRoomId(chatRoomId).lastMessage(savedMessage.content).lastMessageAt(savedMessage.createdAt!!).unreadCount(unreadCount).build()
 
         chatBroadcaster.toUser(receiverId, "/queue/chatroom-update", chatRoomUpdate)
 
@@ -353,10 +348,7 @@ class ChatService(
             logger.info("채팅방 알림 변경: chatRoomId={}, memberId={}, isMuted={}", chatRoomId, memberId, isMuted)
         }
 
-        return ChatRoomSettingsResponse(
-            isPinned = chatRoomMember.isPinned,
-            isMuted = chatRoomMember.isMuted,
-        )
+        return ChatRoomSettingsResponse.builder().isPinned(chatRoomMember.isPinned).isMuted(chatRoomMember.isMuted).build()
     }
 
     /**
@@ -486,18 +478,13 @@ class ChatService(
 
             // 2. Redis Pub/Sub로 발행 (실시간 전달)
             val messageDto = ChatMessageResponse.from(savedMessage, null)
-                .copy(receiverId = receiverId)
+                .toBuilder().receiverId(receiverId).build()
             redisPubSubPublisher.publish(messageDto)
 
             logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
 
             // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
-            val event = ChatRoomStatusEvent(
-                chatRoomId = chatRoomId,
-                eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
-                memberId = memberId,
-                memberNickname = rejoiningMemberNickname
-            )
+            val event = ChatRoomStatusEvent.builder().chatRoomId(chatRoomId).eventType(ChatRoomStatusEvent.EventType.MEMBER_REJOINED).memberId(memberId).memberNickname(rejoiningMemberNickname).build()
 
             chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
 
