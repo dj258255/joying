@@ -3,7 +3,6 @@ package com.joying.chat.service
 import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
-import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -49,7 +48,9 @@ class UnreadCountServiceTest {
         messageRepository = mock()
         memberRepository = mock()
         whenever(redis.opsForValue()).thenReturn(valueOps)
-        service = UnreadCountService(redis, messageRepository, memberRepository)
+        // 코루틴을 걷어내면서 병렬 조회가 CompletableFuture로 바뀌었다.
+        // 테스트에서는 같은 스레드에서 바로 실행해 순서를 예측 가능하게 둔다.
+        service = UnreadCountService(redis, messageRepository, memberRepository) { it.run() }
     }
 
     @Test
@@ -80,7 +81,7 @@ class UnreadCountServiceTest {
 
     @Test
     @DisplayName("캐시에 값이 있으면 그 값을 그대로 돌려주고 저장소를 보지 않는다")
-    fun returnsCachedValueWithoutTouchingStores() = runBlocking<Unit> {
+    fun returnsCachedValueWithoutTouchingStores() {
         whenever(valueOps.get(key)).thenReturn("7")
 
         val count = service.get(roomId, memberId)
@@ -91,7 +92,7 @@ class UnreadCountServiceTest {
 
     @Test
     @DisplayName("캐시가 비었고 방 멤버가 아니면 0이다")
-    fun returnsZeroWhenNotAMember() = runBlocking<Unit> {
+    fun returnsZeroWhenNotAMember() {
         whenever(valueOps.get(key)).thenReturn(null)
         whenever(memberRepository.findByChatRoomIdAndMemberId(roomId, memberId))
             .thenReturn(Optional.empty())
@@ -101,7 +102,7 @@ class UnreadCountServiceTest {
 
     @Test
     @DisplayName("캐시가 비었으면 저장소에서 세되 본인이 보낸 것은 빼고 센다")
-    fun countsOnlyMessagesFromOthers() = runBlocking<Unit> {
+    fun countsOnlyMessagesFromOthers() {
         val lastReadAt = Instant.parse("2026-01-01T00:00:00Z")
         val member = mock<ChatRoomMember>()
         whenever(member.lastReadAt).thenReturn(lastReadAt)
@@ -120,7 +121,7 @@ class UnreadCountServiceTest {
 
     @Test
     @DisplayName("알려진 결함: 방을 한 번도 안 열었으면 쌓인 메시지가 있어도 0으로 본다")
-    fun knownDefect_zeroWhenNeverOpened() = runBlocking<Unit> {
+    fun knownDefect_zeroWhenNeverOpened() {
         // lastReadAt이 null이면 저장소를 보지 않고 0을 돌려준다. 방을 한 번도 안 연
         // 사람은 메시지가 아무리 쌓여도 배지가 0으로 보인다.
         //
