@@ -63,11 +63,11 @@ class WebPushService(
 
         // 3. 새로운 구독 생성
         val subscription = PushSubscription(
-            memberId = memberId,
-            endpoint = request.endpoint,
-            p256dh = request.p256dh,
-            auth = request.auth,
-            userAgent = request.userAgent
+            memberId,
+            request.endpoint,
+            request.p256dh,
+            request.auth,
+            request.userAgent
         )
         logger.info("새 푸시 구독 생성: memberId=$memberId, endpoint=${request.endpoint.take(50)}..., 총 구독 개수=${existingSubscriptions.size + 1}")
         return pushSubscriptionRepository.save(subscription)

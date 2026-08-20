@@ -145,26 +145,16 @@ class ChatRoomService(
 
         // 새 채팅방 생성
         val newChatRoom =
-            ChatRoom(
-                product = product,
-                buyer = buyer,
-                seller = seller,
-            )
+            ChatRoom(product, buyer, seller)
 
         val savedChatRoom = chatRoomRepository.save(newChatRoom)
 
         // 채팅방 멤버 생성 (구매자, 판매자)
         val buyerMember =
-            ChatRoomMember(
-                chatRoom = savedChatRoom,
-                member = buyer,
-            )
+            ChatRoomMember(savedChatRoom, buyer)
 
         val sellerMember =
-            ChatRoomMember(
-                chatRoom = savedChatRoom,
-                member = seller,
-            )
+            ChatRoomMember(savedChatRoom, seller)
 
         chatRoomMemberRepository.save(buyerMember)
         chatRoomMemberRepository.save(sellerMember)
