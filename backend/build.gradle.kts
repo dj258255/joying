@@ -94,6 +94,8 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers") // Testcontainers BOM 관리
     testImplementation("org.testcontainers:mongodb")
     testImplementation("org.testcontainers:mysql")
+    // Kotlin에서 Mockito를 쓸 때 널 안전성 때문에 그대로는 불편하다.
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     // Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
 
     implementation("software.amazon.awssdk:s3:2.28.23")
