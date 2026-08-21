@@ -14,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
 import com.joying.chat.broadcast.ChatBroadcaster;
+import com.joying.chat.config.KeyOrderedExecutor;
 import com.joying.chat.dto.ChatMessageResponse;
 import com.joying.chat.dto.SendMessageRequest;
 import com.joying.chat.service.ChatPresenceService;
@@ -30,16 +31,16 @@ public class ChatWebSocketHandler {
 	private static final Logger log = LoggerFactory.getLogger(ChatWebSocketHandler.class);
 
 	private final ChatService chatService;
-	private final Executor queryExecutor;
+	private final KeyOrderedExecutor messageExecutor;
 	private final ChatBroadcaster chatBroadcaster;
 	private final ChatPresenceService chatPresenceService;
 
 	public ChatWebSocketHandler(ChatService chatService,
-								@Qualifier("chatQueryExecutor") Executor queryExecutor,
+								@Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
 								ChatBroadcaster chatBroadcaster,
 								ChatPresenceService chatPresenceService) {
 		this.chatService = chatService;
-		this.queryExecutor = queryExecutor;
+		this.messageExecutor = messageExecutor;
 		this.chatBroadcaster = chatBroadcaster;
 		this.chatPresenceService = chatPresenceService;
 	}
@@ -49,6 +50,10 @@ public class ChatWebSocketHandler {
 	 *
 	 * <p>저장과 발행을 요청 스레드에서 하지 않는다. 보낸 사람은 응답을 기다리지 않고,
 	 * 결과는 구독으로 돌아온다.
+	 *
+	 * <p>넓은 조회 풀이 아니라 방 단위로 묶인 실행기에 던진다. 넓은 풀에 던지면 같은
+	 * 방의 메시지가 여러 스레드에 흩어져, 번호는 맞는데 받는 쪽에 닿는 순서가 뒤섞인다.
+	 * 부하를 넣고 재 보니 200건 중 176번 뒤로 갔다.
 	 */
 	@MessageMapping("/chat/{chatRoomId}/send")
 	public void sendMessage(@DestinationVariable Long chatRoomId,
@@ -59,7 +64,7 @@ public class ChatWebSocketHandler {
 		log.debug("메시지 전송 요청: chatRoomId={}, memberId={}, type={}",
 			chatRoomId, memberId, request.getType());
 
-		queryExecutor.execute(() -> {
+		messageExecutor.execute(chatRoomId, () -> {
 			try {
 				ChatMessageResponse message = chatService.sendMessage(chatRoomId, memberId, request);
 				log.info("메시지 전송 완료: chatRoomId={}, messageId={}, senderId={}",
