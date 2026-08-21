@@ -7,6 +7,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
+import com.joying.chat.broadcast.ChatBroadcast
+import com.joying.chat.broadcast.ChatBroadcastListener
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.RedisMessageListenerContainer
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer
@@ -69,13 +71,18 @@ class RedisPubSubConfig {
     @Bean
     fun redisMessageListenerContainer(
         connectionFactory: RedisConnectionFactory,
-        chatMessageListener: ChatMessageListener
+        chatMessageListener: ChatMessageListener,
+        chatBroadcastListener: ChatBroadcastListener
     ): RedisMessageListenerContainer {
         val container = RedisMessageListenerContainer()
         container.setConnectionFactory(connectionFactory)
 
-        // chat:messages 채널 구독
+        // chat:messages 채널 구독 (메시지 본문)
         container.addMessageListener(chatMessageListener, ChannelTopic(CHAT_MESSAGE_CHANNEL))
+
+        // chat:broadcast 채널 구독
+        // 타이핑, 읽음, 접속 상태, 방 목록 갱신처럼 서버를 넘어야 하는 나머지가 여기로 온다.
+        container.addMessageListener(chatBroadcastListener, ChannelTopic(ChatBroadcast.CHANNEL))
 
         return container
     }

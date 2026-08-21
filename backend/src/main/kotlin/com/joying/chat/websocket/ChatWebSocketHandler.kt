@@ -1,5 +1,7 @@
 package com.joying.chat.websocket
 
+import com.joying.chat.broadcast.ChatBroadcaster
+
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.service.ChatPresenceService
 import com.joying.chat.service.ChatService
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Controller
 class ChatWebSocketHandler(
     private val chatService: ChatService,
     private val messagingTemplate: SimpMessagingTemplate,
+    private val chatBroadcaster: ChatBroadcaster,
     private val chatPresenceService: ChatPresenceService
 ) {
     private val logger = LoggerFactory.getLogger(ChatWebSocketHandler::class.java)
@@ -101,7 +104,7 @@ class ChatWebSocketHandler(
             "isTyping" to true
         )
 
-        messagingTemplate.convertAndSend("/topic/chat/$chatRoomId/typing", typingEvent)
+        chatBroadcaster.toTopic("/topic/chat/$chatRoomId/typing", typingEvent)
     }
 
     /**
@@ -132,7 +135,7 @@ class ChatWebSocketHandler(
             "readAt" to System.currentTimeMillis()
         )
 
-        messagingTemplate.convertAndSend("/topic/chat/$chatRoomId/read", readEvent)
+        chatBroadcaster.toTopic("/topic/chat/$chatRoomId/read", readEvent)
     }
 
     /**

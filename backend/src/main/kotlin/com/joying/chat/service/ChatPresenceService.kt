@@ -1,5 +1,7 @@
 package com.joying.chat.service
 
+import com.joying.chat.broadcast.ChatBroadcaster
+
 import com.joying.chat.dto.PresenceUpdateEvent
 import com.joying.chat.repository.ChatRoomMemberRepository
 import org.springframework.data.redis.core.RedisTemplate
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit
 class ChatPresenceService(
     private val redisTemplate: RedisTemplate<String, String>,
     private val messagingTemplate: SimpMessagingTemplate,
+    private val chatBroadcaster: ChatBroadcaster,
     private val chatRoomMemberRepository: ChatRoomMemberRepository
 ) {
 
@@ -194,11 +197,7 @@ class ChatPresenceService(
                     )
 
                     // 상대방에게 WebSocket으로 전송
-                    messagingTemplate.convertAndSendToUser(
-                        otherMemberId.toString(),
-                        "/queue/presence-update",
-                        event
-                    )
+                    chatBroadcaster.toUser(otherMemberId, "/queue/presence-update", event)
                 }
             }
         } catch (e: Exception) {

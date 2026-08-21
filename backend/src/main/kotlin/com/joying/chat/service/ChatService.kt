@@ -1,5 +1,7 @@
 package com.joying.chat.service
 
+import com.joying.chat.broadcast.ChatBroadcaster
+
 import com.joying.chat.document.ChatMessage
 import com.joying.chat.document.MessageType
 import com.joying.chat.dto.ChatMessageResponse
@@ -46,6 +48,7 @@ class ChatService(
     private val webPushService: WebPushService,
     private val chatPresenceService: ChatPresenceService,
     private val messagingTemplate: SimpMessagingTemplate,
+    private val chatBroadcaster: ChatBroadcaster,
     private val chatRoomService: ChatRoomService,
     private val mongoTemplate: MongoTemplate,
 ) {
@@ -221,11 +224,7 @@ class ChatService(
             unreadCount = unreadCount
         )
 
-        messagingTemplate.convertAndSendToUser(
-            receiverId.toString(),
-            "/queue/chatroom-update",
-            chatRoomUpdate
-        )
+        chatBroadcaster.toUser(receiverId, "/queue/chatroom-update", chatRoomUpdate)
 
         logger.debug(
             "채팅방 목록 업데이트 이벤트 전송: chatRoomId={}, receiverId={}, unreadCount={}",
@@ -439,11 +438,7 @@ class ChatService(
                     "tag" to payload.tag,
                     "data" to payload.data
                 )
-                messagingTemplate.convertAndSendToUser(
-                    receiverId.toString(),
-                    "/queue/notifications",
-                    notificationData
-                )
+                chatBroadcaster.toUser(receiverId, "/queue/notifications", notificationData)
                 logger.debug("WebSocket 알림 전송 완료 (1순위): receiverId={}", receiverId)
             } catch (e: Exception) {
                 logger.debug("WebSocket 알림 전송 실패 (정상 - 오프라인일 수 있음): receiverId={}", receiverId)
@@ -512,11 +507,7 @@ class ChatService(
                     memberNickname = rejoiningMemberNickname
                 )
 
-                messagingTemplate.convertAndSendToUser(
-                    receiverId.toString(),
-                    "/queue/chatroom-status",
-                    event
-                )
+                chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
 
                 logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
             } catch (e: Exception) {

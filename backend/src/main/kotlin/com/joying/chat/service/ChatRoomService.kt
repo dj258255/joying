@@ -1,5 +1,7 @@
 package com.joying.chat.service
 
+import com.joying.chat.broadcast.ChatBroadcaster
+
 import com.joying.chat.domain.ChatRoom
 import com.joying.chat.domain.ChatRoomMember
 import com.joying.chat.domain.ChatRoomStatus
@@ -47,6 +49,7 @@ class ChatRoomService(
     private val fileUrlResolver: FileUrlResolver,
     private val permissionCache: ChatRoomPermissionCache,
     private val messagingTemplate: SimpMessagingTemplate,
+    private val chatBroadcaster: ChatBroadcaster,
     private val redisPubSubPublisher: RedisPubSubPublisher,
 ) {
     private val logger = LoggerFactory.getLogger(ChatRoomService::class.java)
@@ -525,11 +528,7 @@ class ChatRoomService(
                         memberNickname = leavingMember.getNickname(),
                     )
 
-                messagingTemplate.convertAndSendToUser(
-                    otherMemberId.toString(),
-                    "/queue/chatroom-status",
-                    event,
-                )
+                chatBroadcaster.toUser(otherMemberId, "/queue/chatroom-status", event)
 
                 logger.debug("채팅방 나가기 메시지 저장 및 이벤트 전송: chatRoomId={}, to={}", chatRoomId, otherMemberId)
             } catch (e: Exception) {
@@ -625,18 +624,10 @@ class ChatRoomService(
                         )
 
                     // 구매자에게 알림
-                    messagingTemplate.convertAndSendToUser(
-                        chatRoom.buyer.memberId.toString(),
-                        "/queue/chatroom-status",
-                        event,
-                    )
+                    chatBroadcaster.toUser(chatRoom.buyer.memberId, "/queue/chatroom-status", event)
 
                     // 판매자에게 알림
-                    messagingTemplate.convertAndSendToUser(
-                        chatRoom.seller.memberId.toString(),
-                        "/queue/chatroom-status",
-                        event,
-                    )
+                    chatBroadcaster.toUser(chatRoom.seller.memberId, "/queue/chatroom-status", event)
 
                     logger.debug(
                         "채팅방 자동 종료 메시지 저장 및 이벤트 전송: chatRoomId={}, to=[{}, {}]",
@@ -847,11 +838,7 @@ class ChatRoomService(
                         memberNickname = rejoiningMemberNickname,
                     )
 
-                messagingTemplate.convertAndSendToUser(
-                    receiverId.toString(),
-                    "/queue/chatroom-status",
-                    event,
-                )
+                chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
 
                 logger.info("채팅방 재입장 WebSocket 알림 전송 완료: chatRoomId={}, memberId={}, to={}", chatRoomId, memberId, receiverId)
             } catch (e: Exception) {
