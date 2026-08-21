@@ -122,6 +122,13 @@ const chatReducer = (state, action) => {
         messages: sortMessagesAscending(updatedMessages)
       };
     }
+    case 'MERGE_MESSAGES':
+      // 끊긴 사이에 받아 온 것을 이어붙인다. 겹치는 것은 mergeMessages 가 지운다.
+      return {
+        ...state,
+        messages: mergeMessages(state.messages, action.payload)
+      };
+
     case 'SET_MESSAGES':
       return {
         ...state,
@@ -271,6 +278,53 @@ export const ChatProvider = ({ children }) => {
   const typingTimeoutRef = useRef(null);
   const readIndicatorTimeoutsRef = useRef(new Map()); // 메시지별 읽음 표시 타이머
   const heartbeatIntervalRef = useRef(null); // Heartbeat 주기 전송 타이머
+
+  /**
+   * 끊긴 사이에 온 메시지를 받아 온다.
+   *
+   * 마지막으로 받은 메시지의 시각을 커서로 쓴다. 읽음 시각을 쓰면 안 된다.
+   * 읽지 않았어도 받은 것은 받은 것이라, 읽음 시각을 쓰면 이미 화면에 있는 것까지
+   * 다시 온다.
+   *
+   * 한 번에 받는 양에 상한이 있어, 오래 꺼져 있었으면 다 받을 때까지 이어서 부른다.
+   * 상한이 없으면 며칠 꺼 뒀던 사람이 한 번에 수천 건을 받는다.
+   */
+  const fillGapSinceLastReceived = useCallback(async (roomId) => {
+    const messages = stateRef.current?.messages ?? [];
+    // 아직 아무것도 못 받았으면 메울 것이 없다. 첫 로딩이 알아서 가져온다.
+    const lastReceived = [...messages]
+      .reverse()
+      .find((message) => message?.createdAt && !String(message.id ?? '').startsWith('temp_'));
+    if (!lastReceived) return;
+
+    const BATCH_SIZE = 100;
+    const MAX_BATCHES = 10;
+    let cursor = lastReceived.createdAt;
+    let filled = 0;
+
+    try {
+      for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
+        const missed = await messageApi.getMessages(roomId, {
+          after: cursor,
+          size: BATCH_SIZE,
+        });
+        if (!missed?.length) break;
+
+        dispatch({ type: 'MERGE_MESSAGES', payload: missed });
+        filled += missed.length;
+        cursor = missed[missed.length - 1].createdAt;
+
+        if (missed.length < BATCH_SIZE) break;
+      }
+
+      if (filled > 0) {
+        console.log('[ChatContext] 끊긴 사이 메시지 복구:', roomId, filled, '건');
+      }
+    } catch (error) {
+      // 복구에 실패해도 연결 자체는 살아 있다. 방을 다시 열면 채워진다.
+      console.warn('[ChatContext] 끊긴 사이 메시지 복구 실패:', error);
+    }
+  }, []);
   const globalWebSocketClientRef = useRef(null); // 전역 WebSocket 클라이언트 (채팅방 상태 변경 알림용)
   const globalWebSocketSubscriptionRef = useRef(null); // 전역 WebSocket 구독
   const globalHeartbeatIntervalRef = useRef(null); // 전역 WebSocket Heartbeat 인터벌
@@ -1116,7 +1170,16 @@ export const ChatProvider = ({ children }) => {
         connectionResolveRef.current = () => {};
         connectionRejectRef.current = () => {};
         resolve?.();
-        
+
+        // 끊긴 사이에 온 메시지를 받아 온다.
+        //
+        // 웹소켓이 끊기면 그동안 온 것은 오지 않는다. 다시 붙었다고 저절로 오지도
+        // 않는다. 마지막으로 받은 시각 뒤를 직접 달라고 해야 메워진다.
+        //
+        // 예전에는 이 자리가 없어서, 끊긴 동안 온 메시지가 방을 통째로 다시 열기
+        // 전까지 화면에서 비어 있었다.
+        fillGapSinceLastReceived(roomId);
+
         // 채팅방 입장 전송
         try {
           websocketApi.enterChatRoom(roomId);
