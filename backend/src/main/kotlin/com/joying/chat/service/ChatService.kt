@@ -481,33 +481,10 @@ class ChatService(
     ): PushNotificationPayload {
         return when (message.type) {
             MessageType.TEXT -> {
-                PushNotificationPayload(
-                    title = "${senderNickname}님의 메시지",
-                    body = message.content,
-                    icon = senderProfileUrl,
-                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
-                    data =
-                        mapOf(
-                            "chatRoomId" to chatRoomId,
-                            "messageId" to (message.id ?: ""),
-                            "url" to "/chats/$chatRoomId",
-                        ),
-                )
+                PushNotificationPayload.builder().title("${senderNickname}님의 메시지").body(message.content).icon(senderProfileUrl).tag("message-${message.id}").build()
             }
             MessageType.IMAGE -> {
-                PushNotificationPayload(
-                    title = "${senderNickname}님이 사진을 보냈습니다",
-                    body = "이미지 1장",
-                    icon = senderProfileUrl,
-                    image = message.imageUrl,
-                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
-                    data =
-                        mapOf(
-                            "chatRoomId" to chatRoomId,
-                            "messageId" to (message.id ?: ""),
-                            "url" to "/chats/$chatRoomId",
-                        ),
-                )
+                PushNotificationPayload.builder().title("${senderNickname}님이 사진을 보냈습니다").body("이미지 1장").icon(senderProfileUrl).image(message.imageUrl).tag("message-${message.id}").build()
             }
             MessageType.FILE -> {
                 val fileSize =
@@ -519,26 +496,11 @@ class ChatService(
                         }
                     } ?: ""
 
-                PushNotificationPayload(
-                    title = "${senderNickname}님이 파일을 보냈습니다",
-                    body = "${message.fileName} ($fileSize)",
-                    icon = senderProfileUrl,
-                    tag = "message-${message.id}",  // 메시지마다 고유 tag로 알림 쌓이게
-                    data =
-                        mapOf(
-                            "chatRoomId" to chatRoomId,
-                            "messageId" to (message.id ?: ""),
-                            "url" to "/chats/$chatRoomId",
-                        ),
-                )
+                PushNotificationPayload.builder().title("${senderNickname}님이 파일을 보냈습니다").body("${message.fileName} ($fileSize)").icon(senderProfileUrl).tag("message-${message.id}").build()
             }
             MessageType.SYSTEM -> {
                 // 시스템 메시지는 푸시 알림 전송하지 않음
-                return PushNotificationPayload(
-                    title = "",
-                    body = "",
-                    data = emptyMap(),
-                )
+                return PushNotificationPayload.builder().title("").body("").data(emptyMap()).build()
             }
         }
     }
