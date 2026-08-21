@@ -1,5 +1,6 @@
 package com.joying.chat.config
 
+import com.joying.chat.document.ChatMessage
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -51,33 +52,22 @@ class MongoConfig {
     /**
      * MongoDB 인덱스 초기화
      *
-     * 애플리케이션 시작 시 필요한 인덱스를 자동으로 생성
-     * 기존 인덱스가 있으면 삭제 후 재생성
+     * 애플리케이션 시작 시 필요한 인덱스를 만든다.
+     *
+     * ensureIndex는 없을 때만 만들므로 여러 번 불러도 안전하다. 예전에는 기동할 때마다
+     * _id를 뺀 인덱스를 전부 지우고 다시 만들었는데, 그러면 배포할 때마다 인덱스가
+     * 사라졌다가 다시 쌓이는 동안 조회가 전부 컬렉션 스캔으로 돈다.
      */
     private fun initIndexes(mongoTemplate: MongoTemplate) {
         try {
-            val indexOps = mongoTemplate.indexOps("chatMessages")
-
-            // 기존 인덱스 목록 조회
-            val existingIndexes = indexOps.indexInfo
-
-            // 모든 인덱스 삭제 (_id 인덱스 제외)
-            existingIndexes.forEach { indexInfo ->
-                val indexName = indexInfo.name
-                if (indexName != "_id_") {
-                    try {
-                        indexOps.dropIndex(indexName)
-                        logger.debug("기존 인덱스 삭제: {}", indexName)
-                    } catch (e: Exception) {
-                        logger.warn("인덱스 삭제 실패 (무시): {} - {}", indexName, e.message)
-                    }
-                }
-            }
+            // 컬렉션 이름을 문자열로 적으면 @Document의 이름과 어긋나도 아무 신호가 없다.
+            // 실제로 "chatMessages"로 적혀 있어 아래 인덱스가 전부 없는 컬렉션에 만들어지고 있었다.
+            // 엔티티에서 이름을 받아 두 곳이 갈라질 수 없게 한다.
+            val indexOps = mongoTemplate.indexOps(ChatMessage::class.java)
 
             // 1. 안읽은 메시지 카운트 쿼리 최적화 (P0 - Critical)
             // countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot
             // 복합 인덱스: chatRoomId + isDeleted + createdAt + senderId
-            // 예상 성능 개선: 500ms → 5ms (100배 향상)
             indexOps.ensureIndex(
                 Index()
                     .on("chatRoomId", Sort.Direction.ASC)
@@ -108,7 +98,7 @@ class MongoConfig {
                     .named("idx_missed_messages_asc")
             )
 
-            logger.info("MongoDB 인덱스 초기화 완료 (chatMessages)")
+            logger.info("MongoDB 인덱스 초기화 완료: {}", mongoTemplate.getCollectionName(ChatMessage::class.java))
         } catch (e: Exception) {
             logger.error("MongoDB 인덱스 초기화 실패: ${e.message}", e)
         }
