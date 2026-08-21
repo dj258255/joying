@@ -361,7 +361,7 @@ class ChatMessageService(
                 }
 
                 // Redis Pub/Sub 발행 (실시간 동기화)
-                val response = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
+                val response = ChatMessageResponse.from(savedMessage, replyMessage).toBuilder().receiverId(receiverId).build()
                 redisPubSubPublisher.publish(response)
 
                 logger.debug("메시지 삭제 이벤트 발행: messageId={}", messageId)
@@ -477,7 +477,7 @@ class ChatMessageService(
             }
 
             // Redis Pub/Sub 발행 (실시간 동기화)
-            val response = ChatMessageResponse.from(savedMessage, replyMessage).copy(receiverId = receiverId)
+            val response = ChatMessageResponse.from(savedMessage, replyMessage).toBuilder().receiverId(receiverId).build()
             redisPubSubPublisher.publish(response)
 
             logger.debug("메시지 수정 이벤트 발행: messageId={}", messageId)

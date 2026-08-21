@@ -68,10 +68,10 @@ class PaymentEventListener(
             """.trimIndent()
 
             // 채팅 메시지 전송 (시스템 메시지)
-            val messageRequest = SendMessageRequest(
-                type = MessageType.SYSTEM,
-                content = messageContent
-            )
+            val messageRequest = SendMessageRequest.builder()
+                .type(MessageType.SYSTEM)
+                .content(messageContent)
+                .build()
 
             // 비동기로 메시지 전송
             val chatRoomId = chatRoom.chatRoomId ?: run {

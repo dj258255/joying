@@ -212,37 +212,19 @@ class ChatRoomService(
                 .orElse(null)
 
         // Service 안에서 DTO 변환 (Transactional 범위 내에서 lazy loading 가능)
-        return ChatRoomResponse(
-            chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product?.getProductId() ?: 0L,
-            productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
-            productImageUrl = chatRoom.product?.let { getProductThumbnailUrl(it) },
-            otherMemberId =
-                if (chatRoom.buyer.getMemberId() == buyerId) {
+        return ChatRoomResponse.builder().chatRoomId(chatRoom.chatRoomId!!).productId(chatRoom.product?.getProductId() ?: 0L).productTitle(chatRoom.product?.getTitle() ?: "삭제된 상품").productImageUrl(chatRoom.product?.let { getProductThumbnailUrl(it) }).otherMemberId(if (chatRoom.buyer.getMemberId() == buyerId) {
                     chatRoom.seller.getMemberId()!!
                 } else {
                     chatRoom.buyer.getMemberId()!!
-                },
-            otherMemberNickname =
-                if (chatRoom.buyer.getMemberId() == buyerId) {
+                }).otherMemberNickname(if (chatRoom.buyer.getMemberId() == buyerId) {
                     chatRoom.seller.getNickname()
                 } else {
                     chatRoom.buyer.getNickname()
-                },
-            otherMemberProfileUrl =
-                if (chatRoom.buyer.getMemberId() == buyerId) {
+                }).otherMemberProfileUrl(if (chatRoom.buyer.getMemberId() == buyerId) {
                     getProfileImageUrl(chatRoom.seller)
                 } else {
                     getProfileImageUrl(chatRoom.buyer)
-                },
-            lastMessage = chatRoom.lastMessage,
-            lastMessageAt = chatRoom.lastMessageAt,
-            unreadCount = 0L,
-            status = chatRoom.status,
-            isPinned = myMember?.isPinned ?: false,
-            isMuted = myMember?.isMuted ?: false,
-            isLeft = myMember?.isLeft ?: false,
-        )
+                }).lastMessage(chatRoom.lastMessage).lastMessageAt(chatRoom.lastMessageAt).unreadCount(0L).status(chatRoom.status).isPinned(myMember?.isPinned ?: false).isMuted(myMember?.isMuted ?: false).isLeft(myMember?.isLeft ?: false).build()
     }
 
     /**
@@ -330,31 +312,12 @@ class ChatRoomService(
                             } else {
                                 null
                             }
-                        ChatRoomResponse.MemberInfo(
-                            isOnline = isOnline,
-                            lastSeenAt = lastSeenAt,
-                        )
+                        ChatRoomResponse.MemberInfo.builder().isOnline(isOnline).lastSeenAt(lastSeenAt).build()
                     } else {
                         null
                     }
 
-                ChatRoomResponse(
-                    chatRoomId = chatRoom.chatRoomId!!,
-                    productId = chatRoom.product?.getProductId() ?: 0L,
-                    productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
-                    productImageUrl = chatRoom.product?.getProductId()?.let { thumbnailMap[it] },
-                    otherMemberId = otherMember.getMemberId()!!,
-                    otherMemberNickname = otherMember.getNickname(),
-                    otherMemberProfileUrl = profileUrl,
-                    lastMessage = chatRoom.lastMessage,
-                    lastMessageAt = chatRoom.lastMessageAt,
-                    unreadCount = unreadCountMap[chatRoom.chatRoomId] ?: 0L,
-                    status = chatRoom.status,
-                    isPinned = settings.isPinned,
-                    isMuted = settings.isMuted,
-                    isLeft = settings.isLeft,
-                    member = memberInfo, // ← 선택적 포함
-                )
+                ChatRoomResponse.builder().chatRoomId(chatRoom.chatRoomId!!).productId(chatRoom.product?.getProductId() ?: 0L).productTitle(chatRoom.product?.getTitle() ?: "삭제된 상품").productImageUrl(chatRoom.product?.getProductId()?.let { thumbnailMap[it] }).otherMemberId(otherMember.getMemberId()!!).otherMemberNickname(otherMember.getNickname()).otherMemberProfileUrl(profileUrl).lastMessage(chatRoom.lastMessage).lastMessageAt(chatRoom.lastMessageAt).unreadCount(unreadCountMap[chatRoom.chatRoomId] ?: 0L).status(chatRoom.status).isPinned(settings.isPinned).isMuted(settings.isMuted).isLeft(settings.isLeft).member(memberInfo)/*// ← 선택적 포함*/.build()
             }
         }
 
@@ -421,31 +384,12 @@ class ChatRoomService(
                         } else {
                             null
                         }
-                    ChatRoomResponse.MemberInfo(
-                        isOnline = isOnline,
-                        lastSeenAt = lastSeenAt,
-                    )
+                    ChatRoomResponse.MemberInfo.builder().isOnline(isOnline).lastSeenAt(lastSeenAt).build()
                 } else {
                     null
                 }
 
-            ChatRoomResponse(
-                chatRoomId = chatRoom.chatRoomId!!,
-                productId = chatRoom.product?.getProductId() ?: 0L,
-                productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
-                productImageUrl = chatRoom.product?.let { getProductThumbnailUrl(it) },
-                otherMemberId = otherMember.getMemberId()!!,
-                otherMemberNickname = otherMember.getNickname(),
-                otherMemberProfileUrl = getProfileImageUrl(otherMember),
-                lastMessage = chatRoom.lastMessage,
-                lastMessageAt = chatRoom.lastMessageAt,
-                unreadCount = unreadCount,
-                status = chatRoom.status,
-                isPinned = settings.isPinned,
-                isMuted = settings.isMuted,
-                isLeft = settings.isLeft,
-                member = memberInfo, // ← 선택적 포함
-            )
+            ChatRoomResponse.builder().chatRoomId(chatRoom.chatRoomId!!).productId(chatRoom.product?.getProductId() ?: 0L).productTitle(chatRoom.product?.getTitle() ?: "삭제된 상품").productImageUrl(chatRoom.product?.let { getProductThumbnailUrl(it) }).otherMemberId(otherMember.getMemberId()!!).otherMemberNickname(otherMember.getNickname()).otherMemberProfileUrl(getProfileImageUrl(otherMember)).lastMessage(chatRoom.lastMessage).lastMessageAt(chatRoom.lastMessageAt).unreadCount(unreadCount).status(chatRoom.status).isPinned(settings.isPinned).isMuted(settings.isMuted).isLeft(settings.isLeft).member(memberInfo)/*// ← 선택적 포함*/.build()
         }
 
     /**
@@ -513,17 +457,12 @@ class ChatRoomService(
                 val messageDto =
                     com.joying.chat.dto.ChatMessageResponse
                         .from(savedMessage, null)
-                        .copy(receiverId = otherMemberId)
+                        .toBuilder().receiverId(otherMemberId).build()
                 redisPubSubPublisher.publish(messageDto)
 
                 // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
                 val event =
-                    ChatRoomStatusEvent(
-                        chatRoomId = chatRoomId,
-                        eventType = ChatRoomStatusEvent.EventType.MEMBER_LEFT,
-                        memberId = memberId,
-                        memberNickname = leavingMember.getNickname(),
-                    )
+                    ChatRoomStatusEvent.builder().chatRoomId(chatRoomId).eventType(ChatRoomStatusEvent.EventType.MEMBER_LEFT).memberId(memberId).memberNickname(leavingMember.getNickname()).build()
 
                 chatBroadcaster.toUser(otherMemberId, "/queue/chatroom-status", event)
 
@@ -601,24 +540,19 @@ class ChatRoomService(
                     val buyerMessageDto =
                         com.joying.chat.dto.ChatMessageResponse
                             .from(savedMessage, null)
-                            .copy(receiverId = chatRoom.buyer.memberId!!)
+                            .toBuilder().receiverId(chatRoom.buyer.memberId!!).build()
                     redisPubSubPublisher.publish(buyerMessageDto)
 
                     val sellerMessageDto =
                         com.joying.chat.dto.ChatMessageResponse
                             .from(savedMessage, null)
-                            .copy(receiverId = chatRoom.seller.memberId!!)
+                            .toBuilder().receiverId(chatRoom.seller.memberId!!).build()
                     redisPubSubPublisher.publish(sellerMessageDto)
 
                     // 3. 채팅방 상태 변경 이벤트 전송 (선택적)
                     val event =
-                        ChatRoomStatusEvent(
-                            chatRoomId = chatRoom.chatRoomId!!,
-                            eventType = ChatRoomStatusEvent.EventType.ROOM_CLOSED,
-                            memberId = 0L, // 시스템에 의한 종료
-                            memberNickname = null,
-                            status = ChatRoomStatus.AUTO_CLOSED,
-                        )
+                        ChatRoomStatusEvent.builder().chatRoomId(chatRoom.chatRoomId!!).eventType(ChatRoomStatusEvent.EventType.ROOM_CLOSED).memberId(0L)/*// 시스템에 의한 종료
+                            memberNickname = null*/.status(ChatRoomStatus.AUTO_CLOSED).build()
 
                     // 구매자에게 알림
                     chatBroadcaster.toUser(chatRoom.buyer.memberId, "/queue/chatroom-status", event)
@@ -705,19 +639,7 @@ class ChatRoomService(
                 null
             }
 
-        return ChatRoomMemberResponse(
-            memberId = otherMember.getMemberId()!!,
-            nickname = otherMember.getNickname(),
-            profileUrl = getProfileImageUrl(otherMember),
-            isOnline = isOnline,
-            lastSeenAt = lastSeenAt,
-            isPinned = mySettings.isPinned,
-            isMuted = mySettings.isMuted,
-            lastReadAt = mySettings.lastReadAt,
-            chatRoomId = chatRoom.chatRoomId!!,
-            productId = chatRoom.product?.getProductId() ?: 0L,
-            productTitle = chatRoom.product?.getTitle() ?: "삭제된 상품",
-        )
+        return ChatRoomMemberResponse.builder().memberId(otherMember.getMemberId()!!).nickname(otherMember.getNickname()).profileUrl(getProfileImageUrl(otherMember)).isOnline(isOnline).lastSeenAt(lastSeenAt).isPinned(mySettings.isPinned).isMuted(mySettings.isMuted).lastReadAt(mySettings.lastReadAt).chatRoomId(chatRoom.chatRoomId!!).productId(chatRoom.product?.getProductId() ?: 0L).productTitle(chatRoom.product?.getTitle() ?: "삭제된 상품").build()
     }
 
     /**
@@ -820,19 +742,14 @@ class ChatRoomService(
             val messageDto =
                 com.joying.chat.dto.ChatMessageResponse
                     .from(savedMessage, null)
-                    .copy(receiverId = receiverId)
+                    .toBuilder().receiverId(receiverId).build()
             redisPubSubPublisher.publish(messageDto)
 
             logger.info("재입장 시스템 메시지 Redis Pub/Sub 발행: chatRoomId={}, receiverId={}", chatRoomId, receiverId)
 
             // 3. 채팅방 상태 변경 이벤트 전송 (WebSocket)
             val event =
-                ChatRoomStatusEvent(
-                    chatRoomId = chatRoomId,
-                    eventType = ChatRoomStatusEvent.EventType.MEMBER_REJOINED,
-                    memberId = memberId,
-                    memberNickname = rejoiningMemberNickname,
-                )
+                ChatRoomStatusEvent.builder().chatRoomId(chatRoomId).eventType(ChatRoomStatusEvent.EventType.MEMBER_REJOINED).memberId(memberId).memberNickname(rejoiningMemberNickname).build()
 
             chatBroadcaster.toUser(receiverId, "/queue/chatroom-status", event)
 
