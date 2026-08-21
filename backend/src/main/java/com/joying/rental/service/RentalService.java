@@ -1,6 +1,7 @@
 package com.joying.rental.service;
 
 import com.joying.wallet.port.TransferOutcome;
+import com.joying.payment.port.DepositHoldPort;
 import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
@@ -71,6 +72,7 @@ public class RentalService {
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final MoneyTransferPort moneyTransferPort;
+    private final DepositHoldPort depositHoldPort;
     private final DevModeProperties devModeProperties;
 
     /**
@@ -868,21 +870,33 @@ public class RentalService {
             // 확정된 송금은 거래고유번호를 남겨 두고, 다시 돌 때 그 단계를 건너뛴다.
             // 확정한 뒤에는 예외를 던지지 않는다. 던지면 방금 남긴 기록까지 같이 사라진다.
 
-            // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
+            // 차용자에게 돌려줄 몫은 카드에서 직접 되돌린다.
+            //
+            // 예전에는 중개 지갑에서 차용자 지갑으로 옮겼다. 그러려면 차용자의 계좌를
+            // 알아야 하고, 그 일 자체가 정산 대행이 되어 등록 대상이 된다. 되돌릴 돈은
+            // 왔던 길로 보내면 되고, 그러면 우리가 그 돈을 만질 일이 없다.
             if (!cancel.isRenterRefundSent()) {
                 long renterRefundAmt = escrow.getRentalFee() + cancel.getDepositRenterAmt();
-                TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
-                        renter.getMemberId(),
+                String paymentKey = escrow.getPayment() == null
+                        ? null : escrow.getPayment().getPaymentKey();
+
+                if (paymentKey == null) {
+                    log.error("[차용자 환불 불가 - 결제 정보 없음] rentalHisId={}", rentalHisId);
+                    return convertToCancelResponse(cancel);
+                }
+
+                TransferOutcome outcome = depositHoldPort.release(
+                        paymentKey,
                         renterRefundAmt,
                         "cancel-renter-" + cancel.getCancelId(),
-                        "Joying 취소 환불 (대여료+보증금)"
+                        "대여 취소에 따른 환불"
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
                     cancel.markRenterRefundSent(succeeded.transferId());
-                    log.info("[차용자 환불 완료] rentalHisId={}, transferId={}, amount={}, toMemberId={}",
+                    log.info("[차용자 환불 요청 완료] rentalHisId={}, ref={}, amount={}, via={}",
                             rentalHisId, succeeded.transferId(), renterRefundAmt,
-                            renter.getMemberId());
+                            depositHoldPort.name());
                 } else {
                     log.error("[차용자 환불 미완료 - 환불 중단] rentalHisId={}, outcome={}",
                             rentalHisId, outcome);

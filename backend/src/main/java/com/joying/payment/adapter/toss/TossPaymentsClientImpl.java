@@ -124,6 +124,52 @@ public class TossPaymentsClientImpl implements TossPaymentsClient {
         }
     }
 
+    @Override
+    public TossCancelResponse cancelPartial(String paymentKey, String reason, long cancelAmount,
+                                            String idempotencyKey) {
+        log.info("[Toss API] 결제 부분취소 요청: paymentKey={}, amount={}, key={}",
+                paymentKey, cancelAmount, idempotencyKey);
+
+        try {
+            TossCancelRequest request = new TossCancelRequest(reason);
+            request.setCancelAmount((int) cancelAmount);
+
+            TossCancelResponse response = tossWebClient.post()
+                    .uri("/v1/payments/{paymentKey}/cancel", paymentKey)
+                    .header(HttpHeaders.AUTHORIZATION, "Basic " + basic(secretKey + ":"))
+                    // 같은 열쇠로 두 번 보내면 토스가 첫 응답을 그대로 돌려준다.
+                    // 재시도가 두 번 취소되지 않게 하는 것은 우리 코드가 아니라 이 헤더다.
+                    .header("Idempotency-Key", idempotencyKey)
+                    .bodyValue(request)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 4xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("CLIENT_ERROR", errorBody));
+                                    })
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
+                            clientResponse.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("[Toss API] 5xx 에러: {}", errorBody);
+                                        return Mono.error(new TossPaymentException("SERVER_ERROR", errorBody));
+                                    })
+                    )
+                    .bodyToMono(TossCancelResponse.class)
+                    .block();
+
+            log.info("[Toss API] 결제 부분취소 성공: paymentKey={}, status={}",
+                    paymentKey, response == null ? null : response.getStatus());
+            return response;
+
+        } catch (WebClientResponseException e) {
+            log.error("[Toss API] 결제 부분취소 실패: status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new TossPaymentException("CANCEL_FAILED", e.getResponseBodyAsString());
+        }
+    }
+
     /**
      * orderId로 결제 조회 (멱등성 처리용)
      */
