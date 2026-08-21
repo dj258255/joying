@@ -39,6 +39,19 @@ public interface DepositHoldPort {
 						  String reference, String reason);
 
 	/**
+	 * 이 결제에서 아직 취소되지 않고 남아 있는 금액.
+	 *
+	 * <p>되돌려 달라고 요청한 것과 카드사에 실제로 반영된 것은 다르다. 부분취소는
+	 * 매입 뒤에 도는 절차라 영업일이 걸린다. 요청한 자리에서 완료로 적으면, 반영되지
+	 * 않았을 때 고객은 돈을 못 받았는데 우리 기록만 돌려준 것이 된다.
+	 *
+	 * <p>그래서 확정은 이 값으로 판단한다. 되돌린 만큼 줄어 있으면 반영된 것이다.
+	 *
+	 * @return 남은 금액. 알 수 없으면 비어 있음
+	 */
+	java.util.Optional<Long> remainingAmount(String paymentKey);
+
+	/**
 	 * 이 구현이 보증금을 어떻게 다루는지. 로그와 운영 화면에서 구분하는 데 쓴다.
 	 */
 	String name();
