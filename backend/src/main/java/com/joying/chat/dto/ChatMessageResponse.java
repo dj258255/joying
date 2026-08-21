@@ -30,6 +30,23 @@ public class ChatMessageResponse {
 	private Long chatRoomId;
 	private Long senderId;
 
+	/**
+	 * 방 안에서의 순번.
+	 *
+	 * <p>화면은 이것으로 정렬하고, 더 읽어 올 때 커서로도 쓴다. 저장 시각은 화면에
+	 * 보여 주기 위한 것이지 순서를 정하는 값이 아니다.
+	 */
+	private Long sequence;
+
+	/**
+	 * 보낸 쪽이 이 전송에 붙인 값.
+	 *
+	 * <p>돌려보내야 화면이 미리 그려 둔 것과 이것을 같은 건으로 묶는다. 돌려보내지
+	 * 않으면 화면은 내용과 시각을 비교해 짐작해야 하고, 같은 말을 두 번 보냈을 때
+	 * 하나를 지운다.
+	 */
+	private String clientMessageId;
+
 	/** 받는 사람. 웹소켓으로 내보낼 대상을 고르는 데 쓴다 */
 	private Long receiverId;
 
@@ -96,6 +113,8 @@ public class ChatMessageResponse {
 
 		return ChatMessageResponse.builder()
 			.id(message.getId())
+			.sequence(message.getSequence())
+			.clientMessageId(message.getClientMessageId())
 			.chatRoomId(message.getChatRoomId())
 			.senderId(message.getSenderId())
 			.type(message.getType())

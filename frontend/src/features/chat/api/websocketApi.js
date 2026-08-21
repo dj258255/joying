@@ -87,6 +87,19 @@ const createSocket = () => {
   }
 };
 
+/**
+ * 이 전송을 가리키는 값을 만든다.
+ *
+ * 같은 값이 두 번 나오면 안 된다. 브라우저가 주는 것을 쓰되, 없는 환경도 있으므로
+ * 시각과 난수를 붙인 것으로 대신한다.
+ */
+export const newClientMessageId = () => {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
 export const websocketApi = {
   connect(chatRoomId, { onMessage, onTyping, onRead, onError, onConnect, onDisconnect } = {}) {
     const chatRoomIdNum = Number(chatRoomId);
@@ -241,10 +254,22 @@ export const websocketApi = {
       throw new Error('유효하지 않은 채팅방 ID입니다.');
     }
 
+    // 이 전송을 가리키는 값을 붙인다.
+    //
+    // 발행이 실패하면 저장은 됐는데 전달이 안 된 상태가 된다. 그때 사용자가 다시
+    // 보내면 서버가 같은 값을 보고 두 번 저장하지 않는다. 없으면 같은 말풍선이
+    // 두 번 뜬다.
+    const withClientId = {
+      ...message,
+      clientMessageId: message.clientMessageId ?? newClientMessageId()
+    };
+
     client.publish({
       destination: `/app/chat/${chatRoomIdNum}/send`,
-      body: JSON.stringify(message)
+      body: JSON.stringify(withClientId)
     });
+
+    return withClientId.clientMessageId;
   },
 
   sendReadReceipt(chatRoomId) {

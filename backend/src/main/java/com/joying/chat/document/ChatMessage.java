@@ -27,7 +27,13 @@ import lombok.Setter;
 @Getter
 @Document(collection = "chat_messages")
 @CompoundIndexes({
-	@CompoundIndex(name = "idx_chat_room_id_created_at", def = "{'chatRoomId': 1, 'createdAt': -1}")
+	@CompoundIndex(name = "idx_chat_room_id_created_at", def = "{'chatRoomId': 1, 'createdAt': -1}"),
+	@CompoundIndex(name = "idx_chat_room_id_sequence", def = "{'chatRoomId': 1, 'sequence': -1}"),
+	// sparse 는 필드가 아예 없을 때만 건너뛴다. null 로 들어오면 걸려서 두 번째가
+	// 막힌다. 값이 문자열일 때만 제약을 걸도록 조건을 준다.
+	@CompoundIndex(name = "uk_chat_room_id_client_message_id",
+		def = "{'chatRoomId': 1, 'clientMessageId': 1}", unique = true,
+		partialFilter = "{'clientMessageId': {'$type': 'string'}}")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage {
@@ -39,6 +45,19 @@ public class ChatMessage {
 	@Field("chatRoomId")
 	@Indexed
 	private Long chatRoomId;
+
+	/**
+	 * 방 안에서 늘어나는 번호.
+	 *
+	 * <p>순서를 정하는 근거다. 시각으로 정하면 저장 직전에 앱 서버가 찍는 값이라
+	 * 같은 사람이 연속으로 보낸 두 건이 풀에서 경합해 뒤집힌다. 서버가 늘면 시계
+	 * 차이까지 더해져 사람마다 다른 순서를 볼 수 있다.
+	 *
+	 * <p>이 번호는 방마다 하나씩 늘어나므로 누가 먼저 받았든 모두가 같은 순서를 본다.
+	 */
+	@Field("sequence")
+	@Setter
+	private Long sequence;
 
 	@Field("senderId")
 	@Indexed
@@ -65,6 +84,16 @@ public class ChatMessage {
 	@Field("replyToMessageId")
 	private String replyToMessageId;
 
+	/**
+	 * 보내는 쪽이 만든 전송 식별자.
+	 *
+	 * <p>같은 값으로 두 번 저장되지 않게 하는 열쇠다. 애플리케이션에서 먼저 조회해
+	 * 확인하면 동시에 들어온 두 요청이 둘 다 없다고 읽고 둘 다 넣는다. 그래서 판정을
+	 * 저장소의 유니크 제약에 맡긴다.
+	 */
+	@Field("clientMessageId")
+	private String clientMessageId;
+
 	@CreatedDate
 	@Field("createdAt")
 	@Setter
@@ -89,6 +118,11 @@ public class ChatMessage {
 	@Field("isRead")
 	@Setter
 	private boolean isRead;
+
+	public void assign(Long sequence, String clientMessageId) {
+		this.sequence = sequence;
+		this.clientMessageId = clientMessageId;
+	}
 
 	private ChatMessage(Long chatRoomId, Long senderId, MessageType type, String content) {
 		this.chatRoomId = chatRoomId;

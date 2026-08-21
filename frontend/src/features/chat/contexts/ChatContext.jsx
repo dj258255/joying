@@ -7,7 +7,7 @@ import React, { createContext, useContext, useReducer, useEffect, useCallback, u
 import { useQueryClient } from '@tanstack/react-query';
 import { chatApi } from '../api/chatApi';
 import { messageApi } from '../api/messageApi';
-import { websocketApi, getWebSocketUrl } from '../api/websocketApi';
+import { websocketApi, getWebSocketUrl, newClientMessageId } from '../api/websocketApi';
 import { useChatSocket } from '../hooks/useChatSocket';
 import { useAuth } from '@/features/auth/contexts/AuthContext';
 import { QUERY_KEYS } from '@/lib/react-query/queryKeys';
@@ -16,16 +16,39 @@ import SockJS from 'sockjs-client';
 
 const DEFAULT_MESSAGE_PAGE_SIZE = 20;
 
+/**
+ * 서버가 매긴 번호로 세운다.
+ *
+ * 보낸 시각으로 세우면 같은 순간에 오간 두 건의 앞뒤가 화면마다 달라진다. 시각은
+ * 보내는 쪽 기준이라 두 사람의 시계가 다르면 남의 말이 내 말 앞에 끼기도 한다.
+ *
+ * 아직 서버에 닿지 않아 번호가 없는 것은 맨 뒤에 둔다. 방금 내가 보낸 것이므로
+ * 아래에 있는 것이 맞고, 번호를 받으면 제자리를 찾아간다.
+ */
 const sortMessagesAscending = (messages) => {
   return [...messages].sort((a, b) => {
-    const aTime = new Date(a?.timestamp || 0).getTime();
-    const bTime = new Date(b?.timestamp || 0).getTime();
-    return aTime - bTime;
+    const aSeq = a?.sequence;
+    const bSeq = b?.sequence;
+
+    if (aSeq != null && bSeq != null) return aSeq - bSeq;
+    if (aSeq != null) return -1;
+    if (bSeq != null) return 1;
+
+    // 둘 다 아직 번호가 없으면 내가 누른 순서대로
+    return new Date(a?.timestamp || 0).getTime() - new Date(b?.timestamp || 0).getTime();
   });
 };
 
+/**
+ * 같은 전송을 가리키는 키.
+ *
+ * 보낼 때 붙인 식별자를 가장 먼저 본다. 임시로 그려 둔 것과 서버가 돌려준 것이
+ * 같은 값을 들고 있어, 둘을 한 건으로 묶을 수 있다. 예전에는 내용이 같고 5초
+ * 안이면 같은 것으로 봤는데, 같은 말을 두 번 보내면 하나가 사라졌다.
+ */
 const createMessageKey = (message) => {
   if (!message) return 'undefined';
+  if (message.clientMessageId) return `client:${message.clientMessageId}`;
   if (message.id) return String(message.id);
   const senderId = message.senderId ?? message.sender?.id ?? 'unknown';
   const timestamp = message.timestamp ?? 'no-time';
@@ -39,15 +62,12 @@ const mergeMessages = (existing, incoming) => {
 
   existing.forEach((message) => {
     if (!message) return;
-    // ID가 있으면 ID를 키로 사용, 없으면 createMessageKey 사용
-    const key = message.id ? String(message.id) : createMessageKey(message);
-    map.set(key, message);
+    map.set(createMessageKey(message), message);
   });
 
   incoming.forEach((message) => {
     if (!message) return;
-    // ID가 있으면 ID를 키로 사용, 없으면 createMessageKey 사용
-    const key = message.id ? String(message.id) : createMessageKey(message);
+    const key = createMessageKey(message);
     const existingMessage = map.get(key);
     
     // 같은 ID를 가진 메시지가 있으면 기존 메시지를 유지 (중복 방지)
@@ -282,9 +302,12 @@ export const ChatProvider = ({ children }) => {
   /**
    * 끊긴 사이에 온 메시지를 받아 온다.
    *
-   * 마지막으로 받은 메시지의 시각을 커서로 쓴다. 읽음 시각을 쓰면 안 된다.
+   * 마지막으로 받은 메시지의 번호를 커서로 쓴다. 읽음 시각을 쓰면 안 된다.
    * 읽지 않았어도 받은 것은 받은 것이라, 읽음 시각을 쓰면 이미 화면에 있는 것까지
    * 다시 온다.
+   *
+   * 시각이 아니라 번호인 이유는 경계 때문이다. 서버는 커서보다 큰 것만 주는데,
+   * 같은 밀리초에 저장된 메시지가 둘이면 하나가 커서와 같은 값이라 빠진다.
    *
    * 한 번에 받는 양에 상한이 있어, 오래 꺼져 있었으면 다 받을 때까지 이어서 부른다.
    * 상한이 없으면 며칠 꺼 뒀던 사람이 한 번에 수천 건을 받는다.
@@ -294,12 +317,12 @@ export const ChatProvider = ({ children }) => {
     // 아직 아무것도 못 받았으면 메울 것이 없다. 첫 로딩이 알아서 가져온다.
     const lastReceived = [...messages]
       .reverse()
-      .find((message) => message?.createdAt && !String(message.id ?? '').startsWith('temp_'));
+      .find((message) => message?.sequence != null && !String(message.id ?? '').startsWith('temp_'));
     if (!lastReceived) return;
 
     const BATCH_SIZE = 100;
     const MAX_BATCHES = 10;
-    let cursor = lastReceived.createdAt;
+    let cursor = lastReceived.sequence;
     let filled = 0;
 
     try {
@@ -312,7 +335,7 @@ export const ChatProvider = ({ children }) => {
 
         dispatch({ type: 'MERGE_MESSAGES', payload: missed });
         filled += missed.length;
-        cursor = missed[missed.length - 1].createdAt;
+        cursor = missed[missed.length - 1].sequence;
 
         if (missed.length < BATCH_SIZE) break;
       }
@@ -699,6 +722,10 @@ export const ChatProvider = ({ children }) => {
 
     const message = {
       id: messageId,
+      // 화면의 정렬 기준. 서버가 방 안에서 매긴다
+      sequence: rawMessage.sequence ?? null,
+      // 임시로 그려 둔 것과 서버가 돌려준 것을 묶는 값
+      clientMessageId: rawMessage.clientMessageId ?? null,
       chatRoomId: rawMessage.chatRoomId ?? chatRoomOverride?.chatRoomId ?? chatRoomOverride?.id ?? state.currentChatRoom?.chatRoomId ?? state.currentChatRoom?.id ?? null,
       type,
       content: messageContent,
@@ -1116,15 +1143,24 @@ export const ChatProvider = ({ children }) => {
           
           // 본인이 보낸 새 메시지이고 임시 메시지가 있으면 교체
           if (isOwnMessage) {
-            // 임시 메시지(temp_로 시작하거나 status가 'sending'/'pending'인 메시지) 찾기
-            const tempMessage = snapshot.messages.find(
-              (msg) => 
-                (msg.id && msg.id.startsWith('temp_')) || 
-                (msg.status === 'sending' || msg.status === 'pending') &&
-                Number(msg.senderId) === Number(currentUserId) &&
-                msg.content === normalized.content &&
-                Math.abs(new Date(msg.timestamp) - new Date(normalized.timestamp)) < 5000 // 5초 이내
-            );
+            // 보낼 때 붙인 식별자로 임시 메시지를 찾는다. 같은 값을 들고 있으므로
+            // 같은 전송이라는 것이 확실하다.
+            //
+            // 식별자가 없는 것은 이 화면이 뜨기 전에 보낸 것이다. 그때는 예전 방식대로
+            // 내용과 시각으로 찾는다. 같은 말을 5초 안에 두 번 보내면 하나가 사라지는
+            // 방식이라, 식별자가 있을 때는 쓰지 않는다.
+            const tempMessage = snapshot.messages.find((msg) => {
+              if (normalized.clientMessageId && msg.clientMessageId) {
+                return msg.clientMessageId === normalized.clientMessageId;
+              }
+              return (
+                (msg.id && msg.id.startsWith('temp_')) ||
+                ((msg.status === 'sending' || msg.status === 'pending') &&
+                  Number(msg.senderId) === Number(currentUserId) &&
+                  msg.content === normalized.content &&
+                  Math.abs(new Date(msg.timestamp) - new Date(normalized.timestamp)) < 5000)
+              );
+            });
             
             if (tempMessage) {
               // 임시 메시지를 실제 메시지로 교체
@@ -1653,8 +1689,15 @@ export const ChatProvider = ({ children }) => {
         console.log('[ChatContext] 대여 요청 메시지 감지 (optimistic): text -> rental_request');
       }
       
+      // 이 전송을 가리키는 값. 임시 메시지와 서버가 돌려줄 것에 같은 값을 붙여
+      // 두면 내용을 비교하지 않고도 둘이 같은 것임을 알 수 있다.
+      const clientMessageId = payload.clientMessageId ?? newClientMessageId();
+      payload.clientMessageId = clientMessageId;
+
       const optimisticMessage = {
         id: `temp_${Date.now()}`,
+        clientMessageId,
+        sequence: null,
         chatRoomId: roomId,
         type: messageType,
         content: payload.content,
