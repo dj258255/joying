@@ -155,9 +155,9 @@ public class UnreadCountService {
 	/**
 	 * 저장소에서 세어 Redis에 다시 넣는다.
 	 *
-	 * <p>한 번도 방을 열지 않아 읽은 시각이 없으면 0으로 본다. 쌓인 메시지가 있어도
-	 * 배지에 안 나온다는 뜻이라 옳지 않지만, 이관 중에 고치지 않는다. 지금 동작은
-	 * 테스트로 박아 두었다.
+	 * <p>읽은 시각이 없다는 것은 한 번도 안 읽었다는 뜻이지 읽을 것이 없다는 뜻이
+	 * 아니다. 그때는 방의 처음부터 전부 센다. 예전에는 여기서 0을 돌려줬고, 그래서
+	 * 새로 만든 방에 상대가 먼저 말을 걸면 배지에 아무것도 안 떴다.
 	 */
 	private long warmup(Long chatRoomId, Long memberId) {
 		try {
@@ -170,13 +170,13 @@ public class UnreadCountService {
 				return 0L;
 			}
 
-			long actualCount = 0L;
-			if (member.getLastReadAt() != null) {
-				// 본인이 보낸 것은 빼고 센다
-				actualCount = chatMessageRepository
+			// 본인이 보낸 것은 어느 쪽이든 빼고 센다
+			long actualCount = member.getLastReadAt() == null
+				? chatMessageRepository
+					.countByChatRoomIdAndIsDeletedFalseAndSenderIdNot(chatRoomId, memberId)
+				: chatMessageRepository
 					.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
 						chatRoomId, member.getLastReadAt(), memberId);
-			}
 
 			try {
 				redis.opsForValue().set(getKey(chatRoomId, memberId),

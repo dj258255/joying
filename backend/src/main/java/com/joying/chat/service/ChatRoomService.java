@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -294,8 +295,11 @@ public class ChatRoomService {
 	/**
 	 * 오래 안 쓴 방을 닫는다.
 	 *
-	 * <p>부르는 곳이 없다. 주기적으로 돌리려면 스케줄에 걸어야 한다.
+	 * <p>선언만 되어 있고 부르는 곳이 없어 한 번도 실행되지 않던 경로다. 하루에 한 번
+	 * 돌게 걸었다. 사람이 몰리지 않는 시각에 둔 이유는 방마다 시스템 메시지를 저장하고
+	 * 양쪽에 알림을 보내기 때문이다.
 	 */
+	@Scheduled(cron = "${joying.chat.auto-close.cron:0 30 4 * * *}", zone = "Asia/Seoul")
 	@Transactional
 	public void autoCloseInactiveChatRooms() {
 		Instant threshold = Instant.now().minusSeconds(AUTO_CLOSE_AFTER_SECONDS);
