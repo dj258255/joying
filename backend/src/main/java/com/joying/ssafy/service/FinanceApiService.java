@@ -27,7 +27,7 @@ import java.util.Map;
 public class FinanceApiService {
 
 	private final FinanceApiProperties financeApiProperties;
-	private final RestTemplate restTemplate = new RestTemplate();
+	private final RestTemplate financeApiRestTemplate;
 
 	/**
 	 * SSAFY 금융망 회원 조회
@@ -52,7 +52,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<MemberSearchRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<MemberRegisterResponse> response = restTemplate.postForEntity(
+			ResponseEntity<MemberRegisterResponse> response = financeApiRestTemplate.postForEntity(
 				url,
 				entity,
 				MemberRegisterResponse.class
@@ -100,7 +100,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<MemberRegisterRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<MemberRegisterResponse> response = restTemplate.postForEntity(
+			ResponseEntity<MemberRegisterResponse> response = financeApiRestTemplate.postForEntity(
 				url,
 				entity,
 				MemberRegisterResponse.class
@@ -184,7 +184,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<OpenAccountAuthRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<OpenAccountAuthResponse> response = restTemplate.postForEntity(
+			ResponseEntity<OpenAccountAuthResponse> response = financeApiRestTemplate.postForEntity(
 				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/accountAuth/" + apiName,
 				entity,
 				OpenAccountAuthResponse.class
@@ -254,7 +254,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<CheckAuthCodeRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<CheckAuthCodeResponse> response = restTemplate.postForEntity(
+			ResponseEntity<CheckAuthCodeResponse> response = financeApiRestTemplate.postForEntity(
 				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/accountAuth/" + apiName,
 				entity,
 				CheckAuthCodeResponse.class
@@ -329,7 +329,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<InquireDemandDepositListRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<InquireDemandDepositListResponse> response = restTemplate.postForEntity(
+			ResponseEntity<InquireDemandDepositListResponse> response = financeApiRestTemplate.postForEntity(
 				requestUrl,
 				entity,
 				InquireDemandDepositListResponse.class
@@ -401,7 +401,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<InquireTransactionHistoryRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<InquireTransactionHistoryResponse> response = restTemplate.postForEntity(
+			ResponseEntity<InquireTransactionHistoryResponse> response = financeApiRestTemplate.postForEntity(
 				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 				entity,
 				InquireTransactionHistoryResponse.class
@@ -472,7 +472,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<CreateDemandDepositAccountRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<CreateDemandDepositAccountResponse> response = restTemplate.postForEntity(
+			ResponseEntity<CreateDemandDepositAccountResponse> response = financeApiRestTemplate.postForEntity(
 				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 				entity,
 				CreateDemandDepositAccountResponse.class
@@ -518,7 +518,7 @@ public class FinanceApiService {
 	 * @param userKey             계좌 사용자 KEY (에스크로 계좌 userKey)
 	 * @return 거래 고유번호
 	 */
-	public String depositMoney(
+	public TransferOutcome depositMoney(
 			String accountNo,
 			Long transactionBalance,
 			String transactionSummary,
@@ -549,44 +549,92 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-			// Object로 받기
-			Object responseObj = restTemplate.postForObject(
+			Object responseObj = financeApiRestTemplate.postForObject(
 					financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 					entity,
 					Object.class
 			);
 
-			if (responseObj == null) {
-				log.error("계좌 입금 응답이 null입니다");
-				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-			}
+			return classifyTransferResponse("계좌 입금", responseObj);
 
-			if (responseObj instanceof Map) {
-				Map responseBody = (Map) responseObj;
+		} catch (HttpClientErrorException e) {
+			// 4xx는 금융망이 요청을 받고 거절한 것이다. 돈은 옮겨지지 않았다.
+			log.warn("계좌 입금 거절: accountNo={}, status={}, body={}",
+					accountNo, e.getStatusCode(), e.getResponseBodyAsString());
+			return new TransferOutcome.Rejected(
+					e.getStatusCode().toString(), e.getResponseBodyAsString());
 
-				Map headerMap = (Map) responseBody.get("Header");
-				if (headerMap == null || !"H0000".equals(headerMap.get("responseCode"))) {
-					log.error("계좌 입금 실패: {}", headerMap);
-					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-				}
-
-				Map recMap = (Map) responseBody.get("REC");
-				String transactionUniqueNo = (String) recMap.get("transactionUniqueNo");
-
-				log.info("계좌 입금 성공: transactionUniqueNo={}", transactionUniqueNo);
-				return transactionUniqueNo;
-			}
-
-			// 리스트 응답 또는 기타 처리
-			log.error("계좌 입금 실패(알 수 없는 응답): {}", responseObj);
-			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-
-		} catch (BusinessException e) {
-			throw e;
 		} catch (Exception e) {
-			log.error("계좌 입금 API 호출 중 오류 발생", e);
-			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			// 타임아웃, 연결 실패, 5xx는 입금이 됐는지 알 수 없다.
+			// 연결 타임아웃만 "보내지 않았다"로 가를 수도 있으나, 클라이언트 구현에 따라
+			// 연결 타임아웃과 읽기 타임아웃이 같은 예외로 올라와 안전하게 가르기 어렵다.
+			// 미확정으로 잘못 분류하면 재조회 한 번이 더 들고, 확정 실패로 잘못 분류하면
+			// 이미 옮겨진 돈을 장부에서 지운다. 그래서 모르는 것은 전부 미확정으로 둔다.
+			log.error("계좌 입금 결과 미확정: accountNo={}, 금액={}",
+					accountNo, transactionBalance, e);
+			return new TransferOutcome.Unconfirmed(
+					e.getClass().getSimpleName() + ": " + e.getMessage());
 		}
+	}
+
+	/**
+	 * 금융망 입금·송금 응답을 확정 결과로 옮긴다.
+	 *
+	 * <p>헤더의 응답 코드가 H0000일 때만 성공으로 본다. 그 밖의 코드는 금융망이 요청을 받고
+	 * 거절한 것이므로 확정 실패로 본다. 응답이 비었거나 모양이 예상과 다르면 무슨 일이
+	 * 있었는지 알 수 없으므로 미확정으로 둔다.
+	 *
+	 * <p>H0000이 아닌 코드 안에도 성격이 다른 것이 섞여 있을 수 있다. 코드별 분류는 아직
+	 * 하지 않았고, 그때까지는 전부 확정 실패로 둔다.
+	 */
+	private TransferOutcome classifyTransferResponse(String what, Object responseObj) {
+		if (responseObj == null) {
+			log.error("{} 응답이 null입니다", what);
+			return new TransferOutcome.Unconfirmed("응답 없음");
+		}
+
+		if (!(responseObj instanceof Map<?, ?> responseBody)) {
+			log.error("{} 응답 모양을 알 수 없습니다: {}", what, responseObj);
+			return new TransferOutcome.Unconfirmed("응답 모양 불명");
+		}
+
+		if (!(responseBody.get("Header") instanceof Map<?, ?> headerMap)) {
+			log.error("{} 응답에 Header가 없습니다: {}", what, responseBody);
+			return new TransferOutcome.Unconfirmed("Header 없음");
+		}
+
+		String responseCode = String.valueOf(headerMap.get("responseCode"));
+		if (!"H0000".equals(responseCode)) {
+			log.warn("{} 거절: {}", what, headerMap);
+			return new TransferOutcome.Rejected(
+					responseCode, String.valueOf(headerMap.get("responseMessage")));
+		}
+
+		Object recObj = responseBody.get("REC");
+		String transactionUniqueNo = extractTransactionUniqueNo(recObj);
+		if (transactionUniqueNo == null) {
+			// 성공 코드가 왔는데 거래고유번호가 없으면 나중에 이 건을 다시 물을 수 없다.
+			// 확정할 근거가 모자라므로 미확정으로 둔다.
+			log.error("{} 성공 응답에 거래고유번호가 없습니다: {}", what, recObj);
+			return new TransferOutcome.Unconfirmed("거래고유번호 없음");
+		}
+
+		log.info("{} 성공: transactionUniqueNo={}", what, transactionUniqueNo);
+		return new TransferOutcome.Succeeded(transactionUniqueNo);
+	}
+
+	/**
+	 * REC는 단건이면 Map, 다건이면 List로 온다. 둘 다에서 거래고유번호를 꺼낸다.
+	 */
+	private String extractTransactionUniqueNo(Object recObj) {
+		if (recObj instanceof Map<?, ?> recMap) {
+			Object v = recMap.get("transactionUniqueNo");
+			return v == null ? null : String.valueOf(v);
+		}
+		if (recObj instanceof List<?> list && !list.isEmpty()) {
+			return extractTransactionUniqueNo(list.get(0));
+		}
+		return null;
 	}
 
 
@@ -624,7 +672,7 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<InquireDemandDepositAccountHolderNameRequest> entity = new HttpEntity<>(request, headers);
 
-			ResponseEntity<InquireDemandDepositAccountHolderNameResponse> response = restTemplate.postForEntity(
+			ResponseEntity<InquireDemandDepositAccountHolderNameResponse> response = financeApiRestTemplate.postForEntity(
 				financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 				entity,
 				InquireDemandDepositAccountHolderNameResponse.class
@@ -670,13 +718,14 @@ public class FinanceApiService {
 	 * @param withdrawalUserKey    출금 계좌 사용자 KEY (Joying 중개계좌 userKey)
 	 * @return 거래 고유번호
 	 */
-	public String transferMoney(
+	public TransferOutcome transferMoney(
 			String withdrawalAccountNo,
 			String depositAccountNo,
 			Long transactionBalance,
 			String transactionSummary,
 			String withdrawalUserKey
 	) {
+
 
 		String apiName = "updateDemandDepositAccountTransfer";
 
@@ -705,66 +754,105 @@ public class FinanceApiService {
 			headers.setContentType(MediaType.APPLICATION_JSON);
 			HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
 
-			Object responseObj = restTemplate.postForObject(
+			Object responseObj = financeApiRestTemplate.postForObject(
 					financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
 					entity,
 					Object.class
 			);
 
-			if (responseObj == null) {
-				log.error("계좌 송금 응답이 null입니다");
+			return classifyTransferResponse("계좌 송금", responseObj);
+
+		} catch (HttpClientErrorException e) {
+			// 4xx는 금융망이 요청을 받고 거절한 것이다. 돈은 옮겨지지 않았다.
+			log.warn("계좌 송금 거절: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+			return new TransferOutcome.Rejected(
+					e.getStatusCode().toString(), e.getResponseBodyAsString());
+
+		} catch (Exception e) {
+			// 타임아웃, 연결 실패, 5xx는 송금이 나갔는지 알 수 없다.
+			// 여기서 실패로 확정하고 되돌리면, 실제로 나간 돈을 장부에서 지운다.
+			log.error("계좌 송금 결과 미확정", e);
+			return new TransferOutcome.Unconfirmed(
+					e.getClass().getSimpleName() + ": " + e.getMessage());
+		}
+	}
+
+	/**
+	 * 계좌거래내역조회(목록).
+	 *
+	 * <p>송금 결과가 미확정으로 남은 건은 거래고유번호를 받지 못해 단건 조회로는 확인할 수
+	 * 없다. 이 조회로 계좌의 기간별 거래를 받아, 거래 요약에 심어 둔 주문번호로 찾는다.
+	 *
+	 * <p>조회 자체가 실패하면 빈 목록이 아니라 예외를 던진다. 빈 목록을 돌려주면
+	 * 부르는 쪽이 "거래가 없었다"로 읽어 미확정 건을 실패로 확정해 버린다.
+	 *
+	 * @param accountNo 조회할 계좌번호
+	 * @param startDate 조회 시작일 yyyyMMdd
+	 * @param endDate   조회 종료일 yyyyMMdd
+	 * @param userKey   계좌 사용자 KEY
+	 * @return 기간 내 거래 목록. 거래가 없으면 빈 목록
+	 */
+	public List<InquireTransactionHistoryResponse.TransactionRec> inquireTransactionHistoryList(
+			String accountNo,
+			String startDate,
+			String endDate,
+			String userKey
+	) {
+		String apiName = "inquireTransactionHistoryList";
+
+		SsafyApiHeader header = SsafyApiHeader.createRequestHeaderWithUserKey(
+				apiName,
+				apiName,
+				financeApiProperties.getApiKey(),
+				userKey,
+				financeApiProperties.getInstitutionCode(),
+				financeApiProperties.getFintechAppNo()
+		);
+
+		InquireTransactionHistoryListRequest request = InquireTransactionHistoryListRequest.builder()
+				.header(header)
+				.accountNo(accountNo)
+				.startDate(startDate)
+				.endDate(endDate)
+				.transactionType("A")
+				.orderByType("DESC")
+				.build();
+
+		log.info("계좌거래내역 목록 조회 요청: accountNo={}, {}~{}", accountNo, startDate, endDate);
+
+		try {
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<InquireTransactionHistoryListRequest> entity = new HttpEntity<>(request, headers);
+
+			ResponseEntity<InquireTransactionHistoryListResponse> response =
+					financeApiRestTemplate.postForEntity(
+							financeApiProperties.getBaseUrl() + "/ssafy/api/v1/edu/demandDeposit/" + apiName,
+							entity,
+							InquireTransactionHistoryListResponse.class
+					);
+
+			InquireTransactionHistoryListResponse body = response.getBody();
+			if (body == null || body.getHeader() == null
+					|| !"H0000".equals(body.getHeader().getResponseCode())) {
+				log.error("계좌거래내역 목록 조회 실패: accountNo={}, body={}", accountNo, body);
 				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 			}
 
-			// 성공/실패 공통: Response는 Map으로 온다
-			if (!(responseObj instanceof Map)) {
-				log.error("계좌 송금 실패(전체 응답 타입이 Map이 아님): {}", responseObj);
-				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			if (body.getRec() == null || body.getRec().getList() == null) {
+				return List.of();
 			}
 
-			Map responseBody = (Map) responseObj;
-
-			Map headerMap = (Map) responseBody.get("Header");
-			if (headerMap == null || !"H0000".equals(headerMap.get("responseCode"))) {
-				log.error("계좌 송금 실패(Header 오류): {}", headerMap);
-				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-			}
-
-			Object recObj = responseBody.get("REC");
-
-			/**
-			 * 실패: REC = Map (errorCode, errorMessage)
-			 */
-			if (recObj instanceof Map) {
-				log.error("계좌 송금 실패(REC=Map 오류): {}", recObj);
-				throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-			}
-
-			/**
-			 * 성공: REC = List (출금/입금 2건)
-			 */
-			if (recObj instanceof List<?> list) {
-				if (list.isEmpty()) {
-					log.error("REC 리스트가 비어 있습니다: {}", list);
-					throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-				}
-
-				Map firstRecord = (Map) list.get(0);
-				String transactionUniqueNo = (String) firstRecord.get("transactionUniqueNo");
-
-				log.info("계좌 송금 성공: transactionUniqueNo={}", transactionUniqueNo);
-				return transactionUniqueNo;
-			}
-
-			// 알 수 없는 구조
-			log.error("계좌 송금 실패(REC 타입 알 수 없음): {}", recObj);
-			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+			log.info("계좌거래내역 목록 조회 성공: accountNo={}, 건수={}",
+					accountNo, body.getRec().getList().size());
+			return body.getRec().getList();
 
 		} catch (BusinessException e) {
 			throw e;
 		} catch (Exception e) {
-			log.error("계좌 송금 API 호출 중 오류 발생", e);
+			log.error("계좌거래내역 목록 조회 중 오류 발생: accountNo={}", accountNo, e);
 			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
 		}
 	}
+
 }

@@ -1,5 +1,6 @@
 package com.joying.rental.service;
 
+import com.joying.ssafy.dto.TransferOutcome;
 import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
@@ -876,34 +877,58 @@ public class RentalService {
             String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
 
             // 5-5. SSAFY 금융망으로 환불 분배
-            try {
-                // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
+            //
+            // 송금 두 건이 순차로 나간다. 예전에는 뒤엣것이 실패하면 예외를 던져 트랜잭션을
+            // 되돌렸는데, 롤백은 DB만 되돌리고 이미 나간 돈은 되돌리지 못한다. 그 상태로
+            // 다시 돌리면 차용자에게 환불이 한 번 더 나갔다.
+            //
+            // 확정된 송금은 거래고유번호를 남겨 두고, 다시 돌 때 그 단계를 건너뛴다.
+            // 확정한 뒤에는 예외를 던지지 않는다. 던지면 방금 남긴 기록까지 같이 사라진다.
+
+            // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
+            if (!cancel.isRenterRefundSent()) {
                 long renterRefundAmt = escrow.getRentalFee() + cancel.getDepositRenterAmt();
-                String renterTxNo = financeApiService.transferMoney(
+                TransferOutcome outcome = financeApiService.transferMoney(
                         escrowAccountNo,
                         renterAccount.getAccountNo(),
                         renterRefundAmt,
                         "Joying 취소 환불 (대여료+보증금)",
                         escrowUserKey
                 );
-                log.info("[차용자 환불 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                        rentalHisId, renterTxNo, renterRefundAmt, renterAccount.getAccountNo());
 
-                // 대여자 보증금 몫 → 대여자에게 지급
-                if (cancel.getDepositOwnerAmt() > 0) {
-                    String lenderTxNo = financeApiService.transferMoney(
-                            escrowAccountNo,
-                            lenderAccount.getAccountNo(),
-                            cancel.getDepositOwnerAmt().longValue(),
-                            "Joying 취소 보증금 분배",
-                            escrowUserKey
-                    );
-                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, txNo={}, amount={}, to={}",
-                            rentalHisId, lenderTxNo, cancel.getDepositOwnerAmt(), lenderAccount.getAccountNo());
+                if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+                    cancel.markRenterRefundSent(succeeded.transactionUniqueNo());
+                    log.info("[차용자 환불 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                            rentalHisId, succeeded.transactionUniqueNo(), renterRefundAmt,
+                            renterAccount.getAccountNo());
+                } else {
+                    log.error("[차용자 환불 미완료 - 환불 중단] rentalHisId={}, outcome={}",
+                            rentalHisId, outcome);
+                    return convertToCancelResponse(cancel);
                 }
-            } catch (Exception e) {
-                log.error("[SSAFY 금융망 환불 실패] rentalHisId={}", rentalHisId, e);
-                throw new IllegalStateException("환불 처리 중 오류가 발생했습니다", e);
+            }
+
+            // 대여자 보증금 몫 → 대여자에게 지급
+            if (cancel.getDepositOwnerAmt() > 0 && !cancel.isLenderShareSent()) {
+                TransferOutcome outcome = financeApiService.transferMoney(
+                        escrowAccountNo,
+                        lenderAccount.getAccountNo(),
+                        cancel.getDepositOwnerAmt().longValue(),
+                        "Joying 취소 보증금 분배",
+                        escrowUserKey
+                );
+
+                if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+                    cancel.markLenderShareSent(succeeded.transactionUniqueNo());
+                    log.info("[대여자 보증금 분배 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                            rentalHisId, succeeded.transactionUniqueNo(),
+                            cancel.getDepositOwnerAmt(), lenderAccount.getAccountNo());
+                } else {
+                    // 차용자 환불은 이미 나갔고 그 기록이 남아 있다. 다시 돌리면 여기서부터 이어간다.
+                    log.error("[대여자 보증금 분배 미완료 - 환불 중단] rentalHisId={}, outcome={}",
+                            rentalHisId, outcome);
+                    return convertToCancelResponse(cancel);
+                }
             }
 
             // 5-6. Escrow 상태 변경
