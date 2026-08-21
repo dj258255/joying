@@ -1,7 +1,6 @@
 package com.joying.payment.service;
 
 import com.joying.account.domain.Account;
-import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.payment.domain.Payment;
@@ -24,6 +23,7 @@ import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.escrow.domain.Escrow;
 import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.repository.EscrowRepository;
 import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
@@ -64,8 +64,7 @@ public class PaymentService {
     private final EscrowRepository escrowRepository;
     private final TossPaymentsClient tossClient;
     private final ApplicationEventPublisher eventPublisher;
-    private final FinanceApiService financeApiService;
-    private final FinanceApiProperties financeApiProperties;
+    private final MoneyTransferPort moneyTransferPort;
 
     /**
      * 1. 결제 생성 (orderId 발급)
@@ -395,23 +394,21 @@ public class PaymentService {
 
                 // 토스 결제 완료 후 Joying 에스크로 계좌로 입금 (SSAFY 금융망)
                 // 실제 돈은 토스에 있고, SSAFY 금융망에는 논리적으로만 입금
-                String escrowAccountNo = financeApiProperties.getEscrow().getAccountNo();
-                String escrowUserKey = financeApiProperties.getEscrow().getUserKey();
                 // 실제 결제 금액 = (일일요금 × 일수) + 보증금 (payment.getTotalAmount()에 저장됨)
                 long totalAmount = payment.getTotalAmount().longValue();
 
-                TransferOutcome outcome = financeApiService.depositMoney(
-                        escrowAccountNo,
+                // 주문번호를 참조로 쓴다. 같은 주문으로 두 번 불러도 돈은 한 번만 움직인다.
+                TransferOutcome outcome = moneyTransferPort.creditToEscrow(
                         totalAmount,
-                        "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")",
-                        escrowUserKey
+                        "escrow-deposit-" + payment.getOrderId(),
+                        "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")"
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
                     escrow.markHeld(succeeded.transactionUniqueNo());
-                    log.info("[에스크로 계좌 입금 완료] rentalHisId={}, txNo={}, amount={}, to={}",
+                    log.info("[에스크로 적립 완료] rentalHisId={}, transferId={}, amount={}, via={}",
                             rentalHistory.getRentalHisId(), succeeded.transactionUniqueNo(),
-                            totalAmount, escrowAccountNo);
+                            totalAmount, moneyTransferPort.name());
 
                 } else if (outcome instanceof TransferOutcome.Rejected rejected) {
                     // 금융망이 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,

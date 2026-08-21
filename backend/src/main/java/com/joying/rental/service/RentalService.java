@@ -1,6 +1,7 @@
 package com.joying.rental.service;
 
 import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.domain.Status;
 import com.joying.file.component.FileUrlResolver;
 import com.joying.file.domain.File;
@@ -72,7 +73,7 @@ public class RentalService {
     private final EscrowService escrowService;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
-    private final FinanceApiService financeApiService;
+    private final MoneyTransferPort moneyTransferPort;
     private final FinanceApiProperties financeApiProperties;
     private final DevModeProperties devModeProperties;
 
@@ -888,12 +889,11 @@ public class RentalService {
             // 대여료 + 차용자 보증금 몫 → 차용자에게 환불
             if (!cancel.isRenterRefundSent()) {
                 long renterRefundAmt = escrow.getRentalFee() + cancel.getDepositRenterAmt();
-                TransferOutcome outcome = financeApiService.transferMoney(
-                        escrowAccountNo,
-                        renterAccount.getAccountNo(),
+                TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
+                        renter.getMemberId(),
                         renterRefundAmt,
-                        "Joying 취소 환불 (대여료+보증금)",
-                        escrowUserKey
+                        "cancel-renter-" + cancel.getCancelId(),
+                        "Joying 취소 환불 (대여료+보증금)"
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
@@ -910,12 +910,11 @@ public class RentalService {
 
             // 대여자 보증금 몫 → 대여자에게 지급
             if (cancel.getDepositOwnerAmt() > 0 && !cancel.isLenderShareSent()) {
-                TransferOutcome outcome = financeApiService.transferMoney(
-                        escrowAccountNo,
-                        lenderAccount.getAccountNo(),
+                TransferOutcome outcome = moneyTransferPort.transferFromEscrow(
+                        lender.getMemberId(),
                         cancel.getDepositOwnerAmt().longValue(),
-                        "Joying 취소 보증금 분배",
-                        escrowUserKey
+                        "cancel-lender-" + cancel.getCancelId(),
+                        "Joying 취소 보증금 분배"
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
