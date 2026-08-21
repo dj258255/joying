@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620" font-family="Pretendard, 'Apple SD Gothic Neo', sans-serif">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#F04452"/>
+    </marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#3182F6"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="620" fill="#000000"/>
+  <text x="56" y="72" font-size="46" font-weight="800" fill="#FFFFFF">저장 시각은 같은 밀리초를 가르지 못한다</text>
+  <text x="56" y="106" font-size="28.7" fill="#8B95A1">실 MongoDB 7.0에 스레드 8개로 200건 동시 저장. 정렬 뒤 앞뒤가 뒤바뀐 횟수를 셌다</text>
+
+  <rect x="56" y="150" width="630" height="330" rx="18" fill="#15181E" stroke="#2A2F38"/>
+  <text x="84" y="190" font-size="28.7" font-weight="700" fill="#F04452">개선 전: 저장 시각으로 정렬</text>
+  <g text-anchor="middle">
+    <rect x="84" y="212" width="250" height="76" rx="14" fill="#F2F4F6"/>
+    <text x="209" y="242" font-size="23.32" font-weight="700" fill="#191F28">메시지 A</text>
+    <text x="209" y="268" font-size="22.43" fill="#4E5968">createdAt .412</text>
+    <rect x="84" y="306" width="250" height="76" rx="14" fill="#F2F4F6"/>
+    <text x="209" y="336" font-size="23.32" font-weight="700" fill="#191F28">메시지 B</text>
+    <text x="209" y="362" font-size="22.43" fill="#4E5968">createdAt .412</text>
+    <rect x="400" y="232" width="256" height="130" rx="14" fill="#2A1418" stroke="#F04452"/>
+    <text x="528" y="278" font-size="23.32" font-weight="700" fill="#F04452">정렬 결과</text>
+    <text x="528" y="310" font-size="22.43" fill="#8B95A1">읽을 때마다</text>
+    <text x="528" y="336" font-size="22.43" fill="#8B95A1">앞뒤가 달라진다</text>
+    <text x="371" y="438" font-size="33" font-weight="800" fill="#F04452">200건 중 62회 뒤집힘</text>
+  </g>
+  <line x1="334" y1="248" x2="394" y2="278" stroke="#F04452" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="334" y1="346" x2="394" y2="316" stroke="#F04452" stroke-width="2" marker-end="url(#ar)"/>
+
+  <rect x="714" y="150" width="630" height="330" rx="18" fill="#15181E" stroke="#2A2F38"/>
+  <text x="742" y="190" font-size="28.7" font-weight="700" fill="#3182F6">개선 후: 방 단위 번호</text>
+  <g text-anchor="middle">
+    <rect x="742" y="212" width="250" height="76" rx="14" fill="#F2F4F6"/>
+    <text x="867" y="242" font-size="23.32" font-weight="700" fill="#191F28">메시지 A</text>
+    <text x="867" y="268" font-size="22.43" fill="#4E5968">번호 41</text>
+    <rect x="742" y="306" width="250" height="76" rx="14" fill="#F2F4F6"/>
+    <text x="867" y="336" font-size="23.32" font-weight="700" fill="#191F28">메시지 B</text>
+    <text x="867" y="362" font-size="22.43" fill="#4E5968">번호 42</text>
+    <rect x="1058" y="232" width="256" height="130" rx="14" fill="#0E1B2E" stroke="#3182F6"/>
+    <text x="1186" y="278" font-size="23.32" font-weight="700" fill="#3182F6">정렬 결과</text>
+    <text x="1186" y="310" font-size="22.43" fill="#8B95A1">누가 먼저 받든</text>
+    <text x="1186" y="336" font-size="22.43" fill="#8B95A1">41 다음 42</text>
+    <text x="1029" y="438" font-size="33" font-weight="800" fill="#3182F6">200건 중 0회</text>
+  </g>
+  <line x1="992" y1="248" x2="1052" y2="278" stroke="#3182F6" stroke-width="2" marker-end="url(#ab)"/>
+  <line x1="992" y1="346" x2="1052" y2="316" stroke="#3182F6" stroke-width="2" marker-end="url(#ab)"/>
+
+  <rect x="56" y="512" width="1288" height="76" rx="14" fill="#15181E" stroke="#2A2F38"/>
+  <text x="84" y="546" font-size="23.32" font-weight="700" fill="#FFFFFF">번호는 Redis 증가 연산 하나로 발급한다</text>
+  <text x="84" y="574" font-size="22.43" fill="#8B95A1">읽고 더해서 쓰면 그 사이에 낀 요청이 같은 값을 받는다. 시각 쪽 수치는 실행마다 49에서 64 사이로 달라진다</text>
+</svg>
