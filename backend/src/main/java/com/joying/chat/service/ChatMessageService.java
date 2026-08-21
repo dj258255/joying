@@ -33,7 +33,7 @@ public class ChatMessageService {
 
 	private static final Logger log = LoggerFactory.getLogger(ChatMessageService.class);
 
-	private static final String CREATED_AT = "createdAt";
+	private static final String SEQUENCE = "sequence";
 
 	private final ChatMessageRepository chatMessageRepository;
 	private final ChatRoomRepository chatRoomRepository;
@@ -54,7 +54,7 @@ public class ChatMessageService {
 
 	public List<ChatMessageResponse> getMessages(Long chatRoomId, int page, int size) {
 		return toResponses(chatMessageRepository
-			.findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, desc(page, size)));
+			.findByChatRoomIdAndIsDeletedFalseOrderBySequenceDesc(chatRoomId, desc(page, size)));
 	}
 
 	/**
@@ -63,9 +63,12 @@ public class ChatMessageService {
 	 * <p>{@code before}는 과거로 거슬러 올라가는 것이고 {@code after}는 끊긴 사이에
 	 * 놓친 것을 받는 것이다. 방향이 반대라 함께 쓸 수 없다. 정렬도 그래서 다르다.
 	 * 놓친 것은 받는 쪽이 순서대로 이어붙여야 하므로 오래된 순으로 준다.
+	 *
+	 * <p>커서는 방 안의 메시지 번호다. 시각을 커서로 쓰면 같은 밀리초에 저장된 것이
+	 * 경계에서 빠지거나 두 번 온다.
 	 */
-	public List<ChatMessageResponse> getMessagesBefore(Long chatRoomId, Instant before,
-													   Instant after, int size, Long memberId) {
+	public List<ChatMessageResponse> getMessagesBefore(Long chatRoomId, Long before,
+													   Long after, int size, Long memberId) {
 		validateChatRoomAccess(chatRoomId, memberId);
 
 		if (before != null && after != null) {
@@ -76,15 +79,15 @@ public class ChatMessageService {
 		List<ChatMessage> messages;
 		if (after != null) {
 			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtAsc(
+				.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
 					chatRoomId, after, asc(0, size));
 		} else if (before != null) {
 			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndCreatedAtBeforeOrderByCreatedAtDesc(
+				.findByChatRoomIdAndIsDeletedFalseAndSequenceLessThanOrderBySequenceDesc(
 					chatRoomId, before, desc(0, size));
 		} else {
 			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseOrderByCreatedAtDesc(chatRoomId, desc(0, size));
+				.findByChatRoomIdAndIsDeletedFalseOrderBySequenceDesc(chatRoomId, desc(0, size));
 		}
 
 		return toResponses(messages);
@@ -95,10 +98,17 @@ public class ChatMessageService {
 		validateChatRoomAccess(chatRoomId, memberId);
 
 		return toResponses(chatMessageRepository
-			.findByChatRoomIdAndIsDeletedFalseAndContentContainingOrderByCreatedAtDesc(
+			.findByChatRoomIdAndIsDeletedFalseAndContentContainingOrderBySequenceDesc(
 				chatRoomId, keyword, desc(page, size)));
 	}
 
+	/**
+	 * 안읽음 건수.
+	 *
+	 * <p>여기만 아직 시각으로 센다. 읽은 지점을 방 참여자에 시각으로 들고 있어서다.
+	 * 같은 밀리초 경계에서 한 건이 어긋날 수 있다. 순서와 달리 눈에 보이는 문제로
+	 * 이어지지 않아 이번에는 손대지 않았다.
+	 */
 	public long getUnreadCount(Long chatRoomId, Instant lastReadAt) {
 		if (lastReadAt == null) {
 			return 0L;
@@ -110,12 +120,12 @@ public class ChatMessageService {
 	/**
 	 * 끊긴 사이에 놓친 것을 받는다.
 	 */
-	public List<ChatMessageResponse> getMessagesAfter(Long chatRoomId, Instant after,
+	public List<ChatMessageResponse> getMessagesAfter(Long chatRoomId, Long after,
 													  int limit, Long memberId) {
 		validateChatRoomAccess(chatRoomId, memberId);
 
 		return toResponses(chatMessageRepository
-			.findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtAsc(
+			.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
 				chatRoomId, after, asc(0, limit)));
 	}
 
@@ -137,17 +147,17 @@ public class ChatMessageService {
 			throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE, "해당 채팅방의 메시지가 아닙니다");
 		}
 
-		Instant targetTime = target.getCreatedAt();
-		if (targetTime == null) {
-			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 생성 시간이 없습니다");
+		Long targetSequence = target.getSequence();
+		if (targetSequence == null) {
+			throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "메시지 번호가 없습니다");
 		}
 
 		List<ChatMessage> all = new ArrayList<>();
 
 		if (before > 0) {
 			List<ChatMessage> beforeMessages = new ArrayList<>(chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndCreatedAtBeforeOrderByCreatedAtDesc(
-					chatRoomId, targetTime, desc(0, before)));
+				.findByChatRoomIdAndIsDeletedFalseAndSequenceLessThanOrderBySequenceDesc(
+					chatRoomId, targetSequence, desc(0, before)));
 			// 최신순으로 받았으므로 시간순으로 뒤집는다
 			java.util.Collections.reverse(beforeMessages);
 			all.addAll(beforeMessages);
@@ -157,8 +167,8 @@ public class ChatMessageService {
 
 		if (after > 0) {
 			all.addAll(chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterOrderByCreatedAtAsc(
-					chatRoomId, targetTime, asc(0, after)));
+				.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
+					chatRoomId, targetSequence, asc(0, after)));
 		}
 
 		return toResponses(all);
@@ -277,10 +287,10 @@ public class ChatMessageService {
 	}
 
 	private Pageable desc(int page, int size) {
-		return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, CREATED_AT));
+		return PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, SEQUENCE));
 	}
 
 	private Pageable asc(int page, int size) {
-		return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, CREATED_AT));
+		return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, SEQUENCE));
 	}
 }

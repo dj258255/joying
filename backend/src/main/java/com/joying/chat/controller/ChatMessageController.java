@@ -1,11 +1,9 @@
 package com.joying.chat.controller;
 
-import java.time.Instant;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,15 +42,19 @@ public class ChatMessageController {
 	 * <p>{@code keyword}가 있으면 찾기다. 없으면 목록이고, 이때 {@code before}는 과거로
 	 * 거슬러 올라가는 것이고 {@code after}는 끊긴 사이에 놓친 것을 받는 것이다.
 	 * 방향이 반대라 둘을 함께 보낼 수 없다.
+	 *
+	 * <p>커서는 시각이 아니라 방 안의 메시지 번호다. 예전 화면이 시각을 그대로 보내면
+	 * 형식이 맞지 않아 400으로 떨어진다. 조용히 무시되어 엉뚱한 구간이 오는 것보다
+	 * 낫다고 봤다.
 	 */
 	@Operation(summary = "채팅 메시지 목록 조회 및 검색",
-		description = "keyword가 있으면 검색, 없으면 목록이다. before는 과거로, after는 놓친 것을 받는다. 둘을 함께 쓸 수 없다.")
+		description = "keyword가 있으면 검색, 없으면 목록이다. before/after는 메시지 번호이며, before는 과거로, after는 놓친 것을 받는다. 둘을 함께 쓸 수 없다.")
 	@GetMapping
 	public ResponseEntity<ApiResponse.SuccessBody<List<ChatMessageResponse>>> getMessages(
 		@PathVariable Long chatRoomId,
 		@RequestParam(required = false) String keyword,
-		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant before,
-		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant after,
+		@RequestParam(required = false) Long before,
+		@RequestParam(required = false) Long after,
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size) {
 
