@@ -7,7 +7,6 @@ import com.joying.chat.service.ChatService
 import com.joying.member.repository.MemberRepository
 import com.joying.payment.service.PaymentService
 import com.joying.product.repository.ProductRepository
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -80,13 +79,11 @@ class PaymentEventListener(
                 return
             }
 
-            runBlocking {
-                chatService.sendMessage(
-                    chatRoomId = chatRoomId,
-                    senderId = event.buyerId, // 구매자 ID로 전송
-                    request = messageRequest
-                )
-            }
+            chatService.sendMessage(
+                chatRoomId = chatRoomId,
+                senderId = event.buyerId, // 구매자 ID로 전송
+                request = messageRequest
+            )
 
             logger.info("[결제 완료 메시지 전송 완료] chatRoomId={}, paymentId={}", chatRoom.chatRoomId, event.paymentId)
 

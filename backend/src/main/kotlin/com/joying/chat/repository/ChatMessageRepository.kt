@@ -11,7 +11,7 @@ import java.time.Instant
  * 채팅 메시지 Repository (MongoDB Blocking)
  *
  * 현업 표준 패턴: 단순하고 안정적인 blocking I/O
- * - Coroutine은 Service 레이어에서 withContext(Dispatchers.IO) 사용
+ * - 블로킹 저장소다. 서비스에서 그대로 부른다
  */
 @Repository
 interface ChatMessageRepository : MongoRepository<ChatMessage, String> {

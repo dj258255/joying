@@ -1,8 +1,6 @@
 package com.joying.chat.service
 
 import com.joying.chat.repository.ChatRoomRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
@@ -45,7 +43,7 @@ class ChatRoomPermissionCache(
      * @param memberId 회원 ID
      * @return 권한 여부
      */
-    suspend fun hasPermission(chatRoomId: Long, memberId: Long): Boolean {
+    fun hasPermission(chatRoomId: Long, memberId: Long): Boolean {
         val key = getKey(chatRoomId, memberId)
 
         // 1. Redis 캐시 조회 (1-2ms)
@@ -71,14 +69,11 @@ class ChatRoomPermissionCache(
     /**
      * 채팅방 참여자 정보를 MySQL에서 조회
      */
-    private suspend fun checkPermissionFromDB(chatRoomId: Long, memberId: Long): Boolean {
-        return withContext(Dispatchers.IO) {
-            val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null)
-                ?: return@withContext false
+    private fun checkPermissionFromDB(chatRoomId: Long, memberId: Long): Boolean {
+        val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return false
 
-            // 구매자 또는 판매자만 권한 있음
-            chatRoom.buyer.getMemberId() == memberId || chatRoom.seller.getMemberId() == memberId
-        }
+        // 구매자 또는 판매자만 권한 있음
+        return chatRoom.buyer.getMemberId() == memberId || chatRoom.seller.getMemberId() == memberId
     }
 
     /**
@@ -86,10 +81,8 @@ class ChatRoomPermissionCache(
      *
      * @param chatRoomId 채팅방 ID
      */
-    suspend fun warmupPermissions(chatRoomId: Long) {
-        val chatRoom = withContext(Dispatchers.IO) {
-            chatRoomRepository.findById(chatRoomId).orElse(null)
-        } ?: return
+    fun warmupPermissions(chatRoomId: Long) {
+        val chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null) ?: return
 
         val buyerId = chatRoom.buyer.getMemberId()!!
         val sellerId = chatRoom.seller.getMemberId()!!

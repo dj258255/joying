@@ -2,13 +2,12 @@ package com.joying.chat.service
 
 import com.joying.chat.repository.ChatMessageRepository
 import com.joying.chat.repository.ChatRoomMemberRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
 /**
@@ -23,7 +22,8 @@ import java.util.concurrent.TimeUnit
 class UnreadCountService(
     private val redis: RedisTemplate<String, String>,
     private val chatMessageRepository: ChatMessageRepository,
-    private val chatRoomMemberRepository: ChatRoomMemberRepository
+    private val chatRoomMemberRepository: ChatRoomMemberRepository,
+    @Qualifier("chatQueryExecutor") private val queryExecutor: Executor
 ) {
     private val logger = LoggerFactory.getLogger(UnreadCountService::class.java)
 
@@ -83,7 +83,7 @@ class UnreadCountService(
      * @param memberId 회원 ID
      * @return 안읽은 메시지 개수
      */
-    suspend fun get(chatRoomId: Long, memberId: Long): Long {
+    fun get(chatRoomId: Long, memberId: Long): Long {
         val key = getKey(chatRoomId, memberId)
 
         // 1. Redis 조회 (캐시 히트)
@@ -108,7 +108,7 @@ class UnreadCountService(
      * @param memberId 회원 ID
      * @return 채팅방별 안읽은 개수 (chatRoomId -> count)
      */
-    suspend fun getBatch(
+    fun getBatch(
         chatRoomIds: List<Long>,
         memberId: Long
     ): Map<Long, Long> {
@@ -154,15 +154,15 @@ class UnreadCountService(
 
         // 캐시 미스 → MongoDB에서 병렬 계산
         if (missedIds.isNotEmpty()) {
-            coroutineScope {
-                missedIds.map { chatRoomId ->
-                    async {
-                        chatRoomId to warmup(chatRoomId, memberId)
-                    }
-                }.forEach { deferred ->
-                    val (chatRoomId, count) = deferred.await()
-                    result[chatRoomId] = count
-                }
+            // 방마다 저장소를 봐야 한다. 순차로 하면 방 수만큼 지연이 더해진다.
+            // 서로 의존하지 않으므로 동시에 날리고 전부 모은다.
+            val futures = missedIds.map { chatRoomId ->
+                CompletableFuture.supplyAsync({ chatRoomId to warmup(chatRoomId, memberId) }, queryExecutor)
+            }
+            CompletableFuture.allOf(*futures.toTypedArray()).join()
+            futures.forEach { future ->
+                val (chatRoomId, count) = future.join()
+                result[chatRoomId] = count
             }
         }
 
@@ -178,15 +178,13 @@ class UnreadCountService(
      * @param memberId 회원 ID
      * @return 안읽은 메시지 개수
      */
-    private suspend fun warmup(chatRoomId: Long, memberId: Long): Long {
+    private fun warmup(chatRoomId: Long, memberId: Long): Long {
         logger.info("[warmup] 시작: chatRoomId={}, memberId={}", chatRoomId, memberId)
 
         try {
-            val member = withContext(Dispatchers.IO) {
-                chatRoomMemberRepository
-                    .findByChatRoomIdAndMemberId(chatRoomId, memberId)
-                    .orElse(null)
-            }
+            val member = chatRoomMemberRepository
+                .findByChatRoomIdAndMemberId(chatRoomId, memberId)
+                .orElse(null)
 
             logger.info("[warmup] chatRoomMember 조회 완료: chatRoomId={}, member exists={}", chatRoomId, member != null)
 
@@ -199,14 +197,12 @@ class UnreadCountService(
             // MongoDB에서 실제 안읽은 개수 계산 (상대방이 보낸 메시지만)
             logger.info("[warmup] MongoDB 카운트 쿼리 시작: chatRoomId={}, lastReadAt={}, memberId={}", chatRoomId, member.lastReadAt, memberId)
             val actualCount = if (member.lastReadAt != null) {
-                withContext(Dispatchers.IO) {
-                    // 본인이 보낸 메시지는 제외하고 카운트
-                    chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
-                        chatRoomId,
-                        member.lastReadAt!!,
-                        memberId  // 본인 ID 제외
-                    )
-                }
+                // 본인이 보낸 메시지는 제외하고 카운트
+                chatMessageRepository.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
+                    chatRoomId,
+                    member.lastReadAt!!,
+                    memberId  // 본인 ID 제외
+                )
             } else {
                 logger.info("[warmup] lastReadAt이 null이므로 0 반환")
                 0L

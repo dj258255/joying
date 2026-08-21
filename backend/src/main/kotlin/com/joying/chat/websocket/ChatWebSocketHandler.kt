@@ -5,10 +5,9 @@ import com.joying.chat.broadcast.ChatBroadcaster
 import com.joying.chat.dto.SendMessageRequest
 import com.joying.chat.service.ChatPresenceService
 import com.joying.chat.service.ChatService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
+import java.util.concurrent.Executor
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
@@ -24,6 +23,7 @@ import org.springframework.stereotype.Controller
 @Controller
 class ChatWebSocketHandler(
     private val chatService: ChatService,
+    @Qualifier("chatQueryExecutor") private val queryExecutor: Executor,
     private val messagingTemplate: SimpMessagingTemplate,
     private val chatBroadcaster: ChatBroadcaster,
     private val chatPresenceService: ChatPresenceService
@@ -57,7 +57,7 @@ class ChatWebSocketHandler(
         )
 
         // 비동기로 메시지 전송 (MongoDB 저장 + Redis Pub/Sub 발행)
-        CoroutineScope(Dispatchers.IO).launch {
+        queryExecutor.execute {
             try {
                 val message = chatService.sendMessage(chatRoomId, memberId, request)
 
