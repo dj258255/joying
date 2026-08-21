@@ -10,6 +10,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.joying.chat.domain.ChatRoom;
+import com.joying.chat.domain.ChatRoomStatus;
+import com.joying.chat.repository.ChatRoomMemberRepository;
 import com.joying.chat.repository.ChatRoomRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -17,13 +19,12 @@ import lombok.RequiredArgsConstructor;
 /**
  * 채팅방에 들어갈 수 있는지를 Redis에 캐싱한다.
  *
- * <p>판정 근거는 이 사람이 방의 구매자이거나 판매자인가 하나뿐이다. 방을 나갔는지
- * ({@code isLeft})도, 방이 닫혔는지({@code status})도 보지 않는다. 그래서 나가기에서
- * 캐시를 지워도 다음 조회가 같은 근거로 다시 허용을 계산해 캐싱한다. 무효화가 결과를
- * 바꿀 수 없다는 뜻이다.
+ * <p>세 가지를 본다. 방의 구매자이거나 판매자인가, 아직 나가지 않았는가, 방이 열려
+ * 있는가.
  *
- * <p>나간 사람을 실제로 막는 것은 이 캐시가 아니라 메시지 전송 경로의 별도 조회다.
- * 이것은 이관 중에 고치지 않는다. 지금 동작은 테스트로 박아 두었다.
+ * <p>예전에는 첫째만 봤다. 그래서 나가기에서 캐시를 지워도 다음 조회가 같은 근거로
+ * 다시 허용을 계산해 캐싱했다. 무효화가 결과를 바꿀 수 없다는 뜻이었고, 나간 사람이
+ * 히스토리를 계속 읽을 수 있었다.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,6 +39,7 @@ public class ChatRoomPermissionCache {
 
 	private final RedisTemplate<String, String> redis;
 	private final ChatRoomRepository chatRoomRepository;
+	private final ChatRoomMemberRepository chatRoomMemberRepository;
 
 	private String getKey(Long chatRoomId, Long memberId) {
 		return PERMISSION_KEY_PREFIX + chatRoomId + ":" + memberId;
@@ -64,12 +66,28 @@ public class ChatRoomPermissionCache {
 		if (chatRoom == null) {
 			return false;
 		}
-		return memberId.equals(chatRoom.getBuyer().getMemberId())
+
+		boolean isParticipant = memberId.equals(chatRoom.getBuyer().getMemberId())
 			|| memberId.equals(chatRoom.getSeller().getMemberId());
+		if (!isParticipant) {
+			return false;
+		}
+
+		// 닫힌 방은 누구에게도 열지 않는다
+		if (chatRoom.getStatus() != ChatRoomStatus.ACTIVE) {
+			return false;
+		}
+
+		// 나갔으면 다시 들어오기 전까지 막는다. 기록이 없어도 막는다.
+		return chatRoomMemberRepository.findByChatRoomIdAndMemberId(chatRoomId, memberId)
+			.map(member -> !member.isLeft())
+			.orElse(false);
 	}
 
 	/**
 	 * 방을 만들 때 양쪽 권한을 미리 넣어 둔다. 첫 메시지에서 조회가 나가지 않는다.
+	 *
+	 * <p>막 만든 방이라 둘 다 남아 있고 열려 있다. 그래서 여기서는 다시 확인하지 않는다.
 	 */
 	public void warmupPermissions(Long chatRoomId) {
 		ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null);

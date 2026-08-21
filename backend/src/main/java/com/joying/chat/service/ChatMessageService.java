@@ -38,19 +38,16 @@ public class ChatMessageService {
 	private final ChatMessageRepository chatMessageRepository;
 	private final ChatRoomRepository chatRoomRepository;
 	private final RedisPubSubPublisher redisPubSubPublisher;
+	private final ChatRoomPermissionCache permissionCache;
 
 	/**
 	 * 이 방을 볼 수 있는 사람인지.
 	 *
-	 * <p>구매자와 판매자만 본다. 나갔는지는 여기서 보지 않는다.
+	 * <p>보내는 경로와 같은 판정을 쓴다. 예전에는 여기서 구매자와 판매자인지만 보고
+	 * 나갔는지를 보지 않아, 나간 사람이 히스토리를 계속 읽을 수 있었다.
 	 */
 	private void validateChatRoomAccess(Long chatRoomId, Long memberId) {
-		ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
-			.orElseThrow(() -> new BusinessException(
-				ErrorCode.RESOURCE_NOT_FOUND, "채팅방을 찾을 수 없습니다"));
-
-		if (!memberId.equals(chatRoom.getBuyer().getMemberId())
-			&& !memberId.equals(chatRoom.getSeller().getMemberId())) {
+		if (!permissionCache.hasPermission(chatRoomId, memberId)) {
 			throw new BusinessException(ErrorCode.FORBIDDEN, "채팅방 접근 권한이 없습니다");
 		}
 	}

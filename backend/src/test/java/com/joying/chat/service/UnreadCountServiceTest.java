@@ -126,22 +126,20 @@ class UnreadCountServiceTest {
 	}
 
 	@Test
-	@DisplayName("알려진 결함: 방을 한 번도 안 열었으면 쌓인 메시지가 있어도 0으로 본다")
-	void knownDefectZeroWhenNeverOpened() {
-		// 읽은 시각이 없으면 저장소를 보지 않고 0을 돌려준다. 방을 한 번도 안 연
-		// 사람은 메시지가 아무리 쌓여도 배지가 0으로 보인다.
-		//
-		// 이관 중에 고치지 않는다. 지금 동작을 그대로 박아 두고, 이관이 끝난 뒤에
-		// 이 테스트를 뒤집으면서 고친다.
+	@DisplayName("방을 한 번도 안 열었으면 지워지지 않은 상대 메시지를 전부 센다")
+	void countsAllFromOthersWhenNeverOpened() {
+		// 읽은 시각이 없다는 것은 한 번도 안 읽었다는 뜻이지 읽을 것이 없다는 뜻이
+		// 아니다. 예전에는 여기서 저장소를 보지 않고 0을 돌려줬고, 그래서 새로 만든
+		// 방에 상대가 먼저 말을 걸면 배지에 아무것도 안 떴다.
 		ChatRoomMember member = org.mockito.Mockito.mock(ChatRoomMember.class);
 		given(member.getLastReadAt()).willReturn(null);
 
 		given(valueOps.get(KEY)).willReturn(null);
 		given(memberRepository.findByChatRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
 			.willReturn(Optional.of(member));
+		given(messageRepository.countByChatRoomIdAndIsDeletedFalseAndSenderIdNot(
+			ROOM_ID, MEMBER_ID)).willReturn(5L);
 
-		assertThat(service.get(ROOM_ID, MEMBER_ID)).isZero();
-		verify(messageRepository, never())
-			.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(any(), any(), any());
+		assertThat(service.get(ROOM_ID, MEMBER_ID)).isEqualTo(5L);
 	}
 }

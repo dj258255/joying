@@ -32,6 +32,14 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 	long countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfter(Long chatRoomId, Instant after);
 
 	/**
+	 * 이 사람이 보내지 않은 메시지 수.
+	 *
+	 * <p>한 번도 읽은 적이 없을 때 쓴다. 그때는 기준 시각이 없으므로 방의 처음부터
+	 * 전부 센다.
+	 */
+	long countByChatRoomIdAndIsDeletedFalseAndSenderIdNot(Long chatRoomId, Long excludeSenderId);
+
+	/**
 	 * 이 시각 이후, 이 사람이 보내지 않은 메시지 수.
 	 *
 	 * <p>안읽음을 셀 때 본인이 보낸 것은 빼야 한다.

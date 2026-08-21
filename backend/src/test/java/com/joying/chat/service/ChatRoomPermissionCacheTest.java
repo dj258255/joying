@@ -24,6 +24,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import com.joying.chat.domain.ChatRoom;
+import com.joying.chat.domain.ChatRoomMember;
+import com.joying.chat.domain.ChatRoomStatus;
+import com.joying.chat.repository.ChatRoomMemberRepository;
 import com.joying.chat.repository.ChatRoomRepository;
 import com.joying.member.domain.Member;
 
@@ -51,12 +54,31 @@ class ChatRoomPermissionCacheTest {
 	@Mock
 	ChatRoomRepository chatRoomRepository;
 
+	@Mock
+	ChatRoomMemberRepository chatRoomMemberRepository;
+
 	ChatRoomPermissionCache cache;
 
 	@BeforeEach
 	void setUp() {
 		given(redis.opsForValue()).willReturn(valueOps);
-		cache = new ChatRoomPermissionCache(redis, chatRoomRepository);
+		cache = new ChatRoomPermissionCache(redis, chatRoomRepository, chatRoomMemberRepository);
+	}
+
+	/** 방에 남아 있는 참여자 */
+	private void memberStaying(long memberId) {
+		ChatRoomMember member = mock(ChatRoomMember.class);
+		given(member.isLeft()).willReturn(false);
+		given(chatRoomMemberRepository.findByChatRoomIdAndMemberId(ROOM_ID, memberId))
+			.willReturn(Optional.of(member));
+	}
+
+	/** 방을 나간 참여자 */
+	private void memberLeft(long memberId) {
+		ChatRoomMember member = mock(ChatRoomMember.class);
+		given(member.isLeft()).willReturn(true);
+		given(chatRoomMemberRepository.findByChatRoomIdAndMemberId(ROOM_ID, memberId))
+			.willReturn(Optional.of(member));
 	}
 
 	private String key(long memberId) {
@@ -72,6 +94,7 @@ class ChatRoomPermissionCacheTest {
 		ChatRoom room = mock(ChatRoom.class);
 		given(room.getBuyer()).willReturn(buyer);
 		given(room.getSeller()).willReturn(seller);
+		given(room.getStatus()).willReturn(ChatRoomStatus.ACTIVE);
 		return room;
 	}
 
@@ -99,6 +122,7 @@ class ChatRoomPermissionCacheTest {
 		ChatRoom room = roomWith(BUYER_ID, SELLER_ID);
 		given(valueOps.get(key(BUYER_ID))).willReturn(null);
 		given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+		memberStaying(BUYER_ID);
 
 		assertThat(cache.hasPermission(ROOM_ID, BUYER_ID)).isTrue();
 		verify(valueOps).set(eq(key(BUYER_ID)), eq("ALLOWED"), anyLong(), eq(TimeUnit.HOURS));
@@ -125,24 +149,40 @@ class ChatRoomPermissionCacheTest {
 	}
 
 	@Test
-	@DisplayName("알려진 결함: 판정 근거가 buyer/seller뿐이라 방을 나갔는지는 보지 않는다")
-	void knownDefectIgnoresWhetherMemberLeft() {
-		// 판정은 방의 구매자나 판매자와 같은 사람인가만 본다. 나갔는지도, 방이
-		// 닫혔는지도 보지 않는다.
-		//
-		// 그래서 나가기에서 캐시를 지워도 다음 조회가 같은 근거로 다시 허용을
-		// 계산해 캐싱한다. 무효화가 결과를 바꿀 수 없다는 뜻이다.
-		//
-		// 나간 사람을 실제로 막는 것은 이 캐시가 아니라 메시지 전송 경로의 별도
-		// 조회다. 조회 경로에는 그 검사가 없어 히스토리가 열려 있다.
-		//
-		// 이관 중에 고치지 않는다. 지금 동작을 박아 두고 이관이 끝난 뒤 뒤집는다.
+	@DisplayName("방을 나간 사람은 거절한다. 무효화가 결과를 바꿀 수 있어야 한다")
+	void deniesMemberWhoLeft() {
+		// 예전에는 방의 구매자이거나 판매자인가만 봤다. 그래서 나가기에서 캐시를
+		// 지워도 다음 조회가 같은 근거로 다시 허용을 계산해 캐싱했다. 무효화가
+		// 결과를 바꿀 수 없다는 뜻이었다.
 		ChatRoom room = roomWith(BUYER_ID, SELLER_ID);
 		given(valueOps.get(key(BUYER_ID))).willReturn(null);
 		given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+		memberLeft(BUYER_ID);
 
-		assertThat(cache.hasPermission(ROOM_ID, BUYER_ID))
-			.as("나갔더라도 구매자이면 통과한다")
-			.isTrue();
+		assertThat(cache.hasPermission(ROOM_ID, BUYER_ID)).isFalse();
+		verify(valueOps).set(eq(key(BUYER_ID)), eq("DENIED"), anyLong(), eq(TimeUnit.HOURS));
+	}
+
+	@Test
+	@DisplayName("참여자 기록이 없으면 거절한다")
+	void deniesWhenNoMembershipRecord() {
+		ChatRoom room = roomWith(BUYER_ID, SELLER_ID);
+		given(valueOps.get(key(BUYER_ID))).willReturn(null);
+		given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+		given(chatRoomMemberRepository.findByChatRoomIdAndMemberId(ROOM_ID, BUYER_ID))
+			.willReturn(Optional.empty());
+
+		assertThat(cache.hasPermission(ROOM_ID, BUYER_ID)).isFalse();
+	}
+
+	@Test
+	@DisplayName("닫힌 방은 거절한다")
+	void deniesClosedRoom() {
+		ChatRoom room = roomWith(BUYER_ID, SELLER_ID);
+		given(room.getStatus()).willReturn(ChatRoomStatus.CLOSED);
+		given(valueOps.get(key(BUYER_ID))).willReturn(null);
+		given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room));
+
+		assertThat(cache.hasPermission(ROOM_ID, BUYER_ID)).isFalse();
 	}
 }
