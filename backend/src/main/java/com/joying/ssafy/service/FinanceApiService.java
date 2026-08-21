@@ -4,6 +4,7 @@ import com.joying.common.config.ssafy.FinanceApiProperties;
 import com.joying.common.exception.BusinessException;
 import com.joying.common.exception.ErrorCode;
 import com.joying.ssafy.dto.*;
+import com.joying.wallet.port.TransferOutcome;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;

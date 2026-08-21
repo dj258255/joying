@@ -1,6 +1,5 @@
 package com.joying.wallet.port;
 
-import com.joying.ssafy.dto.TransferOutcome;
 
 /**
  * 돈을 옮기는 경계.

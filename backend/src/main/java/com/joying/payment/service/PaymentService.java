@@ -1,6 +1,5 @@
 package com.joying.payment.service;
 
-import com.joying.account.domain.Account;
 import com.joying.member.domain.Member;
 import com.joying.member.repository.MemberRepository;
 import com.joying.payment.domain.Payment;
@@ -22,10 +21,9 @@ import com.joying.product.repository.ProductRepository;
 import com.joying.rental.domain.RentalHistory;
 import com.joying.rental.repository.RentalHistoryRepository;
 import com.joying.escrow.domain.Escrow;
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.repository.EscrowRepository;
-import com.joying.ssafy.service.FinanceApiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -405,29 +403,32 @@ public class PaymentService {
                 );
 
                 if (outcome instanceof TransferOutcome.Succeeded succeeded) {
-                    escrow.markHeld(succeeded.transactionUniqueNo());
+                    escrow.markHeld(succeeded.transferId());
                     log.info("[에스크로 적립 완료] rentalHisId={}, transferId={}, amount={}, via={}",
-                            rentalHistory.getRentalHisId(), succeeded.transactionUniqueNo(),
+                            rentalHistory.getRentalHisId(), succeeded.transferId(),
                             totalAmount, moneyTransferPort.name());
 
                 } else if (outcome instanceof TransferOutcome.Rejected rejected) {
-                    // 금융망이 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,
+                    // 상대가 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,
                     // 이미 승인된 토스 결제를 되돌리는 것이 맞다.
-                    log.error("[에스크로 입금 거절] orderId={}, code={}, message={}",
-                            payment.getOrderId(), rejected.responseCode(), rejected.responseMessage());
+                    log.error("[에스크로 적립 거절] orderId={}, code={}, reason={}",
+                            payment.getOrderId(), rejected.reasonCode(), rejected.reason());
                     cancelTossPaymentForFailedDeposit(payment, tossResponse.getPaymentKey(),
-                            "에스크로 계좌 입금 거절");
-                    throw new IllegalStateException("에스크로 계좌 입금이 거절되었습니다: "
-                            + rejected.responseCode());
+                            "에스크로 적립 거절");
+                    throw new IllegalStateException("에스크로 적립이 거절되었습니다: "
+                            + rejected.reasonCode());
 
                 } else {
-                    // 입금이 됐는지 알 수 없다. 여기서 토스 결제를 취소하면
-                    // 실제로 입금이 성공했을 때 고객 돈만 돌아가고 에스크로 계좌에는 돈이 남는다.
-                    // 되돌리지 않고 PENDING으로 남겨 두었다가 거래내역 재조회로 확정한다.
-                    // 예외를 던지지 않는 이유는, 롤백하면 방금 남긴 PENDING 행까지 같이 사라져
+                    // 옮겨졌는지 알 수 없다. 여기서 토스 결제를 취소하면 실제로 적립이
+                    // 성공했을 때 고객 돈만 돌아가고 에스크로에는 돈이 남는다. 되돌리지
+                    // 않고 PENDING으로 남겨 두었다가 재조회가 확정한다. 예외를 던지지
+                    // 않는 이유는, 롤백하면 방금 남긴 PENDING 행까지 같이 사라져
                     // 나중에 이 건을 찾을 방법이 없어지기 때문이다.
+                    //
+                    // 내부 원장 구현에서는 이 갈래로 오지 않는다. 밖으로 나가는 구현으로
+                    // 바꿔도 코드가 그대로 맞도록 남겨 둔다.
                     TransferOutcome.Unconfirmed unconfirmed = (TransferOutcome.Unconfirmed) outcome;
-                    log.warn("[에스크로 입금 미확정 - 재조회 대상] orderId={}, escrowId={}, amount={}, reason={}",
+                    log.warn("[에스크로 적립 미확정 - 재조회 대상] orderId={}, escrowId={}, amount={}, reason={}",
                             payment.getOrderId(), escrow.getHoldId(), totalAmount, unconfirmed.reason());
                 }
             }

@@ -50,20 +50,20 @@ public class Escrow {
     @Column(name="status")
     private Status status;
 
-    @Comment("생성 시각. 미확정 입금을 재조회할 때 조회 창을 이 시각으로 좁힌다")
+    @Comment("생성 시각")
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Timestamp createdAt;
 
-    @Comment("에스크로 입금 거래고유번호. 미확정 건을 재조회할 때 열쇠가 된다")
+    @Comment("에스크로 적립 이체 식별자. 있으면 돈이 실제로 들어온 것이다")
     @Column(name = "deposit_tx_no")
     private String depositTxNo;
 
-    @Comment("대여료 지급 거래고유번호. 있으면 이미 나간 것이므로 다시 보내지 않는다")
+    @Comment("대여료 지급 이체 식별자. 있으면 이미 나간 것이므로 다시 보내지 않는다")
     @Column(name = "rental_fee_tx_no")
     private String rentalFeeTxNo;
 
-    @Comment("보증금 반환 거래고유번호. 있으면 이미 나간 것이므로 다시 보내지 않는다")
+    @Comment("보증금 반환 이체 식별자. 있으면 이미 나간 것이므로 다시 보내지 않는다")
     @Column(name = "deposit_return_tx_no")
     private String depositReturnTxNo;
 
@@ -94,12 +94,12 @@ public class Escrow {
         escrow.rentalFee = rentalFee;
         escrow.depositAmount = depositAmount;
         escrow.totalAmount = rentalFee + depositAmount;
-        escrow.status = Status.PENDING;  // 금융망 입금이 확정되기 전
+        escrow.status = Status.PENDING;  // 적립이 확정되기 전
         return escrow;
     }
 
     /**
-     * 금융망 입금이 성공으로 확정됐다. 거래고유번호를 남기고 예치중으로 옮긴다.
+     * 적립이 성공으로 확정됐다. 이체 식별자를 남기고 예치중으로 옮긴다.
      */
     public void markHeld(String depositTxNo) {
         if (this.status != Status.PENDING) {
@@ -110,7 +110,7 @@ public class Escrow {
     }
 
     /**
-     * 입금 결과가 미확정인지. PENDING으로 남아 있으면 금융망에 다시 물어 확정해야 한다.
+     * 적립이 아직 확정되지 않았는지. PENDING으로 남아 있으면 돈이 들어오지 않은 것이다.
      */
     public boolean isDepositUnconfirmed() {
         return this.status == Status.PENDING;

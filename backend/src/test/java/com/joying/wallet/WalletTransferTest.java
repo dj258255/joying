@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.MySQLContainer;
 
-import com.joying.ssafy.dto.TransferOutcome;
+import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.domain.Wallet;
 import com.joying.wallet.repository.WalletEntryRepository;
 import com.joying.wallet.repository.WalletRepository;
@@ -113,9 +113,9 @@ class WalletTransferTest {
 
 		assertThat(first).isInstanceOf(TransferOutcome.Succeeded.class);
 		assertThat(second).isInstanceOf(TransferOutcome.Succeeded.class);
-		assertThat(second.transactionUniqueNoOrNull())
+		assertThat(second.transferIdOrNull())
 			.as("두 번째는 첫 번째 이체를 그대로 가리킨다")
-			.isEqualTo(first.transactionUniqueNoOrNull());
+			.isEqualTo(first.transferIdOrNull());
 		assertThat(balanceOf(escrowWalletId)).isEqualTo(before + 7_000L);
 	}
 
@@ -129,7 +129,7 @@ class WalletTransferTest {
 			escrowWalletId, memberWalletId, before + 1L, "ref-too-much", "정산");
 
 		assertThat(outcome).isInstanceOf(TransferOutcome.Rejected.class);
-		assertThat(((TransferOutcome.Rejected) outcome).responseCode())
+		assertThat(((TransferOutcome.Rejected) outcome).reasonCode())
 			.isEqualTo("INSUFFICIENT_BALANCE");
 		assertThat(balanceOf(escrowWalletId)).isEqualTo(before);
 		assertThat(balanceOf(memberWalletId)).isZero();

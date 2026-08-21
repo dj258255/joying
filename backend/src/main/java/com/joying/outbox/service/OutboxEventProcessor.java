@@ -3,6 +3,8 @@ package com.joying.outbox.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joying.escrow.domain.Escrow;
+import com.joying.wallet.port.TransferOutcome;
+import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.repository.EscrowRepository;
 import com.joying.outbox.domain.OutboxEvent;
 import com.joying.outbox.repository.OutboxEventRepository;
@@ -33,6 +35,7 @@ public class OutboxEventProcessor {
 
     private final OutboxEventRepository outboxEventRepository;
     private final EscrowRepository escrowRepository;
+    private final MoneyTransferPort moneyTransferPort;
     private final PaymentRepository paymentRepository;
     private final RentalHistoryRepository rentalHistoryRepository;
     private final ObjectMapper objectMapper;
@@ -137,14 +140,36 @@ public class OutboxEventProcessor {
         Integer rentalFee = rentalHistory.getFee();
         Integer depositAmount = rentalHistory.getDeposit().intValue();
 
-        // 이 경로는 금융망 입금을 하지 않는다. 예전에는 여기서 바로 HELD로 만들었는데,
-        // 결제 쪽 동기 경로와 경합해 이쪽이 먼저 이기면 결제 쪽 입금 블록이 통째로
-        // 건너뛰어지면서 기록만 예치 완료가 되고 계좌에는 돈이 들어가지 않았다.
-        // 입금이 확정되기 전에는 PENDING으로 두고, 재조회 작업이 확정하게 한다.
         Escrow escrow = Escrow.createPending(rentalHistory, payment, rentalFee, depositAmount);
         escrowRepository.save(escrow);
 
-        log.info("[Outbox] Escrow 생성 완료: escrowId={}, paymentId={}", escrow.getHoldId(), paymentId);
+        // 이 경로도 적립을 한다.
+        //
+        // 예전에는 여기서 적립 없이 바로 예치 완료로 만들었다. 결제 쪽 동기 경로와
+        // 경합해 이쪽이 먼저 이기면 결제 쪽 적립 블록이 통째로 건너뛰어지면서,
+        // 기록만 예치 완료가 되고 실제로는 돈이 들어가지 않았다.
+        //
+        // 지금은 두 경로가 같은 참조로 적립을 시도한다. 참조에 유니크 제약이 걸려 있어
+        // 먼저 온 쪽만 돈을 옮기고 나중에 온 쪽은 그 결과를 그대로 받는다. 어느 쪽이
+        // 먼저 오든 결과가 같으므로 경합을 막을 필요가 없어졌다.
+        long totalAmount = payment.getTotalAmount().longValue();
+        TransferOutcome outcome = moneyTransferPort.creditToEscrow(
+                totalAmount,
+                "escrow-deposit-" + payment.getOrderId(),
+                "Toss 결제 에스크로 입금 (orderId: " + payment.getOrderId() + ")");
+
+        if (outcome instanceof TransferOutcome.Succeeded succeeded) {
+            escrow.markHeld(succeeded.transferId());
+            log.info("[Outbox] Escrow 생성·적립 완료: escrowId={}, paymentId={}, transferId={}",
+                    escrow.getHoldId(), paymentId, succeeded.transferId());
+        } else if (outcome instanceof TransferOutcome.Rejected rejected) {
+            log.error("[Outbox] 에스크로 적립 거절: paymentId={}, code={}, reason={}",
+                    paymentId, rejected.reasonCode(), rejected.reason());
+        } else {
+            // 옮겨졌는지 알 수 없다. PENDING으로 남겨 두면 재조회가 확정한다.
+            log.warn("[Outbox] 에스크로 적립 미확정 - 재조회 대상: paymentId={}, escrowId={}",
+                    paymentId, escrow.getHoldId());
+        }
     }
 
     /**

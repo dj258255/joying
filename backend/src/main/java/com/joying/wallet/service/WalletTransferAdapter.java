@@ -4,8 +4,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.joying.ssafy.dto.TransferOutcome;
 import com.joying.wallet.port.MoneyTransferPort;
+import com.joying.wallet.port.TransferOutcome;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
