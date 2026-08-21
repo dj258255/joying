@@ -117,6 +117,20 @@ public interface RentalHistoryRepository extends JpaRepository<RentalHistory, Lo
      * @param statuses 활성 상태 리스트 (PENDING, ESCROW 등)
      * @return 활성 예약 리스트 (락 걸림)
      */
+    /**
+     * 대여 건을 잠그고 가져온다.
+     *
+     * <p>결제를 만들 때 쓴다. 이미 결제가 있는지 조회해서 판정하는데, 잠그지 않으면
+     * 동시에 들어온 두 요청이 둘 다 없다고 읽고 둘 다 넣는다. 16건을 동시에 보내면
+     * 결제가 10건 생겼다.
+     *
+     * <p>대여 건 하나를 잠그므로 같은 대여의 결제 생성만 줄을 선다. 다른 대여는
+     * 그대로 동시에 돈다.
+     */
+    @Query("SELECT r FROM RentalHistory r WHERE r.rentalHisId = :rentalHisId")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<RentalHistory> findByIdWithLock(@Param("rentalHisId") Long rentalHisId);
+
     @Query("SELECT r FROM RentalHistory r " +
            "WHERE r.rentalProduct.productId = :productId " +
            "AND r.status IN :statuses " +
