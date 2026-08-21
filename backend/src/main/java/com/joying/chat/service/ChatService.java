@@ -8,6 +8,7 @@ import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -57,6 +58,7 @@ public class ChatService {
 	private final ChatPresenceService chatPresenceService;
 	private final ChatBroadcaster chatBroadcaster;
 	private final MongoTemplate mongoTemplate;
+	private final MessageSequenceGenerator sequenceGenerator;
 
 	public ChatService(ChatRoomRepository chatRoomRepository,
 					   @Qualifier("chatQueryExecutor") Executor queryExecutor,
@@ -68,7 +70,8 @@ public class ChatService {
 					   WebPushService webPushService,
 					   ChatPresenceService chatPresenceService,
 					   ChatBroadcaster chatBroadcaster,
-					   MongoTemplate mongoTemplate) {
+					   MongoTemplate mongoTemplate,
+					   MessageSequenceGenerator sequenceGenerator) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.queryExecutor = queryExecutor;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
@@ -80,6 +83,7 @@ public class ChatService {
 		this.chatPresenceService = chatPresenceService;
 		this.chatBroadcaster = chatBroadcaster;
 		this.mongoTemplate = mongoTemplate;
+		this.sequenceGenerator = sequenceGenerator;
 	}
 
 	public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId,
@@ -107,10 +111,7 @@ public class ChatService {
 		requireNotLeft(chatRoomId, senderId, "나간 채팅방입니다. 먼저 재입장해주세요", ErrorCode.FORBIDDEN);
 		requireNotLeft(chatRoomId, receiverId, "상대방이 나간 채팅방입니다", ErrorCode.INVALID_INPUT_VALUE);
 
-		ChatMessage chatMessage = buildMessage(chatRoomId, senderId, request);
-		chatMessage.setCreatedAt(Instant.now());
-
-		ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
+		ChatMessage savedMessage = saveOnce(chatRoomId, senderId, request);
 
 		ChatMessage replyMessage = savedMessage.getReplyToMessageId() == null ? null
 			: chatMessageRepository.findById(savedMessage.getReplyToMessageId()).orElse(null);
@@ -343,6 +344,44 @@ public class ChatService {
 			return (size / 1024) + " KB";
 		}
 		return (size / (1024 * 1024)) + " MB";
+	}
+
+	/**
+	 * 한 번만 저장한다.
+	 *
+	 * <p>같은 전송 식별자가 이미 있으면 그때 저장한 것을 그대로 돌려준다. 발행이
+	 * 실패해 사용자가 다시 보내도 문서가 두 개 생기지 않는다.
+	 *
+	 * <p>먼저 조회해 확인하는 것만으로는 부족하다. 동시에 들어온 두 요청이 둘 다
+	 * 없다고 읽고 둘 다 넣는다. 그래서 판정을 저장소의 유니크 제약에 맡기고, 걸리면
+	 * 그때 다시 읽는다.
+	 */
+	private ChatMessage saveOnce(Long chatRoomId, Long senderId, SendMessageRequest request) {
+		String clientMessageId = request.getClientMessageId();
+
+		if (clientMessageId != null) {
+			ChatMessage already = chatMessageRepository
+				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId).orElse(null);
+			if (already != null) {
+				log.info("이미 저장된 전송이다: chatRoomId={}, clientMessageId={}",
+					chatRoomId, clientMessageId);
+				return already;
+			}
+		}
+
+		ChatMessage chatMessage = buildMessage(chatRoomId, senderId, request);
+		chatMessage.setCreatedAt(Instant.now());
+		// 순서를 정하는 것은 시각이 아니라 이 번호다
+		chatMessage.assign(sequenceGenerator.next(chatRoomId), clientMessageId);
+
+		try {
+			return chatMessageRepository.save(chatMessage);
+		} catch (DuplicateKeyException e) {
+			// 같은 전송이 동시에 들어와 다른 쪽이 먼저 넣었다
+			return chatMessageRepository
+				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId)
+				.orElseThrow(() -> e);
+		}
 	}
 
 	/**
