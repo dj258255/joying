@@ -1,10 +1,5 @@
 plugins {
     java
-    kotlin("jvm") version "2.1.0"
-    kotlin("plugin.spring") version "2.1.0"
-    kotlin("plugin.jpa") version "2.1.0"
-    kotlin("plugin.lombok") version "2.1.0" // Kotlin에서 Java Lombok 인식용
-    kotlin("kapt") version "2.1.0"
     id("org.springframework.boot") version "3.5.6"
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "8.11" // Java Lombok annotation processing용
@@ -40,9 +35,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket") // WebSocket STOMP
 
     // Kotlin
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib")
 
     // Kotlin Coroutines (비동기 처리 - 채팅 기능용)
 
@@ -92,7 +84,6 @@ dependencies {
     testImplementation("org.testcontainers:mongodb")
     testImplementation("org.testcontainers:mysql")
     // Kotlin에서 Mockito를 쓸 때 널 안전성 때문에 그대로는 불편하다.
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     // Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
 
     implementation("software.amazon.awssdk:s3:2.28.23")
@@ -119,13 +110,6 @@ tasks.named<JavaCompile>("compileTestJava") {
 }
 
 // Kotlin 컴파일 옵션
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict", "-Xallow-kotlin-package")
-        jvmTarget = "17"
-    }
-}
-
 tasks.withType<Test> {
     useJUnitPlatform()
 
