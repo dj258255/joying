@@ -68,6 +68,15 @@ public interface ChatMessageRepository extends MongoRepository<ChatMessage, Stri
 	List<ChatMessage> findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
 		Long chatRoomId, Long after, Pageable pageable);
 
+	/**
+	 * 이 번호 이후, 이 사람이 보내지 않은 메시지 수.
+	 *
+	 * <p>안읽음을 셀 때 쓴다. 시각으로 세면 같은 밀리초에 저장된 메시지가 경계에서
+	 * 빠진다. 읽지 않았는데 읽은 것으로 센다.
+	 */
+	long countByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanAndSenderIdNot(
+		Long chatRoomId, Long afterSequence, Long excludeSenderId);
+
 	/** 같은 전송이 이미 저장돼 있는지 */
 	java.util.Optional<ChatMessage> findByChatRoomIdAndClientMessageId(
 		Long chatRoomId, String clientMessageId);
