@@ -168,7 +168,15 @@ public class ChatService {
 			.orElseThrow(() -> new BusinessException(
 				ErrorCode.RESOURCE_NOT_FOUND, "채팅방 멤버를 찾을 수 없습니다"));
 
-		chatRoomMember.markAsRead();
+		// 읽은 지점을 방의 마지막 메시지 번호로 잡는다.
+		//
+		// 시각으로 잡으면 같은 밀리초에 저장된 메시지가 경계에서 빠진다. 상대가 같은
+		// 순간에 세 건을 보내고 그중 첫 건의 시각을 기준으로 삼으면, 안 읽은 세 건이
+		// 한 건으로 보인다.
+		ChatMessage newest = chatMessageRepository
+			.findFirstByChatRoomIdAndIsDeletedFalseOrderBySequenceDesc(chatRoomId);
+		chatRoomMember.markAsRead(newest == null ? null : newest.getSequence(), Instant.now());
+
 		unreadCountService.reset(chatRoomId, memberId);
 
 		runQuietly("메시지 읽음 표시", () -> markMessagesRead(chatRoomId, memberId));

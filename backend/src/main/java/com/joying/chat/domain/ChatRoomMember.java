@@ -61,9 +61,22 @@ public class ChatRoomMember extends BaseEntity {
 	@JoinColumn(name = "member_id", nullable = false)
 	private Member member;
 
-	@Comment("마지막으로 읽은 시각 (UTC). 안읽음 개수를 세는 기준이다")
+	@Comment("마지막으로 읽은 시각 (UTC). 화면에 보여 주는 데 쓴다")
 	@Column(name = "last_read_at")
 	private Instant lastReadAt;
+
+	/**
+	 * 마지막으로 읽은 메시지의 번호.
+	 *
+	 * <p>안읽음을 세는 기준이다. 시각으로 세면 같은 밀리초에 저장된 메시지가 경계에서
+	 * 빠진다. 상대가 같은 순간에 세 건을 보내고 내가 첫 건까지 읽었을 때, 시각으로 세면
+	 * 안 읽은 세 건이 한 건으로 보인다.
+	 *
+	 * <p>번호를 도입하기 전에 읽어 둔 사람은 이 값이 비어 있다. 그때는 시각으로 센다.
+	 */
+	@Comment("마지막으로 읽은 메시지 번호. 안읽음 개수를 세는 기준이다")
+	@Column(name = "last_read_sequence")
+	private Long lastReadSequence;
 
 	@Comment("채팅방 고정 여부")
 	@Column(name = "is_pinned", nullable = false)
@@ -88,6 +101,19 @@ public class ChatRoomMember extends BaseEntity {
 
 	public void markAsRead(Instant readAt) {
 		this.lastReadAt = readAt;
+	}
+
+	/**
+	 * 이 번호까지 읽었다고 표시한다.
+	 *
+	 * <p>뒤로 물러나지 않는다. 오래된 화면이 늦게 읽음을 보내면 이미 읽은 것이 다시
+	 * 안읽음으로 돌아갈 수 있다.
+	 */
+	public void markAsRead(Long sequence, Instant readAt) {
+		this.lastReadAt = readAt;
+		if (sequence != null && (this.lastReadSequence == null || sequence > this.lastReadSequence)) {
+			this.lastReadSequence = sequence;
+		}
 	}
 
 	public void pin() {
