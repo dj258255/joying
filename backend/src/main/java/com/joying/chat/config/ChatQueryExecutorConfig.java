@@ -39,6 +39,20 @@ public class ChatQueryExecutorConfig {
 		return new KeyOrderedExecutor(partitions, "chat-message-");
 	}
 
+	/**
+	 * Redis 에서 받은 것을 화면으로 내보내는 실행기.
+	 *
+	 * <p>메시지 처리 실행기와 나눈 이유는 한쪽이 다른 쪽을 막지 않게 하기 위해서다.
+	 * 같은 줄에 두면 저장이 늦어질 때 이미 저장된 것의 전달까지 함께 밀린다.
+	 *
+	 * <p>방 단위로 묶는 것은 같다. 전달 순서도 방 안에서는 지켜야 한다.
+	 */
+	@Bean(name = "chatDeliveryExecutor", destroyMethod = "shutdown")
+	public KeyOrderedExecutor chatDeliveryExecutor() {
+		int partitions = Math.max(2, Runtime.getRuntime().availableProcessors());
+		return new KeyOrderedExecutor(partitions, "chat-delivery-");
+	}
+
 	@Bean(name = "chatQueryExecutor", destroyMethod = "shutdown")
 	public Executor chatQueryExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
