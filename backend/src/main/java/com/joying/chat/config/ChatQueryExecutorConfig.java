@@ -23,6 +23,22 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @Configuration
 public class ChatQueryExecutorConfig {
 
+	/**
+	 * 방마다 한 줄로 세워 메시지를 처리하는 실행기.
+	 *
+	 * <p>조회를 병렬로 날리는 풀과 나눈 이유는 목적이 반대여서다. 조회는 순서가
+	 * 필요 없어 넓게 퍼뜨리는 것이 이득이고, 메시지는 순서가 필요해 좁게 묶어야 한다.
+	 * 한 풀에 섞으면 방 목록을 여는 사람 하나가 남의 메시지 순서를 흔든다.
+	 *
+	 * <p>줄 수는 코어 수에 맞춘다. 늘려도 방 안의 순서는 그대로고 방끼리의 동시성만
+	 * 늘어나는데, 밑이 블로킹이라 코어보다 많이 두면 서로 기다리기만 한다.
+	 */
+	@Bean(name = "chatMessageExecutor", destroyMethod = "shutdown")
+	public KeyOrderedExecutor chatMessageExecutor() {
+		int partitions = Math.max(2, Runtime.getRuntime().availableProcessors());
+		return new KeyOrderedExecutor(partitions, "chat-message-");
+	}
+
 	@Bean(name = "chatQueryExecutor", destroyMethod = "shutdown")
 	public Executor chatQueryExecutor() {
 		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

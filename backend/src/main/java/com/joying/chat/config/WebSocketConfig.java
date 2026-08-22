@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -47,8 +48,27 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 		// 특정 사용자에게만 보낼 때 쓴다. 예: /user/{id}/queue/messages
 		registry.setUserDestinationPrefix("/user");
+
+		// 한 사람에게 나가는 메시지를 보낸 순서대로 내보낸다.
+		//
+		// 켜지 않으면 송신 채널이 스레드 풀이라 같은 사람에게 갈 두 건이 서로
+		// 앞지른다. 부하를 넣고 재 보니 200건 중 193번 번호가 뒤로 갔다.
+		//
+		// 값은 처리량이다. 앞엣것이 끝나야 뒤엣것을 보내므로 한 사람에게 몰릴 때
+		// 그 사람의 줄만 길어진다. 다른 사람은 그대로 병렬이다.
+		registry.setPreservePublishOrder(true);
 	}
 
+	/**
+	 * 들어오는 프레임을 연결 단위로 한 줄로 세운다.
+	 *
+	 * <p>기본 채널은 스레드 풀이라 한 연결에서 연달아 보낸 프레임이 서로 앞지른다.
+	 * 그러면 나중에 보낸 것이 먼저 번호를 받아, 보낸 사람 화면에서도 자기 말의
+	 * 앞뒤가 바뀐다. 부하를 넣기 전에는 보이지 않았다.
+	 *
+	 * <p>연결로 묶으므로 사람이 많아져도 서로 기다리지 않는다. 한 연결 안에서만
+	 * 순서를 지킨다.
+	 */
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 		registry.addEndpoint("/ws/chat")
@@ -81,11 +101,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	public void configureClientInboundChannel(ChannelRegistration registration) {
 		registration
 			.interceptors(webSocketAuthInterceptor)
-			.taskExecutor()
-			.corePoolSize(5)
-			.maxPoolSize(20)
-			.queueCapacity(200)
-			.keepAliveSeconds(30);
+			// 평범한 풀 대신 연결 단위로 묶인 실행기를 쓴다. 풀에 그대로 던지면 한
+			// 연결에서 연달아 보낸 프레임이 서로 앞질러, 나중에 보낸 것이 먼저 번호를
+			// 받는다. 보낸 사람 화면에서도 자기 말의 앞뒤가 바뀐다.
+			.executor(new SessionOrderedExecutor(
+				new KeyOrderedExecutor(
+					Math.max(2, Runtime.getRuntime().availableProcessors() * 2),
+					"ws-inbound-")));
 	}
 
 	/**

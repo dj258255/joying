@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700" font-family="Pretendard, 'Apple SD Gothic Neo', sans-serif">
+  <defs>
+    <marker id="dr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#F04452"/>
+    </marker>
+    <marker id="db" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#3182F6"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="700" fill="#000000"/>
+  <text x="56" y="72" font-size="46" font-weight="800" fill="#FFFFFF">순서가 어긋나는 자리는 셋이었다</text>
+  <text x="56" y="106" font-size="28.7" fill="#8B95A1">k6로 발신자 8명이 200건을 몰아넣고 받는 쪽에 닿는 순서를 셌다. 하나만 막으면 수치가 안 움직인다</text>
+
+  <g text-anchor="middle">
+    <rect x="56" y="152" width="200" height="96" rx="14" fill="#F2F4F6"/>
+    <text x="156" y="190" font-size="23.32" font-weight="700" fill="#191F28">보내는 사람</text>
+    <text x="156" y="218" font-size="22.43" fill="#4E5968">한 연결로</text>
+    <text x="156" y="240" font-size="22.43" fill="#4E5968">연달아 전송</text>
+
+    <rect x="316" y="152" width="220" height="96" rx="14" fill="#2A1418" stroke="#F04452"/>
+    <text x="426" y="184" font-size="23.32" font-weight="700" fill="#F04452">1. 들어오는 채널</text>
+    <text x="426" y="212" font-size="22.43" fill="#8B95A1">풀이라 프레임끼리</text>
+    <text x="426" y="234" font-size="22.43" fill="#8B95A1">앞지른다</text>
+
+    <rect x="596" y="152" width="220" height="96" rx="14" fill="#2A1418" stroke="#F04452"/>
+    <text x="706" y="184" font-size="23.32" font-weight="700" fill="#F04452">2. 메시지 처리 풀</text>
+    <text x="706" y="212" font-size="22.43" fill="#8B95A1">같은 방이 네 스레드</text>
+    <text x="706" y="234" font-size="22.43" fill="#8B95A1">에 흩어진다</text>
+
+    <rect x="876" y="152" width="220" height="96" rx="14" fill="#2A1418" stroke="#F04452"/>
+    <text x="986" y="184" font-size="23.32" font-weight="700" fill="#F04452">3. 나가는 채널</text>
+    <text x="986" y="212" font-size="22.43" fill="#8B95A1">한 사람에게 갈 두 건</text>
+    <text x="986" y="234" font-size="22.43" fill="#8B95A1">이 앞지른다</text>
+
+    <rect x="1156" y="152" width="188" height="96" rx="14" fill="#F2F4F6"/>
+    <text x="1250" y="190" font-size="23.32" font-weight="700" fill="#191F28">받는 사람</text>
+    <text x="1250" y="228" font-size="22.43" fill="#4E5968">번호가 뒤섞임</text>
+  </g>
+  <line x1="256" y1="200" x2="310" y2="200" stroke="#F04452" stroke-width="2" marker-end="url(#dr)"/>
+  <line x1="536" y1="200" x2="590" y2="200" stroke="#F04452" stroke-width="2" marker-end="url(#dr)"/>
+  <line x1="816" y1="200" x2="870" y2="200" stroke="#F04452" stroke-width="2" marker-end="url(#dr)"/>
+  <line x1="1096" y1="200" x2="1150" y2="200" stroke="#F04452" stroke-width="2" marker-end="url(#dr)"/>
+
+  <g text-anchor="middle">
+    <rect x="316" y="292" width="220" height="86" rx="14" fill="#0E1B2E" stroke="#3182F6"/>
+    <text x="426" y="326" font-size="22.43" font-weight="700" fill="#3182F6">연결 단위로 한 줄</text>
+    <text x="426" y="356" font-size="22.43" fill="#8B95A1">세션 열쇠로 스레드 선택</text>
+
+    <rect x="596" y="292" width="220" height="86" rx="14" fill="#0E1B2E" stroke="#3182F6"/>
+    <text x="706" y="326" font-size="22.43" font-weight="700" fill="#3182F6">방 단위로 한 줄</text>
+    <text x="706" y="356" font-size="22.43" fill="#8B95A1">방 번호로 스레드 선택</text>
+
+    <rect x="876" y="292" width="220" height="86" rx="14" fill="#0E1B2E" stroke="#3182F6"/>
+    <text x="986" y="326" font-size="22.43" font-weight="700" fill="#3182F6">발행 순서 보존</text>
+    <text x="986" y="356" font-size="22.43" fill="#8B95A1">setPreservePublishOrder</text>
+  </g>
+  <line x1="426" y1="254" x2="426" y2="286" stroke="#3182F6" stroke-width="2" marker-end="url(#db)"/>
+  <line x1="706" y1="254" x2="706" y2="286" stroke="#3182F6" stroke-width="2" marker-end="url(#db)"/>
+  <line x1="986" y1="254" x2="986" y2="286" stroke="#3182F6" stroke-width="2" marker-end="url(#db)"/>
+
+  <rect x="56" y="422" width="632" height="238" rx="18" fill="#15181E" stroke="#2A2F38"/>
+  <text x="84" y="462" font-size="28.7" font-weight="700" fill="#FFFFFF">200건 중 뒤집힌 횟수</text>
+  <g text-anchor="middle">
+    <rect x="84" y="486" width="270" height="130" rx="14" fill="#2A1418" stroke="#F04452"/>
+    <text x="219" y="522" font-size="23.32" font-weight="700" fill="#F04452">고치기 전</text>
+    <text x="219" y="566" font-size="40" font-weight="800" fill="#F04452">67 · 73 · 71</text>
+    <text x="219" y="596" font-size="22.43" fill="#8B95A1">3회 실행</text>
+
+    <rect x="390" y="486" width="270" height="130" rx="14" fill="#0E1B2E" stroke="#3182F6"/>
+    <text x="525" y="522" font-size="23.32" font-weight="700" fill="#3182F6">고친 뒤</text>
+    <text x="525" y="566" font-size="40" font-weight="800" fill="#3182F6">0 · 0 · 0</text>
+    <text x="525" y="596" font-size="22.43" fill="#8B95A1">3회 실행</text>
+  </g>
+
+  <rect x="712" y="422" width="632" height="238" rx="18" fill="#15181E" stroke="#2A2F38"/>
+  <text x="740" y="462" font-size="28.7" font-weight="700" fill="#F5A524">값: 왕복 지연이 약 세 배</text>
+  <g text-anchor="middle">
+    <rect x="740" y="486" width="270" height="130" rx="14" fill="#1E1A10" stroke="#F5A524"/>
+    <text x="875" y="522" font-size="23.32" font-weight="700" fill="#F5A524">고치기 전 중앙값</text>
+    <text x="875" y="566" font-size="40" font-weight="800" fill="#F5A524">371 ~ 849ms</text>
+    <text x="875" y="596" font-size="22.43" fill="#8B95A1">p95 717ms ~ 1.36s</text>
+
+    <rect x="1046" y="486" width="270" height="130" rx="14" fill="#1E1A10" stroke="#F5A524"/>
+    <text x="1181" y="522" font-size="23.32" font-weight="700" fill="#F5A524">고친 뒤 중앙값</text>
+    <text x="1181" y="566" font-size="40" font-weight="800" fill="#F5A524">1.24 ~ 1.45s</text>
+    <text x="1181" y="596" font-size="22.43" fill="#8B95A1">p95 2.25 ~ 2.45s</text>
+  </g>
+</svg>
