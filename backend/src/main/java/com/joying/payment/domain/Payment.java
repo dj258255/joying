@@ -18,7 +18,16 @@ import java.sql.Timestamp;
         name = "payment",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_payment_order", columnNames = "order_id"),
-                @UniqueConstraint(name = "uk_payment_key",   columnNames = "payment_key")
+                @UniqueConstraint(name = "uk_payment_key",   columnNames = "payment_key"),
+                // 살아 있는 결제는 대여 건과 종류마다 하나뿐이다.
+                //
+                // 예전에는 이미 있는지를 조회해서 판정했다. 동시에 들어온 두 요청이 둘 다
+                // 없다고 읽고 둘 다 넣었다. 16건을 동시에 보내면 결제가 10건 생겼다.
+                //
+                // 취소된 것은 이 값을 비우므로 제약에 걸리지 않는다. 재시도 때마다 쌓이는
+                // 취소 건은 여럿이어도 된다. MySQL 은 유니크 인덱스에서 빈 값을 서로 다른
+                // 것으로 본다.
+                @UniqueConstraint(name = "uk_payment_active", columnNames = "active_key")
         },
         indexes = {
                 @Index(name = "idx_payment_member",      columnList = "member_id"),
@@ -106,6 +115,10 @@ public class Payment {
     @Comment("승인/취소 동시요청 시 경쟁 방지를 위한 버전 관리")
     private Long version;
 
+    @Column(name = "active_key", length = 64)
+    @Comment("살아 있는 결제를 가리키는 값. 취소되면 비운다")
+    private String activeKey;
+
 
     public static Payment create(RentalHistory rentalHistory,
                                  Product product,
@@ -116,7 +129,18 @@ public class Payment {
         p.product = product;
         p.member = member;
         p.paymentType = paymentType;
+        p.activeKey = activeKeyOf(rentalHistory.getRentalHisId(), paymentType);
         return p;
+    }
+
+    /**
+     * 살아 있는 결제를 가리키는 값.
+     *
+     * <p>대여 건과 결제 종류를 묶는다. 처음 결제와 연장 결제는 같은 대여 건에 함께
+     * 있을 수 있으므로 종류까지 넣어야 한다.
+     */
+    private static String activeKeyOf(Long rentalHisId, PaymentType paymentType) {
+        return rentalHisId + ":" + paymentType;
     }
 
     // ====== 상태 메서드 ======
@@ -157,5 +181,7 @@ public class Payment {
             throw new IllegalStateException("READY 또는 DONE 상태에서만 취소할 수 있습니다. 현재 상태: " + this.status);
         }
         this.status = PaymentStatus.CANCELED;
+        // 자리를 비워 준다. 이것을 안 비우면 다시 결제할 수 없다
+        this.activeKey = null;
     }
 }

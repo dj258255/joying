@@ -33,6 +33,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
@@ -67,6 +68,10 @@ public class PaymentService {
     private final MoneyTransferPort moneyTransferPort;
     private final DepositHoldPort depositHoldPort;
 
+    /** 방금 만든 결제로 볼 시간. 이보다 짧게 다시 오면 같은 주문번호를 돌려준다 */
+    @Value("${joying.payment.fresh-window-millis:10000}")
+    private long freshWindowMillis;
+
     /**
      * 1. 결제 생성 (orderId 발급)
      * - 멱등성 보장: 같은 rentalHisId로 중복 생성 방지
@@ -83,8 +88,12 @@ public class PaymentService {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + request.getProductId()));
 
-        // RentalHistory 조회
-        RentalHistory rentalHistory = rentalHistoryRepository.findById(request.getRentalHisId())
+        // RentalHistory 를 잠그고 조회한다.
+        //
+        // 아래에서 이미 결제가 있는지 조회해서 판정하는데, 잠그지 않으면 동시에 들어온
+        // 두 요청이 둘 다 없다고 읽고 둘 다 넣는다. 16건을 동시에 보내면 결제가 10건
+        // 생겼다. 대여 건 하나만 잠그므로 다른 대여의 결제는 그대로 동시에 돈다.
+        RentalHistory rentalHistory = rentalHistoryRepository.findByIdWithLock(request.getRentalHisId())
                 .orElseThrow(() -> new IllegalArgumentException("대여 내역을 찾을 수 없습니다: " + request.getRentalHisId()));
 
         // 금액 검증: 채팅을 통한 네고(할인) 고려
@@ -111,9 +120,14 @@ public class PaymentService {
         }
 
         // 멱등성 체크: 이미 해당 rentalHisId로 결제가 있으면 확인
-        Optional<Payment> existingPayment = paymentRepository.findByRentalHistory_RentalHisId(request.getRentalHisId())
+        //
+        // 잠금 읽기로 한다. 평범한 조회로 하면 앞선 요청이 만들고 커밋한 결제가 보이지
+        // 않는다. MySQL 의 기본 격리 수준에서 평범한 조회는 트랜잭션이 처음 읽은 시점의
+        // 모습을 계속 보기 때문이다. 위에서 회원과 상품을 먼저 읽으므로 그 시점이 이미
+        // 지나 있다.
+        Optional<Payment> existingPayment =
+                paymentRepository.findActiveByRentalWithLock(request.getRentalHisId())
                 .stream()
-                .filter(p -> p.getStatus() != PaymentStatus.CANCELED) // 취소된 것은 제외
                 .findFirst();
 
         if (existingPayment.isPresent()) {
@@ -129,13 +143,43 @@ public class PaymentService {
                         .build();
             }
 
-            // READY 상태인 경우: 새로운 orderId 생성 (이전 결제 시도 실패로 판단)
+            // READY 상태인 경우
             if (payment.getStatus() == PaymentStatus.READY) {
-                log.warn("READY 상태의 결제 존재 - 새 orderId 생성: rentalHisId={}, oldOrderId={}",
+
+                // 방금 만든 것이면 그대로 돌려준다.
+                //
+                // 결제 버튼을 두 번 누르거나 응답이 늦어 다시 누른 경우다. 그 짧은
+                // 사이에 결제창을 열어 실패까지 다녀올 수는 없으므로, 이 주문번호는
+                // 아직 토스에 간 적이 없다. 새로 만들면 누를 때마다 주문번호가 하나씩
+                // 버려지고, 실제로 16번 동시에 누르면 결제가 10건 생겼다.
+                if (isFreshlyCreated(payment)) {
+                    log.info("방금 만든 결제를 그대로 돌려준다: rentalHisId={}, orderId={}",
+                            request.getRentalHisId(), payment.getOrderId());
+                    return PaymentCreateResponse.builder()
+                            .paymentId(payment.getPaymentId())
+                            .orderId(payment.getOrderId())
+                            .totalAmount(payment.getTotalAmount())
+                            .build();
+                }
+
+                // 오래된 것이면 새 주문번호를 만든다.
+                //
+                // 사용자가 결제창을 닫았다가 다시 온 경우다. 토스는 이미 시도한 적이
+                // 있는 주문번호를 다시 받지 않는다(DUPLICATED_ORDER_ID). 그래서 옛
+                // 결제를 접고 새 번호를 낸다.
+                log.warn("오래된 READY 결제를 접고 새 orderId 생성: rentalHisId={}, oldOrderId={}",
                         request.getRentalHisId(), payment.getOrderId());
 
                 // 기존 Payment 취소 처리
                 payment.cancel();
+
+                // 취소를 먼저 DB에 반영한다.
+                //
+                // Hibernate 는 한 트랜잭션 안에서 INSERT 를 UPDATE 보다 먼저 내보낸다.
+                // 그대로 두면 새 결제의 INSERT 가 먼저 나가고, 아직 비워지지 않은 옛
+                // 결제의 활성 열쇠와 부딪힌다. 실제로 "Duplicate entry '9001:INITIAL'"
+                // 로 떨어졌다.
+                paymentRepository.flush();
 
                 // 새로운 orderId로 Payment 생성 (아래 로직 계속)
             }
@@ -149,6 +193,14 @@ public class PaymentService {
         payment.markReady(orderId, request.getTotalAmount(), Timestamp.valueOf(LocalDateTime.now()));
 
         // 저장
+        //
+        // 위에서 대여 건을 잠갔으므로 여기까지 온 것은 하나뿐이다. 제약은 그것과
+        // 별개로 걸어 둔다. 잠그는 것을 잊은 다른 경로가 생겨도 두 건이 되지 않는다.
+        //
+        // 제약에 걸렸을 때 이미 있는 것을 찾아 돌려주지는 않는다. flush 가 실패하면
+        // 영속성 컨텍스트가 망가져 같은 트랜잭션 안에서는 다시 조회할 수 없다.
+        // 실제로 해 보니 "has a null identifier" 로 떨어졌다. 되돌리려면 트랜잭션을
+        // 새로 열어야 하는데, 잠금으로 막고 있으므로 여기까지 오지 않는다.
         Payment savedPayment = paymentRepository.save(payment);
 
         rentalHistory.addPayment(savedPayment);
@@ -164,6 +216,24 @@ public class PaymentService {
                 .orderId(orderId)
                 .totalAmount(request.getTotalAmount())
                 .build();
+    }
+
+    /**
+     * 방금 만들어진 결제인지.
+     *
+     * <p>기준을 시간으로 둔 이유는 서버가 결제창이 열렸는지를 알 방법이 없어서다.
+     * 토스가 알려 주는 것은 승인 결과뿐이고, 창을 열었다가 닫은 것은 알려 주지 않는다.
+     *
+     * <p>기준보다 짧으면 아직 창을 열지도 못했다고 본다. 길게 잡으면 진짜 재시도가
+     * 옛 주문번호를 받아 토스에서 거절당하고, 짧게 잡으면 두 번 누른 것이 새 번호를
+     * 받아 주문번호가 버려진다.
+     */
+    private boolean isFreshlyCreated(Payment payment) {
+        if (payment.getRequestedAt() == null) {
+            return false;
+        }
+        long elapsedMillis = System.currentTimeMillis() - payment.getRequestedAt().getTime();
+        return elapsedMillis >= 0 && elapsedMillis < freshWindowMillis;
     }
 
     /**
