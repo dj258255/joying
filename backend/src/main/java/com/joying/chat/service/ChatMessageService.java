@@ -110,9 +110,8 @@ public class ChatMessageService {
 	/**
 	 * 안읽음 건수.
 	 *
-	 * <p>여기만 아직 시각으로 센다. 읽은 지점을 방 참여자에 시각으로 들고 있어서다.
-	 * 같은 밀리초 경계에서 한 건이 어긋날 수 있다. 순서와 달리 눈에 보이는 문제로
-	 * 이어지지 않아 이번에는 손대지 않았다.
+	 * <p>읽은 시각을 받아 그 이후를 센다. 정확히 세는 것은 {@code UnreadCountService}
+	 * 가 읽은 번호로 하고, 여기는 시각만 아는 자리에서 쓴다.
 	 */
 	public long getUnreadCount(Long chatRoomId, Instant lastReadAt) {
 		if (lastReadAt == null) {

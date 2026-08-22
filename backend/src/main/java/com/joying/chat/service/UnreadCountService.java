@@ -153,6 +153,35 @@ public class UnreadCountService {
 	}
 
 	/**
+	 * 안 읽은 건수를 센다. 본인이 보낸 것은 어느 쪽이든 뺀다.
+	 *
+	 * <p>읽은 지점을 번호로 잡는다. 시각으로 잡으면 같은 밀리초에 저장된 메시지가
+	 * 경계에서 빠져 읽지 않았는데 읽은 것으로 센다. 세 건이 같은 순간에 왔을 때
+	 * 시각으로는 한 건, 번호로는 세 건이 나온다.
+	 *
+	 * <p>번호를 도입하기 전에 읽어 둔 사람은 번호가 비어 있다. 그때만 시각으로 센다.
+	 * 그 사람이 한 번 더 읽으면 번호가 채워지고 그 뒤로는 정확해진다.
+	 */
+	private long countUnread(ChatRoomMember member, Long chatRoomId, Long memberId) {
+		if (member.getLastReadSequence() != null) {
+			return chatMessageRepository
+				.countByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanAndSenderIdNot(
+					chatRoomId, member.getLastReadSequence(), memberId);
+		}
+
+		if (member.getLastReadAt() == null) {
+			// 읽은 지점이 없다는 것은 한 번도 안 읽었다는 뜻이지 읽을 것이 없다는
+			// 뜻이 아니다. 방의 처음부터 전부 센다
+			return chatMessageRepository
+				.countByChatRoomIdAndIsDeletedFalseAndSenderIdNot(chatRoomId, memberId);
+		}
+
+		return chatMessageRepository
+			.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
+				chatRoomId, member.getLastReadAt(), memberId);
+	}
+
+	/**
 	 * 저장소에서 세어 Redis에 다시 넣는다.
 	 *
 	 * <p>읽은 시각이 없다는 것은 한 번도 안 읽었다는 뜻이지 읽을 것이 없다는 뜻이
@@ -170,13 +199,7 @@ public class UnreadCountService {
 				return 0L;
 			}
 
-			// 본인이 보낸 것은 어느 쪽이든 빼고 센다
-			long actualCount = member.getLastReadAt() == null
-				? chatMessageRepository
-					.countByChatRoomIdAndIsDeletedFalseAndSenderIdNot(chatRoomId, memberId)
-				: chatMessageRepository
-					.countByChatRoomIdAndIsDeletedFalseAndCreatedAtAfterAndSenderIdNot(
-						chatRoomId, member.getLastReadAt(), memberId);
+			long actualCount = countUnread(member, chatRoomId, memberId);
 
 			try {
 				redis.opsForValue().set(getKey(chatRoomId, memberId),

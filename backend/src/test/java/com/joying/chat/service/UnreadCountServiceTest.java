@@ -110,10 +110,30 @@ class UnreadCountServiceTest {
 	}
 
 	@Test
-	@DisplayName("캐시가 비었으면 저장소에서 세되 본인이 보낸 것은 빼고 센다")
+	@DisplayName("캐시가 비었으면 읽은 번호 이후를 세되 본인이 보낸 것은 뺀다")
 	void countsOnlyMessagesFromOthers() {
+		// 읽은 지점을 번호로 잡는다. 시각으로 잡으면 같은 밀리초에 저장된 메시지가
+		// 경계에서 빠져 읽지 않았는데 읽은 것으로 센다
+		ChatRoomMember member = org.mockito.Mockito.mock(ChatRoomMember.class);
+		given(member.getLastReadSequence()).willReturn(42L);
+
+		given(valueOps.get(KEY)).willReturn(null);
+		given(memberRepository.findByChatRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
+			.willReturn(Optional.of(member));
+		given(messageRepository.countByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanAndSenderIdNot(
+			ROOM_ID, 42L, MEMBER_ID)).willReturn(3L);
+
+		assertThat(service.get(ROOM_ID, MEMBER_ID)).isEqualTo(3L);
+	}
+
+	@Test
+	@DisplayName("번호를 도입하기 전에 읽어 둔 사람은 시각으로 센다")
+	void fallsBackToTimeWhenSequenceIsMissing() {
+		// 번호가 없는 사람이 남아 있다. 그 사람이 한 번 더 읽으면 번호가 채워지고
+		// 그 뒤로는 정확해진다
 		Instant lastReadAt = Instant.parse("2026-01-01T00:00:00Z");
 		ChatRoomMember member = org.mockito.Mockito.mock(ChatRoomMember.class);
+		given(member.getLastReadSequence()).willReturn(null);
 		given(member.getLastReadAt()).willReturn(lastReadAt);
 
 		given(valueOps.get(KEY)).willReturn(null);
@@ -132,6 +152,7 @@ class UnreadCountServiceTest {
 		// 아니다. 예전에는 여기서 저장소를 보지 않고 0을 돌려줬고, 그래서 새로 만든
 		// 방에 상대가 먼저 말을 걸면 배지에 아무것도 안 떴다.
 		ChatRoomMember member = org.mockito.Mockito.mock(ChatRoomMember.class);
+		given(member.getLastReadSequence()).willReturn(null);
 		given(member.getLastReadAt()).willReturn(null);
 
 		given(valueOps.get(KEY)).willReturn(null);
