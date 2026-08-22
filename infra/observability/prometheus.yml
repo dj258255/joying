@@ -1,0 +1,16 @@
+# 긁어 오는 주기를 5초로 둔다.
+#
+# 기본값 15초로는 이 프로젝트에서 보려는 것이 안 보인다. 저장소가 느려질 때 줄이
+# 쌓였다가 빠지는 것은 수십 초 안에 일어나므로, 15초 간격이면 봉우리를 놓친다.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: joying-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # 도커 안에서 호스트의 앱을 부른다
+      - targets: ['host.docker.internal:8080']
+        labels:
+          service: joying-backend
