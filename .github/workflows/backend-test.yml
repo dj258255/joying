@@ -1,0 +1,76 @@
+# 테스트를 자동으로 돌린다.
+#
+# 지금까지 도는 곳이 없었다. Jenkins 파이프라인은 develop 과 main 에서 빌드와 배포만
+# 하고 테스트를 부르지 않는다. 테스트 82개가 있어도 누가 손으로 돌려야만 결과를 안다.
+#
+# 이 프로젝트의 테스트는 실제 MySQL, MongoDB, Redis 컨테이너를 띄운다. 그래서 도커가
+# 있는 러너가 필요하다. GitHub 이 주는 우분투 러너에는 도커가 들어 있다.
+name: 백엔드 테스트
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test.yml'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'backend/**'
+
+# 같은 브랜치에 여러 번 밀면 앞엣것을 멈춘다. 컨테이너를 띄우는 테스트라 겹치면
+# 러너가 무거워진다
+concurrency:
+  group: backend-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17 준비
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+
+      - name: Gradle 준비
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 테스트
+        working-directory: backend
+        run: ./gradlew test --no-daemon
+
+      # 실패했을 때 어느 테스트가 왜 깨졌는지 보려면 결과 파일이 필요하다.
+      # 성공했을 때도 올려 둔다. 몇 건이 돌았는지 확인할 수 있다
+      - name: 테스트 결과 남기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            backend/build/reports/tests/test
+            backend/build/test-results/test
+          retention-days: 7
+
+      - name: 요약
+        if: always()
+        working-directory: backend
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob, re
+          total = failed = skipped = 0
+          for path in glob.glob('build/test-results/test/*.xml'):
+              head = open(path, encoding='utf-8').read(500)
+              total   += int(re.search(r'tests="(\d+)"', head).group(1))
+              failed  += int(re.search(r'failures="(\d+)"', head).group(1))
+              skipped += int(re.search(r'skipped="(\d+)"', head).group(1))
+          print(f'## 테스트 {total}건')
+          print()
+          print(f'- 실패 {failed}건')
+          print(f'- 건너뜀 {skipped}건')
+          PY
