@@ -16,6 +16,7 @@ import com.joying.payment.dto.response.TossCancelResponse;
 import com.joying.payment.dto.response.TossConfirmResponse;
 import com.joying.payment.exception.*;
 import com.joying.payment.port.TossPaymentsClient;
+import com.joying.payment.metrics.PaymentMetrics;
 import com.joying.payment.repository.PaymentRepository;
 import com.joying.product.domain.Product;
 import com.joying.product.repository.ProductRepository;
@@ -67,6 +68,7 @@ public class PaymentService {
     private final ApplicationEventPublisher eventPublisher;
     private final MoneyTransferPort moneyTransferPort;
     private final DepositHoldPort depositHoldPort;
+    private final PaymentMetrics paymentMetrics;
 
     /** 방금 만든 결제로 볼 시간. 이보다 짧게 다시 오면 같은 주문번호를 돌려준다 */
     @Value("${joying.payment.fresh-window-millis:10000}")
@@ -110,6 +112,7 @@ public class PaymentService {
         if (request.getTotalAmount() > expectedAmount) {
             log.error("결제 금액 초과: expected={} (fee={} × {}days + deposit={}), actual={}",
                     expectedAmount, rentalHistory.getFee(), days, rentalHistory.getDeposit(), request.getTotalAmount());
+            paymentMetrics.offHappyPath(PaymentMetrics.AMOUNT_MISMATCH);
             throw new PaymentAmountMismatchException(expectedAmount, request.getTotalAmount());
         }
 
@@ -136,6 +139,7 @@ public class PaymentService {
             // 이미 완료된 결제면 그대로 반환
             if (payment.getStatus() == PaymentStatus.DONE) {
                 log.warn("이미 완료된 결제: rentalHisId={}, orderId={}", request.getRentalHisId(), payment.getOrderId());
+                paymentMetrics.offHappyPath(PaymentMetrics.ALREADY_DONE);
                 return PaymentCreateResponse.builder()
                         .paymentId(payment.getPaymentId())
                         .orderId(payment.getOrderId())
@@ -155,6 +159,8 @@ public class PaymentService {
                 if (isFreshlyCreated(payment)) {
                     log.info("방금 만든 결제를 그대로 돌려준다: rentalHisId={}, orderId={}",
                             request.getRentalHisId(), payment.getOrderId());
+                    // 이 값이 오르면 응답이 느려 사람들이 다시 누르고 있다는 신호다
+                    paymentMetrics.offHappyPath(PaymentMetrics.DUPLICATE_SUBMIT);
                     return PaymentCreateResponse.builder()
                             .paymentId(payment.getPaymentId())
                             .orderId(payment.getOrderId())
@@ -169,6 +175,8 @@ public class PaymentService {
                 // 결제를 접고 새 번호를 낸다.
                 log.warn("오래된 READY 결제를 접고 새 orderId 생성: rentalHisId={}, oldOrderId={}",
                         request.getRentalHisId(), payment.getOrderId());
+                // 이 값이 오르면 사람들이 결제창에서 이탈하고 있다는 신호다
+                paymentMetrics.offHappyPath(PaymentMetrics.STALE_RETRY);
 
                 // 기존 Payment 취소 처리
                 payment.cancel();
