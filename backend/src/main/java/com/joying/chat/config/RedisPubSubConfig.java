@@ -1,11 +1,14 @@
 package com.joying.chat.config;
 
+import java.util.concurrent.ThreadPoolExecutor;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -59,6 +62,24 @@ public class RedisPubSubConfig {
 
 		RedisMessageListenerContainer container = new RedisMessageListenerContainer();
 		container.setConnectionFactory(connectionFactory);
+
+		// 받은 것을 넘겨주는 자리를 스레드 하나로 묶는다.
+		//
+		// 지정하지 않으면 기본값이 메시지마다 새 스레드를 만드는 방식이다. 200건을
+		// 보내면 서로 다른 스레드 200개가 생긴다. 몰릴수록 스레드가 늘어나고, 순서도
+		// 그때그때 달라진다.
+		//
+		// 여기서는 넘겨주기만 하고 실제 일은 방 단위 실행기가 한다. 그래서 스레드
+		// 하나로 충분하고, Redis 가 보낸 순서가 그대로 유지된다.
+		ThreadPoolTaskExecutor dispatcher = new ThreadPoolTaskExecutor();
+		dispatcher.setCorePoolSize(1);
+		dispatcher.setMaxPoolSize(1);
+		dispatcher.setQueueCapacity(1000);
+		dispatcher.setThreadNamePrefix("chat-redis-dispatch-");
+		// 큐가 차면 부른 스레드가 직접 처리한다. 버리면 메시지가 화면에 닿지 않는다
+		dispatcher.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+		dispatcher.initialize();
+		container.setTaskExecutor(dispatcher);
 
 		// 메시지 본문
 		container.addMessageListener(chatMessageListener, new ChannelTopic(CHAT_MESSAGE_CHANNEL));
