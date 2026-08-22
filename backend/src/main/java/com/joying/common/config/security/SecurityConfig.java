@@ -107,6 +107,12 @@ public class SecurityConfig {
 				.requestMatchers("/api/v1/accounts/verify/**").permitAll()
 				// WebSocket 채팅 엔드포인트 (JWT는 WebSocket 핸들러에서 검증)
 				.requestMatchers("/ws/chat/**").permitAll()
+				// 지표와 상태. 프로메테우스가 주기적으로 긁어 간다.
+				//
+				// 인증을 걸지 않은 이유는 긁어 가는 쪽이 사람이 아니라서다. 대신 밖에서
+				// 닿지 않도록 막는 것은 네트워크에서 한다. 지금은 로컬 도커 안에서만
+				// 부르고, 배포할 때는 이 경로를 외부에 열지 않는다.
+				.requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
 				// 그 외 모든 요청은 인증 필요
 				.anyRequest().authenticated()
 			)

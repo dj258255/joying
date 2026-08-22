@@ -86,6 +86,10 @@ dependencies {
     // Kotlin에서 Mockito를 쓸 때 널 안전성 때문에 그대로는 불편하다.
     // Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
 
+    // 관측. actuator 가 지표를 모으고 registry 가 프로메테우스 형식으로 내보낸다
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
+
     implementation("software.amazon.awssdk:s3:2.28.23")
     implementation("software.amazon.awssdk:auth:2.28.23")
     implementation("software.amazon.awssdk:regions:2.28.23")

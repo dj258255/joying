@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joying.chat.config.KeyOrderedExecutor;
 import com.joying.chat.dto.ChatMessageResponse;
+import com.joying.chat.metrics.ChatMetrics;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,6 +45,8 @@ public class ChatMessageListener implements MessageListener {
 	@Qualifier("chatDeliveryExecutor")
 	private final KeyOrderedExecutor deliveryExecutor;
 
+	private final ChatMetrics chatMetrics;
+
 	@Override
 	public void onMessage(Message message, byte[] pattern) {
 		try {
@@ -70,6 +73,9 @@ public class ChatMessageListener implements MessageListener {
 			// 보낸 사람에게도 보낸다. 다른 기기에서 열어 둔 화면이 있을 수 있다.
 			sentCount += sendTo(dto.getSenderId(), destination, dto, "sender");
 			sentCount += sendTo(dto.getReceiverId(), destination, dto, "receiver");
+
+			// 만들어진 때부터 화면으로 나갈 때까지. 사용자가 실제로 겪는 값이다
+			chatMetrics.recordDelivery(dto.getCreatedAt());
 
 			log.debug("WebSocket 전송 완료: chatRoomId={}, messageId={}, 전송 성공 {}/2",
 				dto.getChatRoomId(), dto.getId(), sentCount);

@@ -22,6 +22,7 @@ import com.joying.chat.document.MessageType;
 import com.joying.chat.domain.ChatRoom;
 import com.joying.chat.domain.ChatRoomMember;
 import com.joying.chat.dto.ChatMessageResponse;
+import com.joying.chat.metrics.ChatMetrics;
 import com.joying.chat.dto.ChatRoomSettingsResponse;
 import com.joying.chat.dto.ChatRoomStatusEvent;
 import com.joying.chat.dto.ChatRoomUpdateEvent;
@@ -59,6 +60,7 @@ public class ChatService {
 	private final ChatBroadcaster chatBroadcaster;
 	private final MongoTemplate mongoTemplate;
 	private final MessageSequenceGenerator sequenceGenerator;
+	private final ChatMetrics chatMetrics;
 
 	public ChatService(ChatRoomRepository chatRoomRepository,
 					   @Qualifier("chatQueryExecutor") Executor queryExecutor,
@@ -71,7 +73,8 @@ public class ChatService {
 					   ChatPresenceService chatPresenceService,
 					   ChatBroadcaster chatBroadcaster,
 					   MongoTemplate mongoTemplate,
-					   MessageSequenceGenerator sequenceGenerator) {
+					   MessageSequenceGenerator sequenceGenerator,
+					   ChatMetrics chatMetrics) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.queryExecutor = queryExecutor;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
@@ -84,6 +87,7 @@ public class ChatService {
 		this.chatBroadcaster = chatBroadcaster;
 		this.mongoTemplate = mongoTemplate;
 		this.sequenceGenerator = sequenceGenerator;
+		this.chatMetrics = chatMetrics;
 	}
 
 	public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId,
@@ -365,6 +369,7 @@ public class ChatService {
 			if (already != null) {
 				log.info("이미 저장된 전송이다: chatRoomId={}, clientMessageId={}",
 					chatRoomId, clientMessageId);
+				chatMetrics.idempotentHit();
 				return already;
 			}
 		}
@@ -372,7 +377,16 @@ public class ChatService {
 		ChatMessage chatMessage = buildMessage(chatRoomId, senderId, request);
 		chatMessage.setCreatedAt(Instant.now());
 		// 순서를 정하는 것은 시각이 아니라 이 번호다
-		chatMessage.assign(sequenceGenerator.next(chatRoomId), clientMessageId);
+		long sequence;
+		try {
+			sequence = sequenceGenerator.next(chatRoomId);
+		} catch (RuntimeException e) {
+			// 번호를 못 받으면 저장하지 않는다. 이 값이 오르면 메시지가 저장되지 않고
+			// 있다는 뜻이라 바로 보여야 한다
+			chatMetrics.sequenceFailure();
+			throw e;
+		}
+		chatMessage.assign(sequence, clientMessageId);
 
 		try {
 			return chatMessageRepository.save(chatMessage);

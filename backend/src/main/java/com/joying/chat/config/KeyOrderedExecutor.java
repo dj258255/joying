@@ -2,8 +2,9 @@ package com.joying.chat.config;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -31,14 +32,33 @@ public class KeyOrderedExecutor {
 
 	private static final Logger log = LoggerFactory.getLogger(KeyOrderedExecutor.class);
 
-	private final List<ExecutorService> partitions;
+	private final List<ThreadPoolExecutor> partitions;
 
 	public KeyOrderedExecutor(int partitionCount, String threadNamePrefix) {
+		// 스레드 하나짜리 풀을 직접 만든다. Executors 의 편의 메서드는 감싼 것을
+		// 돌려주어 큐 길이를 볼 수 없다. 줄이 얼마나 밀렸는지가 이 방식에서 가장
+		// 중요한 지표라 직접 만든다.
 		this.partitions = IntStream.range(0, partitionCount)
-			.mapToObj(index -> Executors.newSingleThreadExecutor(
+			.mapToObj(index -> new ThreadPoolExecutor(
+				1, 1, 0L, TimeUnit.MILLISECONDS,
+				new LinkedBlockingQueue<>(),
 				namedThreadFactory(threadNamePrefix + index)))
-			.map(ExecutorService.class::cast)
 			.toList();
+	}
+
+	/**
+	 * 가장 많이 밀린 줄의 길이.
+	 *
+	 * <p>평균을 내면 한 방에 몰린 것이 묻힌다. 이 방식의 값은 한 줄이 길어지는 것이므로
+	 * 가장 나쁜 줄을 본다.
+	 */
+	public int maxQueueDepth() {
+		return partitions.stream().mapToInt(p -> p.getQueue().size()).max().orElse(0);
+	}
+
+	/** 모든 줄에 밀려 있는 일의 합 */
+	public int totalQueueDepth() {
+		return partitions.stream().mapToInt(p -> p.getQueue().size()).sum();
 	}
 
 	/**

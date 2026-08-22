@@ -1,0 +1,36 @@
+# 지표를 모으고 보는 것만 띄운다. 앱과 저장소는 따로 띄운다.
+#
+#   docker compose -f infra/observability/docker-compose.yml up -d
+#   Grafana: http://localhost:3001 (admin / admin)
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: joying-prometheus
+    ports:
+      # 9090은 다른 것이 쓰고 있을 수 있어 비켜 둔다
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      # 리눅스에서도 호스트의 앱에 닿게 한다. 맥과 윈도우는 기본으로 된다
+      - "host.docker.internal:host-gateway"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: joying-grafana
+    ports:
+      # 3000은 프론트가 쓰는 자리라 비켜 둔다
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus

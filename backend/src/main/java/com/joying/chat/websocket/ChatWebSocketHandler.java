@@ -13,8 +13,11 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
 
+import java.time.Instant;
+
 import com.joying.chat.broadcast.ChatBroadcaster;
 import com.joying.chat.config.KeyOrderedExecutor;
+import com.joying.chat.metrics.ChatMetrics;
 import com.joying.chat.dto.ChatMessageResponse;
 import com.joying.chat.dto.SendMessageRequest;
 import com.joying.chat.service.ChatPresenceService;
@@ -31,15 +34,18 @@ public class ChatWebSocketHandler {
 	private static final Logger log = LoggerFactory.getLogger(ChatWebSocketHandler.class);
 
 	private final ChatService chatService;
+	private final ChatMetrics chatMetrics;
 	private final KeyOrderedExecutor messageExecutor;
 	private final ChatBroadcaster chatBroadcaster;
 	private final ChatPresenceService chatPresenceService;
 
 	public ChatWebSocketHandler(ChatService chatService,
+								ChatMetrics chatMetrics,
 								@Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
 								ChatBroadcaster chatBroadcaster,
 								ChatPresenceService chatPresenceService) {
 		this.chatService = chatService;
+		this.chatMetrics = chatMetrics;
 		this.messageExecutor = messageExecutor;
 		this.chatBroadcaster = chatBroadcaster;
 		this.chatPresenceService = chatPresenceService;
@@ -64,7 +70,12 @@ public class ChatWebSocketHandler {
 		log.debug("메시지 전송 요청: chatRoomId={}, memberId={}, type={}",
 			chatRoomId, memberId, request.getType());
 
+		// 줄에 넣기 직전의 시각. 여기서부터 처리가 시작될 때까지가 기다린 시간이다.
+		// 저장 시각은 줄에서 빠져나온 뒤에 찍히므로 그것으로는 이 시간을 잴 수 없다.
+		Instant enqueuedAt = Instant.now();
+
 		messageExecutor.execute(chatRoomId, () -> {
+			chatMetrics.recordQueueWait(enqueuedAt);
 			try {
 				ChatMessageResponse message = chatService.sendMessage(chatRoomId, memberId, request);
 				log.info("메시지 전송 완료: chatRoomId={}, messageId={}, senderId={}",

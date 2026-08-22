@@ -1,0 +1,360 @@
+{
+  "uid": "joying-chat-slo",
+  "title": "빌려조잉 · 채팅 전달",
+  "tags": [
+    "joying",
+    "chat"
+  ],
+  "timezone": "browser",
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "메시지가 화면에 닿기까지",
+      "description": "줄에서 기다린 시간과 그 뒤 전달까지를 더한 값. 기다린 시간을 빼면 지표가 거짓말을 한다. 줄이 199까지 쌓이고 사용자가 59초를 기다리는 동안 전달만 재던 지표는 0.4초로 멀쩡해 보였다.",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(chat_message_queue_wait_seconds_bucket[1m])) by (le)) + histogram_quantile(0.50, sum(rate(chat_message_delivery_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p50 (대기+전달)",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(chat_message_queue_wait_seconds_bucket[1m])) by (le)) + histogram_quantile(0.95, sum(rate(chat_message_delivery_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95 (대기+전달)",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(chat_message_queue_wait_seconds_bucket[1m])) by (le))",
+          "legendFormat": "p95 중 줄에서 기다린 몫",
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 1,
+      "pluginVersion": "11.5.1"
+    },
+    {
+      "type": "stat",
+      "title": "지금 p95",
+      "description": "대기와 전달을 더한 값. 정상일 때 1초 안쪽이고, 저장소에 300ms 지연을 주입하면 분 단위로 오른다.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(chat_message_queue_wait_seconds_bucket[1m])) by (le)) + histogram_quantile(0.95, sum(rate(chat_message_delivery_seconds_bucket[1m])) by (le))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 2,
+      "pluginVersion": "11.5.1"
+    },
+    {
+      "type": "timeseries",
+      "title": "가장 많이 밀린 줄의 길이",
+      "description": "같은 방의 메시지를 한 줄로 세운다. 저장소가 느려지면 이 줄이 쌓이고, 그 결과가 위의 지연이다. 평균이 아니라 가장 나쁜 줄을 본다.",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "drawStyle": "line"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "expr": "chat_executor_queue_max{executor=\"message\"}",
+          "legendFormat": "저장·발행",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "chat_executor_queue_max{executor=\"delivery\"}",
+          "legendFormat": "전달",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 3,
+      "pluginVersion": "11.5.1"
+    },
+    {
+      "type": "timeseries",
+      "title": "밀려 있는 일의 합",
+      "description": "모든 줄을 더한 값. 한 방에 몰린 것인지 전체가 밀리는 것인지 위 그래프와 함께 본다.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "chat_executor_queue_depth{executor=\"message\"}",
+          "legendFormat": "저장·발행",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "expr": "chat_executor_queue_depth{executor=\"delivery\"}",
+          "legendFormat": "전달",
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 4,
+      "pluginVersion": "11.5.1"
+    },
+    {
+      "type": "timeseries",
+      "title": "같은 전송이 다시 들어온 비율",
+      "description": "멱등으로 걸러 저장하지 않고 돌려준 건수. 오르면 발행이 실패해 사용자가 다시 보내고 있다는 뜻이다. 오류 로그에는 남지 않는다.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(chat_message_idempotent_hits_total[1m])",
+          "legendFormat": "초당 재전송",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 5,
+      "pluginVersion": "11.5.1"
+    },
+    {
+      "type": "timeseries",
+      "title": "번호를 못 받아 저장을 막은 건수",
+      "description": "Redis 가 흔들리면 오른다. 이 값이 0이 아니면 메시지가 저장되지 않고 있다.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.001
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(chat_message_sequence_failures_total[1m])",
+          "legendFormat": "초당 저장 거부",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "id": 6,
+      "pluginVersion": "11.5.1"
+    }
+  ],
+  "schemaVersion": 39
+}
