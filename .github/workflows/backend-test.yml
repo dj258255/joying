@@ -43,7 +43,7 @@ jobs:
 
       - name: 테스트
         working-directory: backend
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test jacocoTestReport --no-daemon
 
       # 실패했을 때 어느 테스트가 왜 깨졌는지 보려면 결과 파일이 필요하다.
       # 성공했을 때도 올려 둔다. 몇 건이 돌았는지 확인할 수 있다
@@ -55,6 +55,7 @@ jobs:
           path: |
             backend/build/reports/tests/test
             backend/build/test-results/test
+            backend/build/reports/jacoco/test/html
           retention-days: 7
 
       - name: 요약
@@ -73,4 +74,25 @@ jobs:
           print()
           print(f'- 실패 {failed}건')
           print(f'- 건너뜀 {skipped}건')
+
+          # 커버리지는 문을 걸지 않고 보여 주기만 한다. 이 프로젝트의 테스트는 결함을
+          # 재현하려고 쓴 것이 많아, 숫자를 올리는 것이 목적이 되면 재현과 상관없는
+          # 테스트가 늘어난다
+          try:
+              xml = open('build/reports/jacoco/test/jacocoTestReport.xml', encoding='utf-8').read()
+          except FileNotFoundError:
+              raise SystemExit
+          counters = re.findall(r'<counter type="(LINE|BRANCH)" missed="(\d+)" covered="(\d+)"/>', xml)
+          summary = {}
+          for kind, missed, covered in counters:
+              summary[kind] = (int(missed), int(covered))
+          print()
+          print('## 커버리지 (참고용, 기준을 걸지 않는다)')
+          print()
+          for kind in ('LINE', 'BRANCH'):
+              if kind in summary:
+                  missed, covered = summary[kind]
+                  whole = missed + covered
+                  if whole:
+                      print(f'- {kind.lower()} {covered}/{whole} ({covered * 100 // whole}%)')
           PY

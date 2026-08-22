@@ -1,6 +1,8 @@
 plugins {
     java
     id("org.springframework.boot") version "3.5.6"
+    // 테스트가 어디를 지나는지 본다. 숫자로 문을 걸지는 않는다
+    jacoco
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "8.11" // Java Lombok annotation processing용
 }
@@ -126,4 +128,33 @@ tasks.withType<Test> {
         showStandardStreams = false
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
+}
+
+// 테스트가 끝나면 커버리지 보고서를 만든다.
+//
+// 기준을 걸어 빌드를 깨지는 않는다. 이 프로젝트의 테스트는 결함을 재현하려고 쓴 것이
+// 많아, 숫자를 올리는 것이 목적이 되면 재현과 상관없는 테스트가 늘어난다. 지금은
+// 어디가 비어 있는지 보는 데만 쓴다.
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    classDirectories.setFrom(
+        files(classDirectories.files.map {
+            fileTree(it) {
+                // 설정과 DTO 는 분기가 없어 커버리지에 잡혀도 뜻이 없다
+                exclude(
+                    "**/config/**",
+                    "**/dto/**",
+                    "**/JoyingApplication*",
+                )
+            }
+        })
+    )
 }
