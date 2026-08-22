@@ -1,0 +1,168 @@
+{
+  "uid": "joying-payment-slo",
+  "title": "빌려조잉 · 결제 생성",
+  "tags": [
+    "joying",
+    "payment"
+  ],
+  "timezone": "browser",
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "정상 경로가 아닌 곳으로 빠진 건수",
+      "description": "전부 지금도 로그에 남지만 경고로만 남아 아무도 보지 않는다. 두 번 누르는 것이 늘면 응답이 느려지고 있다는 신호이고, 오래된 결제를 접는 것이 늘면 사람들이 결제창에서 이탈하고 있다는 신호다.",
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (rate(payment_create_off_happy_path_total[1m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "30분 동안 빠진 건수",
+      "description": "이유별 누적. 0이 아니면 로그를 열어 볼 이유가 있다는 뜻이다.",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (reason) (increase(payment_create_off_happy_path_total[30m]))",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "결제 생성 응답 시간",
+      "description": "대여 건을 잠그고 처리하므로 같은 대여의 요청은 줄을 선다. 줄이 길어지면 여기가 늘어난다.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{uri=\"/api/v1/payments\",method=\"POST\"}[1m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{uri=\"/api/v1/payments\",method=\"POST\"}[1m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        }
+      ]
+    }
+  ]
+}
