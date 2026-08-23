@@ -78,7 +78,11 @@ function talk(data, base, memberId, email, role) {
   let lastSequence = 0;
   let seen = 0;
 
-  ws.connect(base + '/ws/chat/websocket', {}, function (socket) {
+  // 방 번호를 실어 보낸다. 앞단이 이 값으로 같은 노드에 묶는다.
+  //
+  // 화면은 SockJS 를 쓰므로 쿠키로 알리지만(기본 주소 뒤에 경로가 붙어 쿼리스트링이
+  // 살아남지 못한다), 여기는 원시 웹소켓이라 쿼리스트링을 쓴다. 앞단은 둘 다 읽는다.
+  ws.connect(base + '/ws/chat/websocket?roomId=' + ROOM, {}, function (socket) {
     socket.on('open', function () {
       socket.send(stomp.connect(token));
     });
