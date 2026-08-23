@@ -93,6 +93,20 @@ const createSocket = () => {
  * 같은 값이 두 번 나오면 안 된다. 브라우저가 주는 것을 쓰되, 없는 환경도 있으므로
  * 시각과 난수를 붙인 것으로 대신한다.
  */
+/**
+ * 앞단이 방 단위로 서버를 고를 수 있게 방 번호를 남긴다.
+ *
+ * 연결이 방 단위라 방을 옮기면 다시 붙는다. 그때마다 값을 덮어쓴다.
+ *
+ * 탭을 여럿 열어 서로 다른 방을 보면 마지막에 연결한 방의 값이 남는다. 그러면 앞 탭의
+ * 재연결이 다른 서버로 갈 수 있다. 이 서비스는 한 화면에서 방 하나를 여는 구조라 흔한
+ * 일은 아니고, 벌어져도 그 방의 순서만 잠깐 흔들린다.
+ */
+const markRoomForRouting = (chatRoomId) => {
+  // 세션 쿠키로 둔다. 브라우저를 닫으면 사라지는 것이 맞다
+  document.cookie = `chat_room=${chatRoomId}; path=/; SameSite=Lax`;
+};
+
 export const newClientMessageId = () => {
   if (globalThis.crypto?.randomUUID) {
     return globalThis.crypto.randomUUID();
@@ -108,6 +122,15 @@ export const websocketApi = {
     }
 
     activeChatRoomId = chatRoomIdNum;
+
+    // 어느 방인지 앞단에 알린다.
+    //
+    // 같은 방의 두 사람이 다른 서버에 붙으면 두 서버가 각자 발행해서 받는 쪽에 번호가
+    // 뒤섞여 닿는다. 400건 중 42~54회였다. 앞단이 이 값으로 같은 서버에 묶어 준다.
+    //
+    // 쿠키를 쓰는 이유는 SockJS 때문이다. SockJS 는 기본 주소 뒤에 경로를 덧붙이므로
+    // 쿼리스트링이 살아남지 못한다. 쿠키는 모든 요청에 따라붙는다.
+    markRoomForRouting(chatRoomIdNum);
 
     if (client) {
       this.disconnect();
