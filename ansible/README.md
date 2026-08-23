@@ -11,10 +11,23 @@ Jenkins 를 쓸 때는 서버에 `.env.prod` 를 사람이 손으로 올려 두�
 이제 값은 vault 에 암호화해 저장소에 두고, 배포할 때 서버에서 `.env` 를 만든다.
 **서버에 사람이 미리 놓아 두어야 하는 파일이 없다.**
 
+## 처음 준비할 때
+
+```bash
+scripts/init-secrets.sh
+```
+
+만들 수 있는 값(JWT 열쇠, 저장소 암호, 웹 푸시 열쇠 쌍)은 스크립트가 만들고, 밖에서
+받아 와야 하는 값(토스, 카카오, Cloudflare)만 물어본다. 물어보는 값은 화면에 찍지
+않는다. **값은 이 기계 밖으로 나가지 않는다.**
+
+끝나면 GitHub 시크릿에 넣을 명령을 알려 준다. 그 명령도 값을 로그에 남기지 않는
+모양으로 되어 있다.
+
 ## 비밀을 넣고 꺼내기
 
 ```bash
-# 처음 만들 때
+# 처음 만들 때 (스크립트를 안 쓰고 손으로 할 때)
 ansible-vault create ansible/group_vars/all/vault.yml
 
 # 고칠 때
@@ -42,6 +55,7 @@ ansible-playbook -i ansible/inventory/prod.ini ansible/deploy.yml --ask-vault-pa
 | `group_vars/all/vault.yml` | 비밀. 암호화돼 있다 |
 | `templates/env.j2` | 서버에 만들 `.env` 의 모양 |
 | `deploy.yml` | 받아서 빌드하고 띄우는 순서 |
+| `../scripts/init-secrets.sh` | 비밀을 만들어 vault 에 넣는다 |
 
 **비밀과 비밀이 아닌 것을 파일로 나눈 이유**는 vault 를 열지 않고도 설정을 읽을 수
 있게 하기 위해서다. 전부 암호화하면 포트 하나 확인하려고 매번 암호를 넣어야 한다.

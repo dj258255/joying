@@ -41,6 +41,30 @@ jobs:
       - name: Ansible 설치
         run: pip install --disable-pip-version-check ansible-core
 
+      - name: 시크릿이 있는지 먼저 본다
+        # 없으면 배포 도중에 알 수 없는 오류로 죽는다. 여기서 이유를 말하고 멈춘다.
+        # 값은 찍지 않고 비었는지만 본다
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          [ -n "$VAULT_PASSWORD" ] || missing="$missing ANSIBLE_VAULT_PASSWORD"
+          [ -n "$SSH_KEY" ]        || missing="$missing DEPLOY_SSH_KEY"
+          [ -n "$KNOWN_HOSTS" ]    || missing="$missing DEPLOY_KNOWN_HOSTS"
+          if [ -n "$missing" ]; then
+            echo "::error::시크릿이 없다:$missing"
+            echo "scripts/init-secrets.sh 를 돌리고 안내대로 gh secret set 을 하라"
+            exit 1
+          fi
+          [ -f ansible/group_vars/all/vault.yml ] || {
+            echo "::error::ansible/group_vars/all/vault.yml 이 없다"
+            echo "scripts/init-secrets.sh 를 돌려 만들어라"
+            exit 1
+          }
+          echo "시크릿 셋과 vault 파일을 확인했다"
+
       - name: vault 암호를 파일로 둔다
         # 명령줄에 넣으면 프로세스 목록에 보인다. 파일로 두고 나중에 지운다
         run: |
