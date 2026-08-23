@@ -1,0 +1,26 @@
+# 이 파일을 채운 뒤 vault 로 암호화한다.
+#
+#   cp vault.yml.example vault.yml
+#   # 값을 채우고
+#   ansible-vault encrypt vault.yml
+#
+# vault.yml 은 암호화된 채로 저장소에 올라간다. 암호는 올리지 않는다.
+# 예시 파일에는 진짜 값을 적지 않는다.
+
+vault_jwt_secret: ""
+vault_postgres_password: ""
+vault_redis_password: ""
+vault_elastic_password: ""
+vault_kakao_client_id: ""
+vault_kakao_client_secret: ""
+vault_toss_secret_key: ""
+vault_cloudflare_r2_access_key: ""
+vault_cloudflare_r2_secret_key: ""
+vault_cloudflare_r2_endpoint: ""
+vault_cloudflare_r2_bucket: ""
+vault_cloudflare_r2_public_base_url: ""
+vault_web_push_public_key: ""
+vault_web_push_private_key: ""
+vault_ssafy_finance_api_key: ""
+vault_ssafy_escrow_account_no: ""
+vault_ssafy_escrow_user_key: ""
