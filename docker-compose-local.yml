@@ -65,6 +65,14 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+      # 힙을 잡아 둔다.
+      #
+      # 지정하지 않으면 호스트 메모리의 절반을 잡는다. 이 프로젝트에서 재 보니 4.19GiB 를
+      # 썼다. MySQL 362MiB, MongoDB 300MiB, Redis 13MiB 를 합친 것의 여섯 배다.
+      #
+      # 512MB 로 잡으니 905MiB 가 됐다. 색인 대상이 상품 제목과 몇 개 필드뿐이라 이만큼도
+      # 넉넉하다. 늘려야 할 때는 색인 크기를 보고 정한다.
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - network.host=0.0.0.0
     ports:
