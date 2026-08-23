@@ -16,14 +16,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.testcontainers.containers.MongoDBContainer;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.joying.chat.document.ChatMessage;
+import com.joying.chat.repository.ChatMessageRepository;
 
 /**
  * 같은 전송이 두 건이 되지 않는지 잰다.
@@ -36,8 +32,8 @@ import com.joying.chat.document.ChatMessage;
  */
 class MessageIdempotencyTest {
 
-	private static MongoDBContainer mongo;
-	private static MongoTemplate mongoTemplate;
+	private static ChatMessageStore store;
+	private static ChatMessageRepository repository;
 
 	private static final long ROOM_ID = 1L;
 	private static final long SENDER_ID = 100L;
@@ -45,45 +41,34 @@ class MessageIdempotencyTest {
 	private final AtomicLong sequence = new AtomicLong();
 
 	@BeforeAll
-	static void startMongo() {
-		mongo = new MongoDBContainer("mongo:7.0");
-		mongo.start();
-		mongoTemplate = new MongoTemplate(
-			new SimpleMongoClientDatabaseFactory(mongo.getConnectionString() + "/joying_test"));
+	static void startStore() {
+		store = new ChatMessageStore();
+		repository = store.repository();
 	}
 
 	@AfterAll
-	static void stopMongo() {
-		if (mongo != null) {
-			mongo.stop();
+	static void stopStore() {
+		if (store != null) {
+			store.close();
 		}
 	}
 
 	@BeforeEach
 	void clean() {
-		mongoTemplate.dropCollection(ChatMessage.class);
-		// 제약은 컬렉션을 새로 만들 때마다 다시 걸어야 한다
-		mongoTemplate.indexOps(ChatMessage.class).ensureIndex(
-			new org.springframework.data.mongodb.core.index.Index()
-				.on("chatRoomId", org.springframework.data.domain.Sort.Direction.ASC)
-				.on("clientMessageId", org.springframework.data.domain.Sort.Direction.ASC)
-				.named("uk_chat_room_id_client_message_id")
-				.unique()
-				// 값이 문자열일 때만 제약을 건다. sparse 는 null 을 걸러 주지 않는다.
-				.partial(org.springframework.data.mongodb.core.index.PartialIndexFilter.of(
-					Criteria.where("clientMessageId").type(2))));
+		// 인덱스는 저장소를 세울 때 한 번만 만든다. 문서 저장소를 쓰던 때는 컬렉션을
+		// 지우면 인덱스도 사라져 매번 다시 걸어야 했다
+		store.clear();
 	}
 
 	private ChatMessage save(String clientMessageId) {
 		ChatMessage message = ChatMessage.createTextMessage(ROOM_ID, SENDER_ID, "안녕하세요", null);
 		message.setCreatedAt(Instant.now());
 		message.assign(sequence.incrementAndGet(), clientMessageId);
-		return mongoTemplate.save(message);
+		return store.inTransaction(r -> r.saveAndFlush(message));
 	}
 
 	private long countInRoom() {
-		return mongoTemplate.count(Query.query(Criteria.where("chatRoomId").is(ROOM_ID)),
-			ChatMessage.class);
+		return store.read(r -> (Long) r.countByChatRoomId(ROOM_ID));
 	}
 
 	@Test
@@ -132,7 +117,9 @@ class MessageIdempotencyTest {
 		try {
 			task.run();
 			return false;
-		} catch (DuplicateKeyException e) {
+		} catch (DataIntegrityViolationException e) {
+			// 관계형에서는 이 예외로 온다. 문서 저장소를 쓰던 때는 DuplicateKeyException
+			// 이었는데, 둘 다 스프링이 저장소 예외를 옮겨 준 것이라 이름만 다르다
 			return true;
 		}
 	}

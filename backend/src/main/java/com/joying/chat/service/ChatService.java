@@ -8,11 +8,7 @@ import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,7 +54,6 @@ public class ChatService {
 	private final WebPushService webPushService;
 	private final ChatPresenceService chatPresenceService;
 	private final ChatBroadcaster chatBroadcaster;
-	private final MongoTemplate mongoTemplate;
 	private final MessageSequenceGenerator sequenceGenerator;
 	private final ChatMetrics chatMetrics;
 
@@ -72,7 +67,6 @@ public class ChatService {
 					   WebPushService webPushService,
 					   ChatPresenceService chatPresenceService,
 					   ChatBroadcaster chatBroadcaster,
-					   MongoTemplate mongoTemplate,
 					   MessageSequenceGenerator sequenceGenerator,
 					   ChatMetrics chatMetrics) {
 		this.chatRoomRepository = chatRoomRepository;
@@ -85,7 +79,6 @@ public class ChatService {
 		this.webPushService = webPushService;
 		this.chatPresenceService = chatPresenceService;
 		this.chatBroadcaster = chatBroadcaster;
-		this.mongoTemplate = mongoTemplate;
 		this.sequenceGenerator = sequenceGenerator;
 		this.chatMetrics = chatMetrics;
 	}
@@ -191,14 +184,8 @@ public class ChatService {
 			return;
 		}
 
-		Query query = Query.query(Criteria.where("chatRoomId").is(chatRoomId)
-			.and("senderId").is(otherSideOf(chatRoom, memberId))
-			.and("isRead").is(false)
-			.and("isDeleted").is(false));
-
-		long updated = mongoTemplate
-			.updateMulti(query, new Update().set("isRead", true), ChatMessage.class)
-			.getModifiedCount();
+		long updated = chatMessageRepository
+			.markReadFrom(chatRoomId, otherSideOf(chatRoom, memberId));
 
 		log.debug("메시지 읽음 표시 완료: chatRoomId={}, memberId={}, count={}",
 			chatRoomId, memberId, updated);
@@ -397,9 +384,15 @@ public class ChatService {
 		chatMessage.assign(sequence, clientMessageId);
 
 		try {
-			return chatMessageRepository.save(chatMessage);
-		} catch (DuplicateKeyException e) {
-			// 같은 전송이 동시에 들어와 다른 쪽이 먼저 넣었다
+			// 바로 밀어 넣어야 제약 위반이 여기서 잡힌다. save 만 부르면 트랜잭션이
+			// 끝날 때 터지고, 그때는 이 자리를 이미 지나쳤다
+			return chatMessageRepository.saveAndFlush(chatMessage);
+		} catch (DataIntegrityViolationException e) {
+			// 같은 전송이 동시에 들어와 다른 쪽이 먼저 넣었다.
+			//
+			// 이 메서드에 트랜잭션이 걸려 있지 않은 것이 여기서 중요하다. 저장소 호출마다
+			// 트랜잭션이 따로 열리므로, 실패한 flush 가 이 뒤의 조회를 망치지 않는다.
+			// 한 트랜잭션 안이었다면 영속성 컨텍스트가 망가져 다시 조회할 수 없다.
 			return chatMessageRepository
 				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId)
 				.orElseThrow(() -> e);

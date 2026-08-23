@@ -43,7 +43,7 @@ public class OutboxEvent {
 
     @Comment("이벤트 페이로드 (JSON)")
     @Lob
-    @Column(name = "payload", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "payload", nullable = false, columnDefinition = "text")
     private String payload;
 
     @Comment("처리 완료 여부")

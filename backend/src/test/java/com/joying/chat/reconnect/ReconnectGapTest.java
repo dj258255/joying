@@ -14,11 +14,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.testcontainers.containers.MongoDBContainer;
 
 import com.joying.chat.document.ChatMessage;
+import com.joying.chat.repository.ChatMessageRepository;
 
 /**
  * 끊긴 동안 온 메시지를 다시 받을 수 있는지 잰다.
@@ -31,30 +29,28 @@ import com.joying.chat.document.ChatMessage;
  */
 class ReconnectGapTest {
 
-	private static MongoDBContainer mongo;
-	private static MongoTemplate mongoTemplate;
+	private static com.joying.chat.ordering.ChatMessageStore store;
+	private static ChatMessageRepository repository;
 
 	private static final long ROOM_ID = 1L;
 	private static final long SENDER_ID = 200L;
 
 	@BeforeAll
-	static void startMongo() {
-		mongo = new MongoDBContainer("mongo:7.0");
-		mongo.start();
-		mongoTemplate = new MongoTemplate(
-			new SimpleMongoClientDatabaseFactory(mongo.getConnectionString() + "/joying_test"));
+	static void startStore() {
+		store = new com.joying.chat.ordering.ChatMessageStore();
+		repository = store.repository();
 	}
 
 	@AfterAll
-	static void stopMongo() {
-		if (mongo != null) {
-			mongo.stop();
+	static void stopStore() {
+		if (store != null) {
+			store.close();
 		}
 	}
 
 	@BeforeEach
 	void clean() {
-		mongoTemplate.dropCollection(ChatMessage.class);
+		store.clear();
 	}
 
 	/**
@@ -66,20 +62,22 @@ class ReconnectGapTest {
 			ChatMessage message = ChatMessage.createTextMessage(
 				ROOM_ID, SENDER_ID, "메시지 " + i, null);
 			message.setCreatedAt(start.plus(i, ChronoUnit.SECONDS));
-			saved.add(mongoTemplate.save(message));
+			message.assign((long) (i + 1), null);
+			saved.add(store.inTransaction(r -> r.saveAndFlush(message)));
 		}
 		return saved;
 	}
 
-	private List<ChatMessage> messagesAfter(Instant after, int limit) {
-		return mongoTemplate.find(
-			org.springframework.data.mongodb.core.query.Query.query(
-					org.springframework.data.mongodb.core.query.Criteria
-						.where("chatRoomId").is(ROOM_ID)
-						.and("isDeleted").is(false)
-						.and("createdAt").gt(after))
-				.with(PageRequest.of(0, limit, Sort.by(Sort.Direction.ASC, "createdAt"))),
-			ChatMessage.class);
+	/**
+	 * 이 번호 이후를 오래된 순으로.
+	 *
+	 * <p>커서가 시각에서 번호로 바뀌었다. 시각으로 잡으면 같은 밀리초에 저장된 것이
+	 * 경계에서 빠진다. 저장소 메서드를 그대로 부른다. 질의를 테스트가 직접 만들면
+	 * 저장소가 실제로 무엇을 돌려주는지가 아니라 테스트가 쓴 질의를 재게 된다.
+	 */
+	private List<ChatMessage> messagesAfter(long afterSequence, int limit) {
+		return store.read(r -> r.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
+			ROOM_ID, afterSequence, PageRequest.of(0, limit)));
 	}
 
 	@Test
@@ -89,7 +87,7 @@ class ReconnectGapTest {
 		List<ChatMessage> all = given(30, start);
 
 		// 열 번째까지 받고 끊겼다고 본다
-		Instant lastSeen = all.get(9).getCreatedAt();
+		long lastSeen = all.get(9).getSequence();
 
 		List<ChatMessage> gap = messagesAfter(lastSeen, 100);
 
@@ -105,7 +103,7 @@ class ReconnectGapTest {
 		Instant start = Instant.parse("2026-01-01T00:00:00Z");
 		List<ChatMessage> all = given(5, start);
 
-		List<ChatMessage> gap = messagesAfter(all.get(4).getCreatedAt(), 100);
+		List<ChatMessage> gap = messagesAfter(all.get(4).getSequence(), 100);
 
 		assertThat(gap)
 			.as("이미 화면에 있는 것을 또 주면 같은 말풍선이 두 번 뜬다")
@@ -118,10 +116,12 @@ class ReconnectGapTest {
 		Instant start = Instant.parse("2026-01-01T00:00:00Z");
 		given(10, start);
 
-		List<ChatMessage> gap = messagesAfter(start, 100);
+		List<ChatMessage> gap = messagesAfter(0L, 100);
 
+		// 번호 커서에서 0 은 "아직 아무것도 못 받았다"는 뜻이라 첫 건부터 온다.
+		// 시각 커서를 쓰던 때는 첫 메시지의 시각을 주어 그 다음부터 왔다
 		assertThat(gap).extracting(ChatMessage::getContent)
-			.startsWith("메시지 1", "메시지 2", "메시지 3");
+			.startsWith("메시지 0", "메시지 1", "메시지 2");
 	}
 
 	@Test
@@ -130,13 +130,13 @@ class ReconnectGapTest {
 		Instant start = Instant.parse("2026-01-01T00:00:00Z");
 		given(500, start);
 
-		List<ChatMessage> firstBatch = messagesAfter(start.minusSeconds(1), 100);
+		List<ChatMessage> firstBatch = messagesAfter(0L, 100);
 
 		assertThat(firstBatch)
 			.as("상한이 없으면 며칠 꺼 뒀던 사람이 한 번에 수천 건을 받는다")
 			.hasSize(100);
 
-		Instant nextCursor = firstBatch.get(firstBatch.size() - 1).getCreatedAt();
+		long nextCursor = firstBatch.get(firstBatch.size() - 1).getSequence();
 		assertThat(messagesAfter(nextCursor, 100)).hasSize(100);
 	}
 
@@ -147,10 +147,10 @@ class ReconnectGapTest {
 		given(30, start);
 
 		// 읽음 표시는 전달 표시가 아니다. 읽지 않았어도 받은 것은 받은 것이다.
-		// 그래서 lastReadAt 을 커서로 쓰면 이미 화면에 있는 것까지 다시 온다.
-		Instant lastReadAt = start;
+		// 그래서 읽은 지점을 커서로 쓰면 이미 화면에 있는 것까지 다시 온다.
+		long lastRead = 1L;
 
-		assertThat(messagesAfter(lastReadAt, 100))
+		assertThat(messagesAfter(lastRead, 100))
 			.as("읽음 표시를 커서로 쓰면 이미 받은 것까지 다시 온다")
 			.hasSize(29);
 	}

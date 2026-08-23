@@ -15,10 +15,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
-import org.testcontainers.containers.MongoDBContainer;
 
 import com.joying.chat.document.ChatMessage;
 import com.joying.chat.repository.ChatMessageRepository;
@@ -37,32 +33,28 @@ import com.joying.chat.service.MessageSequenceGenerator;
  */
 class MessageSequenceBackfillTest {
 
-	private static MongoDBContainer mongo;
-	private static MongoTemplate mongoTemplate;
+	private static ChatMessageStore store;
 	private static ChatMessageRepository repository;
 
 	private MessageSequenceGenerator sequenceGenerator;
 	private MessageSequenceBackfill backfill;
 
 	@BeforeAll
-	static void startMongo() {
-		mongo = new MongoDBContainer("mongo:7.0");
-		mongo.start();
-		mongoTemplate = new MongoTemplate(
-			new SimpleMongoClientDatabaseFactory(mongo.getConnectionString() + "/joying_backfill_test"));
-		repository = new MongoRepositoryFactory(mongoTemplate).getRepository(ChatMessageRepository.class);
+	static void startStore() {
+		store = new ChatMessageStore();
+		repository = store.repository();
 	}
 
 	@AfterAll
-	static void stopMongo() {
-		if (mongo != null) {
-			mongo.stop();
+	static void stopStore() {
+		if (store != null) {
+			store.close();
 		}
 	}
 
 	@BeforeEach
 	void clear() {
-		mongoTemplate.dropCollection(ChatMessage.class);
+		store.clear();
 		sequenceGenerator = mock(MessageSequenceGenerator.class);
 		backfill = new MessageSequenceBackfill(repository, sequenceGenerator);
 	}
@@ -78,9 +70,9 @@ class MessageSequenceBackfillTest {
 		saveWithoutSequence(2L, base.plusMillis(5));
 		saveWithoutSequence(2L, base.plusMillis(20));
 
-		backfill.run(null);
+		store.inTransaction(r -> { backfill.run(null); return null; });
 
-		assertThat(repository.countBySequenceIsNull()).isZero();
+		assertThat(countOf(r -> r.countBySequenceIsNull())).isZero();
 
 		List<Long> room1 = sequencesOf(1L);
 		List<Long> room2 = sequencesOf(2L);
@@ -105,10 +97,10 @@ class MessageSequenceBackfillTest {
 			saveWithoutSequence(1L, base.plusMillis(i));
 		}
 
-		backfill.run(null);
+		store.inTransaction(r -> { backfill.run(null); return null; });
 		List<Long> first = sequencesOf(1L);
 
-		backfill.run(null);
+		store.inTransaction(r -> { backfill.run(null); return null; });
 		List<Long> second = sequencesOf(1L);
 
 		System.out.println("[측정] 첫 실행 = " + first + ", 두 번째 실행 = " + second);
@@ -123,12 +115,12 @@ class MessageSequenceBackfillTest {
 		// 번호를 도입한 뒤에 들어온 메시지. 이것보다 작은 번호를 다시 내주면 안 된다
 		ChatMessage numbered = message(1L, base.plusMillis(100));
 		numbered.assign(7L, null);
-		repository.save(numbered);
+		store.inTransaction(r -> r.save(numbered));
 
 		saveWithoutSequence(1L, base);
 		saveWithoutSequence(1L, base.plusMillis(1));
 
-		backfill.run(null);
+		store.inTransaction(r -> { backfill.run(null); return null; });
 
 		List<Long> all = sequencesOf(1L);
 		System.out.println("[측정] 이어 붙인 뒤 번호 = " + all);
@@ -141,7 +133,7 @@ class MessageSequenceBackfillTest {
 	/** 방의 번호를 오름차순으로. 지운 것도 번호를 차지하므로 전부 본다 */
 	private List<Long> sequencesOf(Long chatRoomId) {
 		List<Long> sequences = new ArrayList<>();
-		for (ChatMessage message : repository.findAll()) {
+		for (ChatMessage message : store.read(r -> r.findAll())) {
 			if (chatRoomId.equals(message.getChatRoomId()) && message.getSequence() != null) {
 				sequences.add(message.getSequence());
 			}
@@ -151,12 +143,17 @@ class MessageSequenceBackfillTest {
 	}
 
 	private void saveWithoutSequence(Long chatRoomId, Instant createdAt) {
-		repository.save(message(chatRoomId, createdAt));
+		store.inTransaction(r -> r.save(message(chatRoomId, createdAt)));
 	}
 
 	private ChatMessage message(Long chatRoomId, Instant createdAt) {
 		ChatMessage message = ChatMessage.createTextMessage(chatRoomId, 100L, "옛날 메시지", null);
 		message.setCreatedAt(createdAt);
 		return message;
+	}
+
+	/** 세는 조회는 트랜잭션 안에서 돌리고 값으로 꺼내 온다 */
+	private long countOf(java.util.function.ToLongFunction<com.joying.chat.repository.ChatMessageRepository> work) {
+		return store.read(r -> work.applyAsLong(r));
 	}
 }
