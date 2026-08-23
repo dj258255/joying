@@ -1,0 +1,52 @@
+# 비밀이 아닌 값.
+#
+# 암호화하지 않는다. 포트 하나 확인하려고 vault 암호를 넣어야 하면 아무도 안 읽는다.
+#
+# 비밀은 vault.yml 에 있고 여기서 이름으로 가리킨다. .env 를 만드는 템플릿은
+# 이 파일 하나만 보면 된다.
+
+app_dir: /home/ubuntu/joying
+compose_file: docker-compose.yml
+
+# 저장소 접속
+postgres_host: postgres
+postgres_port: 5432
+postgres_database: project_db
+postgres_username: joying
+
+redis_host: redis
+redis_port: 6379
+
+elastic_host: elasticsearch
+
+# 동작을 바꾸는 값
+spring_profiles_active: prod
+
+# 돈을 옮기는 구현. 금융망 API 가 사라져 전자지갑을 쓴다
+joying_money_transfer: wallet
+
+cookie_secure: true
+cors_allowed_origins: https://k13c202.p.ssafy.io
+web_push_enabled: true
+rental_max_period_days: 21
+
+oauth2_redirect_uri: https://k13c202.p.ssafy.io/login/oauth2/code/kakao
+
+# 비밀은 vault 에서 가져온다
+jwt_secret: "{{ vault_jwt_secret }}"
+postgres_password: "{{ vault_postgres_password }}"
+redis_password: "{{ vault_redis_password }}"
+elastic_password: "{{ vault_elastic_password }}"
+kakao_client_id: "{{ vault_kakao_client_id }}"
+kakao_client_secret: "{{ vault_kakao_client_secret }}"
+toss_secret_key: "{{ vault_toss_secret_key }}"
+cloudflare_r2_access_key: "{{ vault_cloudflare_r2_access_key }}"
+cloudflare_r2_secret_key: "{{ vault_cloudflare_r2_secret_key }}"
+cloudflare_r2_endpoint: "{{ vault_cloudflare_r2_endpoint }}"
+cloudflare_r2_bucket: "{{ vault_cloudflare_r2_bucket }}"
+cloudflare_r2_public_base_url: "{{ vault_cloudflare_r2_public_base_url }}"
+web_push_public_key: "{{ vault_web_push_public_key }}"
+web_push_private_key: "{{ vault_web_push_private_key }}"
+ssafy_finance_api_key: "{{ vault_ssafy_finance_api_key }}"
+ssafy_escrow_account_no: "{{ vault_ssafy_escrow_account_no }}"
+ssafy_escrow_user_key: "{{ vault_ssafy_escrow_user_key }}"

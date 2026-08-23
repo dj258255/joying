@@ -1,0 +1,143 @@
+spring:
+  jpa:
+    hibernate:
+      # -------------------------------------
+      # Production
+      # -------------------------------------
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
+  websocket:
+    # -------------------------------------
+    # WebSocket 연결 제한 (채팅 부하 고려)
+    # -------------------------------------
+    # WebSocket 최대 세션 수 제한은 WebSocketConfig에서 설정
+    # WebSocket 메시지 최대 크기 (파일 전송 고려하여 10MB)
+    message-size-limit: 10485760
+    # WebSocket 버퍼 크기 (1MB)
+    buffer-size-limit: 1048576
+  datasource:
+    hikari:
+      # -------------------------------------
+      # HikariCP - MySQL 커넥션 풀 최적화 (리소스 절약)
+      # -------------------------------------
+      # 최소 유휴 커넥션 수
+      minimum-idle: 10
+      # 최대 커넥션 풀 크기 (Tomcat max threads 150 기준)
+      maximum-pool-size: 30
+      # 커넥션 타임아웃 (30초)
+      connection-timeout: 30000
+      # 유휴 커넥션 최대 유지 시간 (10분)
+      idle-timeout: 600000
+      # 커넥션 최대 수명 (30분)
+      max-lifetime: 1800000
+      # 커넥션 유효성 검사 타임아웃 (5초)
+      validation-timeout: 5000
+      # 커넥션 leak 감지 임계값 (60초)
+      leak-detection-threshold: 60000
+      # 커넥션 풀 이름
+      pool-name: JoyingHikariPool
+  data:
+    redis:
+      lettuce:
+        pool:
+          # -------------------------------------
+          # Redis 커넥션 풀 최적화
+          # -------------------------------------
+          # Lettuce (기본 Redis 클라이언트) 설정
+          enabled: true
+          # 최소 유휴 커넥션
+          min-idle: 5
+          # 최대 유휴 커넥션
+          max-idle: 15
+          # 최대 활성 커넥션
+          max-active: 20
+          # 커넥션 대기 시간 (5초)
+          max-wait: 5000ms
+      # 커넥션 타임아웃 (10초)
+      timeout: 10000ms
+  webflux:
+    client:
+      connection-pool:
+        # -------------------------------------
+        # WebClient (외부 API 호출 - Toss Payments, SSAFY API 등)
+        # -------------------------------------
+        # WebClient 커넥션 풀 최대 크기
+        max-connections: 100
+        # 대기 중인 요청 큐 크기
+        pending-acquire-max-count: 50
+        # 유휴 커넥션 타임아웃 (30초)
+        max-idle-time: 30s
+        # 커넥션 최대 수명 (5분)
+        max-life-time: 5m
+  elasticsearch:
+    # -------------------------------------
+    # Elasticsearch 커넥션 최적화
+    # -------------------------------------
+    # Elasticsearch 소켓 타임아웃 (30초)
+    socket-timeout: 30s
+    # Elasticsearch 연결 타임아웃 (10초)
+    connection-timeout: 10s
+logging:
+  level:
+    root: INFO
+    com:
+      joying: INFO
+    org:
+      hibernate:
+        SQL: INFO
+springdoc:
+  swagger-ui:
+    # -------------------------------------
+    # -------------------------------------
+    # 프로덕션 환경 - 인증 사용 (Docker Compose .env.prod 기반)
+    # minPoolSize: 최소 커넥션 수 (5개로 축소)
+    # maxPoolSize: 최대 커넥션 수 (30개로 축소, 채팅 부하 고려)
+    # maxIdleTimeMS: 유휴 커넥션 유지 시간 (60초)
+    # waitQueueTimeoutMS: 커넥션 대기 타임아웃 (5초)
+    # connectTimeoutMS: 연결 타임아웃 (10초)
+    # serverSelectionTimeoutMS: 서버 선택 타임아웃 (5초)
+    # -------------------------------------
+    # Swagger
+    # -------------------------------------
+    enabled: false
+  api-docs:
+    enabled: false
+server:
+  # -------------------------------------
+  # Server
+  # -------------------------------------
+  forward-headers-strategy: framework
+  tomcat:
+    use-relative-redirects: true
+    threads:
+      # -------------------------------------
+      # Tomcat 스레드 풀 설정 (AI+DB와 리소스 공유, 채팅 부하 고려)
+      # -------------------------------------
+      # 최소 스레드 수 (메모리 절약)
+      min-spare: 30
+      # 최대 스레드 수 (4 vCPU 기준, AI 서버와 공유 고려)
+      max: 150
+    # 대기 큐 크기
+    accept-count: 150
+    # 최대 연결 수
+    max-connections: 300
+    # 연결 타임아웃 (20초)
+    connection-timeout: 20000
+    # Keep-Alive 타임아웃 (60초)
+    keep-alive-timeout: 60000
+    # 최대 Keep-Alive 요청 수
+    max-keep-alive-requests: 100
+  http2:
+    # -------------------------------------
+    # HTTP/2 및 압축 설정
+    # -------------------------------------
+    # HTTP/2 활성화
+    enabled: true
+  compression:
+    # 응답 압축 활성화
+    enabled: true
+    mime-types: "application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css"
+    min-response-size: 1024

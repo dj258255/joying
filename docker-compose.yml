@@ -1,39 +1,21 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: joying-mysql
-    env_file:
-      - .env.prod
+  postgres:
+    image: postgres:16-alpine
+    container_name: joying-postgres
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      POSTGRES_DB: ${POSTGRES_DATABASE}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Seoul
-    ports:
-      - "${MYSQL_PORT}:3306"
     volumes:
-      - mysql-data:/var/lib/mysql
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-time-zone=+09:00
-      - --max-connections=200
-      - --innodb-buffer-pool-size=1536M
-      - --innodb-log-file-size=256M
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d ${POSTGRES_DATABASE}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 1G
     networks:
       - joying-network
     restart: unless-stopped
@@ -65,38 +47,6 @@ services:
       - joying-network
     restart: unless-stopped
 
-  mongodb:
-    image: mongo:7.0
-    container_name: joying-mongodb
-    env_file:
-      - .env.prod
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
-      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
-      TZ: Asia/Seoul
-    ports:
-      - "${MONGODB_PORT}:27017"
-    volumes:
-      - mongodb-data:/data/db
-      - mongodb-config:/data/configdb
-    command: mongod --wiredTigerCacheSizeGB 1.0
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1536M
-        reservations:
-          cpus: '0.5'
-          memory: 768M
-    networks:
-      - joying-network
-    restart: unless-stopped
 
   backend:
     build:
@@ -113,11 +63,10 @@ services:
       SPRING_ELASTICSEARCH_USERNAME: elastic
       SPRING_ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
     depends_on:
-      mysql:
-        condition: service_started
+      # 저장소가 준비된 뒤에 뜬다. postgres 는 건강 검사가 있으니 그것을 기다린다
+      postgres:
+        condition: service_healthy
       redis:
-        condition: service_started
-      mongodb:
         condition: service_started
       elasticsearch:
         condition: service_healthy
@@ -197,22 +146,6 @@ services:
       - joying-network
     restart: unless-stopped
 
-  jenkins:
-    build:
-      context: .
-      dockerfile: infra/Dockerfile.jenkins
-    container_name: joying-jenkins
-    user: root
-    environment:
-      - JENKINS_OPTS=--prefix=/jenkins
-    volumes:
-      - jenkins-data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/ubuntu/joying/.env.prod:/run/secrets/env.prod:ro
-      - /home/ubuntu/joying:/home/ubuntu/joying:ro
-    networks:
-      - joying-network
-    restart: unless-stopped
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.5
@@ -262,10 +195,7 @@ networks:
     driver: bridge
 
 volumes:
-  mysql-data:
+  postgres-data:
   redis-data:
-  mongodb-data:
-  mongodb-config:
-  jenkins-data:
   es-data:
   es-plugins:

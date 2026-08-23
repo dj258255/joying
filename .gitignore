@@ -179,8 +179,14 @@ gradle-app.setting
 *.hprof
 
 ### 환경변수 ###
+# .env 는 사람마다 다르고 비밀이 들어 있어 올리지 않는다.
 .env*
 .env.*
+
+# 다만 예시는 올린다. 무엇을 채워야 하는지 알 방법이 없으면
+# 새로 온 사람이 저장소를 받아도 띄우지 못한다.
+!.env.example
+!*/.env.example
 
 ### Claude Code ###
 .claude/

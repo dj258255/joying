@@ -1,0 +1,96 @@
+spring:
+  datasource:
+    # -------------------------------------
+    # Local
+    # -------------------------------------
+    # -------------------------------------
+    # PostgreSQL
+    # -------------------------------------
+    url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:project_db}"
+    username: "${POSTGRES_USERNAME:joying}"
+    password: "${POSTGRES_PASSWORD:joying}"
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # -------------------------------------
+      # JPA
+      # -------------------------------------
+      ddl-auto: update
+    # 방언을 못박지 않는다. Hibernate 가 연결에서 알아낸다.
+    #
+    # 못박아 두면 저장소를 바꿔도 예전 문법으로 DDL 을 만든다. 실제로 PostgreSQL 로 옮긴 뒤
+    # 테이블이 만들어지지 않아 컨텍스트가 뜨지 않았다.
+    show-sql: false
+  data:
+    redis:
+      # -------------------------------------
+      # Redis
+      # -------------------------------------
+      host: "${REDIS_HOST:localhost}"
+      port: "${REDIS_PORT:6379}"
+      password: "${REDIS_PASSWORD:joying_redis_password}"
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            # Kakao OAuth2
+            client-id: "${KAKAO_CLIENT_ID:YOUR_KAKAO_CLIENT_ID}"
+            client-secret: "${KAKAO_CLIENT_SECRET:YOUR_KAKAO_CLIENT_SECRET}"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            scope: "profile_nickname,account_email,profile_image"
+            client-name: Kakao
+            client-authentication-method: client_secret_post
+        provider:
+          kakao:
+            # Kakao Provider
+            authorization-uri: "https://kauth.kakao.com/oauth/authorize"
+            token-uri: "https://kauth.kakao.com/oauth/token"
+            user-info-uri: "https://kapi.kakao.com/v2/user/me"
+            user-name-attribute: id
+jwt:
+  # -------------------------------------
+  # -------------------------------------
+  # 로컬 개발 환경 - 인증 없음 (개발 편의성)
+  # -------------------------------------
+  # JWT
+  # -------------------------------------
+  secret: "${JWT_SECRET:joying-local-secret-key-for-development-only}"
+  access-token-expiration: "${JWT_ACCESS_TOKEN_EXPIRATION:3600000}"
+  refresh-token-expiration: "${JWT_REFRESH_TOKEN_EXPIRATION:604800000}"
+  access-token-cookie-name: "${JWT_ACCESS_TOKEN_COOKIE_NAME:access_token}"
+  refresh-token-cookie-name: "${JWT_REFRESH_TOKEN_COOKIE_NAME:refresh_token}"
+oauth2:
+  # -------------------------------------
+  # OAuth2
+  # -------------------------------------
+  redirect-uri: "${OAUTH2_REDIRECT_URI:http://localhost:3000/auth/callback}"
+cors:
+  # -------------------------------------
+  # CORS
+  # -------------------------------------
+  # 허용할 Origin (쉼표로 구분, 프론트엔드 + 백엔드 Swagger)
+  allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:3000},http://localhost:8080"
+app:
+  dev-mode:
+    # -------------------------------------
+    # 개발 모드
+    # -------------------------------------
+    # 본인 상품 대여 허용 (테스트 편의성)
+    allow-self-rental: true
+logging:
+  level:
+    com:
+      joying:
+        common:
+          config:
+            security:
+              # -------------------------------------
+              # 디버그 로깅
+              # -------------------------------------
+              JwtAuthenticationFilter: DEBUG
+        chat: DEBUG
+    org:
+      springframework:
+        security: DEBUG

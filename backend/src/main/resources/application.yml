@@ -1,0 +1,267 @@
+spring:
+  application:
+    # -------------------------------------
+    # 기본 애플리케이션 정보
+    # -------------------------------------
+    name: Joying
+  profiles:
+    active: "${SPRING_PROFILES_ACTIVE:local}"
+  datasource:
+    # -------------------------------------
+    # PostgreSQL 데이터베이스 설정
+    # -------------------------------------
+    url: "jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DATABASE:project_db}"
+    username: "${POSTGRES_USERNAME:joying}"
+    password: "${POSTGRES_PASSWORD:joying}"
+  jpa:
+    hibernate:
+      # -------------------------------------
+      # JPA 설정
+      # -------------------------------------
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        query:
+          timeout: 10
+        hbm2ddl:
+          # JPA가 먼저 실행되도록 설정
+          auto: update
+      jakarta:
+        persistence:
+          lock:
+            # 비관적 락 타임아웃 설정 (10초)
+            timeout: 10000
+    open-in-view: false
+    defer-datasource-initialization: false
+    show-sql: true
+  flyway:
+    # -------------------------------------
+    # Flyway 설정
+    # -------------------------------------
+    enabled: false
+    baseline-on-migrate: true
+    locations: "classpath:db/migration"
+    sql-migration-prefix: V
+    sql-migration-separator: __
+    sql-migration-suffixes: .sql
+    baseline-version: 0
+    validate-on-migrate: false
+  servlet:
+    multipart:
+      # -------------------------------------
+      # 파일 업로드 설정
+      # -------------------------------------
+      max-file-size: 20MB
+      max-request-size: 100MB
+  data:
+    redis:
+      # -------------------------------------
+      # Redis 설정
+      # -------------------------------------
+      host: "${REDIS_HOST:localhost}"
+      port: "${REDIS_PORT:6379}"
+      password: "${REDIS_PASSWORD:}"
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao:
+            # Kakao OAuth2
+            client-id: "${KAKAO_CLIENT_ID:YOUR_KAKAO_CLIENT_ID}"
+            client-secret: "${KAKAO_CLIENT_SECRET:YOUR_KAKAO_CLIENT_SECRET}"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+            scope: "profile_nickname,account_email,profile_image"
+            client-name: Kakao
+            client-authentication-method: client_secret_post
+        provider:
+          kakao:
+            # Kakao Provider
+            authorization-uri: "https://kauth.kakao.com/oauth/authorize"
+            token-uri: "https://kauth.kakao.com/oauth/token"
+            user-info-uri: "https://kapi.kakao.com/v2/user/me"
+            user-name-attribute: id
+  elasticsearch:
+    uris: "http://${ELASTIC_HOST:localhost}:9200"
+    username: elastic
+    password: "${ELASTIC_PASSWORD}"
+app:
+  # -------------------------------------
+  # 기본 프로필 이미지 설정
+  # -------------------------------------
+  default-profile-image: /images/default_profile_image.png
+  file:
+    public-base-url: "${CLOUDFLARE_R2_PUBLIC_BASE_URL}"
+  dev-mode:
+    # -------------------------------------
+    # 개발 모드 설정
+    # -------------------------------------
+    # 본인 상품 대여 허용 (테스트 편의성)
+    # - true: 본인 상품도 대여 가능 (개발/테스트)
+    # - false: 본인 상품 대여 불가 (프로덕션)
+    allow-self-rental: "${ALLOW_SELF_RENTAL:false}"
+logging:
+  level:
+    org:
+      hibernate:
+        # -------------------------------------
+        # -------------------------------------
+        # Profile별로 설정됨 (application-local.properties, application-prod.properties)
+        # -------------------------------------
+        # 로깅 설정
+        # -------------------------------------
+        SQL: "${LOGGING_LEVEL:info}"
+        type:
+          descriptor:
+            sql:
+              BasicBinder: TRACE
+springdoc:
+  api-docs:
+    # -------------------------------------
+    # Swagger/OpenAPI 설정
+    # -------------------------------------
+    path: /api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    disable-swagger-default-url: true
+    doc-expansion: none
+  default-consumes-media-type: application/json
+jwt:
+  # -------------------------------------
+  # JWT 설정
+  # -------------------------------------
+  secret: "${JWT_SECRET:joying-local-secret-key-for-development-only}"
+  access-token-expiration: "${JWT_ACCESS_TOKEN_EXPIRATION:3600000}"
+  refresh-token-expiration: "${JWT_REFRESH_TOKEN_EXPIRATION:604800000}"
+  access-token-cookie-name: "${JWT_ACCESS_TOKEN_COOKIE_NAME:access_token}"
+  refresh-token-cookie-name: "${JWT_REFRESH_TOKEN_COOKIE_NAME:refresh_token}"
+oauth2:
+  # -------------------------------------
+  # OAuth2 설정
+  # -------------------------------------
+  redirect-uri: "${OAUTH2_REDIRECT_URI:http://localhost:3000/auth/callback}"
+cors:
+  # -------------------------------------
+  # CORS 설정
+  # -------------------------------------
+  # 허용할 Origin (쉼표로 구분, 프론트엔드 + 백엔드 Swagger)
+  allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:3000},http://localhost:8080"
+cloudflare:
+  r2:
+    # -------------------------------------
+    # cloudflare r2
+    # -------------------------------------
+    endpoint: "${CLOUDFLARE_R2_ENDPOINT}"
+    bucket: "${CLOUDFLARE_R2_BUCKET}"
+    access-key: "${CLOUDFLARE_R2_ACCESS_KEY}"
+    secret-key: "${CLOUDFLARE_R2_SECRET_KEY}"
+cookie:
+  # -------------------------------------
+  # Cookie 보안 설정
+  # -------------------------------------
+  # 쿠키 Secure 플래그 (환경변수 기반)
+  # - 로컬/개발: false (HTTP 허용)
+  # - 프로덕션: true (HTTPS 필수)
+  secure: "${COOKIE_SECURE:false}"
+toss:
+  # -------------------------------------
+  # Toss Payments API
+  # -------------------------------------
+  secret-key: "${TOSS_SECRET_KEY}"
+resilience4j:
+  circuitbreaker:
+    instances:
+      tossPayments:
+        # -------------------------------------
+        # Resilience4j Circuit Breaker
+        # -------------------------------------
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+web-push:
+  # -------------------------------------
+  # Web Push (브라우저 푸시 알림)
+  # -------------------------------------
+  # 푸시 알림 활성화 여부 (true로 설정 시 VAPID 키 필요)
+  enabled: "${WEB_PUSH_ENABLED:false}"
+  # VAPID 키 (Web Push 인증용 공개/비공개 키)
+  # 생성 방법: npx web-push generate-vapid-keys
+  public-key: "${WEB_PUSH_PUBLIC_KEY:}"
+  private-key: "${WEB_PUSH_PRIVATE_KEY:}"
+joying:
+  money:
+    # -------------------------------------
+    # 돈을 무엇으로 옮기는가
+    # -------------------------------------
+    # wallet : 내부 원장. 기본값이고 지금 켤 수 있는 유일한 값이다
+    # ssafy  : 외부 금융망. 붙을 API 키가 없어 켜도 동작하지 않는다.
+    #          코드를 남겨 둔 것은 밖으로 나가는 호출일 때만 생기는 문제들
+    #          (타임아웃, 미확정, 재조회로 확정하기)이 거기에 담겨 있기 때문이다.
+    #          다른 결제망을 붙일 때 그 모양을 그대로 쓴다
+    transfer: "${JOYING_MONEY_TRANSFER:wallet}"
+  rental:
+    # 대여 기간 상한. 보증금을 붙잡아 둘 수 있는 기간 안에서만 받는다
+    max-period-days: "${RENTAL_MAX_PERIOD_DAYS:21}"
+  escrow:
+    release-confirmation:
+      # 보증금 반환을 요청한 뒤 카드사에 반영됐는지 다시 확인하는 주기
+      interval-ms: "${ESCROW_RELEASE_CONFIRMATION_INTERVAL_MS:300000}"
+    reconciliation:
+      # 매일 장부를 검산하는 시각
+      cron: "${ESCROW_RECONCILIATION_CRON:0 10 4 * * *}"
+    deposit-recovery:
+      # 미확정 적립을 다시 물어 확정하는 주기 (외부 금융망 구현일 때만 돈다)
+      interval-ms: "${ESCROW_DEPOSIT_RECOVERY_INTERVAL_MS:60000}"
+  chat:
+    auto-close:
+      # 오래 안 쓴 채팅방을 닫는 시각
+      cron: "${CHAT_AUTO_CLOSE_CRON:0 30 4 * * *}"
+ssafy:
+  finance:
+    # 아래 금융망 설정은 joying.money.transfer=ssafy 일 때만 쓰인다
+    base-url: "${SSAFY_FINANCE_BASE_URL:https://finopenapi.ssafy.io}"
+    api-key: "${SSAFY_FINANCE_API_KEY:}"
+    connect-timeout: "${SSAFY_FINANCE_CONNECT_TIMEOUT:2s}"
+    read-timeout: "${SSAFY_FINANCE_READ_TIMEOUT:5s}"
+    escrow:
+      account-no: "${SSAFY_ESCROW_ACCOUNT_NO:0015555555555555}"
+      user-key: "${SSAFY_ESCROW_USER_KEY:}"
+management:
+  endpoints:
+    web:
+      exposure:
+        # 관측
+        #
+        # 필요한 것만 연다. 기본으로 열리는 것 중에는 설정값과 빈 목록처럼 밖에 보여 줄 이유가
+        # 없는 것이 섞여 있다.
+        include: "health,prometheus"
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      # 지표에 이 앱의 이름을 붙인다. 여러 대를 띄웠을 때 어느 것인지 구분해야 한다
+      application: joying-backend
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            # 백분위를 서버에서 계산하지 않고 히스토그램으로 내보낸다. 여러 대를 합쳐서 볼 때
+            # 서버마다 따로 낸 백분위는 더할 수 없다
+            requests: true
+        chat:
+          message:
+            delivery: true
+            queue:
+              wait: true
