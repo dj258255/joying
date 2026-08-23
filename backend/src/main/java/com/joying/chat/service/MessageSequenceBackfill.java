@@ -99,7 +99,7 @@ public class MessageSequenceBackfill implements ApplicationRunner {
 	 * 이미 쓴 번호를 다시 내주게 된다.
 	 */
 	private long currentMaxOf(Long chatRoomId) {
-		ChatMessage newest = chatMessageRepository.findFirstByChatRoomIdOrderBySequenceDesc(chatRoomId);
+		ChatMessage newest = chatMessageRepository.findTopSequence(chatRoomId);
 		if (newest == null || newest.getSequence() == null) {
 			return 0L;
 		}

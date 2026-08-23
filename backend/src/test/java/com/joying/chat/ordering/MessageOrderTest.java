@@ -3,6 +3,7 @@ package com.joying.chat.ordering;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -17,13 +18,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.testcontainers.containers.MongoDBContainer;
 
 import com.joying.chat.document.ChatMessage;
+import com.joying.chat.repository.ChatMessageRepository;
 
 /**
  * 보낸 순서와 보이는 순서가 같은지 잰다.
@@ -37,30 +34,28 @@ import com.joying.chat.document.ChatMessage;
  */
 class MessageOrderTest {
 
-	private static MongoDBContainer mongo;
-	private static MongoTemplate mongoTemplate;
+	private static ChatMessageStore store;
+	private static ChatMessageRepository repository;
 
 	private static final long ROOM_ID = 1L;
 	private static final long SENDER_ID = 100L;
 
 	@BeforeAll
-	static void startMongo() {
-		mongo = new MongoDBContainer("mongo:7.0");
-		mongo.start();
-		mongoTemplate = new MongoTemplate(
-			new SimpleMongoClientDatabaseFactory(mongo.getConnectionString() + "/joying_test"));
+	static void startStore() {
+		store = new ChatMessageStore();
+		repository = store.repository();
 	}
 
 	@AfterAll
-	static void stopMongo() {
-		if (mongo != null) {
-			mongo.stop();
+	static void stopStore() {
+		if (store != null) {
+			store.close();
 		}
 	}
 
 	@BeforeEach
 	void clean() {
-		mongoTemplate.dropCollection(ChatMessage.class);
+		store.clear();
 	}
 
 	/**
@@ -72,8 +67,19 @@ class MessageOrderTest {
 			.<Callable<Void>>mapToObj(i -> () -> {
 				ChatMessage message = ChatMessage.createTextMessage(
 					ROOM_ID, SENDER_ID, String.valueOf(i), null);
-				message.setCreatedAt(Instant.now());
-				mongoTemplate.save(message);
+				// 밀리초까지만 남긴다.
+				//
+				// 재려는 것은 "같은 시각에 저장된 것들의 순서를 시각으로 정할 수 없다"는
+				// 성질이다. PostgreSQL 은 마이크로초까지 저장해서 그대로 두면 값이 거의
+				// 겹치지 않고, 겹치지 않으면 이 성질이 드러나지 않는다.
+				//
+				// 문서 저장소를 쓰던 때는 밀리초까지만 저장돼 이 절단이 필요 없었다.
+				// 저장소를 옮기며 정밀도가 올라간 것은 이득이지만, 순서를 시각으로 정할 수
+				// 없다는 사실은 그대로다. 시계가 다른 서버가 둘이면 마이크로초도 겹친다.
+				message.setCreatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+				// 번호는 보낸 순서대로 매긴다. 지금 코드와 같다
+				message.assign((long) i + 1, null);
+				store.inTransaction(r -> r.saveAndFlush(message));
 				return null;
 			}).toList();
 
@@ -89,8 +95,9 @@ class MessageOrderTest {
 	 */
 	private long inversionsWhenSortedByTime() {
 		List<ChatMessage> messages = new ArrayList<>(
-			mongoTemplate.find(Query.query(Criteria.where("chatRoomId").is(ROOM_ID)),
-				ChatMessage.class));
+			store.read(r -> r.findAll()).stream()
+				.filter(m -> ROOM_ID == m.getChatRoomId())
+				.toList());
 		messages.sort(Comparator.comparing(ChatMessage::getCreatedAt));
 
 		long inversions = 0;
@@ -134,7 +141,7 @@ class MessageOrderTest {
 					ROOM_ID, SENDER_ID, "m", null);
 				message.setCreatedAt(Instant.now());
 				message.assign(sequence.incrementAndGet(), null);
-				mongoTemplate.save(message);
+				store.inTransaction(r -> r.saveAndFlush(message));
 				return null;
 			}).toList();
 		pool.invokeAll(tasks);
@@ -142,8 +149,9 @@ class MessageOrderTest {
 		pool.awaitTermination(30, TimeUnit.SECONDS);
 
 		List<ChatMessage> messages = new ArrayList<>(
-			mongoTemplate.find(Query.query(Criteria.where("chatRoomId").is(ROOM_ID)),
-				ChatMessage.class));
+			store.read(r -> r.findAll()).stream()
+				.filter(m -> ROOM_ID == m.getChatRoomId())
+				.toList());
 		messages.sort(Comparator.comparing(ChatMessage::getSequence));
 
 		long inversions = 0;
@@ -171,11 +179,13 @@ class MessageOrderTest {
 			ChatMessage message = ChatMessage.createTextMessage(
 				ROOM_ID, SENDER_ID, String.valueOf(i), null);
 			message.setCreatedAt(same);
-			mongoTemplate.save(message);
+			message.assign((long) i + 1, null);
+			store.inTransaction(r -> r.saveAndFlush(message));
 		}
 
-		List<ChatMessage> messages = mongoTemplate.find(
-			Query.query(Criteria.where("chatRoomId").is(ROOM_ID)), ChatMessage.class);
+		List<ChatMessage> messages = store.read(r -> r.findAll()).stream()
+			.filter(m -> ROOM_ID == m.getChatRoomId())
+			.toList();
 
 		assertThat(messages).extracting(ChatMessage::getCreatedAt)
 			.as("전부 같은 시각이라 무엇이 먼저인지 정할 근거가 없다")

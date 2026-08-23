@@ -18,16 +18,7 @@ import java.sql.Timestamp;
         name = "payment",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_payment_order", columnNames = "order_id"),
-                @UniqueConstraint(name = "uk_payment_key",   columnNames = "payment_key"),
-                // 살아 있는 결제는 대여 건과 종류마다 하나뿐이다.
-                //
-                // 예전에는 이미 있는지를 조회해서 판정했다. 동시에 들어온 두 요청이 둘 다
-                // 없다고 읽고 둘 다 넣었다. 16건을 동시에 보내면 결제가 10건 생겼다.
-                //
-                // 취소된 것은 이 값을 비우므로 제약에 걸리지 않는다. 재시도 때마다 쌓이는
-                // 취소 건은 여럿이어도 된다. MySQL 은 유니크 인덱스에서 빈 값을 서로 다른
-                // 것으로 본다.
-                @UniqueConstraint(name = "uk_payment_active", columnNames = "active_key")
+                @UniqueConstraint(name = "uk_payment_key",   columnNames = "payment_key")
         },
         indexes = {
                 @Index(name = "idx_payment_member",      columnList = "member_id"),
@@ -39,6 +30,25 @@ import java.sql.Timestamp;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "paymentId", callSuper=false)
 public class Payment {
+
+    /*
+     * 살아 있는 결제는 대여 건과 종류마다 하나뿐이다.
+     *
+     * 이미 있는지를 조회해서 판정하면 동시에 들어온 두 요청이 둘 다 없다고 읽고 둘 다
+     * 넣는다. 16건을 동시에 보내면 결제가 10건 생겼다.
+     *
+     * 그 제약은 조건부 유니크 인덱스로 건다. 취소된 것은 제약 대상에서 빠지므로
+     * 재시도 때마다 쌓이는 취소 건은 여럿이어도 된다.
+     *
+     *   CREATE UNIQUE INDEX uk_payment_active ON payment (rental_his_id, payment_type)
+     *     WHERE status <> 'CANCELED';
+     *
+     * JPA 의 @UniqueConstraint 로는 조건을 붙일 수 없어 마이그레이션에 둔다.
+     * (db/migration/V2__payment_active_partial_index.sql)
+     *
+     * MySQL 을 쓰던 때는 이 기능이 없어 active_key 열을 두고 취소할 때 비우는 방식으로
+     * 흉내 냈다. 열도 필요 없고 비울 것도 없어졌다.
+     */
     @Id
     @Column(name="payment_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -115,10 +125,6 @@ public class Payment {
     @Comment("승인/취소 동시요청 시 경쟁 방지를 위한 버전 관리")
     private Long version;
 
-    @Column(name = "active_key", length = 64)
-    @Comment("살아 있는 결제를 가리키는 값. 취소되면 비운다")
-    private String activeKey;
-
 
     public static Payment create(RentalHistory rentalHistory,
                                  Product product,
@@ -129,18 +135,7 @@ public class Payment {
         p.product = product;
         p.member = member;
         p.paymentType = paymentType;
-        p.activeKey = activeKeyOf(rentalHistory.getRentalHisId(), paymentType);
         return p;
-    }
-
-    /**
-     * 살아 있는 결제를 가리키는 값.
-     *
-     * <p>대여 건과 결제 종류를 묶는다. 처음 결제와 연장 결제는 같은 대여 건에 함께
-     * 있을 수 있으므로 종류까지 넣어야 한다.
-     */
-    private static String activeKeyOf(Long rentalHisId, PaymentType paymentType) {
-        return rentalHisId + ":" + paymentType;
     }
 
     // ====== 상태 메서드 ======
@@ -181,7 +176,5 @@ public class Payment {
             throw new IllegalStateException("READY 또는 DONE 상태에서만 취소할 수 있습니다. 현재 상태: " + this.status);
         }
         this.status = PaymentStatus.CANCELED;
-        // 자리를 비워 준다. 이것을 안 비우면 다시 결제할 수 없다
-        this.activeKey = null;
     }
 }

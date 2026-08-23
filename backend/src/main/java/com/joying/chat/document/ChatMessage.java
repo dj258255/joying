@@ -2,13 +2,13 @@ package com.joying.chat.document;
 
 import java.time.Instant;
 
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.Field;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,32 +18,34 @@ import lombok.Setter;
 /**
  * 채팅 메시지.
  *
- * <p>메시지는 쌓이기만 하고 관계를 맺지 않아 MongoDB에 둔다. 시각은 {@link Instant}로
- * 저장한다. 지역 시간으로 두면 서버가 어디에 있느냐에 따라 순서가 달라진다.
+ * <p>시각은 {@link Instant}로 저장한다. 지역 시간으로 두면 서버가 어디에 있느냐에 따라
+ * 순서가 달라진다.
  *
- * <p>{@code @Field}로 이름을 못박아 둔 이유는, 저장된 문서의 필드 이름이 코드의
- * 이름 규칙에 따라 흔들리지 않게 하기 위해서다.
+ * <p>식별자가 문자열인 것은 문서 저장소에서 옮겨 왔기 때문이다. 이미 나가 있는 값이라
+ * 숫자로 바꾸면 답장이 가리키는 대상과 화면이 들고 있는 값이 전부 어긋난다.
+ *
+ * <p>{@code @Column}으로 이름을 못박아 둔 이유는, 저장된 열 이름이 코드의 이름 규칙에
+ * 따라 흔들리지 않게 하기 위해서다.
+ *
+ * <p>같은 전송을 한 번만 저장하는 제약은 여기에 없다. 취소된 것을 빼는 것과 같은 이유로
+ * 조건이 필요한데 JPA 로는 붙일 수 없다. 기동할 때 만든다
+ * ({@code ChatMessageIndexInitializer}).
  */
 @Getter
-@Document(collection = "chat_messages")
-@CompoundIndexes({
-	@CompoundIndex(name = "idx_chat_room_id_created_at", def = "{'chatRoomId': 1, 'createdAt': -1}"),
-	@CompoundIndex(name = "idx_chat_room_id_sequence", def = "{'chatRoomId': 1, 'sequence': -1}"),
-	// sparse 는 필드가 아예 없을 때만 건너뛴다. null 로 들어오면 걸려서 두 번째가
-	// 막힌다. 값이 문자열일 때만 제약을 걸도록 조건을 준다.
-	@CompoundIndex(name = "uk_chat_room_id_client_message_id",
-		def = "{'chatRoomId': 1, 'clientMessageId': 1}", unique = true,
-		partialFilter = "{'clientMessageId': {'$type': 'string'}}")
+@Entity
+@Table(name = "chat_message", indexes = {
+	@Index(name = "idx_chat_message_room_created", columnList = "chat_room_id, created_at"),
+	@Index(name = "idx_chat_message_room_sequence", columnList = "chat_room_id, sequence")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ChatMessage {
 
 	@Id
+	@Column(name = "id", length = 36)
 	@Setter
 	private String id;
 
-	@Field("chatRoomId")
-	@Indexed
+	@Column(name = "chat_room_id")
 	private Long chatRoomId;
 
 	/**
@@ -55,33 +57,34 @@ public class ChatMessage {
 	 *
 	 * <p>이 번호는 방마다 하나씩 늘어나므로 누가 먼저 받았든 모두가 같은 순서를 본다.
 	 */
-	@Field("sequence")
+	@Column(name = "sequence")
 	@Setter
 	private Long sequence;
 
-	@Field("senderId")
-	@Indexed
+	@Column(name = "sender_id")
 	private Long senderId;
 
-	@Field("type")
+	@Enumerated(EnumType.STRING)
+	@Column(name = "type", length = 30)
 	private MessageType type;
 
-	@Field("content")
+	// 웹소켓 설정이 메시지 크기를 128KB 로 묶는다. 그보다 크게 잡을 이유가 없다
+	@Column(name = "content", length = 2000)
 	private String content;
 
-	@Field("imageUrl")
+	@Column(name = "image_url")
 	private String imageUrl;
 
-	@Field("fileUrl")
+	@Column(name = "file_url")
 	private String fileUrl;
 
-	@Field("fileName")
+	@Column(name = "file_name")
 	private String fileName;
 
-	@Field("fileSize")
+	@Column(name = "file_size")
 	private Long fileSize;
 
-	@Field("replyToMessageId")
+	@Column(name = "reply_to_message_id", length = 36)
 	private String replyToMessageId;
 
 	/**
@@ -91,31 +94,30 @@ public class ChatMessage {
 	 * 확인하면 동시에 들어온 두 요청이 둘 다 없다고 읽고 둘 다 넣는다. 그래서 판정을
 	 * 저장소의 유니크 제약에 맡긴다.
 	 */
-	@Field("clientMessageId")
+	@Column(name = "client_message_id", length = 64)
 	private String clientMessageId;
 
-	@CreatedDate
-	@Field("createdAt")
+	@Column(name = "created_at")
 	@Setter
 	private Instant createdAt;
 
-	@Field("updatedAt")
+	@Column(name = "updated_at")
 	@Setter
 	private Instant updatedAt;
 
-	@Field("isEdited")
+	@Column(name = "is_edited")
 	@Setter
 	private boolean isEdited;
 
-	@Field("originalContent")
+	@Column(name = "original_content", length = 2000)
 	@Setter
 	private String originalContent;
 
-	@Field("isDeleted")
+	@Column(name = "is_deleted")
 	@Setter
 	private boolean isDeleted;
 
-	@Field("isRead")
+	@Column(name = "is_read")
 	@Setter
 	private boolean isRead;
 
@@ -125,6 +127,9 @@ public class ChatMessage {
 	}
 
 	private ChatMessage(Long chatRoomId, Long senderId, MessageType type, String content) {
+		// 문서 저장소가 만들어 주던 것을 이제 우리가 만든다. 저장 전에 값이 있어야
+		// 답장이 이 메시지를 가리킬 수 있고, 화면이 미리 그려 둔 것과도 묶인다
+		this.id = java.util.UUID.randomUUID().toString();
 		this.chatRoomId = chatRoomId;
 		this.senderId = senderId;
 		this.type = type;

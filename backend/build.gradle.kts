@@ -26,7 +26,6 @@ repositories {
 dependencies {
     // Spring Boot Starters
     implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
-    implementation("org.springframework.boot:spring-boot-starter-data-mongodb") // 채팅 메시지 저장용 (blocking)
     implementation("org.springframework.boot:spring-boot-starter-data-redis") // Redis Pub/Sub (blocking)
     implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -62,12 +61,12 @@ dependencies {
     // Lombok은 io.freefair.lombok 플러그인이 자동으로 처리
 
     // Database Drivers
-    runtimeOnly("com.mysql:mysql-connector-j")
+    runtimeOnly("org.postgresql:postgresql")
     testRuntimeOnly("com.h2database:h2")
 
     // Flyway (Database Migration)
     implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-mysql")
+    implementation("org.flywaydb:flyway-database-postgresql")
 
     // Development Tools
     developmentOnly("org.springframework.boot:spring-boot-devtools")
@@ -83,8 +82,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers") // Testcontainers BOM 관리
-    testImplementation("org.testcontainers:mongodb")
-    testImplementation("org.testcontainers:mysql")
+    testImplementation("org.testcontainers:postgresql")
     // Kotlin에서 Mockito를 쓸 때 널 안전성 때문에 그대로는 불편하다.
     // Redis 전용 Testcontainer는 없으므로 GenericContainer 사용
 

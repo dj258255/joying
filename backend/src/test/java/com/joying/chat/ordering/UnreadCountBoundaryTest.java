@@ -10,10 +10,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.SimpleMongoClientDatabaseFactory;
-import org.springframework.data.mongodb.repository.support.MongoRepositoryFactory;
-import org.testcontainers.containers.MongoDBContainer;
 
 import com.joying.chat.document.ChatMessage;
 import com.joying.chat.repository.ChatMessageRepository;
@@ -32,8 +28,7 @@ import com.joying.chat.repository.ChatMessageRepository;
  */
 class UnreadCountBoundaryTest {
 
-	private static MongoDBContainer mongo;
-	private static MongoTemplate mongoTemplate;
+	private static ChatMessageStore store;
 	private static ChatMessageRepository repository;
 
 	private static final long ROOM_ID = 1L;
@@ -41,24 +36,21 @@ class UnreadCountBoundaryTest {
 	private static final long OTHER = 200L;
 
 	@BeforeAll
-	static void startMongo() {
-		mongo = new MongoDBContainer("mongo:7.0");
-		mongo.start();
-		mongoTemplate = new MongoTemplate(
-			new SimpleMongoClientDatabaseFactory(mongo.getConnectionString() + "/joying_unread_test"));
-		repository = new MongoRepositoryFactory(mongoTemplate).getRepository(ChatMessageRepository.class);
+	static void startStore() {
+		store = new ChatMessageStore();
+		repository = store.repository();
 	}
 
 	@AfterAll
-	static void stopMongo() {
-		if (mongo != null) {
-			mongo.stop();
+	static void stopStore() {
+		if (store != null) {
+			store.close();
 		}
 	}
 
 	@BeforeEach
 	void clear() {
-		mongoTemplate.dropCollection(ChatMessage.class);
+		store.clear();
 	}
 
 	@Test
@@ -123,6 +115,6 @@ class UnreadCountBoundaryTest {
 		ChatMessage message = ChatMessage.createTextMessage(ROOM_ID, senderId, "메시지 " + sequence, null);
 		message.setCreatedAt(createdAt);
 		message.assign(sequence, null);
-		repository.save(message);
+		store.inTransaction(r -> r.save(message));
 	}
 }

@@ -33,7 +33,9 @@ public class File extends BaseEntity {
     private String directory;
 
     @Comment("파일 정보")
-    @Column(name = "metadata", columnDefinition = "JSON")
+    // PostgreSQL 은 jsonb 를 쓴다. 값을 파싱해 저장하므로 색인을 걸 수 있고 조회가 빠르다.
+    // MySQL 의 JSON 과 이름만 다른 것이 아니라 성질이 다르다
+    @Column(name = "metadata", columnDefinition = "jsonb")
     private String metadata;
 
     @Builder

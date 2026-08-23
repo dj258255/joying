@@ -21,7 +21,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 import com.joying.wallet.port.TransferOutcome;
 import com.joying.wallet.domain.Wallet;
@@ -43,18 +43,18 @@ import com.joying.wallet.service.WalletService;
 class WalletTransferTest {
 
 	@SuppressWarnings("resource")
-	static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0")
+	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
 		.withDatabaseName("joying_test");
 
 	static {
-		MYSQL.start();
+		POSTGRES.start();
 	}
 
 	@DynamicPropertySource
 	static void datasource(DynamicPropertyRegistry registry) {
-		registry.add("spring.datasource.url", MYSQL::getJdbcUrl);
-		registry.add("spring.datasource.username", MYSQL::getUsername);
-		registry.add("spring.datasource.password", MYSQL::getPassword);
+		registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+		registry.add("spring.datasource.username", POSTGRES::getUsername);
+		registry.add("spring.datasource.password", POSTGRES::getPassword);
 		registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
 	}
 
