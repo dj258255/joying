@@ -1,0 +1,13 @@
+# 이 파일은 Ansible 이 만든다. 서버에서 직접 고치면 다음 배포에 덮어써진다.
+# 값을 바꾸려면 ansible/group_vars/all/ 을 고친다.
+#
+# 만든 시각: {{ ansible_date_time.iso8601 }}
+
+GMS_API_KEY={{ gms_api_key }}
+GMS_API_URL={{ gms_api_url }}
+
+ALLOWED_ORIGINS={{ cors_allowed_origins }}
+
+AI_MODEL={{ ai_model }}
+MAX_TOKENS={{ ai_max_tokens }}
+TEMPERATURE={{ ai_temperature }}

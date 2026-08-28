@@ -62,3 +62,37 @@ ansible-playbook -i ansible/inventory/prod.ini ansible/deploy.yml --ask-vault-pa
 
 `vars.yml` 은 vault 안의 값을 이름으로 가리킨다. 그래서 `.env` 를 만드는 템플릿은
 한 곳만 보면 된다.
+
+## 서버 없이 리허설하기
+
+배포가 실제로 도는지는 서버가 있어야만 알 수 있는 것이 아니다. 이 기계를 대상으로
+잡으면 `git` 받기부터 건강 확인까지 그대로 지난다.
+
+```bash
+# 대상을 이 기계로 잡는다
+cat > /tmp/rehearsal.ini <<'INI'
+[joying]
+localhost ansible_connection=local
+INI
+
+# vault 대신 쓸 값. 진짜 비밀을 넣지 않는다
+#   - JWT 는 32바이트 미만이면 기동이 막힌다
+#   - 웹 푸시 키는 아무 글자나 넣으면 안 된다. init-secrets.sh 와 같은 방법으로 만든다
+ansible-playbook -i /tmp/rehearsal.ini ansible/deploy.yml \
+  -e @/tmp/rehearsal-vault.yml \
+  -e app_dir=/tmp/joying-rehearsal \
+  -e repo_url="$(pwd)" \
+  -e deploy_ref=develop
+```
+
+끝나면 `배포 완료. 상태 확인 응답 200` 이 찍힌다. 치우려면 `app_dir` 에서
+`docker compose --env-file .env down -v` 를 한다.
+
+### 여기서 확인되지 않는 것
+
+**앞단(nginx)은 뜨지 않는다.** 인증서 파일을 찾지 못해 죽는다. 그 파일은 서버에만
+있고, **서버를 새로 만들면 인증서를 받기 전에는 앞단이 뜨지 않는다.** 앞단이 떠야
+certbot 이 인증을 받을 수 있으므로 서로를 기다린다. 아직 풀지 않았다.
+
+**받는 코드는 커밋된 것이다.** 고친 것을 커밋하지 않고 돌리면 예전 코드가 배포된다.
+리허설에서 같은 오류가 두 번 난 뒤에 알았다.
