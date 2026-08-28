@@ -1,0 +1,38 @@
+# 앞단이 방을 어느 노드로 보내는지만 재는 자리.
+#
+# 백엔드를 띄우지 않는다. 노드가 늘거나 줄 때 방이 얼마나 옮겨 가는지는 앞단의
+# 해시가 정하는 것이고, 뒤에 무엇이 붙어 있든 달라지지 않는다. 자기 이름만
+# 돌려주는 껍데기 셋을 두면 옮겨 갔는지를 그대로 읽을 수 있다.
+services:
+  node1: &stub
+    image: nginx:alpine
+    command:
+      - sh
+      - -c
+      - |
+        printf 'server { listen 80; location / { add_header Content-Type text/plain; return 200 "%s"; } }' "$$NODE_NAME" > /etc/nginx/conf.d/default.conf
+        exec nginx -g 'daemon off;'
+    environment:
+      NODE_NAME: node1
+
+  node2:
+    <<: *stub
+    environment:
+      NODE_NAME: node2
+
+  node3:
+    <<: *stub
+    environment:
+      NODE_NAME: node3
+
+  front:
+    image: nginx:alpine
+    ports:
+      - "18080:80"
+    depends_on: [node1, node2, node3]
+    command:
+      - sh
+      - -c
+      - |
+        printf 'server { listen 80; location / { return 503; } }' > /etc/nginx/conf.d/default.conf
+        exec nginx -g 'daemon off;'
