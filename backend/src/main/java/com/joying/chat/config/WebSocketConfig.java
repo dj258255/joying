@@ -71,7 +71,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	 */
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
-		registry.addEndpoint("/ws/chat")
+		// 주소를 둘 받는다.
+		//
+		// 앞단은 방 번호로 노드를 고른다. 그 값을 쿠키로 알렸는데 쿠키는 브라우저에
+		// 하나뿐이라, 탭을 둘 열어 서로 다른 방을 보면 나중 탭이 앞선 방의 열쇠로
+		// 간다. 노드 3개에서 재 보니 69.1% 가 엉뚱한 노드로 갔다.
+		//
+		// 경로에 실으면 요청마다 다르다. SockJS 가 기본 주소 뒤에 경로를 덧붙이므로
+		// 쿼리스트링은 살아남지 못하지만, 기본 주소의 경로는 그대로 남는다.
+		//
+		// 옛 주소도 함께 남긴다. 배포 중에는 이미 붙어 있는 연결과 옛 화면이 있다.
+		registry.addEndpoint("/ws/chat", "/ws/chat/{roomId}")
 			.setAllowedOriginPatterns(allowedOrigins.toArray(new String[0]))
 			.withSockJS()
 			.setStreamBytesLimit(512 * 1024)

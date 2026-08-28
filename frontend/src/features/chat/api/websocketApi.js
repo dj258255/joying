@@ -68,8 +68,20 @@ const cleanupSubscriptions = () => {
   subscriptions = [];
 };
 
-const createSocket = () => {
-  const url = websocketConfig.url;
+/**
+ * 연결 주소에 방 번호를 싣는다.
+ *
+ * 앞단이 이 값으로 노드를 고른다. 쿼리스트링은 쓸 수 없다. SockJS 가 기본 주소 뒤에
+ * /{서버}/{세션}/websocket 을 덧붙이므로 `?roomId=5` 를 붙이면
+ * `/ws/chat?roomId=5/123/abc/websocket` 이 된다. 경로는 앞쪽에 그대로 남는다.
+ */
+const withRoom = (url, chatRoomId) => {
+  if (!chatRoomId) return url;
+  return `${url.replace(/\/$/, '')}/${chatRoomId}`;
+};
+
+const createSocket = (chatRoomId) => {
+  const url = withRoom(websocketConfig.url, chatRoomId);
   console.log('[websocketApi] SockJS 연결 시도 URL:', url);
 
   if (url.startsWith('ws://') || url.startsWith('wss://')) {
@@ -96,11 +108,12 @@ const createSocket = () => {
 /**
  * 앞단이 방 단위로 서버를 고를 수 있게 방 번호를 남긴다.
  *
- * 연결이 방 단위라 방을 옮기면 다시 붙는다. 그때마다 값을 덮어쓴다.
+ * 이제는 연결 주소에 실어 보내므로 이것이 없어도 된다. 배포 중에 옛 화면과 새 앞단이
+ * 섞이는 동안만 쓴다. 앞단은 경로를 먼저 보고 없을 때만 이 값을 본다.
  *
- * 탭을 여럿 열어 서로 다른 방을 보면 마지막에 연결한 방의 값이 남는다. 그러면 앞 탭의
- * 재연결이 다른 서버로 갈 수 있다. 이 서비스는 한 화면에서 방 하나를 여는 구조라 흔한
- * 일은 아니고, 벌어져도 그 방의 순서만 잠깐 흔들린다.
+ * 쿠키는 브라우저에 하나뿐이라 탭을 둘 열어 서로 다른 방을 보면 나중 탭이 앞선 방의
+ * 값을 덮어쓴다. 노드 3개에서 재 보니 69.1% 가 엉뚱한 노드로 갔다.
+ * (docs/performance/room-sticky-routing.md)
  */
 const markRoomForRouting = (chatRoomId) => {
   // 세션 쿠키로 둔다. 브라우저를 닫으면 사라지는 것이 맞다
@@ -128,8 +141,8 @@ export const websocketApi = {
     // 같은 방의 두 사람이 다른 서버에 붙으면 두 서버가 각자 발행해서 받는 쪽에 번호가
     // 뒤섞여 닿는다. 400건 중 42~54회였다. 앞단이 이 값으로 같은 서버에 묶어 준다.
     //
-    // 쿠키를 쓰는 이유는 SockJS 때문이다. SockJS 는 기본 주소 뒤에 경로를 덧붙이므로
-    // 쿼리스트링이 살아남지 못한다. 쿠키는 모든 요청에 따라붙는다.
+    // 연결 주소에 실어 보내는 것이 본줄기다(아래 createSocket). 쿠키는 배포 중에
+    // 옛 앞단과 섞이는 동안만 남겨 둔다.
     markRoomForRouting(chatRoomIdNum);
 
     if (client) {
@@ -145,7 +158,9 @@ export const websocketApi = {
           console.debug('[STOMP]', str);
         }
       },
-      webSocketFactory: createSocket,
+      // 다시 붙을 때도 같은 방으로 간다. STOMP 는 이 함수를 인자 없이 부르므로
+      // 방 번호를 여기서 묶어 준다
+      webSocketFactory: () => createSocket(chatRoomIdNum),
       connectHeaders: {
         cookie: document.cookie || ''
       }
