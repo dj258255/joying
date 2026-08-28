@@ -36,11 +36,15 @@ upstream chat_backend {
 
 재는 자리는 [load/routing](../load/routing) 에 있다.
 
-### 아직 하지 않은 것
+### 첫 인증서
 
-**인증서가 없으면 뜨지 않는다.** `ssl_certificate` 가 가리키는 파일을 못 찾으면 nginx 가
-죽는다. 서버를 새로 만들면 인증서를 받기 전에는 앞단이 뜨지 않고, **앞단이 떠야 certbot 이
-인증을 받는다.** 서로를 기다린다.
+`ssl_certificate` 가 가리키는 파일을 못 찾으면 nginx 가 죽는다. compose 의 certbot 은
+**갱신만** 하고 최초 발급을 하지 않으므로, 새 서버에서는 앞단이 떠야 인증을 받고 인증을
+받아야 앞단이 뜬다.
+
+배포가 자체 서명한 것을 자리에 놓아 그 고리를 끊는다. 앞단이 뜬 뒤
+[진짜 인증서를 한 번 받는다](../ansible/README.md#첫-인증서). 그 뒤로는 certbot 이
+12시간마다 갱신한다.
 
 ## observability — 지켜보는 것
 

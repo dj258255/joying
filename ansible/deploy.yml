@@ -33,6 +33,35 @@
         mode: "0600"
       no_log: true
 
+    # 앞단은 인증서 파일이 없으면 뜨지 않는다. 그런데 certbot 은 갱신만 하고
+    # 최초 발급을 하지 않으므로, 서버를 새로 만들면 아무도 첫 인증서를 만들지
+    # 않는다. 앞단이 떠야 certbot 이 인증을 받을 수 있어 서로를 기다린다.
+    #
+    # 자체 서명한 것을 자리에 놓아 그 고리를 끊는다. 앞단이 뜨면 아래 안내대로
+    # 진짜 인증서를 한 번 받고, 그 뒤로는 certbot 이 알아서 갱신한다.
+    - name: 인증서 자리를 만든다
+      ansible.builtin.file:
+        path: "{{ app_dir }}/certbot/conf/live/{{ domain }}"
+        state: directory
+        mode: "0755"
+
+    - name: 인증서가 없으면 임시로 자체 서명한 것을 둔다
+      ansible.builtin.command:
+        cmd: >-
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3650
+          -keyout {{ app_dir }}/certbot/conf/live/{{ domain }}/privkey.pem
+          -out {{ app_dir }}/certbot/conf/live/{{ domain }}/fullchain.pem
+          -subj /CN={{ domain }}
+        creates: "{{ app_dir }}/certbot/conf/live/{{ domain }}/fullchain.pem"
+      register: placeholder_cert
+
+    - name: 임시 인증서를 둔 것을 알린다
+      ansible.builtin.debug:
+        msg: >-
+          자체 서명한 임시 인증서를 두었다. 브라우저가 경고한다.
+          진짜 인증서를 한 번 받아야 한다 - ansible/README.md 의 '첫 인증서' 를 보라
+      when: placeholder_cert is changed
+
     - name: 이미지를 만든다
       ansible.builtin.command:
         cmd: docker compose --env-file .env -f {{ compose_file }} build backend nginx
