@@ -692,7 +692,7 @@ public class RentalService {
         log.info("[연장 결제 생성] rentalHisId={}, orderId={}, amount={}, newEndDate={}",
                 rentalHisId, orderId, request.getAdditionalFee(), request.getNewEndRen());
 
-        // 7. 실제 연장은 결제 승인 후 PaymentService.confirmPayment()에서 처리됨
+        // 7. 실제 연장은 결제 승인 후 PaymentConfirmFlow.confirm()에서 처리됨
         log.info("[연장 결제 대기 중] rentalHisId={}, orderId={} - 결제 완료 후 연장이 적용됩니다", rentalHisId, orderId);
 
         // 8. 응답 생성

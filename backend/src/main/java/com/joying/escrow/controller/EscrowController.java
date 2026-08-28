@@ -27,7 +27,7 @@ public class EscrowController {
      * POST /escrow/holds
      *
      * @deprecated 이 API는 더 이상 사용하지 않습니다.
-     * Escrow는 PaymentService.confirmPayment() 시 자동으로 생성됩니다.
+     * Escrow는 PaymentConfirmFlow.confirm() 시 자동으로 생성됩니다.
      * 중복 생성을 방지하기 위해 이 엔드포인트를 사용하지 마세요.
      */
     @Deprecated
