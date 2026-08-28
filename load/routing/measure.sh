@@ -28,9 +28,20 @@ apply() {
     # 처음에는 이 map 을 빼고 $arg_roomId 로만 해시했다. 그 상태에서는 쿠키가
     # 값에 아무 영향이 없어, 탭 실험이 "아무 문제 없다"고 나왔다. 재는 자리에
     # 열쇠가 빠져 있었다. 상황 21 에서 겪은 것과 같다.
-    echo 'map $cookie_chat_room $chat_room_key {'
+    #
+    # $uri 가 아니라 $request_uri 를 보는 것도 운영과 같다. 아래에서 경로를 고쳐
+    # 넘기는데 $uri 는 그때 바뀐다.
+    echo 'map $request_uri $room_from_path {'
+    echo '    default "";'
+    echo '    "~^/ws/chat/(?<rid>[0-9]+)(/|\?|$)" $rid;'
+    echo '}'
+    echo 'map $room_from_path $room_or_cookie {'
+    echo '    ""      $cookie_chat_room;'
+    echo '    default $room_from_path;'
+    echo '}'
+    echo 'map $room_or_cookie $chat_room_key {'
     echo '    ""      $arg_roomId;'
-    echo '    default $cookie_chat_room;'
+    echo '    default $room_or_cookie;'
     echo '}'
     echo "upstream chat_backend {"
     echo "    hash \$chat_room_key ${method};"
@@ -38,7 +49,14 @@ apply() {
       echo "    server ${node}:80;"
     done
     echo "}"
-    echo "server { listen 80; location / { proxy_pass http://chat_backend; } }"
+    echo "server {"
+    echo "    listen 80;"
+    echo "    location ^~ /ws/ {"
+    echo "        rewrite ^/ws/chat/[0-9]+(/.*)?\$ /ws/chat\$1 break;"
+    echo "        proxy_pass http://chat_backend;"
+    echo "    }"
+    echo "    location / { proxy_pass http://chat_backend; }"
+    echo "}"
   } > "$WORK/front.conf"
 
   docker compose cp "$WORK/front.conf" front:/etc/nginx/conf.d/default.conf >/dev/null 2>&1
@@ -147,7 +165,7 @@ run_two_tabs() {
   apply "consistent" node1 node2 node3
   probe "$WORK/bykey"
 
-  local pairs=0 wrong=0 a b node_a node_b landed
+  local pairs=0 wrong=0 wrong_path=0 a b node_a node_b landed
   for _ in $(seq 1 500); do
     a=$(( (RANDOM % ROOMS) + 1 ))
     b=$(( (RANDOM % ROOMS) + 1 ))
@@ -157,15 +175,20 @@ run_two_tabs() {
     node_a="$(awk -v r="$a" '$1 == r { print $2 }' "$WORK/bykey")"
     node_b="$(awk -v r="$b" '$1 == r { print $2 }' "$WORK/bykey")"
 
-    # 방 B 를 보는 탭인데 쿠키에는 방 A 가 들어 있다
+    # 옛 방식: 방 B 를 보는데 알릴 방법이 쿠키뿐이라 앞 탭이 남긴 A 가 실린다
     landed="$(curl -s --max-time 5 -H "Cookie: chat_room=${a}" "$FRONT/?roomId=${b}")"
-    if [ "$landed" != "$node_b" ]; then
-      wrong=$((wrong + 1))
-    fi
+    [ "$landed" != "$node_b" ] && wrong=$((wrong + 1))
+
+    # 지금 방식: 연결 주소에 방 B 가 실린다. 쿠키에 A 가 남아 있어도 경로가 이긴다
+    landed="$(curl -s --max-time 5 -H "Cookie: chat_room=${a}" \
+      "$FRONT/ws/chat/${b}/123/abc/websocket")"
+    [ "$landed" != "$node_b" ] && wrong_path=$((wrong_path + 1))
   done
 
-  printf '탭 둘        %d쌍 중 %d쌍이 방 B 를 엉뚱한 노드로 보낸다 (%.1f%%)\n' \
+  printf '  쿠키로 알릴 때   %d쌍 중 %d쌍이 방 B 를 엉뚱한 노드로 보낸다 (%.1f%%)\n' \
     "$pairs" "$wrong" "$(echo "scale=4; $wrong * 100 / $pairs" | bc)"
+  printf '  경로에 실을 때   %d쌍 중 %d쌍 (%.1f%%)\n' \
+    "$pairs" "$wrong_path" "$(echo "scale=4; $wrong_path * 100 / $pairs" | bc)"
 }
 
 echo
