@@ -71,6 +71,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	 */
 	@Override
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
+		// 화면은 /ws/chat/{방번호} 로 붙지만 여기는 /ws/chat 그대로다.
+		//
+		// 앞단이 방 번호를 열쇠로 쓴 뒤 경로에서 걷어내고 넘긴다. 그렇게 하는 이유는
+		// SockJS 핸들러가 /ws/chat/** 를 통째로 차지하기 때문이다. 여기에
+		// /ws/chat/{roomId} 를 더해 봤더니 404 였다.
 		registry.addEndpoint("/ws/chat")
 			.setAllowedOriginPatterns(allowedOrigins.toArray(new String[0]))
 			.withSockJS()
