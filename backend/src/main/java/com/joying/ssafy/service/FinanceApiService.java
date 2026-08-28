@@ -586,7 +586,11 @@ public class FinanceApiService {
 	 * 있었는지 알 수 없으므로 미확정으로 둔다.
 	 *
 	 * <p>H0000이 아닌 코드 안에도 성격이 다른 것이 섞여 있을 수 있다. 코드별 분류는 아직
-	 * 하지 않았고, 그때까지는 전부 확정 실패로 둔다.
+	 * 하지 않았고, 그때까지는 전부 확정 실패로 둔다. 코드 표가 있어야 나눌 수 있는데
+	 * 붙을 API가 사라져 받아 둔 것이 없다.
+	 *
+	 * <p>다만 코드가 아예 오지 않은 것은 다르게 다룬다. 그것은 "무엇인지 모르는 코드"가
+	 * 아니라 "코드를 못 읽은 것"이고, 거절이라고 적을 근거가 없다.
 	 */
 	private TransferOutcome classifyTransferResponse(String what, Object responseObj) {
 		if (responseObj == null) {
@@ -604,7 +608,20 @@ public class FinanceApiService {
 			return new TransferOutcome.Unconfirmed("Header 없음");
 		}
 
-		String responseCode = String.valueOf(headerMap.get("responseCode"));
+		Object rawResponseCode = headerMap.get("responseCode");
+		String responseCode = rawResponseCode == null ? "" : String.valueOf(rawResponseCode).trim();
+
+		if (responseCode.isEmpty()) {
+			// 코드를 못 읽었다. 거절로 적으면 돈이 옮겨졌는지 모르는 채로 옮겨지지
+			// 않았다고 단정하는 것이다.
+			//
+			// 예전에는 여기서 String.valueOf 가 없는 값을 "null" 이라는 글자로 만들었다.
+			// 그 글자가 H0000 이 아니라는 이유로, 읽지도 못한 응답이 거절 코드 "null" 을
+			// 달고 확정 실패가 됐다.
+			log.error("{} 응답에 responseCode 가 없습니다: {}", what, headerMap);
+			return new TransferOutcome.Unconfirmed("응답 코드 없음");
+		}
+
 		if (!"H0000".equals(responseCode)) {
 			log.warn("{} 거절: {}", what, headerMap);
 			return new TransferOutcome.Rejected(

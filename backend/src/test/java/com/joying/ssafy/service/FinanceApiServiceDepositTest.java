@@ -95,6 +95,31 @@ class FinanceApiServiceDepositTest {
 	}
 
 	@Test
+	@DisplayName("응답 코드가 아예 오지 않으면 거절이 아니라 미확정이다")
+	void unconfirmedWhenResponseCodeMissing() {
+		// Header 는 왔는데 코드가 없다. 무엇인지 모르는 코드가 아니라 코드를 못 읽은 것이다.
+		// 예전에는 없는 값이 "null" 이라는 글자가 되어, H0000 이 아니라는 이유로
+		// 거절 코드 "null" 을 달고 확정 실패가 됐다.
+		givenResponse(Map.of(
+			"Header", Map.of("responseMessage", "무언가 잘못됐다")));
+
+		TransferOutcome outcome = deposit();
+
+		assertThat(outcome)
+			.as("옮겨졌는지 모르는 것을 옮겨지지 않았다고 적으면 안 된다")
+			.isInstanceOf(TransferOutcome.Unconfirmed.class);
+	}
+
+	@Test
+	@DisplayName("응답 코드가 빈 값이어도 미확정이다")
+	void unconfirmedWhenResponseCodeBlank() {
+		givenResponse(Map.of(
+			"Header", Map.of("responseCode", "   ", "responseMessage", "")));
+
+		assertThat(deposit()).isInstanceOf(TransferOutcome.Unconfirmed.class);
+	}
+
+	@Test
 	@DisplayName("4xx는 금융망이 요청을 받고 거절한 것이므로 확정 실패다")
 	void rejectedByHttpStatus() {
 		givenThrows(HttpClientErrorException.create(
