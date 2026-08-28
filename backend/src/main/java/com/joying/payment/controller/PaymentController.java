@@ -9,6 +9,7 @@ import com.joying.payment.dto.request.PaymentWebhookRequest;
 import com.joying.payment.dto.response.PaymentCreateResponse;
 import com.joying.payment.dto.response.PaymentResponse;
 import com.joying.payment.exception.InvalidWebhookSignatureException;
+import com.joying.payment.service.PaymentTossFlow;
 import com.joying.payment.service.PaymentService;
 import com.joying.payment.service.PaymentWebhookService;
 import com.joying.payment.service.TossWebhookSignatureVerifier;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentTossFlow paymentTossFlow;
     private final PaymentWebhookService webhookService;
     private final TossWebhookSignatureVerifier signatureVerifier;
     private final ObjectMapper objectMapper;
@@ -79,7 +81,7 @@ public class PaymentController {
         log.info("[POST /payments/confirm] 결제 승인 요청: orderId={}, paymentKey={}",
                 request.getOrderId(), request.getPaymentKey());
 
-        PaymentResponse response = paymentService.confirmPayment(request);
+        PaymentResponse response = paymentTossFlow.confirm(request);
 
         return ApiResponse.ok(response);
     }
@@ -122,7 +124,7 @@ public class PaymentController {
         log.info("[PATCH /payments/{}/cancel] 결제 취소 요청: memberId={}, reason={}",
                 orderId, memberId, request.getReason());
 
-        PaymentResponse response = paymentService.cancelPayment(orderId, request, memberId);
+        PaymentResponse response = paymentTossFlow.cancel(orderId, request, memberId);
 
         return ApiResponse.ok(response);
     }

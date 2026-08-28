@@ -189,6 +189,16 @@ resilience4j:
         waitDurationInOpenState: 10s
         failureRateThreshold: 50
         eventConsumerBufferSize: 10
+        # 느린 호출도 실패로 센다.
+        #
+        # 실패율만 보면 토스가 9초씩 걸리면서 200을 돌려주는 동안에는 절대 열리지
+        # 않는다. 브레이커 눈에는 전부 성공이다. 그동안 요청은 스레드를 잡고 늘어선다.
+        #
+        # 5초는 잰 값이 아니다. 응답 제한이 10초이므로 그 절반을 넘으면 정상이 아니라고
+        # 본 것이다. 정상일 때 토스가 얼마나 걸리는지는 실 트래픽이 없어 모른다.
+        # 분포를 알게 되면 다시 정한다.
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 5s
 web-push:
   # -------------------------------------
   # Web Push (브라우저 푸시 알림)

@@ -7,15 +7,12 @@ import com.joying.payment.domain.Payment;
 import com.joying.payment.domain.PaymentMethod;
 import com.joying.payment.domain.PaymentStatus;
 import com.joying.payment.domain.PaymentType;
-import com.joying.payment.dto.request.PaymentCancelRequest;
 import com.joying.payment.dto.request.PaymentConfirmRequest;
 import com.joying.payment.dto.request.PaymentCreateRequest;
 import com.joying.payment.dto.response.PaymentCreateResponse;
 import com.joying.payment.dto.response.PaymentResponse;
-import com.joying.payment.dto.response.TossCancelResponse;
 import com.joying.payment.dto.response.TossConfirmResponse;
 import com.joying.payment.exception.*;
-import com.joying.payment.port.TossPaymentsClient;
 import com.joying.payment.metrics.PaymentMetrics;
 import com.joying.payment.repository.PaymentRepository;
 import com.joying.product.domain.Product;
@@ -29,15 +26,11 @@ import com.joying.wallet.port.MoneyTransferPort;
 import com.joying.escrow.repository.EscrowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -45,7 +38,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 
 /**
  * 결제 핵심 비즈니스 로직
@@ -64,7 +56,6 @@ public class PaymentService {
     private final ProductRepository productRepository;
     private final RentalHistoryRepository rentalHistoryRepository;
     private final EscrowRepository escrowRepository;
-    private final TossPaymentsClient tossClient;
     private final ApplicationEventPublisher eventPublisher;
     private final MoneyTransferPort moneyTransferPort;
     private final DepositHoldPort depositHoldPort;
@@ -212,7 +203,7 @@ public class PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
 
         rentalHistory.addPayment(savedPayment);
-        // ESCROW 상태 변경은 결제 승인(confirmPayment) 시점에 처리
+        // ESCROW 상태 변경은 결제 승인(applyConfirm) 시점에 처리
         // rentalHistory.markAsEscrow(); // 제거: createPayment는 orderId만 발급, 아직 결제 안 함
         rentalHistoryRepository.save(rentalHistory);
 
@@ -245,31 +236,23 @@ public class PaymentService {
     }
 
     /**
-     * 2. 결제 승인 (Toss 결제 완료 후)
-     * - 멱등성 보장: 같은 orderId로 여러 번 승인 요청해도 안전
-     * - 동시성 제어: Pessimistic Lock
-     * - 재시도 가능: 토스 API는 orderId 기반 멱등성 보장
-     * - 캐시 삭제: 승인 완료 시 캐시 무효화
+     * 2-1. 결제 승인 준비 — 토스를 부르기 전에 볼 것만 본다.
+     *
+     * <p>읽기만 하고 행을 잠그지 않는다. 여기서 잠그면 뒤따르는 토스 왕복이 끝날
+     * 때까지 행과 DB 커넥션을 함께 붙잡는다. 커넥션은 결제 전용이 아니라 앱 전체가
+     * 30개를 나눠 쓰므로, 토스가 느려지면 결제와 상관없는 조회까지 같이 막힌다.
+     *
+     * @return 이미 승인된 결제. 있으면 토스를 부르지 않고 그대로 돌려준다
      */
-    @Transactional
-    @CacheEvict(value = "payments", key = "#request.orderId")
-    @Retryable(
-        value = {WebClientRequestException.class, TimeoutException.class},
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 1000, multiplier = 2)
-    )
-    public PaymentResponse confirmPayment(PaymentConfirmRequest request) {
-        log.info("결제 승인 요청: orderId={}, paymentKey={}, amount={}",
-                request.getOrderId(), request.getPaymentKey(), request.getAmount());
-
-        // Pessimistic Lock으로 조회 (동시성 제어)
-        Payment payment = paymentRepository.lockByOrderId(request.getOrderId())
+    @Transactional(readOnly = true)
+    public Optional<PaymentResponse> prepareConfirm(PaymentConfirmRequest request) {
+        Payment payment = paymentRepository.findByOrderId(request.getOrderId())
                 .orElseThrow(() -> new PaymentNotFoundException(request.getOrderId(), "orderId"));
 
         // 이미 승인됨 (멱등성 보장)
         if (payment.getStatus() == PaymentStatus.DONE) {
             log.warn("이미 승인된 결제: orderId={}", request.getOrderId());
-            return convertToResponse(payment);
+            return Optional.of(convertToResponse(payment));
         }
 
         // 금액 검증 (변조 방지)
@@ -277,33 +260,42 @@ public class PaymentService {
             throw new PaymentAmountMismatchException(payment.getTotalAmount(), request.getAmount());
         }
 
-        TossConfirmResponse tossResponse;
+        return Optional.empty();
+    }
 
-        try {
-            // 토스 API 승인 요청
-            tossResponse = tossClient.confirm(
-                    request.getPaymentKey(),
-                    request.getOrderId(),
-                    request.getAmount()
-            );
+    /**
+     * 2-2. 토스가 돌려준 승인 결과를 반영한다.
+     *
+     * <p>여기서 처음 행을 잠근다. 잠근 뒤 커밋할 때까지 밖으로 나가는 호출이 없다.
+     *
+     * <p>준비 단계에서 잠그지 않았으므로 그 사이에 다른 요청이 같은 결제를 먼저
+     * 승인해 두었을 수 있다. 그래서 반영하기 전에 다시 본다.
+     */
+    @Transactional
+    public PaymentResponse applyConfirm(PaymentConfirmRequest request, TossConfirmResponse tossResponse) {
+        // Pessimistic Lock으로 조회 (동시성 제어)
+        Payment payment = paymentRepository.lockByOrderId(request.getOrderId())
+                .orElseThrow(() -> new PaymentNotFoundException(request.getOrderId(), "orderId"));
 
-
-        } catch (TossPaymentException e) {
-            // "이미 처리된 결제" 에러인 경우 토스 API로 결제 정보 조회
-            if (e.getMessage() != null && e.getMessage().contains("ALREADY_PROCESSED_PAYMENT")) {
-                log.warn("이미 처리된 결제 - 토스 API로 결제 정보 조회: orderId={}", request.getOrderId());
-
-                try {
-                    // 토스 API에서 결제 정보 조회
-                    tossResponse = tossClient.getPaymentByOrderId(request.getOrderId());
-                    log.info("토스 API 결제 조회 성공: orderId={}, status={}", request.getOrderId(), tossResponse.getStatus());
-                } catch (Exception queryEx) {
-                    log.error("토스 API 결제 조회 실패: orderId={}", request.getOrderId(), queryEx);
-                    throw e; // 원래 에러를 다시 던짐
-                }
-            } else {
-                throw e; // 다른 에러는 그대로 던짐
-            }
+        // 잠그기 전에 다른 요청이 먼저 승인했는지 다시 본다.
+        //
+        // 준비 단계에서 잠그지 않기로 했으므로, 토스에 묻는 동안 같은 결제에 대한
+        // 다른 요청이 들어와 먼저 승인을 끝냈을 수 있다. 그대로 두면 아래
+        // completePaymentApproval 에서 payment.approve() 가 두 번 돌고 대여료가
+        // 두 번 적립된다. 돈이 두 번 움직인다.
+        //
+        // 성공으로 돌려준다. 이 요청도 토스에서 승인을 받았고, 결제는 실제로 되어
+        // 있다. 호출한 쪽이 알아야 할 것은 승인이 됐다는 사실이지 누가 먼저
+        // 반영했는지가 아니다. 다만 조용히 넘기면 이 경합이 얼마나 나는지 알 수
+        // 없으므로 세어 둔다.
+        //
+        // 상태만 보고 paymentKey 까지 대조하지는 않는다. 주문번호로 잠근 행에 다른
+        // 결제의 응답이 들어오려면 토스가 orderId 를 잘못 짝지어야 하는데, 그런 일이
+        // 나는지 재 본 적이 없다. 재기 전에는 막지 않는다.
+        if (payment.getStatus() == PaymentStatus.DONE) {
+            log.warn("승인 도중 다른 요청이 먼저 승인했다: orderId={}", request.getOrderId());
+            paymentMetrics.confirmOffHappyPath(PaymentMetrics.CONCURRENT_CONFIRM);
+            return convertToResponse(payment);
         }
 
         // Payment 상태 업데이트 및 Escrow 생성 (공통 로직)
@@ -340,23 +332,14 @@ public class PaymentService {
     }
 
     /**
-     * 4. 결제 취소
-     * - 멱등성 보장: 같은 결제를 여러 번 취소해도 안전
-     * - 동시성 제어: Pessimistic Lock
-     * - 캐시 삭제: 취소 완료 시 캐시 무효화
+     * 4-1. 결제 취소 준비 — 토스를 부르기 전에 볼 것만 본다.
+     *
+     * <p>승인과 같은 이유로 잠그지 않는다. 여기서 잠그면 뒤따르는 토스 왕복이 끝날
+     * 때까지 행과 DB 커넥션을 함께 붙잡는다.
      */
-    @Transactional
-    @CacheEvict(value = "payments", key = "#orderId")
-    @Retryable(
-        value = {WebClientRequestException.class, TimeoutException.class},
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 1000, multiplier = 2)
-    )
-    public PaymentResponse cancelPayment(String orderId, PaymentCancelRequest request, Long requestMemberId) {
-        log.info("결제 취소 요청: orderId={}, reason={}", orderId, request.getReason());
-
-        // Pessimistic Lock으로 조회
-        Payment payment = paymentRepository.lockByOrderId(orderId)
+    @Transactional(readOnly = true)
+    public CancelPlan prepareCancel(String orderId, Long requestMemberId) {
+        Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new PaymentNotFoundException(orderId, "orderId"));
 
         // 권한 검증
@@ -365,7 +348,7 @@ public class PaymentService {
         // 이미 취소됨 (멱등성 보장)
         if (payment.getStatus() == PaymentStatus.CANCELED) {
             log.warn("이미 취소된 결제: orderId={}", orderId);
-            return convertToResponse(payment);
+            return new CancelPlan.AlreadyCanceled(convertToResponse(payment));
         }
 
         // 취소 가능 상태 확인
@@ -373,11 +356,30 @@ public class PaymentService {
             throw new PaymentStateException(payment.getStatus(), PaymentStatus.DONE);
         }
 
-        // 토스 API 취소 요청
-        TossCancelResponse tossResponse = tossClient.cancel(
-                payment.getPaymentKey(),
-                request.getReason()
-        );
+        return new CancelPlan.AskToss(payment.getPaymentKey());
+    }
+
+    /**
+     * 4-2. 토스가 받아들인 취소를 반영한다.
+     *
+     * <p>여기서 처음 행을 잠근다. 잠근 뒤 커밋할 때까지 밖으로 나가는 호출이 없다.
+     *
+     * <p>토스 응답을 받지 않는 것은 예전에도 쓰지 않았기 때문이다. 취소는 받아들여
+     * 졌는지 아닌지만 의미가 있고, 거절되면 그 자리에서 예외가 오른다.
+     */
+    @Transactional
+    public PaymentResponse applyCancel(String orderId) {
+        // Pessimistic Lock으로 조회
+        Payment payment = paymentRepository.lockByOrderId(orderId)
+                .orElseThrow(() -> new PaymentNotFoundException(orderId, "orderId"));
+
+        // 잠그기 전에 다른 요청이 먼저 취소했는지 다시 본다. 승인과 같은 이유다.
+        // 그대로 두면 payment.cancel() 이 두 번 돌고 Escrow 취소가 다시 일어난다.
+        if (payment.getStatus() == PaymentStatus.CANCELED) {
+            log.warn("취소 도중 다른 요청이 먼저 취소했다: orderId={}", orderId);
+            paymentMetrics.cancelOffHappyPath(PaymentMetrics.CONCURRENT_CANCEL);
+            return convertToResponse(payment);
+        }
 
         // Payment 상태 업데이트
         payment.cancel();
@@ -437,7 +439,7 @@ public class PaymentService {
 
     /**
      * 결제 승인 완료 처리 (공통 로직)
-     * - confirmPayment와 webhook에서 공통으로 사용
+     * - applyConfirm에서만 부른다. 웹훅은 자기 경로로 따로 처리한다
      * - PaymentType에 따라 다른 처리 (INITIAL: Escrow 생성, EXTENSION: 연장 처리)
      */
     private void completePaymentApproval(Payment payment, TossConfirmResponse tossResponse) {
@@ -505,12 +507,14 @@ public class PaymentService {
                 } else if (outcome instanceof TransferOutcome.Rejected rejected) {
                     // 상대가 요청을 받고 거절했다. 돈은 옮겨지지 않은 것이 확정이므로,
                     // 이미 승인된 토스 결제를 되돌리는 것이 맞다.
+                    //
+                    // 되돌리는 것은 여기서 하지 않는다. 토스에 취소를 묻는 것은 밖으로
+                    // 나가는 호출이고, 이 자리는 트랜잭션 안이다. 열쇠만 실어 던지고
+                    // 트랜잭션이 되돌아간 뒤 밖에서 취소한다.
                     log.error("[대여료 적립 거절] orderId={}, code={}, reason={}",
                             payment.getOrderId(), rejected.reasonCode(), rejected.reason());
-                    cancelTossPaymentForFailedDeposit(payment, tossResponse.getPaymentKey(),
-                            "대여료 적립 거절");
-                    throw new IllegalStateException("대여료 적립이 거절되었습니다: "
-                            + rejected.reasonCode());
+                    throw new DepositCreditRejectedException(
+                            tossResponse.getPaymentKey(), rejected.reasonCode());
 
                 } else {
                     // 옮겨졌는지 알 수 없다. 여기서 토스 결제를 취소하면 실제로 적립이
@@ -633,24 +637,6 @@ public class PaymentService {
         public Long getBuyerId() { return buyerId; }
         public Long getSellerId() { return sellerId; }
     }
-
-    /**
-     * 에스크로 입금이 거절돼 토스 결제를 되돌린다.
-     *
-     * <p>입금이 거절된 것이 확정일 때만 부른다. 입금 결과가 미확정일 때 부르면
-     * 실제로는 옮겨진 돈을 고객에게 돌려주고 에스크로 계좌에는 남기게 된다.
-     */
-    private void cancelTossPaymentForFailedDeposit(Payment payment, String paymentKey, String reason) {
-        try {
-            log.info("[에스크로 입금 실패 - Toss 결제 자동 취소 시도] orderId={}", payment.getOrderId());
-            tossClient.cancel(paymentKey, reason);
-            log.info("[Toss 결제 취소 완료] orderId={}", payment.getOrderId());
-        } catch (Exception cancelEx) {
-            log.error("[Toss 결제 취소 실패 - 수동 처리 필요] orderId={}, paymentKey={}",
-                    payment.getOrderId(), paymentKey, cancelEx);
-        }
-    }
-
 
     /**
      * 대여 기간이 보증금 보류 한도를 넘으면 결제를 막는다.
