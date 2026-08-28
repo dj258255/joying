@@ -38,16 +38,29 @@ public class WebPushConfig {
 	}
 
 	@Bean
-	public PushService pushService() throws Exception {
+	public PushService pushService() {
 		if (publicKey.isBlank() || privateKey.isBlank()) {
 			log.warn("VAPID 키가 없어 푸시 알림을 보낼 수 없습니다");
 			return null;
 		}
 
-		PushService pushService = new PushService();
-		pushService.setPublicKey(publicKey);
-		pushService.setPrivateKey(privateKey);
-		return pushService;
+		try {
+			PushService pushService = new PushService();
+			pushService.setPublicKey(publicKey);
+			pushService.setPrivateKey(privateKey);
+			return pushService;
+
+		} catch (Exception e) {
+			// 키가 없는 것과 같이 다룬다.
+			//
+			// 예전에는 여기서 오른 예외가 그대로 나갔다. 이 빈을 채팅이 지나가므로
+			// 열쇠 한 줄이 잘못 들어가면 푸시가 아니라 앱 전체가 뜨지 않았다.
+			// 배포로 채워 넣는 값이라 눈으로 확인할 기회도 없다.
+			//
+			// 푸시를 못 보내는 것과 아무것도 못 하는 것은 크기가 다르다.
+			log.error("VAPID 키가 올바르지 않아 푸시 알림을 끕니다. 값을 확인하라", e);
+			return null;
+		}
 	}
 
 	@Bean

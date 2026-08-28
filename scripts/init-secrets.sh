@@ -72,6 +72,7 @@ CLOUDFLARE_R2_SECRET_KEY="$(ask 'Cloudflare R2 시크릿 키')"
 CLOUDFLARE_R2_ENDPOINT="$(ask 'Cloudflare R2 엔드포인트')"
 CLOUDFLARE_R2_BUCKET="$(ask 'Cloudflare R2 버킷 이름')"
 CLOUDFLARE_R2_PUBLIC_BASE_URL="$(ask 'Cloudflare R2 공개 주소')"
+GMS_API_KEY="$(ask 'SSAFY GMS API 키 (AI 서비스)')"
 
 # 금융망은 실 API 가 사라져 기본이 꺼져 있다. 비워 둔다
 SSAFY_FINANCE_API_KEY=""
@@ -107,6 +108,7 @@ vault_web_push_private_key: '$(q "$WEB_PUSH_PRIVATE_KEY")'
 vault_ssafy_finance_api_key: '$(q "$SSAFY_FINANCE_API_KEY")'
 vault_ssafy_escrow_account_no: '$(q "$SSAFY_ESCROW_ACCOUNT_NO")'
 vault_ssafy_escrow_user_key: '$(q "$SSAFY_ESCROW_USER_KEY")'
+vault_gms_api_key: '$(q "$GMS_API_KEY")'
 EOF
 
 # 템플릿에 있는 이름이 전부 들어갔는지 본다. 빠지면 배포할 때 변수를 못 찾는다

@@ -26,6 +26,13 @@
       # 값이 바뀌었는지 로그에 남기지 않는다. 남기면 비밀이 그대로 찍힌다
       no_log: true
 
+    - name: AI 서비스 환경 파일을 만든다
+      ansible.builtin.template:
+        src: templates/ai-env.j2
+        dest: "{{ app_dir }}/ai/.env"
+        mode: "0600"
+      no_log: true
+
     - name: 이미지를 만든다
       ansible.builtin.command:
         cmd: docker compose --env-file .env -f {{ compose_file }} build backend nginx

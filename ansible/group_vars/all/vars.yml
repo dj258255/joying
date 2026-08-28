@@ -19,6 +19,12 @@ redis_port: 6379
 
 elastic_host: elasticsearch
 
+# AI 서비스
+gms_api_url: https://gms.ssafy.com/api/v1
+ai_model: gpt-4o-mini
+ai_max_tokens: 2000
+ai_temperature: 0.7
+
 # 동작을 바꾸는 값
 spring_profiles_active: prod
 
@@ -50,3 +56,4 @@ web_push_private_key: "{{ vault_web_push_private_key }}"
 ssafy_finance_api_key: "{{ vault_ssafy_finance_api_key }}"
 ssafy_escrow_account_no: "{{ vault_ssafy_escrow_account_no }}"
 ssafy_escrow_user_key: "{{ vault_ssafy_escrow_user_key }}"
+gms_api_key: "{{ vault_gms_api_key }}"
