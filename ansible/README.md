@@ -63,6 +63,27 @@ ansible-playbook -i ansible/inventory/prod.ini ansible/deploy.yml --ask-vault-pa
 `vars.yml` 은 vault 안의 값을 이름으로 가리킨다. 그래서 `.env` 를 만드는 템플릿은
 한 곳만 보면 된다.
 
+## 첫 인증서
+
+앞단은 인증서 파일이 없으면 뜨지 않는다. 그런데 `certbot` 은 **갱신만** 하고 최초 발급을
+하지 않는다. 서버를 새로 만들면 아무도 첫 인증서를 만들지 않고, **앞단이 떠야 certbot 이
+인증을 받을 수 있어 서로를 기다린다.**
+
+배포가 자체 서명한 것을 자리에 놓아 그 고리를 끊는다. 앞단은 뜨지만 **브라우저가
+경고한다.** 진짜 인증서를 한 번 받아야 한다.
+
+```bash
+# 서버에서 한 번만. 도메인이 이 서버를 가리키고 80 포트가 열려 있어야 한다
+docker compose run --rm --entrypoint certbot certbot certonly \
+  --webroot -w /var/www/certbot \
+  -d k13c202.p.ssafy.io --agree-tos -m <메일> --no-eff-email
+
+docker compose exec nginx nginx -s reload
+```
+
+그 뒤로는 compose 의 `certbot` 이 12시간마다 갱신한다. 자체 서명한 것은 진짜 인증서가
+같은 자리에 덮어쓰므로 따로 지우지 않아도 된다.
+
 ## 서버 없이 리허설하기
 
 배포가 실제로 도는지는 서버가 있어야만 알 수 있는 것이 아니다. 이 기계를 대상으로
@@ -90,9 +111,8 @@ ansible-playbook -i /tmp/rehearsal.ini ansible/deploy.yml \
 
 ### 여기서 확인되지 않는 것
 
-**앞단(nginx)은 뜨지 않는다.** 인증서 파일을 찾지 못해 죽는다. 그 파일은 서버에만
-있고, **서버를 새로 만들면 인증서를 받기 전에는 앞단이 뜨지 않는다.** 앞단이 떠야
-certbot 이 인증을 받을 수 있으므로 서로를 기다린다. 아직 풀지 않았다.
+**진짜 인증서로는 확인되지 않는다.** 리허설에서 앞단은 자체 서명한 임시 인증서로 뜬다.
+Let's Encrypt 가 실제로 발급해 주는지는 도메인이 그 서버를 가리켜야 알 수 있다.
 
 **받는 코드는 커밋된 것이다.** 고친 것을 커밋하지 않고 돌리면 예전 코드가 배포된다.
 리허설에서 같은 오류가 두 번 난 뒤에 알았다.
