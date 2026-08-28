@@ -11,7 +11,7 @@
 
 ## [리팩터링 기록](refactoring/README.md)
 
-상황 29개. 무엇이 잘못돼 있었고, 무엇을 보고 알았고, 무엇을 고쳤는지를 순서대로 적었다.
+상황 31개. 무엇이 잘못돼 있었고, 무엇을 보고 알았고, 무엇을 고쳤는지를 순서대로 적었다.
 끝에 **[아직 하지 않은 것](refactoring/README.md#아직-하지-않은-것)** 이 있다. 못 한 것은
 왜 못 하는지와 함께 남긴다.
 
@@ -47,6 +47,7 @@
 | [서버가 두 대가 되면 순서가 유지되는가](performance/two-node-delivery.md) | 갈라 붙이면 드물게 뒤집힌다 |
 | [실제 지형으로 다시 재니 열 배 나빴다](performance/one-to-one-two-node.md) | 4회 → 42~54회 |
 | [같은 방의 두 사람을 같은 노드로](performance/room-sticky-routing.md) | 42~54회 → **0회**. 노드 증감·사망·탭 둘도 함께 쟀다 |
+| [탭을 둘 열면 엉뚱한 노드로 간다](performance/room-sticky-routing.md#연결-주소에-실어-고쳤다) | 63.3% → **0%** |
 | [메시지마다 스레드가 하나씩 생겼다](performance/redis-listener-threads.md) | |
 | [답장이 섞이면 목록이 여섯 배 느리다](performance/message-list-nplus1.md) | 60ms → 10ms |
 
@@ -73,7 +74,10 @@
 
 ## 배포
 
+배포를 **처음 끝까지 돌려 보니 여섯 군데에서 걸렸다**(상황 28). 첫 인증서를 아무도 만들지
+않아 앞단이 뜨지 못하던 것도 있었다(상황 30). 서버 없이 이 기계를 대상으로 돌릴 수 있다.
+
 | | |
 |---|---|
-| [ansible](../ansible/README.md) | 비밀을 vault 에 두고 서버에서 `.env` 를 만든다. 서버 없이 리허설하는 방법도 있다 |
+| [ansible](../ansible/README.md) | 비밀을 vault 에 두고 서버에서 `.env` 를 만든다. 서버 없이 리허설하는 방법과 첫 인증서를 받는 방법 |
 | [infra](../infra/README.md) | 앞단(nginx)과 관측(Prometheus · Grafana) |
