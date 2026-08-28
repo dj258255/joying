@@ -251,12 +251,16 @@ public class SearchService {
 				);
 			}
 
-			// 업로드 타입 필터
-			UploadType finalUploadType = uploadType;
-			log.info("UploadType {}", uploadType);
-			log.info("UploadType name {}", uploadType.name());
-			TermQuery uploadTypeQuery = TermQuery.of(t -> t.field("uploadType").value(finalUploadType.name()));
-			filterQueries.add(uploadTypeQuery._toQuery());
+			// 업로드 타입 필터.
+			//
+			// 이 값은 없을 수 있다. 위에서 uploadTypeStr 이 null 이면 그대로 두도록
+			// 써 놓고 여기서 무조건 꺼냈다. 타입을 고르지 않고 검색하면 터졌다.
+			if (uploadType != null) {
+				UploadType finalUploadType = uploadType;
+				TermQuery uploadTypeQuery = TermQuery.of(
+					t -> t.field("uploadType").value(finalUploadType.name()));
+				filterQueries.add(uploadTypeQuery._toQuery());
+			}
 
 			// 가격 필터
 			if (minPrice != -1 || maxPrice != -1) {

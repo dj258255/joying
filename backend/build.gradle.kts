@@ -5,6 +5,8 @@ plugins {
     jacoco
     id("io.spring.dependency-management") version "1.1.7"
     id("io.freefair.lombok") version "8.11" // Java Lombok annotation processing용
+    // 사람이 읽어서 놓치는 것을 도구가 본다. 숫자로 문을 걸지는 않는다
+    id("com.github.spotbugs") version "6.0.26"
 }
 
 group = "com.joying"
@@ -155,4 +157,30 @@ tasks.jacocoTestReport {
             }
         })
     )
+}
+
+
+// 정적 분석.
+//
+// 상황 15 에서 CI 를 붙이자마자 gradlew 실행 권한이 없는 것이 드러났고, 상황 23 에서
+// 설정 도구를 바꾸자마자 깨진 한글 주석 10 줄이 드러났다. 사람이 읽어서 넘어간 것을
+// 도구가 본다.
+//
+// 커버리지와 같은 자리에 둔다. 보고서를 만들어 보여 주되 빌드를 깨지 않는다. 지금
+// 나오는 것을 다 고친 뒤에 문을 거는 것이 순서고, 문부터 걸면 아무도 안 본다.
+spotbugs {
+    ignoreFailures.set(true)
+    // 낮은 것까지 켜면 Lombok 이 만든 코드에서 나오는 것이 대부분을 차지한다
+    reportLevel.set(com.github.spotbugs.snom.Confidence.MEDIUM)
+    excludeFilter.set(file("config/spotbugs/exclude.xml"))
+}
+
+tasks.spotbugsMain {
+    reports.create("xml") { required.set(true) }
+    reports.create("html") { required.set(true) }
+}
+
+// 테스트 코드는 보지 않는다. 재현하려고 일부러 이상하게 쓴 자리가 있다
+tasks.spotbugsTest {
+    enabled = false
 }

@@ -359,17 +359,20 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
+        // 위에서 카테고리와 지역 셋을 모두 없어도 되게 만들어 놓고, 여기서 무조건
+        // 꺼내고 있었다. 요청에 지역을 넣지 않으면 상품과 파일을 저장한 뒤에 터진다.
+        // 트랜잭션이라 되돌아가기는 하지만, 만들 수 있어야 하는 상품이 500 으로 막혔다.
         searchService.save(SearchRequest.ofProduct(
             saved,
             req.getHashtags(),
             thumbnailFileId,
-            sido.getName(),
-            sido.getSidoId(),
-            gungu.getName(),
-            gungu.getGunguId(),
-            dong.getName(),
-            dong.getDongId(),
-            category.getCategoryId()));
+            sido != null ? sido.getName() : null,
+            sido != null ? sido.getSidoId() : null,
+            gungu != null ? gungu.getName() : null,
+            gungu != null ? gungu.getGunguId() : null,
+            dong != null ? dong.getName() : null,
+            dong != null ? dong.getDongId() : null,
+            category != null ? category.getCategoryId() : null));
 
         return saved.getProductId();
     }

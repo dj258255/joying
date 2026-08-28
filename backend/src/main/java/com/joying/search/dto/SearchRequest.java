@@ -58,16 +58,24 @@ public record SearchRequest(
 			.gugunId(gunguId)
 			.dong(dong)
 			.dongId(dongId)
-			.method(product.getRentMethod().name())
-			.rentMethod(product.getRentMethod().name())
+			// 거래 방법과 업로드 타입과 시작일은 요청에 없으면 비어 있는 채로 저장된다.
+			// 종료일만 그것을 다루고 있었다. 같은 요청에서 함께 비는 값들이다
+			.method(nameOrNull(product.getRentMethod()))
+			.rentMethod(nameOrNull(product.getRentMethod()))
 			.videoNecessary(product.getVideoNecessary())
-			.startRent(Timestamp.from(product.getStartRent()))
+			.startRent(Optional.ofNullable(product.getStartRent())
+				.map(Timestamp::from)
+				.orElse(null))
 			.endRent(Optional.ofNullable(product.getEndRent())
 				.map(Timestamp::from)
 				.orElse(null))
 			.rating(product.getRating())
 			.thumbnailFileId(thumbnailFileId)
-			.uploadType(product.getUploadType().name())
+			.uploadType(nameOrNull(product.getUploadType()))
 			.build();
+	}
+
+	private static String nameOrNull(Enum<?> value) {
+		return value == null ? null : value.name();
 	}
 }
