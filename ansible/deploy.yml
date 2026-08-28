@@ -88,6 +88,20 @@
       delay: 5
       until: health.status in [200, 503]
 
+    # 떴다고 채팅이 되는 것은 아니다.
+    #
+    # 앞단이 방 번호를 열쇠로 쓰고 경로에서 걷어낸다. 그 사이에 무엇 하나가 어긋나면
+    # 화면에서만 조용히 안 붙는다. 실제로 붙여 본다.
+    - name: 채팅이 붙는지 본다
+      ansible.builtin.command:
+        cmd: scripts/check-chat-handshake.sh https://localhost
+        chdir: "{{ app_dir }}"
+      register: handshake
+      changed_when: false
+      retries: 6
+      delay: 5
+      until: handshake.rc == 0
+
     - name: 결과를 적는다
       ansible.builtin.debug:
-        msg: "배포 완료. 상태 확인 응답 {{ health.status }}"
+        msg: "배포 완료. 상태 확인 응답 {{ health.status }}, 채팅 연결 확인"
