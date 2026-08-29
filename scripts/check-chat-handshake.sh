@@ -11,9 +11,13 @@
 #   3) STOMP CONNECT 를 보내 CONNECTED 가 돌아오는지
 #
 # 실행: scripts/check-chat-handshake.sh [주소] [방번호]
+#
+# 기본 주소가 localhost 가 아니라 127.0.0.1 인 이유는, localhost 가 IPv6 ::1 로 먼저
+# 풀리기 때문이다. compose 는 IPv4 에만 묶으므로, 이 기계의 IPv6 같은 포트에 다른 것이
+# 떠 있으면 그쪽을 보고 잘 됐다고 적게 된다.
 set -uo pipefail
 
-BASE_URL="${1:-https://localhost}"
+BASE_URL="${1:-https://127.0.0.1}"
 ROOM="${2:-9001}"
 SERVER="$(( RANDOM % 900 + 100 ))"
 SESSION="$(head -c 8 /dev/urandom | xxd -p)"

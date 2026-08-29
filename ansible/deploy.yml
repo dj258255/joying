@@ -78,9 +78,18 @@
       register: up_result
       changed_when: up_result.rc == 0
 
+    # localhost 가 아니라 127.0.0.1 이다.
+    #
+    # macOS 와 요즘 리눅스는 localhost 를 IPv6 ::1 로 먼저 푼다. compose 는 이 서비스를
+    # IPv4 127.0.0.1 에만 묶는다. 그래서 이 기계의 IPv6 :8080 에 다른 것이 떠 있으면
+    # 그쪽이 응답하고, 배포는 엉뚱한 프로세스를 보고 잘 떴다고 적는다.
+    #
+    # 실제로 그렇게 됐다. 다른 프로젝트의 앱이 :8080 에 떠 있었고, 그것의 액추에이터가
+    # 200 을 돌려주는 동안 우리 백엔드는 연결조차 받지 못하고 있었다. 배포는 성공이라고
+    # 적었다.
     - name: 떴는지 확인한다
       ansible.builtin.uri:
-        url: "http://localhost:8080/actuator/health"
+        url: "http://127.0.0.1:8080/actuator/health"
         status_code: [200, 503]
       register: health
       # 뜨는 데 시간이 걸린다. 한 번 보고 실패로 적으면 배포가 늘 실패한다
@@ -94,7 +103,7 @@
     # 화면에서만 조용히 안 붙는다. 실제로 붙여 본다.
     - name: 채팅이 붙는지 본다
       ansible.builtin.command:
-        cmd: scripts/check-chat-handshake.sh https://localhost
+        cmd: scripts/check-chat-handshake.sh https://127.0.0.1
         chdir: "{{ app_dir }}"
       register: handshake
       changed_when: false
