@@ -89,7 +89,7 @@
     # 적었다.
     - name: 떴는지 확인한다
       ansible.builtin.uri:
-        url: "http://127.0.0.1:8080/actuator/health"
+        url: "http://127.0.0.1:{{ backend_port }}/actuator/health"
         status_code: [200, 503]
       register: health
       # 뜨는 데 시간이 걸린다. 한 번 보고 실패로 적으면 배포가 늘 실패한다
