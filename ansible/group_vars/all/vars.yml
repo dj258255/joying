@@ -11,6 +11,10 @@ compose_file: docker-compose.yml
 # 앞단이 인증서를 찾는 이름. infra/nginx.conf 의 server_name 과 같아야 한다
 domain: k13c202.p.ssafy.io
 
+# 백엔드를 이 기계의 어느 포트에 내놓을지. 안쪽은 늘 8080 이다.
+# 건강 확인이 이 값을 쓴다. 8080 이 이미 쓰이는 기계에서 옮길 수 있게 둔다
+backend_port: 8080
+
 # 저장소 접속
 postgres_host: postgres
 postgres_port: 5432

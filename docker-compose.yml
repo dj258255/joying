@@ -24,8 +24,13 @@ services:
     command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
     env_file:
       - .env
+    # 안쪽은 늘 6379 다. REDIS_PORT 는 앱이 붙는 포트라 그것으로 공개 포트를 정하면
+    # 둘이 함께 움직인다. 실제로 공개 포트만 옮기려다 앱이 안쪽 Redis 를 6380 으로
+    # 찾아 기동에 실패했다.
+    #
+    # 루프백에만 연다. 저장소는 같은 네트워크 안에서만 쓰인다
     ports:
-      - "${REDIS_PORT}:6379"
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -58,8 +63,10 @@ services:
     # 배포 마지막에 8080 으로 건강을 확인하는데 이 서비스는 어디에도 포트를 열지
     # 않고 있었다. 확인이 늘 실패하는 상태였다. 밖으로 열면 앞단의 요청 제한을
     # 지나지 않고 바로 닿으므로, 같은 기계에서만 닿게 한다
+    # 이 기계의 8080 이 이미 쓰이고 있으면 BACKEND_PORT 로 옮긴다.
+    # 안쪽은 그대로 8080 이므로 앞단은 손댈 것이 없다
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     environment:
       TZ: Asia/Seoul
       SPRING_PROFILES_ACTIVE: prod
@@ -163,8 +170,10 @@ services:
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
       - network.host=0.0.0.0
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    # 루프백에만 연다. 이 컨테이너는 xpack.security.enabled=false 로 뜨므로,
+    # 밖으로 열면 암호 없이 색인을 읽고 쓸 수 있다
     ports:
-      - "9200:9200"
+      - "127.0.0.1:${ELASTIC_HOST_PORT:-9200}:9200"
     volumes:
       - es-data:/usr/share/elasticsearch/data
       - es-plugins:/usr/share/elasticsearch/plugins
