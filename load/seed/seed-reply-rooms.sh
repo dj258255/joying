@@ -19,8 +19,13 @@
 #   ROOM=9101 JWT_SECRET=<서버와 같은 값> k6 run load/k6/message-list-nplus1.js
 #   ROOM=9102 ... / ROOM=9103 ...
 #
-# is_deleted 를 false 로 박아 넣는 것이 중요하다. 목록 조회가 IsDeletedFalse 로
-# 거르는데 NULL 은 거기에 걸리지 않아, 넣어도 한 건도 안 나온다.
+# 참/거짓 칸 셋(is_deleted, is_edited, is_read)을 반드시 박아 넣는다.
+#
+#   - is_deleted 가 NULL 이면 목록 조회의 IsDeletedFalse 에 걸리지 않아 한 건도 안 나온다
+#   - is_edited, is_read 는 엔티티가 원시 boolean 이라 NULL 을 받지 못한다.
+#     한 건이라도 NULL 이면 목록 조회가 통째로 500 이 된다
+#
+# 앱이 쓸 때는 늘 채우므로 이 문제는 손으로 넣을 때만 생긴다.
 set -euo pipefail
 
 PG="${1:-joying-postgres}"
@@ -61,24 +66,24 @@ DELETE FROM chat_message WHERE chat_room_id IN (9101, 9102, 9103);
 
 -- 9101: 답장 없음
 INSERT INTO chat_message (id, chat_room_id, sequence, sender_id, type, content,
-                          is_deleted, is_edited, created_at)
-SELECT '9101-' || i, 9101, i, 9002, 'TEXT', '메시지 ' || i, false, false,
+                          is_deleted, is_edited, is_read, created_at)
+SELECT '9101-' || i, 9101, i, 9002, 'TEXT', '메시지 ' || i, false, false, false,
        NOW() - (500 - i) * INTERVAL '1 second'
 FROM generate_series(1, 500) AS i;
 
 -- 9102: 첫 건 말고 전부가 같은 하나를 가리킨다
 INSERT INTO chat_message (id, chat_room_id, sequence, sender_id, type, content,
-                          reply_to_message_id, is_deleted, is_edited, created_at)
+                          reply_to_message_id, is_deleted, is_edited, is_read, created_at)
 SELECT '9102-' || i, 9102, i, 9002, 'TEXT', '메시지 ' || i,
-       CASE WHEN i = 1 THEN NULL ELSE '9102-1' END, false, false,
+       CASE WHEN i = 1 THEN NULL ELSE '9102-1' END, false, false, false,
        NOW() - (500 - i) * INTERVAL '1 second'
 FROM generate_series(1, 500) AS i;
 
 -- 9103: 각자 바로 앞의 것을 가리킨다. 499개가 전부 다르다
 INSERT INTO chat_message (id, chat_room_id, sequence, sender_id, type, content,
-                          reply_to_message_id, is_deleted, is_edited, created_at)
+                          reply_to_message_id, is_deleted, is_edited, is_read, created_at)
 SELECT '9103-' || i, 9103, i, 9002, 'TEXT', '메시지 ' || i,
-       CASE WHEN i = 1 THEN NULL ELSE '9103-' || (i - 1) END, false, false,
+       CASE WHEN i = 1 THEN NULL ELSE '9103-' || (i - 1) END, false, false, false,
        NOW() - (500 - i) * INTERVAL '1 second'
 FROM generate_series(1, 500) AS i;
 SQL
