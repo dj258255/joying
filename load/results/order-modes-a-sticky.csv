@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+a-sticky,1,6.0414.6419.71,0,0,0,400,0,1413,2354.5,,,,
+a-sticky,2,7.0813.8319.18,0,0,0,400,0,830.5,1386.2,,,,
+a-sticky,3,6.3212.6818.48,0,0,0,400,0,781.5,1297.2,,,,
+a-sticky,4,7.3912.1517.99,0,0,0,400,0,544.5,999.2,,,,
+a-sticky,5,5.3911.0417.32,0,0,0,400,0,981.5,1787.3,,,,

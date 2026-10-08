@@ -129,8 +129,17 @@ export function observer(data) {
           return;
         }
         const now = Date.now();
-        const phase =
-          now >= data.herdAt && now < data.herdAt + HERD_WINDOW_MS ? 'herd' : 'steady';
+        // 시작 직후에는 폭주자들이 복구 재료를 쌓느라 한꺼번에 보낸다. 그 구간을
+        // 평시로 세면 기준선이 오염된다(실제로 p95 가 1.1~1.5초로 섞였다). 그래서
+        // 평시는 폭주 직전 10초만 센다
+        let phase = 'warmup';
+        if (now >= data.herdAt && now < data.herdAt + HERD_WINDOW_MS) {
+          phase = 'herd';
+        } else if (now >= data.herdAt - 10000 && now < data.herdAt) {
+          phase = 'steady';
+        } else if (now >= data.herdAt + HERD_WINDOW_MS) {
+          phase = 'after';
+        }
         roundTrip.add(now - sentAt, { phase: phase });
       });
     });

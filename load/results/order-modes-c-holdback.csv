@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+c-holdback,1,16.6011.4715.64,40,0,0,400,0,2395.5,4476.1,2395.5,4476.1,0,0
+c-holdback,2,17.7312.5815.86,22,2,0,400,0,309,562.1,309,562.1,0,0
+c-holdback,3,12.9711.9815.47,16,0,0,400,0,674,1174.1,674,1174.1,0,0
+c-holdback,4,9.4811.2115.00,18,0,0,400,0,323,647.2,323,647.2,0,0
+c-holdback,5,6.9110.3114.50,30,0,0,400,0,417,764.1,417,764.1,0,0

@@ -1,0 +1,4 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+h3-concentrate,1,5.369.4413.96,0,0,0,2000,0,662.5,1280.1,,,,
+h3-concentrate,2,5.448.8413.50,0,0,0,2000,0,809,1495,,,,
+h3-concentrate,3,6.628.6413.18,0,0,0,2000,0,895,1514.1,,,,

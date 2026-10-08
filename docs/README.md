@@ -24,16 +24,15 @@
 
 ## 지금 진행 중
 
-순서 복원 실험을 하고 있다. 지금 해답(스티키 라우팅)이 만든 뒤집힘 0 은 집중과 방 이동과
-LB 결합을 값으로 치른 것이라, 서버 중재와 클라이언트 보류 버퍼를 같은 지형에서 재고 조건부로
-고른다. 가설과 판정 기준은 재기 전에 박아 두었다.
+순서 복원 실험([#91](https://github.com/dj258255/joying/issues/91))의 측정이 끝났다.
+가설과 판정 기준을 재기 전에 박아 두고(#91 본문), 잰 뒤에 바꾸지 않았다. 결과는
+[order-restore-three-ways.md](performance/order-restore-three-ways.md)에 있고, 기본은
+스티키 유지다. 남은 것은 아래다.
 
 | | |
 |---|---|
-| 추적 이슈 | [#91 순서를 어디서 복원하는가](https://github.com/dj258255/joying/issues/91) |
-| 가설·판정 기준 | #91 본문. 결과를 본 뒤 바꾸지 않는다 |
-| 하위 작업 | #92 서버 중재, #93 보류 버퍼와 하네스, #94 본 측정, #95 재접속 폭주, #96 안읽음 두 방법, #97 기록 정리 |
-| 조사에서 나온 결함 | #98 페이징이 조용히 끊김, #99 안읽음 이중 증가, #100 번호표 축출 |
+| 조사에서 나온 결함 | [#98](https://github.com/dj258255/joying/issues/98) 페이징이 조용히 끊김, [#99](https://github.com/dj258255/joying/issues/99) 안읽음 이중 증가, [#100](https://github.com/dj258255/joying/issues/100) 번호표 축출 |
+| 측정이 연 후속 | #99 를 고칠 때 카운터를 커서 단일로 줄이는 선택지([unread-two-ways.md](performance/unread-two-ways.md)), 동시 송신 폭주([reconnect-herd.md](performance/reconnect-herd.md)) |
 
 ## 골라야 했던 것
 
@@ -61,6 +60,9 @@ LB 결합을 값으로 치른 것이라, 서버 중재와 클라이언트 보류
 | [실제 지형으로 다시 재니 열 배 나빴다](performance/one-to-one-two-node.md) | 4회 → 42~54회 |
 | [같은 방의 두 사람을 같은 노드로](performance/room-sticky-routing.md) | 42~54회 → **0회**. 노드 증감·사망·탭 둘도 함께 쟀다 |
 | [탭을 둘 열면 엉뚱한 노드로 간다](performance/room-sticky-routing.md#연결-주소에-실어-고쳤다) | 63.3% → **0%** |
+| [순서 복원 셋(스티키 · 서버 중재 · 보류 버퍼)을 한 지형에서](performance/order-restore-three-ways.md) | 셋 다 지킨다. 분산 이득이 없어 **스티키 유지**, 중재는 준비된 대안 |
+| [쉰 명이 한꺼번에 다시 붙을 때](performance/reconnect-herd.md) | 전달 p95 그대로(24ms 대 25ms). **H4 기각** |
+| [안읽음을 세는 두 방법](performance/unread-two-ways.md) | 히트 5.8ms 대 집계 18.1ms(3.1배). 캐시의 값이 작다 |
 | [메시지마다 스레드가 하나씩 생겼다](performance/redis-listener-threads.md) | |
 | [답장이 섞이면 목록이 여섯 배 느리다](performance/message-list-nplus1.md) | 60ms → 10ms |
 | [답장이 서로 다른 것을 가리킬 때](performance/message-list-nplus1.md) | 모아 와도 25~40% 느리다 |
