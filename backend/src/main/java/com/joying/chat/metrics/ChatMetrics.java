@@ -38,6 +38,8 @@ public class ChatMetrics {
 	private final Timer deliveryLatency;
 	private final Counter idempotentHits;
 	private final Counter sequenceFailures;
+	private final Timer orderLockWait;
+	private final Counter orderLockTimeouts;
 
 	public ChatMetrics(MeterRegistry registry,
 					   @Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
@@ -59,6 +61,16 @@ public class ChatMetrics {
 
 		this.sequenceFailures = Counter.builder("chat.message.sequence.failures")
 			.description("번호를 받지 못해 저장을 막은 건수")
+			.register(registry);
+
+		// 아래 둘은 순서 중재 모드(joying.chat.ordering.mode=arbiter)에서만 움직인다
+		this.orderLockWait = Timer.builder("chat.order.lock.wait")
+			.description("방 순서 잠금을 잡기까지 기다린 시간. 중재 방식의 값이 이 분포다")
+			.publishPercentiles(0.5, 0.95, 0.99)
+			.register(registry);
+
+		this.orderLockTimeouts = Counter.builder("chat.order.lock.timeouts")
+			.description("잠금을 상한 안에 못 잡아 잠금 없이 보낸 건수. 0이 아니면 그 구간의 순서는 보장이 아니다")
 			.register(registry);
 
 		// 가장 많이 밀린 줄의 길이. 평균을 내면 한 방에 몰린 것이 묻힌다
@@ -126,5 +138,16 @@ public class ChatMetrics {
 
 	public void sequenceFailure() {
 		sequenceFailures.increment();
+	}
+
+	public void recordOrderLockWait(long waitedNanos) {
+		if (waitedNanos < 0) {
+			return;
+		}
+		orderLockWait.record(Duration.ofNanos(waitedNanos));
+	}
+
+	public void orderLockTimeout() {
+		orderLockTimeouts.increment();
 	}
 }

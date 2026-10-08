@@ -237,6 +237,14 @@ joying:
     auto-close:
       # 오래 안 쓴 채팅방을 닫는 시각
       cron: "${CHAT_AUTO_CLOSE_CRON:0 30 4 * * *}"
+    ordering:
+      # 순서를 어디서 복원하는가. node 는 현행(노드 안 직렬화 + 앞단 방 해시 라우팅 전제),
+      # arbiter 는 번호 발급부터 발행까지를 방 단위 Redis 잠금으로 묶는다 (#92)
+      mode: "${CHAT_ORDERING_MODE:node}"
+      # 잠금 보유 상한. 임계 구역이 이보다 오래 걸리면 잠금이 먼저 풀린다
+      lock-hold-ms: "${CHAT_ORDER_LOCK_HOLD_MS:2000}"
+      # 획득 대기 상한. 넘기면 잠금 없이 보내고 chat.order.lock.timeouts 를 올린다
+      lock-wait-ms: "${CHAT_ORDER_LOCK_WAIT_MS:3000}"
 ssafy:
   finance:
     # 아래 금융망 설정은 joying.money.transfer=ssafy 일 때만 쓰인다
