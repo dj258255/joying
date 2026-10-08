@@ -10,6 +10,9 @@
 #   load/toxiproxy/setup.sh latency 300 저장소 응답을 300ms 늦춘다
 #   load/toxiproxy/setup.sh reset 0.3   저장소 연결을 30% 확률로 끊는다
 #   load/toxiproxy/setup.sh redis-down  레디스를 끊는다
+#   load/toxiproxy/setup.sh chat-latency 30
+#                                        분리 이관의 대상 DB(채팅 전용)를 30ms 늦춘다 (#109)
+#                                        지터 없음: 균형점 측정은 고정 지연으로 잰다
 #   load/toxiproxy/setup.sh clear       주입한 것을 전부 걷는다
 #   load/toxiproxy/setup.sh down        프록시를 내린다
 #
@@ -24,14 +27,18 @@ case "${1:-}" in
     NET=$(docker inspect joying-postgres --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
     docker rm -f "$NAME" >/dev/null 2>&1 || true
     docker run -d --name "$NAME" --network "$NET" \
-      -p 8475:8474 -p 25432:25432 -p 16381:16381 \
+      -p 8475:8474 -p 25432:25432 -p 16381:16381 -p 35432:35432 \
       ghcr.io/shopify/toxiproxy:2.11.0 >/dev/null
     sleep 3
     curl -sf -X POST "$API/proxies" \
       -d '{"name":"postgres","listen":"0.0.0.0:25432","upstream":"joying-postgres:5432","enabled":true}' >/dev/null
     curl -sf -X POST "$API/proxies" \
       -d '{"name":"redis","listen":"0.0.0.0:16381","upstream":"joying-redis:6379","enabled":true}' >/dev/null
+    # 분리 이관의 대상 DB. chat-split 프로파일이 떠 있을 때만 쓰인다
+    curl -sf -X POST "$API/proxies" \
+      -d '{"name":"chat-pg","listen":"0.0.0.0:35432","upstream":"joying-chat-postgres:5432","enabled":true}' >/dev/null 2>&1 || true
     echo "프록시 준비됨. POSTGRES_PORT=25432 REDIS_PORT=16381 로 앱을 띄워라"
+    echo "분리 이관 대상 DB 는 35432 를 거친다 (CHAT_MIGRATION_TARGET_URL, DST_URI)"
     ;;
 
   latency)
@@ -39,6 +46,14 @@ case "${1:-}" in
     curl -sf -X POST "$API/proxies/postgres/toxics" \
       -d "{\"name\":\"db_latency\",\"type\":\"latency\",\"stream\":\"downstream\",\"attributes\":{\"latency\":$MS,\"jitter\":100}}" >/dev/null
     echo "저장소 응답에 ${MS}ms(±100) 지연을 넣었다"
+    ;;
+
+  chat-latency)
+    MS=${2:-30}
+    curl -sf -X DELETE "$API/proxies/chat-pg/toxics/chat_latency" >/dev/null 2>&1 || true
+    curl -sf -X POST "$API/proxies/chat-pg/toxics" \
+      -d "{\"name\":\"chat_latency\",\"type\":\"latency\",\"stream\":\"downstream\",\"attributes\":{\"latency\":$MS,\"jitter\":0}}" >/dev/null
+    echo "분리 이관 대상 DB 에 ${MS}ms(지터 0) 지연을 넣었다"
     ;;
 
   reset)
