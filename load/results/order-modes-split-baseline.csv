@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+split-baseline,1,6.475.945.84,0,0,0,400,0,1030,1596.3,,,,
+split-baseline,2,5.295.695.75,0,0,0,400,0,1012,1591.2,,,,
+split-baseline,3,5.225.645.73,0,0,0,400,0,565.5,1063.2,,,,
+split-baseline,4,4.855.505.67,0,0,0,400,0,566,1120.2,,,,
+split-baseline,5,5.065.435.64,0,0,0,400,0,531.5,988.2,,,,

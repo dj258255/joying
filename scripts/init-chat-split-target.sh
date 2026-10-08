@@ -11,12 +11,15 @@ set -euo pipefail
 
 SRC="${SRC_URI:-postgres://joying:joying@localhost:5432/project_db}"
 DST="${DST_URI:-postgres://joying:joying@localhost:15432/project_db}"
+# 호스트의 pg_dump 가 서버보다 오래되면 버전 불일치로 거부된다. 그때는
+# PG_DUMP='docker exec joying-postgres pg_dump' 처럼 컨테이너 것을 쓴다
+PG_DUMP="${PG_DUMP:-pg_dump}"
 
 if psql -q "$DST" -At -c "SELECT to_regclass('chat_message');" | grep -q chat_message; then
   echo "새 DB 에 chat_message 가 이미 있다. 그대로 둔다"
   exit 0
 fi
 
-pg_dump --schema-only --no-owner --no-privileges -t chat_message "$SRC" | psql -q -v ON_ERROR_STOP=1 "$DST"
+$PG_DUMP --schema-only --no-owner --no-privileges -t chat_message "$SRC" | psql -q -v ON_ERROR_STOP=1 "$DST"
 echo "스키마 복사 끝"
 psql -q "$DST" -At -c "SELECT to_regclass('chat_message');"

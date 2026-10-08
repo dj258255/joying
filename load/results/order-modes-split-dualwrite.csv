@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+split-dualwrite,1,4.405.195.51,0,0,0,400,0,1003,1657.3,,,,
+split-dualwrite,2,5.385.335.55,0,0,0,400,0,1088,1698.3,,,,
+split-dualwrite,3,14.247.986.53,0,0,0,400,0,670,1258.3,,,,
+split-dualwrite,4,9.817.596.45,0,0,0,400,0,605,1157.3,,,,
+split-dualwrite,5,7.397.206.36,0,0,0,400,0,757,1305.3,,,,
