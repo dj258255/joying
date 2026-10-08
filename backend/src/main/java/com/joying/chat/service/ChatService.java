@@ -56,6 +56,7 @@ public class ChatService {
 	private final ChatBroadcaster chatBroadcaster;
 	private final MessageSequenceGenerator sequenceGenerator;
 	private final ChatMetrics chatMetrics;
+	private final RoomOrderArbiter orderArbiter;
 
 	public ChatService(ChatRoomRepository chatRoomRepository,
 					   @Qualifier("chatQueryExecutor") Executor queryExecutor,
@@ -68,7 +69,8 @@ public class ChatService {
 					   ChatPresenceService chatPresenceService,
 					   ChatBroadcaster chatBroadcaster,
 					   MessageSequenceGenerator sequenceGenerator,
-					   ChatMetrics chatMetrics) {
+					   ChatMetrics chatMetrics,
+					   RoomOrderArbiter orderArbiter) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.queryExecutor = queryExecutor;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
@@ -81,6 +83,7 @@ public class ChatService {
 		this.chatBroadcaster = chatBroadcaster;
 		this.sequenceGenerator = sequenceGenerator;
 		this.chatMetrics = chatMetrics;
+		this.orderArbiter = orderArbiter;
 	}
 
 	public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId,
@@ -108,18 +111,28 @@ public class ChatService {
 		requireNotLeft(chatRoomId, senderId, "나간 채팅방입니다. 먼저 재입장해주세요", ErrorCode.FORBIDDEN);
 		requireNotLeft(chatRoomId, receiverId, "상대방이 나간 채팅방입니다", ErrorCode.INVALID_INPUT_VALUE);
 
-		ChatMessage savedMessage = saveOnce(chatRoomId, senderId, request);
+		// 번호 발급부터 발행까지가 순서를 정하는 구간이다. 중재 모드에서는 이 구간을
+		// 방 단위 잠금으로 묶어, 노드가 달라도 발급 순서대로 발행되게 한다. 안읽음과
+		// 알림은 순서와 무관하므로 잠금 밖에 둔다. 보유 시간을 저장과 발행만큼으로
+		// 줄이기 위해서다.
+		Sent sent = orderArbiter.inRoomOrder(chatRoomId, () -> {
+			ChatMessage saved = saveOnce(chatRoomId, senderId, request);
 
-		ChatMessage replyMessage = savedMessage.getReplyToMessageId() == null ? null
-			: chatMessageRepository.findById(savedMessage.getReplyToMessageId()).orElse(null);
+			ChatMessage replyMessage = saved.getReplyToMessageId() == null ? null
+				: chatMessageRepository.findById(saved.getReplyToMessageId()).orElse(null);
 
-		// 받는 사람을 실어 보내면 받는 서버가 방을 다시 조회하지 않아도 된다
-		ChatMessageResponse messageDto = ChatMessageResponse.from(savedMessage, replyMessage)
-			.toBuilder()
-			.receiverId(receiverId)
-			.build();
+			// 받는 사람을 실어 보내면 받는 서버가 방을 다시 조회하지 않아도 된다
+			ChatMessageResponse dto = ChatMessageResponse.from(saved, replyMessage)
+				.toBuilder()
+				.receiverId(receiverId)
+				.build();
 
-		redisPubSubPublisher.publish(messageDto);
+			redisPubSubPublisher.publish(dto);
+			return new Sent(saved, dto);
+		});
+		ChatMessage savedMessage = sent.saved();
+		ChatMessageResponse messageDto = sent.dto();
+
 		unreadCountService.increment(chatRoomId, receiverId);
 
 		log.info("메시지 전송 완료: messageId={}, chatRoomId={}, senderId={}",
@@ -343,6 +356,10 @@ public class ChatService {
 			return (size / 1024) + " KB";
 		}
 		return (size / (1024 * 1024)) + " MB";
+	}
+
+	/** 잠금 구간이 돌려줄 두 값. 저장본은 뒤처리(알림, 방 목록)에, dto 는 응답에 쓴다. */
+	private record Sent(ChatMessage saved, ChatMessageResponse dto) {
 	}
 
 	/**
