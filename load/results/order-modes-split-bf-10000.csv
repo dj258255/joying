@@ -1,0 +1,4 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+split-bf-10000,1,28.0212.128.37,0,0,0,400,0,764.5,1462.3,,,,
+split-bf-10000,2,19.8212.328.64,0,0,0,400,0,731,1313.3,,,,
+split-bf-10000,3,12.6211.448.50,0,0,0,400,0,935,1963.3,,,,

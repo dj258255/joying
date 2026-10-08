@@ -245,6 +245,16 @@ joying:
       lock-hold-ms: "${CHAT_ORDER_LOCK_HOLD_MS:2000}"
       # 획득 대기 상한. 넘기면 잠금 없이 보내고 chat.order.lock.timeouts 를 올린다
       lock-wait-ms: "${CHAT_ORDER_LOCK_WAIT_MS:3000}"
+    migration:
+      # 메시지 저장소 분리 이관 (#105). off 는 평소, dual-write 는 새 메시지를
+      # 전용 DB 에도 동기로 쓴다. 백필과 검증은 scripts/ 의 도구가 한다
+      mode: "${CHAT_MIGRATION_MODE:off}"
+      # 배리어 손잡이(/internal/chat-migration). 이관을 돌리는 환경에서만 연다
+      admin-enabled: "${CHAT_MIGRATION_ADMIN:false}"
+      target:
+        url: "${CHAT_MIGRATION_TARGET_URL:}"
+        username: "${CHAT_MIGRATION_TARGET_USERNAME:joying}"
+        password: "${CHAT_MIGRATION_TARGET_PASSWORD:joying}"
 ssafy:
   finance:
     # 아래 금융망 설정은 joying.money.transfer=ssafy 일 때만 쓰인다

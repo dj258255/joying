@@ -24,7 +24,9 @@
 
 ## 지금 진행 중
 
-순서 복원 실험([#91](https://github.com/dj258255/joying/issues/91))의 측정이 끝났다.
+저장소 분리 이관([#105](https://github.com/dj258255/joying/issues/105))의 측정까지 끝났다.
+남은 반(읽기 전환, 가변 열 동기화)은 [live-storage-split.md](performance/live-storage-split.md)의
+"아직 하지 않은 것"에 있다. 순서 복원 실험([#91](https://github.com/dj258255/joying/issues/91))의 측정도 끝났다.
 가설과 판정 기준을 재기 전에 박아 두고(#91 본문), 잰 뒤에 바꾸지 않았다. 결과는
 [order-restore-three-ways.md](performance/order-restore-three-ways.md)에 있고, 기본은
 스티키 유지다. 남은 것은 아래다.
@@ -63,6 +65,7 @@
 | [순서 복원 셋(스티키 · 서버 중재 · 보류 버퍼)을 한 지형에서](performance/order-restore-three-ways.md) | 셋 다 지킨다. 분산 이득이 없어 **스티키 유지**, 중재는 준비된 대안 |
 | [쉰 명이 한꺼번에 다시 붙을 때](performance/reconnect-herd.md) | 전달 p95 그대로(24ms 대 25ms). **H4 기각** |
 | [안읽음을 세는 두 방법](performance/unread-two-ways.md) | 히트 5.8ms 대 집계 18.1ms(3.1배). 캐시의 값이 작다 |
+| [대화가 진행되는 동안 저장소를 통째로](performance/live-storage-split.md) | 310만 행 무중단 이관, 유실 0. 균형점은 **1만 행/초**, 배리어 445ms |
 | [메시지마다 스레드가 하나씩 생겼다](performance/redis-listener-threads.md) | |
 | [답장이 섞이면 목록이 여섯 배 느리다](performance/message-list-nplus1.md) | 60ms → 10ms |
 | [답장이 서로 다른 것을 가리킬 때](performance/message-list-nplus1.md) | 모아 와도 25~40% 느리다 |
