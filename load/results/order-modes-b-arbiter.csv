@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+b-arbiter,1,4.736.9010.51,0,0,0,400,0,945,1495.2,,,,
+b-arbiter,2,4.486.5110.18,0,0,0,400,0,671,1162.6,,,,
+b-arbiter,3,5.346.489.98,0,0,0,400,0,539.5,990.2,,,,
+b-arbiter,4,4.346.049.63,0,0,0,400,0,523.5,1092.2,,,,
+b-arbiter,5,5.346.049.46,0,0,0,400,0,501,935.2,,,,

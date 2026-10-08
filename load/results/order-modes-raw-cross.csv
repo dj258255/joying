@@ -1,0 +1,6 @@
+label,run,load_before,inversions_wire,inversions_release,gap_give_up,received,missing,rt_med_ms,rt_p95_ms,released_rt_med_ms,released_rt_p95_ms,buffer_wait_med_ms,buffer_wait_p95_ms
+raw-cross,1,4.6710.0816.64,16,0,0,400,0,398,755.3,,,,
+raw-cross,2,11.3110.7716.54,14,0,0,400,0,941,1343.6,,,,
+raw-cross,3,9.7810.5316.16,16,0,0,400,0,342.5,663.2,,,,
+raw-cross,4,7.639.9015.66,8,0,0,400,0,341.5,587.1,,,,
+raw-cross,5,8.379.6915.29,10,0,0,400,0,393.5,646.1,,,,
