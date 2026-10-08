@@ -11,12 +11,26 @@
 
 ## 어떻게
 
-앞단이 방 번호로 노드를 고른다.
+앞단이 방 번호로 노드를 고른다. 아래는 지금 `infra/nginx.conf` 그대로다. 처음에는
+쿠키로 알렸는데 탭 둘이 쿠키 하나를 나눠 쓰는 문제가 있어(아래 "탭을 둘 열면" 절)
+**연결 주소(경로)를 첫 번째 열쇠로** 바꿨다.
 
 ```nginx
-map $cookie_chat_room $chat_room_key {
+map $request_uri $room_from_path {
+    default "";
+    "~^/ws/chat/(?<rid>[0-9]+)(/|\?|$)" $rid;
+}
+
+# 옛 화면은 아직 쿠키로 알린다. 배포 중에 둘이 섞인다
+map $room_from_path $room_from_path_or_cookie {
+    ""      $cookie_chat_room;
+    default $room_from_path;
+}
+
+# 원시 웹소켓으로 붙는 쪽(부하 실험)은 쿼리스트링을 쓴다
+map $room_from_path_or_cookie $chat_room_key {
     ""      $arg_roomId;
-    default $cookie_chat_room;
+    default $room_from_path_or_cookie;
 }
 
 upstream chat_backend {
@@ -25,15 +39,22 @@ upstream chat_backend {
 }
 ```
 
-### 열쇠를 두 군데서 찾는 이유
+경로에 실린 방 번호는 뒤쪽에 넘기기 전에 걷어낸다. SockJS 핸들러가 `/ws/chat/**` 를
+통째로 차지해 `/ws/chat/{roomId}` 를 엔드포인트로 더할 수 없기 때문이다.
+
+```nginx
+rewrite ^/ws/chat/[0-9]+(/.*)?$ /ws/chat$1 break;
+```
+
+### 열쇠를 세 군데서 찾는 이유
 
 브라우저는 SockJS 를 쓴다. SockJS 는 기본 주소 뒤에 `/{서버번호}/{세션}/websocket` 을
 덧붙이므로 **쿼리스트링이 살아남지 못한다.** 기본 주소에 `?roomId=5` 를 붙이면
-`/ws/chat?roomId=5/123/abc/websocket` 이 된다.
+`/ws/chat?roomId=5/123/abc/websocket` 이 된다. 그래서 화면은 방 번호를 경로에 싣는다.
+경로는 SockJS 가 뒤에 무엇을 덧붙여도 앞부분이 살아남는다.
 
-그래서 화면은 연결 직전에 쿠키로 알린다. 쿠키는 모든 요청에 따라붙는다.
-
-원시 웹소켓으로 붙는 쪽(부하 실험)은 쿼리스트링을 쓴다. 앞단이 둘 다 읽는다.
+쿠키는 배포 중에 옛 화면과 섞일 때를 위한 폴백으로 남겼고, 원시 웹소켓으로 붙는
+쪽(부하 실험)은 쿼리스트링을 쓴다. 앞단이 셋을 경로, 쿠키, 쿼리스트링 순서로 읽는다.
 
 ### consistent 를 쓰는 이유
 
