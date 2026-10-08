@@ -245,6 +245,12 @@ joying:
       lock-hold-ms: "${CHAT_ORDER_LOCK_HOLD_MS:2000}"
       # 획득 대기 상한. 넘기면 잠금 없이 보내고 chat.order.lock.timeouts 를 올린다
       lock-wait-ms: "${CHAT_ORDER_LOCK_WAIT_MS:3000}"
+    transport:
+      # 서버에서 클라이언트로 나가는 전송의 상한. 수신이 느린 세션이 버퍼나
+      # 시간을 다 쓰면 그 세션을 끊어 다른 세션을 지킨다 (#111 격리 실험이
+      # 값을 바꿔 가며 잰다)
+      send-buffer-size-limit: "${CHAT_SEND_BUFFER:524288}"
+      send-time-limit-ms: "${CHAT_SEND_TIME_LIMIT_MS:20000}"
     migration:
       # 메시지 저장소 분리 이관 (#105). off 는 평소, dual-write 는 새 메시지를
       # 전용 DB 에도 동기로 쓴다. 백필과 검증은 scripts/ 의 도구가 한다
