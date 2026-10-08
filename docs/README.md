@@ -66,6 +66,7 @@
 | [쉰 명이 한꺼번에 다시 붙을 때](performance/reconnect-herd.md) | 전달 p95 그대로(24ms 대 25ms). **H4 기각** |
 | [안읽음을 세는 두 방법](performance/unread-two-ways.md) | 히트 5.8ms 대 집계 18.1ms(3.1배). 캐시의 값이 작다 |
 | [대화가 진행되는 동안 저장소를 통째로](performance/live-storage-split.md) | 310만 행 무중단 이관, 유실 0. 균형점은 **1만 행/초**, 배리어 445ms |
+| [읽지 않는 수신자 서른 명](performance/slow-consumer.md) | 남의 방을 못 민다(격리 구조). 민 것은 **송신 부하 자체**(10.5배) |
 | [메시지마다 스레드가 하나씩 생겼다](performance/redis-listener-threads.md) | |
 | [답장이 섞이면 목록이 여섯 배 느리다](performance/message-list-nplus1.md) | 60ms → 10ms |
 | [답장이 서로 다른 것을 가리킬 때](performance/message-list-nplus1.md) | 모아 와도 25~40% 느리다 |

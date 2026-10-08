@@ -24,6 +24,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+	// 전송 상한. 수신이 느린 세션이 버퍼를 다 쓰거나 시간이 차면 그 세션을 끊어
+	// 다른 세션을 지킨다. 격리 실험(#111)이 이 값을 바꿔 가며 재므로 설정으로 뺐다
+	@Value("${joying.chat.transport.send-buffer-size-limit:524288}")
+	private int sendBufferSizeLimit;
+
+	@Value("${joying.chat.transport.send-time-limit-ms:20000}")
+	private int sendTimeLimitMs;
+
 	@Value("${cors.allowed-origins}")
 	private List<String> allowedOrigins;
 
@@ -92,8 +100,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	public void configureWebSocketTransport(WebSocketTransportRegistration registry) {
 		// 이미지와 파일은 따로 올리므로 메시지 자체는 클 이유가 없다
 		registry.setMessageSizeLimit(128 * 1024)
-			.setSendBufferSizeLimit(512 * 1024)
-			.setSendTimeLimit(20 * 1000)
+			.setSendBufferSizeLimit(sendBufferSizeLimit)
+			.setSendTimeLimit(sendTimeLimitMs)
 			.setTimeToFirstMessage(30 * 1000);
 	}
 

@@ -10,6 +10,7 @@
 #   load/toxiproxy/setup.sh latency 300 저장소 응답을 300ms 늦춘다
 #   load/toxiproxy/setup.sh reset 0.3   저장소 연결을 30% 확률로 끊는다
 #   load/toxiproxy/setup.sh redis-down  레디스를 끊는다
+#   load/toxiproxy/setup.sh slow-ws 8    느린 수신자 프록시(38080)의 내려받기를 8KB/s 로 조인다 (#111)
 #   load/toxiproxy/setup.sh chat-latency 30
 #                                        분리 이관의 대상 DB(채팅 전용)를 30ms 늦춘다 (#109)
 #                                        지터 없음: 균형점 측정은 고정 지연으로 잰다
@@ -27,13 +28,16 @@ case "${1:-}" in
     NET=$(docker inspect joying-postgres --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}')
     docker rm -f "$NAME" >/dev/null 2>&1 || true
     docker run -d --name "$NAME" --network "$NET" \
-      -p 8475:8474 -p 25432:25432 -p 16381:16381 -p 35432:35432 \
+      -p 8475:8474 -p 25432:25432 -p 16381:16381 -p 35432:35432 -p 38080:38080 \
       ghcr.io/shopify/toxiproxy:2.11.0 >/dev/null
     sleep 3
     curl -sf -X POST "$API/proxies" \
       -d '{"name":"postgres","listen":"0.0.0.0:25432","upstream":"joying-postgres:5432","enabled":true}' >/dev/null
     curl -sf -X POST "$API/proxies" \
       -d '{"name":"redis","listen":"0.0.0.0:16381","upstream":"joying-redis:6379","enabled":true}' >/dev/null
+    # 느린 수신자 실험용. 호스트에서 도는 백엔드(8080)로 올라간다
+    curl -sf -X POST "$API/proxies" \
+      -d '{"name":"slow-ws","listen":"0.0.0.0:38080","upstream":"host.docker.internal:8080","enabled":true}' >/dev/null 2>&1 || true
     # 분리 이관의 대상 DB. chat-split 프로파일이 떠 있을 때만 쓰인다
     curl -sf -X POST "$API/proxies" \
       -d '{"name":"chat-pg","listen":"0.0.0.0:35432","upstream":"joying-chat-postgres:5432","enabled":true}' >/dev/null 2>&1 || true
@@ -46,6 +50,15 @@ case "${1:-}" in
     curl -sf -X POST "$API/proxies/postgres/toxics" \
       -d "{\"name\":\"db_latency\",\"type\":\"latency\",\"stream\":\"downstream\",\"attributes\":{\"latency\":$MS,\"jitter\":100}}" >/dev/null
     echo "저장소 응답에 ${MS}ms(±100) 지연을 넣었다"
+    ;;
+
+  slow-ws)
+    KBPS=${2:-8}
+    RATE=$((KBPS))
+    curl -sf -X DELETE "$API/proxies/slow-ws/toxics/slow_bw" >/dev/null 2>&1 || true
+    curl -sf -X POST "$API/proxies/slow-ws/toxics" \
+      -d "{\"name\":\"slow_bw\",\"type\":\"bandwidth\",\"stream\":\"downstream\",\"attributes\":{\"rate\":$RATE}}" >/dev/null
+    echo "느린 수신자 프록시(38080)의 내려받기를 ${KBPS}KB/s 로 조였다"
     ;;
 
   chat-latency)
