@@ -40,6 +40,8 @@ public class ChatMetrics {
 	private final Counter sequenceFailures;
 	private final Timer orderLockWait;
 	private final Counter orderLockTimeouts;
+	private final Timer mirrorLatency;
+	private final Counter mirrorFailures;
 
 	public ChatMetrics(MeterRegistry registry,
 					   @Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
@@ -71,6 +73,16 @@ public class ChatMetrics {
 
 		this.orderLockTimeouts = Counter.builder("chat.order.lock.timeouts")
 			.description("잠금을 상한 안에 못 잡아 잠금 없이 보낸 건수. 0이 아니면 그 구간의 순서는 보장이 아니다")
+			.register(registry);
+
+		// 아래 둘은 저장소 분리 이관의 이중 쓰기(joying.chat.migration.mode=dual-write)에서만 움직인다
+		this.mirrorLatency = Timer.builder("chat.migration.mirror")
+			.description("새 DB 이중 쓰기에 걸린 시간. 송신 경로에 동기로 가산되는 값이다")
+			.publishPercentiles(0.5, 0.95, 0.99)
+			.register(registry);
+
+		this.mirrorFailures = Counter.builder("chat.migration.mirror.failures")
+			.description("이중 쓰기 실패 건수. 송신은 막지 않지만 0이 아니면 검증 전에 백필로 메워야 한다")
 			.register(registry);
 
 		// 가장 많이 밀린 줄의 길이. 평균을 내면 한 방에 몰린 것이 묻힌다
@@ -149,5 +161,12 @@ public class ChatMetrics {
 
 	public void orderLockTimeout() {
 		orderLockTimeouts.increment();
+	}
+
+	public void recordMirror(long elapsedNanos, boolean success) {
+		mirrorLatency.record(Duration.ofNanos(elapsedNanos));
+		if (!success) {
+			mirrorFailures.increment();
+		}
 	}
 }

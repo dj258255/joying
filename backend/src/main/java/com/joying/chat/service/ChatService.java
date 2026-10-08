@@ -57,6 +57,7 @@ public class ChatService {
 	private final MessageSequenceGenerator sequenceGenerator;
 	private final ChatMetrics chatMetrics;
 	private final RoomOrderArbiter orderArbiter;
+	private final com.joying.chat.migration.ChatStorageMigration storageMigration;
 
 	public ChatService(ChatRoomRepository chatRoomRepository,
 					   @Qualifier("chatQueryExecutor") Executor queryExecutor,
@@ -70,7 +71,8 @@ public class ChatService {
 					   ChatBroadcaster chatBroadcaster,
 					   MessageSequenceGenerator sequenceGenerator,
 					   ChatMetrics chatMetrics,
-					   RoomOrderArbiter orderArbiter) {
+					   RoomOrderArbiter orderArbiter,
+					   com.joying.chat.migration.ChatStorageMigration storageMigration) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.queryExecutor = queryExecutor;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
@@ -84,6 +86,7 @@ public class ChatService {
 		this.sequenceGenerator = sequenceGenerator;
 		this.chatMetrics = chatMetrics;
 		this.orderArbiter = orderArbiter;
+		this.storageMigration = storageMigration;
 	}
 
 	public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId,
@@ -111,6 +114,9 @@ public class ChatService {
 		requireNotLeft(chatRoomId, senderId, "나간 채팅방입니다. 먼저 재입장해주세요", ErrorCode.FORBIDDEN);
 		requireNotLeft(chatRoomId, receiverId, "상대방이 나간 채팅방입니다", ErrorCode.INVALID_INPUT_VALUE);
 
+		// 컷오버 순간의 쓰기 배리어. 평소에는 아무 일도 하지 않는다 (#105)
+		storageMigration.awaitBarrier();
+
 		// 번호 발급부터 발행까지가 순서를 정하는 구간이다. 중재 모드에서는 이 구간을
 		// 방 단위 잠금으로 묶어, 노드가 달라도 발급 순서대로 발행되게 한다. 안읽음과
 		// 알림은 순서와 무관하므로 잠금 밖에 둔다. 보유 시간을 저장과 발행만큼으로
@@ -132,6 +138,9 @@ public class ChatService {
 		});
 		ChatMessage savedMessage = sent.saved();
 		ChatMessageResponse messageDto = sent.dto();
+
+		// 저장소 분리 이관의 이중 쓰기. 동기지만 잠금 밖이라 보유 시간에는 안 얹힌다 (#105)
+		storageMigration.mirror(savedMessage);
 
 		unreadCountService.increment(chatRoomId, receiverId);
 

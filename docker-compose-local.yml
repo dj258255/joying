@@ -20,6 +20,25 @@ services:
       - joying-network
     restart: unless-stopped
 
+  # 채팅 메시지 전용 저장소 (#105). 메시지 테이블을 메인에서 분리하는
+  # 무중단 이관 실험의 대상이다. 평소에는 안 떠도 된다.
+  chat-postgres:
+    image: postgres:16-alpine
+    container_name: joying-chat-postgres
+    profiles: ["chat-split"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:-project_db}
+      POSTGRES_USER: ${POSTGRES_USERNAME:-joying}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-joying}
+      TZ: Asia/Seoul
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-joying} -d ${POSTGRES_DATABASE:-project_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: joying-redis
