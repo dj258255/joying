@@ -1,0 +1,93 @@
+{
+    "setup_data": {
+        "runId": "1791582874631"
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {}
+    },
+    "metrics": {
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "ws_session_duration": {
+            "p(90)": 65026.6729542,
+            "p(95)": 65027.91752705,
+            "avg": 65017.629186000006,
+            "min": 65008.429708,
+            "med": 65018.280208,
+            "max": 65029.57625
+        },
+        "slow_received": {
+            "count": 36000,
+            "rate": 553.5889393914067,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_sessions": {
+            "count": 30,
+            "rate": 0.4613241161595056
+        },
+        "ws_msgs_sent": {
+            "count": 60,
+            "rate": 0.9226482323190112
+        },
+        "ws_msgs_received": {
+            "rate": 554.0502635075662,
+            "count": 36030
+        },
+        "iteration_duration": {
+            "med": 65018.685249999995,
+            "max": 65029.71075,
+            "p(90)": 65027.0586417,
+            "p(95)": 65028.0672776,
+            "avg": 65018.0169556,
+            "min": 65008.780542
+        },
+        "fed_messages": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_connecting": {
+            "avg": 17.116408300000003,
+            "min": 6.308792,
+            "med": 17.487021,
+            "max": 29.087458,
+            "p(90)": 26.299337500000004,
+            "p(95)": 27.425439400000002
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "iterations": {
+            "count": 30,
+            "rate": 0.4613241161595056
+        },
+        "data_sent": {
+            "rate": 250.03767095845203,
+            "count": 16260
+        },
+        "data_received": {
+            "count": 37855098,
+            "rate": 582115.6542327156
+        }
+    }
+}

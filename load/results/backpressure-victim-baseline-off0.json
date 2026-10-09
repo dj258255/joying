@@ -1,0 +1,112 @@
+{
+    "root_group": {
+        "groups": {},
+        "checks": {},
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "metrics": {
+        "fed_messages": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "victim_received": {
+            "count": 1000,
+            "rate": 24.994052665168322
+        },
+        "ws_sessions": {
+            "count": 10,
+            "rate": 0.24994052665168323
+        },
+        "ws_connecting": {
+            "med": 6.794521,
+            "max": 8.517208,
+            "p(90)": 8.142771100000001,
+            "p(95)": 8.32998955,
+            "avg": 7.092337499999999,
+            "min": 6.337
+        },
+        "ws_session_duration": {
+            "min": 40008.102542,
+            "med": 40008.722958,
+            "max": 40008.873708,
+            "p(90)": 40008.8345211,
+            "p(95)": 40008.85411455,
+            "avg": 40008.6122667
+        },
+        "vus": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "vus_max": {
+            "value": 10,
+            "min": 10,
+            "max": 10
+        },
+        "iterations": {
+            "count": 10,
+            "rate": 0.24994052665168323
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_msgs_received": {
+            "count": 1010,
+            "rate": 25.243993191820007
+        },
+        "victim_round_trip": {
+            "p(95)": 37,
+            "avg": 22.489,
+            "min": 8,
+            "med": 21.5,
+            "max": 73,
+            "p(90)": 33
+        },
+        "slow_received": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_sent": {
+            "count": 93720,
+            "rate": 2342.442615779575
+        },
+        "ws_msgs_sent": {
+            "rate": 12.996907385887528,
+            "count": 520
+        },
+        "victim_missing": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "data_received": {
+            "rate": 16568.607499845413,
+            "count": 662902
+        },
+        "iteration_duration": {
+            "p(95)": 40009.00961685,
+            "avg": 40008.884162500006,
+            "min": 40008.689958,
+            "med": 40008.9276455,
+            "max": 40009.011042,
+            "p(90)": 40009.008191700006
+        }
+    },
+    "setup_data": {
+        "runId": "1791582681215"
+    }
+}

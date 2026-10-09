@@ -44,6 +44,8 @@ public class ChatMessageService {
 	private final ChatRoomRepository chatRoomRepository;
 	private final RedisPubSubPublisher redisPubSubPublisher;
 	private final ChatRoomPermissionCache permissionCache;
+	private final com.joying.chat.migration.ChatSplitReadRouter splitReadRouter;
+	private final com.joying.chat.migration.ChatStorageMigration storageMigration;
 
 	/**
 	 * 이 방을 볼 수 있는 사람인지.
@@ -81,18 +83,34 @@ public class ChatMessageService {
 				"before와 after 파라미터는 동시에 사용할 수 없습니다");
 		}
 
+		// 방 화면 목록은 읽기 라우터를 지난다. new 면 새 DB 가 응답하고, shadow 면
+		// 옛 DB 로 응답하면서 같은 조회를 새 DB 와 비교한다 (#120)
 		List<ChatMessage> messages;
 		if (after != null) {
-			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
-					chatRoomId, after, asc(0, size));
+			messages = splitReadRouter.serveFromNew()
+				? splitReadRouter.after(chatRoomId, after, size)
+				: chatMessageRepository
+					.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
+						chatRoomId, after, asc(0, size));
+			Long cursor = after;
+			splitReadRouter.compareAsync("after", chatRoomId, messages,
+				() -> splitReadRouter.after(chatRoomId, cursor, size));
 		} else if (before != null) {
-			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseAndSequenceLessThanOrderBySequenceDesc(
-					chatRoomId, before, desc(0, size));
+			messages = splitReadRouter.serveFromNew()
+				? splitReadRouter.before(chatRoomId, before, size)
+				: chatMessageRepository
+					.findByChatRoomIdAndIsDeletedFalseAndSequenceLessThanOrderBySequenceDesc(
+						chatRoomId, before, desc(0, size));
+			Long cursor = before;
+			splitReadRouter.compareAsync("before", chatRoomId, messages,
+				() -> splitReadRouter.before(chatRoomId, cursor, size));
 		} else {
-			messages = chatMessageRepository
-				.findByChatRoomIdAndIsDeletedFalseOrderBySequenceDesc(chatRoomId, desc(0, size));
+			messages = splitReadRouter.serveFromNew()
+				? splitReadRouter.firstPage(chatRoomId, size)
+				: chatMessageRepository
+					.findByChatRoomIdAndIsDeletedFalseOrderBySequenceDesc(chatRoomId, desc(0, size));
+			splitReadRouter.compareAsync("first", chatRoomId, messages,
+				() -> splitReadRouter.firstPage(chatRoomId, size));
 		}
 
 		return toResponses(messages);
@@ -122,15 +140,36 @@ public class ChatMessageService {
 	}
 
 	/**
+	 * 상대가 보낸 것 중 아직 안 읽은 것에 읽음 표시를 단다.
+	 *
+	 * <p>@Modifying 쿼리라 트랜잭션이 필요하다. 호출하는 쪽(ChatService.markAsRead)이
+	 * 이 일을 비동기로 돌리는데, 비동기 스레드에는 호출자의 트랜잭션이 전파되지
+	 * 않는다. 그래서 다른 빈의 공개 메서드로 두어 프록시가 새 트랜잭션을 연다.
+	 * 같은 빈 안의 메서드였을 때는 TransactionRequiredException 으로 항상 조용히
+	 * 실패했고, 읽음 표시가 한 번도 적용된 적이 없었다 (#121).
+	 */
+	@org.springframework.transaction.annotation.Transactional
+	public long markMessagesReadFrom(Long chatRoomId, Long senderId) {
+		long updated = chatMessageRepository.markReadFrom(chatRoomId, senderId);
+		storageMigration.mirrorReadFrom(chatRoomId, senderId);
+		return updated;
+	}
+
+	/**
 	 * 끊긴 사이에 놓친 것을 받는다.
 	 */
 	public List<ChatMessageResponse> getMessagesAfter(Long chatRoomId, Long after,
 													  int limit, Long memberId) {
 		validateChatRoomAccess(chatRoomId, memberId);
 
-		return toResponses(chatMessageRepository
-			.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
-				chatRoomId, after, asc(0, limit)));
+		List<ChatMessage> messages = splitReadRouter.serveFromNew()
+			? splitReadRouter.after(chatRoomId, after, limit)
+			: chatMessageRepository
+				.findByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanOrderBySequenceAsc(
+					chatRoomId, after, asc(0, limit));
+		splitReadRouter.compareAsync("after", chatRoomId, messages,
+			() -> splitReadRouter.after(chatRoomId, after, limit));
+		return toResponses(messages);
 	}
 
 	/**
@@ -193,6 +232,8 @@ public class ChatMessageService {
 
 		message.delete();
 		ChatMessage saved = chatMessageRepository.save(message);
+		// 지운 내용이 새 DB 읽기(#120)에 재동기화 전까지 살아 있으면 안 된다
+		storageMigration.mirrorMutable(saved);
 
 		log.info("메시지 삭제 완료: messageId={}, chatRoomId={}, memberId={}",
 			messageId, chatRoomId, memberId);
@@ -220,6 +261,8 @@ public class ChatMessageService {
 
 		boolean firstEdit = message.edit(newContent, Instant.now());
 		ChatMessage saved = chatMessageRepository.save(message);
+		// 수정 전 내용이 새 DB 읽기(#120)에 남아 있으면 안 된다
+		storageMigration.mirrorMutable(saved);
 
 		log.info("메시지 수정 완료: messageId={}, chatRoomId={}, memberId={}, 첫 수정={}",
 			messageId, chatRoomId, memberId, firstEdit);

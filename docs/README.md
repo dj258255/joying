@@ -24,7 +24,7 @@
 
 ## 지금 진행 중
 
-세 묶음의 측정이 끝났다. 전부 가설과 판정 기준을 재기 전에 이슈에 박아 두고, 잰 뒤에
+여섯 묶음의 측정이 끝났다. 전부 가설과 판정 기준을 재기 전에 이슈에 박아 두고, 잰 뒤에
 바꾸지 않았다.
 
 | 묶음 | 결론 | 결과 |
@@ -32,14 +32,16 @@
 | 순서 복원([#91](https://github.com/dj258255/joying/issues/91)) | 기본은 스티키 유지, 중재는 준비된 대안 | [order-restore-three-ways.md](performance/order-restore-three-ways.md) |
 | 저장소 분리 이관([#105](https://github.com/dj258255/joying/issues/105) · [#109](https://github.com/dj258255/joying/issues/109)) | 균형점 1만 행/초, 되돌림 25.5초, 원격 30ms 에서 동기 기각 | [live-storage-split.md](performance/live-storage-split.md) |
 | 전달 격리([#111](https://github.com/dj258255/joying/issues/111)) | 느린 수신자는 격리, 민 것은 송신 부하 자체 | [slow-consumer.md](performance/slow-consumer.md) |
+| 안읽음 커서 단일([#116](https://github.com/dj258255/joying/issues/116)) | 방 30개 목록 p95 36.8ms 로 카운터 캐시 제거, 멱등 이중 증가(#99) 구조로 소멸 | [unread-cursor-single.md](performance/unread-cursor-single.md) |
+| 인바운드 백프레셔([#118](https://github.com/dj258255/joying/issues/118)) | 회원당 토큰 버킷(5건/초)이 폭주 17.5초를 기준선 수준(34ms)으로, 사람은 거절 0 | [inbound-backpressure.md](performance/inbound-backpressure.md) |
+| 읽기 전환([#120](https://github.com/dj258255/joying/issues/120)) | 섀도 리드 불일치 0 과 가변 열 재동기화 뒤 방 화면 읽기를 새 DB 로 | [read-switch-shadow.md](performance/read-switch-shadow.md) |
 
-남은 반(읽기 전환 · 가변 열 동기화 · 인바운드 백프레셔)은 각 문서의 "아직 하지 않은 것"에
-있다. 그 밖에 남은 것은 아래다.
+그 밖에 남은 것은 아래다.
 
 | | |
 |---|---|
-| 조사에서 나온 결함 | [#98](https://github.com/dj258255/joying/issues/98) 페이징이 조용히 끊김, [#99](https://github.com/dj258255/joying/issues/99) 안읽음 이중 증가, [#100](https://github.com/dj258255/joying/issues/100) 번호표 축출 |
-| 측정이 연 후속 | #99 를 고칠 때 카운터를 커서 단일로 줄이는 선택지([unread-two-ways.md](performance/unread-two-ways.md)), 동시 송신 폭주([reconnect-herd.md](performance/reconnect-herd.md)) |
+| 조사에서 나온 결함 | [#98](https://github.com/dj258255/joying/issues/98) 페이징이 조용히 끊김, [#100](https://github.com/dj258255/joying/issues/100) 번호표 축출(#120 측정 환경에서 실물 재현, 서버 쪽 방어가 남음) |
+| 측정이 연 후속 | 쓰기 컷오버(정본 교대, [read-switch-shadow.md](performance/read-switch-shadow.md)의 남은 일), 섀도 비교 표본률 제어 |
 
 ## 골라야 했던 것
 

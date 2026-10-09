@@ -42,6 +42,11 @@ public class ChatMetrics {
 	private final Counter orderLockTimeouts;
 	private final Timer mirrorLatency;
 	private final Counter mirrorFailures;
+	private final Counter sendRejections;
+	private final Counter shadowCompared;
+	private final Counter shadowMismatches;
+	private final Counter shadowDropped;
+	private final Counter shadowErrors;
 
 	public ChatMetrics(MeterRegistry registry,
 					   @Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
@@ -83,6 +88,24 @@ public class ChatMetrics {
 
 		this.mirrorFailures = Counter.builder("chat.migration.mirror.failures")
 			.description("이중 쓰기 실패 건수. 송신은 막지 않지만 0이 아니면 검증 전에 백필로 메워야 한다")
+			.register(registry);
+
+		this.sendRejections = Counter.builder("chat.message.send.rejected")
+			.description("송신 속도 제한으로 거절한 건수. 거절은 조용한 드롭이 아니라 세는 값이다 (#118)")
+			.register(registry);
+
+		// 아래 넷은 읽기 모드 shadow(joying.chat.read.mode=shadow)에서만 움직인다 (#120)
+		this.shadowCompared = Counter.builder("chat.read.shadow.compared")
+			.description("옛 DB 응답과 새 DB 조회를 비교한 건수")
+			.register(registry);
+		this.shadowMismatches = Counter.builder("chat.read.shadow.mismatch")
+			.description("비교가 다르게 나온 건수. 0이 아니면 읽기 전환 불가")
+			.register(registry);
+		this.shadowDropped = Counter.builder("chat.read.shadow.dropped")
+			.description("비교 큐가 차서 버린 건수. 표본 비교라 버림은 허용되지만 세어야 한다")
+			.register(registry);
+		this.shadowErrors = Counter.builder("chat.read.shadow.errors")
+			.description("비교 자체가 실패한 건수. 불일치가 아니라 모름이다")
 			.register(registry);
 
 		// 가장 많이 밀린 줄의 길이. 평균을 내면 한 방에 몰린 것이 묻힌다
@@ -150,6 +173,26 @@ public class ChatMetrics {
 
 	public void sequenceFailure() {
 		sequenceFailures.increment();
+	}
+
+	public void sendRejected() {
+		sendRejections.increment();
+	}
+
+	public void shadowCompared() {
+		shadowCompared.increment();
+	}
+
+	public void shadowMismatch() {
+		shadowMismatches.increment();
+	}
+
+	public void shadowDropped() {
+		shadowDropped.increment();
+	}
+
+	public void shadowError() {
+		shadowErrors.increment();
 	}
 
 	public void recordOrderLockWait(long waitedNanos) {

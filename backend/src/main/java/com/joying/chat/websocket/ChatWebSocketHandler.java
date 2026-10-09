@@ -38,17 +38,20 @@ public class ChatWebSocketHandler {
 	private final KeyOrderedExecutor messageExecutor;
 	private final ChatBroadcaster chatBroadcaster;
 	private final ChatPresenceService chatPresenceService;
+	private final ChatSendRateLimiter sendRateLimiter;
 
 	public ChatWebSocketHandler(ChatService chatService,
 								ChatMetrics chatMetrics,
 								@Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
 								ChatBroadcaster chatBroadcaster,
-								ChatPresenceService chatPresenceService) {
+								ChatPresenceService chatPresenceService,
+								ChatSendRateLimiter sendRateLimiter) {
 		this.chatService = chatService;
 		this.chatMetrics = chatMetrics;
 		this.messageExecutor = messageExecutor;
 		this.chatBroadcaster = chatBroadcaster;
 		this.chatPresenceService = chatPresenceService;
+		this.sendRateLimiter = sendRateLimiter;
 	}
 
 	/**
@@ -69,6 +72,18 @@ public class ChatWebSocketHandler {
 
 		log.debug("메시지 전송 요청: chatRoomId={}, memberId={}, type={}",
 			chatRoomId, memberId, request.getType());
+
+		// 속도 제한은 방 직렬 큐에 넣기 전이다. 큐에 들어간 뒤에는 이미 자원을 먹는다.
+		// 거절은 조용한 드롭이 아니다. 세고, 보낸 사람에게 알린다 (#118)
+		if (!sendRateLimiter.tryAcquire(memberId)) {
+			chatMetrics.sendRejected();
+			chatBroadcaster.toUser(memberId, "/queue/errors", Map.of(
+				"type", "SEND_RATE_LIMITED",
+				"chatRoomId", chatRoomId,
+				"clientMessageId", request.getClientMessageId() == null
+					? "" : request.getClientMessageId()));
+			return;
+		}
 
 		// 줄에 넣기 직전의 시각. 여기서부터 처리가 시작될 때까지가 기다린 시간이다.
 		// 저장 시각은 줄에서 빠져나온 뒤에 찍히므로 그것으로는 이 시간을 잴 수 없다.
