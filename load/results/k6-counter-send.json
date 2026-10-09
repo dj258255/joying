@@ -1,0 +1,125 @@
+{
+    "metrics": {
+        "messages_received": {
+            "rate": 5.293618139694216,
+            "count": 80
+        },
+        "iterations": {
+            "count": 2,
+            "rate": 0.1323404534923554
+        },
+        "iteration_duration": {
+            "avg": 15110.858791999999,
+            "min": 15110.857417,
+            "med": 15110.858791999999,
+            "max": 15110.860167,
+            "p(90)": 15110.859892,
+            "p(95)": 15110.860029500001
+        },
+        "order_inversions": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "gap_give_up": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_msgs_sent": {
+            "count": 44,
+            "rate": 2.9114899768318185
+        },
+        "checks": {
+            "passes": 2,
+            "fails": 0,
+            "value": 1
+        },
+        "vus_max": {
+            "value": 2,
+            "min": 2,
+            "max": 2
+        },
+        "messages_missing": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "vus": {
+            "max": 2,
+            "value": 2,
+            "min": 2
+        },
+        "data_sent": {
+            "count": 8093,
+            "rate": 535.5156450568161
+        },
+        "ws_session_duration": {
+            "avg": 15107.784375,
+            "min": 15107.43775,
+            "med": 15107.784375,
+            "max": 15108.131,
+            "p(90)": 15108.061674999999,
+            "p(95)": 15108.0963375
+        },
+        "ws_connecting": {
+            "max": 106.949583,
+            "p(90)": 106.883983,
+            "p(95)": 106.91678300000001,
+            "avg": 106.621583,
+            "min": 106.293583,
+            "med": 106.621583
+        },
+        "release_inversions": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_sessions": {
+            "count": 2,
+            "rate": 0.1323404534923554
+        },
+        "ws_msgs_received": {
+            "count": 82,
+            "rate": 5.425958593186571
+        },
+        "message_round_trip": {
+            "med": 318.5,
+            "max": 498,
+            "p(90)": 464.8,
+            "p(95)": 482.4,
+            "avg": 319.8375,
+            "min": 116
+        },
+        "data_received": {
+            "count": 53594,
+            "rate": 3546.3271322346473
+        }
+    },
+    "setup_data": {
+        "runId": "1791581664381"
+    },
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "양쪽 것을 모두 받았다": {
+                    "path": "::양쪽 것을 모두 받았다",
+                    "id": "07b47a012e5e6f435f1899253f712d4e",
+                    "passes": 2,
+                    "fails": 0,
+                    "name": "양쪽 것을 모두 받았다"
+                }
+            }
+    }
+}

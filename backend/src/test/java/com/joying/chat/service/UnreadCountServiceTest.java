@@ -62,7 +62,13 @@ class UnreadCountServiceTest {
 	void setUp() {
 		given(redis.opsForValue()).willReturn(valueOps);
 		// 병렬 조회를 같은 스레드에서 바로 실행해 순서를 예측 가능하게 둔다
-		service = new UnreadCountService(redis, messageRepository, memberRepository, Runnable::run);
+		service = new UnreadCountService(redis, messageRepository, memberRepository,
+			Runnable::run, "counter");
+	}
+
+	private UnreadCountService cursorService() {
+		return new UnreadCountService(redis, messageRepository, memberRepository,
+			Runnable::run, "cursor");
 	}
 
 	@Test
@@ -143,6 +149,35 @@ class UnreadCountServiceTest {
 			ROOM_ID, lastReadAt, MEMBER_ID)).willReturn(3L);
 
 		assertThat(service.get(ROOM_ID, MEMBER_ID)).isEqualTo(3L);
+	}
+
+	@Test
+	@DisplayName("cursor 모드는 증가와 초기화에서 Redis 를 건드리지 않는다")
+	void cursorModeSkipsRedisWrites() {
+		UnreadCountService cursor = cursorService();
+
+		cursor.increment(ROOM_ID, MEMBER_ID);
+		cursor.reset(ROOM_ID, MEMBER_ID);
+
+		verify(valueOps, never()).increment(any());
+		verify(redis, never()).delete(any(String.class));
+	}
+
+	@Test
+	@DisplayName("cursor 모드는 캐시를 보지도 만들지도 않고 읽은 번호 이후를 센다")
+	void cursorModeCountsFromStoreWithoutCache() {
+		ChatRoomMember member = org.mockito.Mockito.mock(ChatRoomMember.class);
+		given(member.getLastReadSequence()).willReturn(42L);
+		given(memberRepository.findByChatRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
+			.willReturn(Optional.of(member));
+		given(messageRepository.countByChatRoomIdAndIsDeletedFalseAndSequenceGreaterThanAndSenderIdNot(
+			ROOM_ID, 42L, MEMBER_ID)).willReturn(3L);
+
+		assertThat(cursorService().get(ROOM_ID, MEMBER_ID)).isEqualTo(3L);
+
+		// 캐시 조회도 캐시 적재도 없어야 한다. 무효화 경로가 없는 캐시는 어긋난 채 산다
+		verify(valueOps, never()).get(any());
+		verify(valueOps, never()).set(any(), any(), anyLong(), any());
 	}
 
 	@Test
