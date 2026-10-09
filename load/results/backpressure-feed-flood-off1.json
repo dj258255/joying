@@ -1,0 +1,93 @@
+{
+    "setup_data": {
+        "runId": "1791582745624"
+    },
+    "root_group": {
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {},
+        "name": ""
+    },
+    "metrics": {
+        "iterations": {
+            "count": 30,
+            "rate": 0.49987434825132787
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_received": {
+            "count": 13860,
+            "rate": 230.9419488921135
+        },
+        "ws_connecting": {
+            "med": 9.9700415,
+            "max": 14.522708,
+            "p(90)": 13.2955714,
+            "p(95)": 14.30038735,
+            "avg": 10.147140266666666,
+            "min": 6.033375
+        },
+        "ws_msgs_sent": {
+            "count": 36030,
+            "rate": 600.3490922498448
+        },
+        "ws_session_duration": {
+            "min": 60008.086042,
+            "med": 60010.325125,
+            "max": 60014.697292,
+            "p(90)": 60013.559129199995,
+            "p(95)": 60014.526377049995,
+            "avg": 60010.833154233325
+        },
+        "iteration_duration": {
+            "p(90)": 60014.044945199996,
+            "p(95)": 60014.6396436,
+            "avg": 60011.14265266666,
+            "min": 60008.341291,
+            "med": 60010.589854000005,
+            "max": 60014.83675
+        },
+        "slow_received": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "fed_messages": {
+            "count": 36000,
+            "rate": 599.8492179015934,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_sent": {
+            "rate": 340444.9234943976,
+            "count": 20431830
+        },
+        "ws_msgs_received": {
+            "count": 30,
+            "rate": 0.49987434825132787
+        },
+        "ws_sessions": {
+            "rate": 0.49987434825132787,
+            "count": 30
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        }
+    }
+}

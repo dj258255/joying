@@ -1,0 +1,93 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {}
+    },
+    "metrics": {
+        "ws_session_duration": {
+            "max": 65018.997458,
+            "p(90)": 65016.338978600004,
+            "p(95)": 65017.3613189,
+            "avg": 65011.22547500001,
+            "min": 65006.088542,
+            "med": 65011.7467915
+        },
+        "iteration_duration": {
+            "avg": 65011.61400843333,
+            "min": 65006.256,
+            "med": 65012.444646,
+            "max": 65019.095708,
+            "p(90)": 65016.5456167,
+            "p(95)": 65018.408218900004
+        },
+        "iterations": {
+            "count": 30,
+            "rate": 0.4614009001839282
+        },
+        "fed_messages": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_sent": {
+            "count": 16260,
+            "rate": 250.0792878996891
+        },
+        "data_received": {
+            "count": 37846868,
+            "rate": 582085.965478077
+        },
+        "ws_sessions": {
+            "count": 30,
+            "rate": 0.4614009001839282
+        },
+        "ws_msgs_sent": {
+            "rate": 0.9228018003678564,
+            "count": 60
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "slow_received": {
+            "count": 36000,
+            "rate": 553.6810802207139,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_connecting": {
+            "avg": 10.895738866666667,
+            "min": 5.762875,
+            "med": 11.403625,
+            "max": 18.607292,
+            "p(90)": 15.9955289,
+            "p(95)": 17.02526455
+        },
+        "ws_msgs_received": {
+            "count": 36030,
+            "rate": 554.1424811208979
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        }
+    },
+    "setup_data": {
+        "runId": "1791582743640"
+    }
+}

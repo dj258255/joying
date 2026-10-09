@@ -44,6 +44,10 @@ public class ChatService {
 
 	private static final int TEXT_MAX_LENGTH = 500;
 
+	/** 방 목록 갱신 집계가 대기 중인 (방:수신자). 몰린 송신의 집계를 하나로 접는다. */
+	private final java.util.Set<String> pendingRoomUpdates =
+		java.util.concurrent.ConcurrentHashMap.newKeySet();
+
 	private final ChatRoomRepository chatRoomRepository;
 	private final Executor queryExecutor;
 	private final ChatRoomMemberRepository chatRoomMemberRepository;
@@ -122,7 +126,8 @@ public class ChatService {
 		// 알림은 순서와 무관하므로 잠금 밖에 둔다. 보유 시간을 저장과 발행만큼으로
 		// 줄이기 위해서다.
 		Sent sent = orderArbiter.inRoomOrder(chatRoomId, () -> {
-			ChatMessage saved = saveOnce(chatRoomId, senderId, request);
+			SavedOnce once = saveOnce(chatRoomId, senderId, request);
+			ChatMessage saved = once.message();
 
 			ChatMessage replyMessage = saved.getReplyToMessageId() == null ? null
 				: chatMessageRepository.findById(saved.getReplyToMessageId()).orElse(null);
@@ -133,8 +138,10 @@ public class ChatService {
 				.receiverId(receiverId)
 				.build();
 
+			// 멱등 히트여도 다시 발행한다. 재전송은 첫 발행이 실패했을 수 있다는
+			// 신호이고, 받는 쪽은 메시지 id 로 중복을 걸러낸다
 			redisPubSubPublisher.publish(dto);
-			return new Sent(saved, dto);
+			return new Sent(saved, dto, once.idempotentHit());
 		});
 		ChatMessage savedMessage = sent.saved();
 		ChatMessageResponse messageDto = sent.dto();
@@ -142,7 +149,10 @@ public class ChatService {
 		// 저장소 분리 이관의 이중 쓰기. 동기지만 잠금 밖이라 보유 시간에는 안 얹힌다 (#105)
 		storageMigration.mirror(savedMessage);
 
-		unreadCountService.increment(chatRoomId, receiverId);
+		// 멱등 히트면 올리지 않는다. 저장은 1건인데 카운터만 2가 되던 자리다 (#99)
+		if (!sent.idempotentHit()) {
+			unreadCountService.increment(chatRoomId, receiverId);
+		}
 
 		log.info("메시지 전송 완료: messageId={}, chatRoomId={}, senderId={}",
 			savedMessage.getId(), chatRoomId, senderId);
@@ -158,14 +168,27 @@ public class ChatService {
 			() -> updateLastMessage(chatRoomId, savedMessage.getContent(),
 				savedMessage.getCreatedAt()));
 
-		long unreadCount = unreadCountService.get(chatRoomId, receiverId);
-		chatBroadcaster.toUser(receiverId, "/queue/chatroom-update",
-			ChatRoomUpdateEvent.builder()
-				.chatRoomId(chatRoomId)
-				.lastMessage(savedMessage.getContent())
-				.lastMessageAt(savedMessage.getCreatedAt())
-				.unreadCount(unreadCount)
-				.build());
+		// 방 목록의 배지 갱신도 곁작업이다. cursor 모드에서 이 조회는 집계 쿼리라,
+		// 동기로 두면 보낸 사람이 바쁜 방의 집계를 기다린다(실측 전달 p95 1.3배).
+		// 비동기로만 옮기면 몰린 송신이 집계 40개로 변해 커넥션 풀에서 저장과
+		// 다툰다(실측 p95 1.6~2.7초). 배지는 상태라 마지막 값만 의미가 있으므로,
+		// 같은 방 · 수신자로 집계가 이미 대기 중이면 새로 쌓지 않고 접는다
+		String updateKey = chatRoomId + ":" + receiverId;
+		if (pendingRoomUpdates.add(updateKey)) {
+			runQuietly("방 목록 갱신 알림", () -> {
+				// 실행에 들어가며 바로 비운다. 집계 중에 새 메시지가 오면 다음
+				// 갱신이 다시 잡혀 마지막 값이 결국 나간다
+				pendingRoomUpdates.remove(updateKey);
+				long unreadCount = unreadCountService.get(chatRoomId, receiverId);
+				chatBroadcaster.toUser(receiverId, "/queue/chatroom-update",
+					ChatRoomUpdateEvent.builder()
+						.chatRoomId(chatRoomId)
+						.lastMessage(savedMessage.getContent())
+						.lastMessageAt(savedMessage.getCreatedAt())
+						.unreadCount(unreadCount)
+						.build());
+			});
+		}
 
 		return messageDto;
 	}
@@ -367,8 +390,12 @@ public class ChatService {
 		return (size / (1024 * 1024)) + " MB";
 	}
 
-	/** 잠금 구간이 돌려줄 두 값. 저장본은 뒤처리(알림, 방 목록)에, dto 는 응답에 쓴다. */
-	private record Sent(ChatMessage saved, ChatMessageResponse dto) {
+	/** 잠금 구간이 돌려줄 값. 저장본은 뒤처리(알림, 방 목록)에, dto 는 응답에 쓴다. */
+	private record Sent(ChatMessage saved, ChatMessageResponse dto, boolean idempotentHit) {
+	}
+
+	/** 저장 결과와 그것이 새 저장인지 멱등 히트인지. 히트면 안읽음을 올리지 않는다. */
+	private record SavedOnce(ChatMessage message, boolean idempotentHit) {
 	}
 
 	/**
@@ -381,7 +408,7 @@ public class ChatService {
 	 * 없다고 읽고 둘 다 넣는다. 그래서 판정을 저장소의 유니크 제약에 맡기고, 걸리면
 	 * 그때 다시 읽는다.
 	 */
-	private ChatMessage saveOnce(Long chatRoomId, Long senderId, SendMessageRequest request) {
+	private SavedOnce saveOnce(Long chatRoomId, Long senderId, SendMessageRequest request) {
 		String clientMessageId = request.getClientMessageId();
 
 		if (clientMessageId != null) {
@@ -391,7 +418,7 @@ public class ChatService {
 				log.info("이미 저장된 전송이다: chatRoomId={}, clientMessageId={}",
 					chatRoomId, clientMessageId);
 				chatMetrics.idempotentHit();
-				return already;
+				return new SavedOnce(already, true);
 			}
 		}
 
@@ -412,16 +439,18 @@ public class ChatService {
 		try {
 			// 바로 밀어 넣어야 제약 위반이 여기서 잡힌다. save 만 부르면 트랜잭션이
 			// 끝날 때 터지고, 그때는 이 자리를 이미 지나쳤다
-			return chatMessageRepository.saveAndFlush(chatMessage);
+			return new SavedOnce(chatMessageRepository.saveAndFlush(chatMessage), false);
 		} catch (DataIntegrityViolationException e) {
-			// 같은 전송이 동시에 들어와 다른 쪽이 먼저 넣었다.
+			// 같은 전송이 동시에 들어와 다른 쪽이 먼저 넣었다. 먼저 넣은 쪽이 안읽음을
+			// 올리므로 이쪽도 멱등 히트다.
 			//
 			// 이 메서드에 트랜잭션이 걸려 있지 않은 것이 여기서 중요하다. 저장소 호출마다
 			// 트랜잭션이 따로 열리므로, 실패한 flush 가 이 뒤의 조회를 망치지 않는다.
 			// 한 트랜잭션 안이었다면 영속성 컨텍스트가 망가져 다시 조회할 수 없다.
-			return chatMessageRepository
+			chatMetrics.idempotentHit();
+			return new SavedOnce(chatMessageRepository
 				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId)
-				.orElseThrow(() -> e);
+				.orElseThrow(() -> e), true);
 		}
 	}
 

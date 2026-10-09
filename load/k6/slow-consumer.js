@@ -37,6 +37,9 @@ const FEEDER_COUNT = Number(__ENV.FEEDER_COUNT !== undefined ? __ENV.FEEDER_COUN
 const FEED_COUNT = Number(__ENV.FEED_COUNT || 600);
 const PER_PERSON = Number(__ENV.PER_PERSON || 50);
 const OBSERVE_MS = Number(__ENV.OBSERVE_MS || 40000);
+// 피해자의 송신 간격. 0이면 몰아 보낸다(#111 조건). 사람 속도의 대화를 흉내 낼
+// 때는 300ms 쯤을 준다(#118 조건). 몰아 보내기는 그 자체가 속도 제한에 걸린다
+const VICTIM_INTERVAL_MS = Number(__ENV.VICTIM_INTERVAL_MS || 0);
 
 // 느린 쌍은 피해자 뒤 번호를 쓴다. 방 9421.., 수신자는 쌍의 판매자
 const SLOW_ROOM_OFFSET = 20;
@@ -104,7 +107,8 @@ export function victim(data) {
           // 메시지들이 통째로 빠져(한 방향 100건 실종을 실측) 전달 지연과 다른
           // 축이 섞인다. 구독이 자리 잡을 시간을 넉넉히 둔다
           socket.setTimeout(function () {
-            for (let i = 0; i < PER_PERSON; i++) {
+            let i = 0;
+            const sendOne = function () {
               socket.send(
                 stomp.send('/app/chat/' + room + '/send', {
                   type: 'TEXT',
@@ -112,7 +116,16 @@ export function victim(data) {
                   clientMessageId: data.runId + '-v' + room + '-' + role + '-' + i,
                 })
               );
-            }
+              i++;
+              if (i < PER_PERSON) {
+                if (VICTIM_INTERVAL_MS > 0) {
+                  socket.setTimeout(sendOne, VICTIM_INTERVAL_MS);
+                } else {
+                  sendOne();
+                }
+              }
+            };
+            sendOne();
           }, 8000);
           return;
         }

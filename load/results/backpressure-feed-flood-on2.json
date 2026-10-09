@@ -1,0 +1,93 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {}
+    },
+    "metrics": {
+        "slow_received": {
+            "rate": 0,
+            "count": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_received": {
+            "count": 13860,
+            "rate": 230.94015955565646
+        },
+        "ws_sessions": {
+            "rate": 0.49987047522869366,
+            "count": 30
+        },
+        "ws_msgs_sent": {
+            "count": 36030,
+            "rate": 600.3444407496611
+        },
+        "ws_msgs_received": {
+            "count": 30,
+            "rate": 0.49987047522869366
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "ws_session_duration": {
+            "avg": 60009.46614316666,
+            "min": 60005.355209,
+            "med": 60009.080958499995,
+            "max": 60014.789167,
+            "p(90)": 60013.1540834,
+            "p(95)": 60014.0904628
+        },
+        "iterations": {
+            "count": 30,
+            "rate": 0.49987047522869366
+        },
+        "data_sent": {
+            "count": 20431830,
+            "rate": 340442.28572972934
+        },
+        "ws_connecting": {
+            "avg": 8.891091833333332,
+            "min": 4.094416,
+            "med": 8.8817705,
+            "max": 14.52475,
+            "p(90)": 12.7587292,
+            "p(95)": 13.341146349999999
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "iteration_duration": {
+            "max": 60015.268292,
+            "p(90)": 60013.5162459,
+            "p(95)": 60014.6890878,
+            "avg": 60009.931233366675,
+            "min": 60006.212292,
+            "med": 60009.2979795
+        },
+        "fed_messages": {
+            "count": 36000,
+            "rate": 599.8445702744324,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_disconnects": {
+            "rate": 0,
+            "count": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        }
+    },
+    "setup_data": {
+        "runId": "1791583126249"
+    }
+}

@@ -1,0 +1,93 @@
+{
+    "root_group": {
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {}
+    },
+    "metrics": {
+        "data_received": {
+            "count": 13860,
+            "rate": 230.94365359758308
+        },
+        "vus_max": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "data_sent": {
+            "count": 20431830,
+            "rate": 340447.436499618
+        },
+        "ws_sessions": {
+            "count": 30,
+            "rate": 0.49987803809000664
+        },
+        "ws_connecting": {
+            "med": 9.2596455,
+            "max": 13.807959,
+            "p(90)": 13.5902125,
+            "p(95)": 13.6539,
+            "avg": 9.431256933333334,
+            "min": 4.381125
+        },
+        "iteration_duration": {
+            "min": 60005.257125,
+            "med": 60009.859354500004,
+            "max": 60014.101208,
+            "p(90)": 60013.9311205,
+            "p(95)": 60014.02811045,
+            "avg": 60009.916712466664
+        },
+        "fed_messages": {
+            "count": 36000,
+            "rate": 599.853645708008,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_received": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_msgs_sent": {
+            "count": 36030,
+            "rate": 600.353523746098
+        },
+        "ws_session_duration": {
+            "p(95)": 60013.93341045,
+            "avg": 60009.74749583333,
+            "min": 60005.056958,
+            "med": 60009.577479,
+            "max": 60014.00375,
+            "p(90)": 60013.8341833
+        },
+        "ws_msgs_received": {
+            "count": 30,
+            "rate": 0.49987803809000664
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "iterations": {
+            "count": 30,
+            "rate": 0.49987803809000664
+        }
+    },
+    "setup_data": {
+        "runId": "1791582876623"
+    }
+}

@@ -1,0 +1,93 @@
+{
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {},
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "fed_messages": {
+            "count": 36000,
+            "rate": 599.8253308636525,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "data_sent": {
+            "count": 20431830,
+            "rate": 340431.3663861084
+        },
+        "vus_max": {
+            "max": 30,
+            "value": 30,
+            "min": 30
+        },
+        "iterations": {
+            "count": 30,
+            "rate": 0.4998544423863771
+        },
+        "slow_disconnects": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "slow_received": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count>=0": false
+            }
+        },
+        "ws_session_duration": {
+            "max": 60017.182667,
+            "p(90)": 60016.4746788,
+            "p(95)": 60016.76504345,
+            "avg": 60011.942652699996,
+            "min": 60009.362167,
+            "med": 60010.598
+        },
+        "data_received": {
+            "rate": 230.9327523825062,
+            "count": 13860
+        },
+        "ws_connecting": {
+            "avg": 11.083873466666665,
+            "min": 7.164583,
+            "med": 9.508521,
+            "max": 16.676042,
+            "p(90)": 16.288833,
+            "p(95)": 16.4818417
+        },
+        "vus": {
+            "value": 30,
+            "min": 30,
+            "max": 30
+        },
+        "ws_sessions": {
+            "count": 30,
+            "rate": 0.4998544423863771
+        },
+        "ws_msgs_sent": {
+            "count": 36030,
+            "rate": 600.3251853060389
+        },
+        "ws_msgs_received": {
+            "count": 30,
+            "rate": 0.4998544423863771
+        },
+        "iteration_duration": {
+            "med": 60010.852604,
+            "max": 60017.344792,
+            "p(90)": 60016.5901036,
+            "p(95)": 60016.877567,
+            "avg": 60012.30872080001,
+            "min": 60009.536792
+        }
+    },
+    "setup_data": {
+        "runId": "1791582996164"
+    }
+}
