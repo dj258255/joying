@@ -42,6 +42,7 @@ public class ChatMetrics {
 	private final Counter orderLockTimeouts;
 	private final Timer mirrorLatency;
 	private final Counter mirrorFailures;
+	private final Counter sendRejections;
 
 	public ChatMetrics(MeterRegistry registry,
 					   @Qualifier("chatMessageExecutor") KeyOrderedExecutor messageExecutor,
@@ -83,6 +84,10 @@ public class ChatMetrics {
 
 		this.mirrorFailures = Counter.builder("chat.migration.mirror.failures")
 			.description("이중 쓰기 실패 건수. 송신은 막지 않지만 0이 아니면 검증 전에 백필로 메워야 한다")
+			.register(registry);
+
+		this.sendRejections = Counter.builder("chat.message.send.rejected")
+			.description("송신 속도 제한으로 거절한 건수. 거절은 조용한 드롭이 아니라 세는 값이다 (#118)")
 			.register(registry);
 
 		// 가장 많이 밀린 줄의 길이. 평균을 내면 한 방에 몰린 것이 묻힌다
@@ -150,6 +155,10 @@ public class ChatMetrics {
 
 	public void sequenceFailure() {
 		sequenceFailures.increment();
+	}
+
+	public void sendRejected() {
+		sendRejections.increment();
 	}
 
 	public void recordOrderLockWait(long waitedNanos) {
