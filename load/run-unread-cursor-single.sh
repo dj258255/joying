@@ -92,6 +92,18 @@ WHERE chat_room_id BETWEEN ${BASE_ROOM} + 1 AND ${BASE_ROOM} + ${ROOMS}
   AND member_id = ${READER};
 SQL
 
+# 번호표(Redis)를 시드의 최대 번호에 맞춘다. 맞추지 않으면 다음 실제 송신이
+# 시드와 같은 번호를 받는다. #100 이 예측한 번호 중복을 이 시드가 직접 만들었고,
+# 섀도 리드 비교(#120)가 정렬 동률 비결정으로 그것을 잡았다
+for r in $(seq 1 "$ROOMS"); do
+  room=$((BASE_ROOM + r))
+  top=$([ "$r" -eq 1 ] && echo "$BUSY_ROWS" || echo "$NORMAL_ROWS")
+  cur=$("${RCLI[@]}" GET "chat:sequence:${room}"); cur=${cur:-0}
+  if [ "$cur" -lt "$top" ]; then
+    "${RCLI[@]}" SET "chat:sequence:${room}" "$top" > /dev/null
+  fi
+done
+
 TOKEN=$(token ${READER})
 OUT="load/results/unread-cursor-single-${MODE}.csv"
 echo "series,run,http_ms" > "$OUT"

@@ -62,6 +62,7 @@ public class ChatService {
 	private final ChatMetrics chatMetrics;
 	private final RoomOrderArbiter orderArbiter;
 	private final com.joying.chat.migration.ChatStorageMigration storageMigration;
+	private final ChatMessageService chatMessageService;
 
 	public ChatService(ChatRoomRepository chatRoomRepository,
 					   @Qualifier("chatQueryExecutor") Executor queryExecutor,
@@ -76,7 +77,8 @@ public class ChatService {
 					   MessageSequenceGenerator sequenceGenerator,
 					   ChatMetrics chatMetrics,
 					   RoomOrderArbiter orderArbiter,
-					   com.joying.chat.migration.ChatStorageMigration storageMigration) {
+					   com.joying.chat.migration.ChatStorageMigration storageMigration,
+					   ChatMessageService chatMessageService) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.queryExecutor = queryExecutor;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
@@ -91,6 +93,7 @@ public class ChatService {
 		this.chatMetrics = chatMetrics;
 		this.orderArbiter = orderArbiter;
 		this.storageMigration = storageMigration;
+		this.chatMessageService = chatMessageService;
 	}
 
 	public ChatMessageResponse sendMessage(Long chatRoomId, Long senderId,
@@ -222,6 +225,10 @@ public class ChatService {
 
 	/**
 	 * 상대가 보낸 것 중 아직 안 읽은 것에 읽음 표시를 단다.
+	 *
+	 * <p>갱신 쿼리는 트랜잭션이 걸리는 다른 빈(ChatMessageService)을 지난다. 이 자리는
+	 * 비동기 스레드라 markAsRead 의 트랜잭션이 없고, 같은 빈 안에서 부르면
+	 * TransactionRequiredException 으로 항상 조용히 실패했다 (#121).
 	 */
 	private void markMessagesRead(Long chatRoomId, Long memberId) {
 		ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId).orElse(null);
@@ -229,8 +236,8 @@ public class ChatService {
 			return;
 		}
 
-		long updated = chatMessageRepository
-			.markReadFrom(chatRoomId, otherSideOf(chatRoom, memberId));
+		long updated = chatMessageService
+			.markMessagesReadFrom(chatRoomId, otherSideOf(chatRoom, memberId));
 
 		log.debug("메시지 읽음 표시 완료: chatRoomId={}, memberId={}, count={}",
 			chatRoomId, memberId, updated);

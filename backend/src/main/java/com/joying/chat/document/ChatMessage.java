@@ -121,6 +121,40 @@ public class ChatMessage {
 	@Setter
 	private boolean isRead;
 
+	/**
+	 * 저장된 행을 그대로 되살린다. 새 메시지 DB 의 읽기 경로(#120)가 SQL 로 읽은
+	 * 행을 엔티티로 만들 때만 쓴다. 생성 규칙(id 발급, 기본값)이 들어가면 안 되는
+	 * 자리라 생성 팩토리들과 분리한다.
+	 */
+	public static ChatMessage restore(String id, Long chatRoomId, Long sequence, Long senderId,
+									  MessageType type, String content, String imageUrl,
+									  String fileUrl, String fileName, Long fileSize,
+									  String replyToMessageId, String clientMessageId,
+									  java.time.Instant createdAt, java.time.Instant updatedAt,
+									  boolean isEdited, String originalContent,
+									  boolean isDeleted, boolean isRead) {
+		ChatMessage m = new ChatMessage();
+		m.id = id;
+		m.chatRoomId = chatRoomId;
+		m.sequence = sequence;
+		m.senderId = senderId;
+		m.type = type;
+		m.content = content;
+		m.imageUrl = imageUrl;
+		m.fileUrl = fileUrl;
+		m.fileName = fileName;
+		m.fileSize = fileSize;
+		m.replyToMessageId = replyToMessageId;
+		m.clientMessageId = clientMessageId;
+		m.createdAt = createdAt;
+		m.updatedAt = updatedAt;
+		m.isEdited = isEdited;
+		m.originalContent = originalContent;
+		m.isDeleted = isDeleted;
+		m.isRead = isRead;
+		return m;
+	}
+
 	public void assign(Long sequence, String clientMessageId) {
 		this.sequence = sequence;
 		this.clientMessageId = clientMessageId;

@@ -67,6 +67,7 @@ class ChatServiceUnreadIdempotencyTest {
 	@Mock ChatMetrics chatMetrics;
 	@Mock RoomOrderArbiter orderArbiter;
 	@Mock ChatStorageMigration storageMigration;
+	@Mock ChatMessageService chatMessageService;
 	@Mock ChatRoom chatRoom;
 	@Mock Member buyer;
 	@Mock Member seller;
@@ -79,7 +80,7 @@ class ChatServiceUnreadIdempotencyTest {
 		service = new ChatService(chatRoomRepository, Runnable::run, chatRoomMemberRepository,
 			chatMessageRepository, redisPubSubPublisher, unreadCountService, permissionCache,
 			webPushService, chatPresenceService, chatBroadcaster, sequenceGenerator,
-			chatMetrics, orderArbiter, storageMigration);
+			chatMetrics, orderArbiter, storageMigration, chatMessageService);
 
 		given(permissionCache.hasPermission(ROOM_ID, SENDER_ID)).willReturn(true);
 		given(buyer.getMemberId()).willReturn(SENDER_ID);
