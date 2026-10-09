@@ -24,12 +24,17 @@
 
 ## 지금 진행 중
 
-저장소 분리 이관([#105](https://github.com/dj258255/joying/issues/105))의 측정까지 끝났다.
-남은 반(읽기 전환, 가변 열 동기화)은 [live-storage-split.md](performance/live-storage-split.md)의
-"아직 하지 않은 것"에 있다. 순서 복원 실험([#91](https://github.com/dj258255/joying/issues/91))의 측정도 끝났다.
-가설과 판정 기준을 재기 전에 박아 두고(#91 본문), 잰 뒤에 바꾸지 않았다. 결과는
-[order-restore-three-ways.md](performance/order-restore-three-ways.md)에 있고, 기본은
-스티키 유지다. 남은 것은 아래다.
+세 묶음의 측정이 끝났다. 전부 가설과 판정 기준을 재기 전에 이슈에 박아 두고, 잰 뒤에
+바꾸지 않았다.
+
+| 묶음 | 결론 | 결과 |
+|---|---|---|
+| 순서 복원([#91](https://github.com/dj258255/joying/issues/91)) | 기본은 스티키 유지, 중재는 준비된 대안 | [order-restore-three-ways.md](performance/order-restore-three-ways.md) |
+| 저장소 분리 이관([#105](https://github.com/dj258255/joying/issues/105) · [#109](https://github.com/dj258255/joying/issues/109)) | 균형점 1만 행/초, 되돌림 25.5초, 원격 30ms 에서 동기 기각 | [live-storage-split.md](performance/live-storage-split.md) |
+| 전달 격리([#111](https://github.com/dj258255/joying/issues/111)) | 느린 수신자는 격리, 민 것은 송신 부하 자체 | [slow-consumer.md](performance/slow-consumer.md) |
+
+남은 반(읽기 전환 · 가변 열 동기화 · 인바운드 백프레셔)은 각 문서의 "아직 하지 않은 것"에
+있다. 그 밖에 남은 것은 아래다.
 
 | | |
 |---|---|
