@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -21,8 +22,17 @@ import com.joying.chat.repository.ChatRoomMemberRepository;
 /**
  * 안읽은 메시지 개수.
  *
- * <p>Redis를 먼저 보고, 없으면 저장소에서 세어 다시 넣는다. 메시지가 올 때마다 세면
- * 방 목록을 열 때마다 방 수만큼 집계 쿼리가 나간다.
+ * <p>두 모드가 있다 (#116).
+ *
+ * <ul>
+ * <li>counter: Redis 카운터를 캐시로 먼저 보고, 없으면 저장소에서 세어 다시 넣는다.
+ * 조회가 빠른 대신 캐시가 정본과 어긋나는 창이 있고 메시지 1건당 Redis 쓰기가
+ * 1회 는다</li>
+ * <li>cursor(기본): 캐시 없이 읽은 지점(lastReadSequence) 초과를 저장소에서 센다.
+ * 안읽음의 자리가 정본 하나라 어긋날 수 없고 쓰기 증폭이 없다. 비용은 조회마다
+ * 집계이고, 방 30개 목록에서 p95 36.8ms 로 판정 기준(100ms) 안이라 기본이 됐다
+ * (docs/performance/unread-cursor-single.md)</li>
+ * </ul>
  *
  * <p>Redis가 죽어도 메시지 저장을 되돌리지 않는다. 배지가 잠깐 틀린 것과 메시지가
  * 사라지는 것 중 뒤엣것이 훨씬 비싸다.
@@ -39,15 +49,18 @@ public class UnreadCountService {
 	private final ChatMessageRepository chatMessageRepository;
 	private final ChatRoomMemberRepository chatRoomMemberRepository;
 	private final Executor queryExecutor;
+	private final boolean cursorOnly;
 
 	public UnreadCountService(RedisTemplate<String, String> redis,
 							  ChatMessageRepository chatMessageRepository,
 							  ChatRoomMemberRepository chatRoomMemberRepository,
-							  @Qualifier("chatQueryExecutor") Executor queryExecutor) {
+							  @Qualifier("chatQueryExecutor") Executor queryExecutor,
+							  @Value("${joying.chat.unread.mode:cursor}") String mode) {
 		this.redis = redis;
 		this.chatMessageRepository = chatMessageRepository;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
 		this.queryExecutor = queryExecutor;
+		this.cursorOnly = "cursor".equalsIgnoreCase(mode);
 	}
 
 	private String getKey(Long chatRoomId, Long memberId) {
@@ -55,9 +68,12 @@ public class UnreadCountService {
 	}
 
 	/**
-	 * 메시지를 받은 쪽의 개수를 올린다.
+	 * 메시지를 받은 쪽의 개수를 올린다. cursor 모드에서는 올릴 카운터가 없다.
 	 */
 	public void increment(Long chatRoomId, Long memberId) {
+		if (cursorOnly) {
+			return;
+		}
 		try {
 			String key = getKey(chatRoomId, memberId);
 			redis.opsForValue().increment(key);
@@ -69,9 +85,12 @@ public class UnreadCountService {
 	}
 
 	/**
-	 * 읽었으므로 0으로 되돌린다.
+	 * 읽었으므로 0으로 되돌린다. cursor 모드에서는 lastReadSequence 갱신이 그 일을 한다.
 	 */
 	public void reset(Long chatRoomId, Long memberId) {
+		if (cursorOnly) {
+			return;
+		}
 		try {
 			redis.delete(getKey(chatRoomId, memberId));
 		} catch (Exception e) {
@@ -80,6 +99,9 @@ public class UnreadCountService {
 	}
 
 	public long get(Long chatRoomId, Long memberId) {
+		if (cursorOnly) {
+			return warmup(chatRoomId, memberId);
+		}
 		String cached = redis.opsForValue().get(getKey(chatRoomId, memberId));
 		if (cached != null) {
 			return Long.parseLong(cached);
@@ -96,6 +118,12 @@ public class UnreadCountService {
 	public Map<Long, Long> getBatch(List<Long> chatRoomIds, Long memberId) {
 		if (chatRoomIds.isEmpty()) {
 			return Map.of();
+		}
+
+		// cursor 모드는 캐시를 묻지 않고 전부 집계한다. 방마다 저장소를 봐야 하므로
+		// 아래 미스 처리와 같은 방식으로 동시에 센다
+		if (cursorOnly) {
+			return countAll(chatRoomIds, memberId);
 		}
 
 		List<String> keys = chatRoomIds.stream().map(id -> getKey(id, memberId)).toList();
@@ -126,18 +154,29 @@ public class UnreadCountService {
 			chatRoomIds.size(), result.size(), missedIds.size());
 
 		if (!missedIds.isEmpty()) {
-			List<CompletableFuture<Map.Entry<Long, Long>>> futures = missedIds.stream()
-				.map(chatRoomId -> CompletableFuture.supplyAsync(
-					() -> Map.entry(chatRoomId, warmup(chatRoomId, memberId)), queryExecutor))
-				.toList();
-
-			CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-			futures.forEach(future -> {
-				Map.Entry<Long, Long> entry = future.join();
-				result.put(entry.getKey(), entry.getValue());
-			});
+			result.putAll(countAll(missedIds, memberId));
 		}
 
+		return result;
+	}
+
+	/**
+	 * 여러 방을 저장소에서 동시에 센다. 서로 의존하지 않으니 집계를 병렬로 날리고,
+	 * 동시 폭은 chatQueryExecutor 풀 크기가 상한이다.
+	 */
+	private Map<Long, Long> countAll(List<Long> chatRoomIds, Long memberId) {
+		List<CompletableFuture<Map.Entry<Long, Long>>> futures = chatRoomIds.stream()
+			.map(chatRoomId -> CompletableFuture.supplyAsync(
+				() -> Map.entry(chatRoomId, warmup(chatRoomId, memberId)), queryExecutor))
+			.toList();
+
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+		Map<Long, Long> result = new HashMap<>();
+		futures.forEach(future -> {
+			Map.Entry<Long, Long> entry = future.join();
+			result.put(entry.getKey(), entry.getValue());
+		});
 		return result;
 	}
 
@@ -201,11 +240,15 @@ public class UnreadCountService {
 
 			long actualCount = countUnread(member, chatRoomId, memberId);
 
-			try {
-				redis.opsForValue().set(getKey(chatRoomId, memberId),
-					String.valueOf(actualCount), TTL_DAYS, TimeUnit.DAYS);
-			} catch (Exception e) {
-				log.error("Redis 캐싱 실패: {}", e.getMessage());
+			// cursor 모드는 캐시를 만들지 않는다. 지울 자리(무효화 경로)가 없는 캐시는
+			// 어긋난 채로 TTL 까지 산다
+			if (!cursorOnly) {
+				try {
+					redis.opsForValue().set(getKey(chatRoomId, memberId),
+						String.valueOf(actualCount), TTL_DAYS, TimeUnit.DAYS);
+				} catch (Exception e) {
+					log.error("Redis 캐싱 실패: {}", e.getMessage());
+				}
 			}
 
 			return actualCount;
