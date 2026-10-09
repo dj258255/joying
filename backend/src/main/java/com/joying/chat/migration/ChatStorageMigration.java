@@ -126,6 +126,60 @@ public class ChatStorageMigration {
 	}
 
 	/**
+	 * 가변 열 변경(삭제 · 수정)을 새 DB 에도 비춘다.
+	 *
+	 * <p>이중 쓰기가 삽입만 비추면 옛 DB 에서 지운 메시지가 새 DB 읽기(#120)에는
+	 * 재동기화 전까지 살아 있다. 지운 내용의 노출은 배지가 틀리는 것과 무게가
+	 * 다르므로, 변경 시점에 바로 비춘다. 실패는 삽입 미러와 같은 규칙이다.
+	 * 송신 · 수정 · 삭제를 막지 않고 세며, 구멍은 재동기화가 메운다.
+	 */
+	public void mirrorMutable(ChatMessage m) {
+		if (!dualWrite()) {
+			return;
+		}
+		long started = System.nanoTime();
+		try {
+			target.update("""
+				UPDATE chat_message
+				SET content = ?, is_edited = ?, original_content = ?,
+				    is_deleted = ?, is_read = ?, updated_at = ?
+				WHERE id = ?
+				""",
+				m.getContent(), m.isEdited(), m.getOriginalContent(),
+				m.isDeleted(), m.isRead(),
+				m.getUpdatedAt() == null ? null : java.sql.Timestamp.from(m.getUpdatedAt()),
+				m.getId());
+			mirrored.incrementAndGet();
+			chatMetrics.recordMirror(System.nanoTime() - started, true);
+		} catch (RuntimeException e) {
+			mirrorFailures.incrementAndGet();
+			chatMetrics.recordMirror(System.nanoTime() - started, false);
+			log.warn("가변 열 이중 쓰기 실패: messageId={}, error={}", m.getId(), e.getMessage());
+		}
+	}
+
+	/**
+	 * 읽음 표시의 묶음 갱신을 새 DB 에도 같은 조건으로 비춘다.
+	 */
+	public void mirrorReadFrom(Long chatRoomId, Long senderId) {
+		if (!dualWrite()) {
+			return;
+		}
+		long started = System.nanoTime();
+		try {
+			target.update("""
+				UPDATE chat_message SET is_read = true
+				WHERE chat_room_id = ? AND sender_id = ? AND is_read = false AND is_deleted = false
+				""", chatRoomId, senderId);
+			chatMetrics.recordMirror(System.nanoTime() - started, true);
+		} catch (RuntimeException e) {
+			mirrorFailures.incrementAndGet();
+			chatMetrics.recordMirror(System.nanoTime() - started, false);
+			log.warn("읽음 표시 이중 쓰기 실패: chatRoomId={}, error={}", chatRoomId, e.getMessage());
+		}
+	}
+
+	/**
 	 * 배리어가 서 있으면 내려갈 때까지 기다린다. 송신 경로의 저장 직전에 불린다.
 	 *
 	 * <p>컷오버 순간에만 잠깐 선다. 배리어 동안 새 저장이 없으므로 그 사이에 꼬리

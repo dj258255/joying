@@ -45,6 +45,7 @@ public class ChatMessageService {
 	private final RedisPubSubPublisher redisPubSubPublisher;
 	private final ChatRoomPermissionCache permissionCache;
 	private final com.joying.chat.migration.ChatSplitReadRouter splitReadRouter;
+	private final com.joying.chat.migration.ChatStorageMigration storageMigration;
 
 	/**
 	 * 이 방을 볼 수 있는 사람인지.
@@ -149,7 +150,9 @@ public class ChatMessageService {
 	 */
 	@org.springframework.transaction.annotation.Transactional
 	public long markMessagesReadFrom(Long chatRoomId, Long senderId) {
-		return chatMessageRepository.markReadFrom(chatRoomId, senderId);
+		long updated = chatMessageRepository.markReadFrom(chatRoomId, senderId);
+		storageMigration.mirrorReadFrom(chatRoomId, senderId);
+		return updated;
 	}
 
 	/**
@@ -229,6 +232,8 @@ public class ChatMessageService {
 
 		message.delete();
 		ChatMessage saved = chatMessageRepository.save(message);
+		// 지운 내용이 새 DB 읽기(#120)에 재동기화 전까지 살아 있으면 안 된다
+		storageMigration.mirrorMutable(saved);
 
 		log.info("메시지 삭제 완료: messageId={}, chatRoomId={}, memberId={}",
 			messageId, chatRoomId, memberId);
@@ -256,6 +261,8 @@ public class ChatMessageService {
 
 		boolean firstEdit = message.edit(newContent, Instant.now());
 		ChatMessage saved = chatMessageRepository.save(message);
+		// 수정 전 내용이 새 DB 읽기(#120)에 남아 있으면 안 된다
+		storageMigration.mirrorMutable(saved);
 
 		log.info("메시지 수정 완료: messageId={}, chatRoomId={}, memberId={}, 첫 수정={}",
 			messageId, chatRoomId, memberId, firstEdit);
