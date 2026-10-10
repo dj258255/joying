@@ -99,7 +99,7 @@ case "$CMD" in
     echo "label,run,mode,load_before,received,missing,inversions,rt_med_ms,rt_p95_ms" > "$OUT"
     for i in $(seq 1 "$REPEATS"); do
       SUMMARY=$(mktemp)
-      LOAD_NOW=$(uptime | sed 's/.*load average[s]*: //' | cut -d, -f1 | tr -d ' ')
+      LOAD_NOW=$(uptime | awk '{print $(NF-2)}' | tr -d ',')
       run_k6 "$SUMMARY"
       summarize "$SUMMARY" "$LABEL" "$i" "$(mode_of)" "$LOAD_NOW" >> "$OUT"
       rm -f "$SUMMARY"
@@ -112,7 +112,7 @@ case "$CMD" in
     OUT="load/results/write-cutover-${LABEL}.csv"
     LOG="load/results/write-cutover-${LABEL}.log"
     echo "label,run,mode,load_before,received,missing,inversions,rt_med_ms,rt_p95_ms" > "$OUT"
-    LOAD_NOW=$(uptime | sed 's/.*load average[s]*: //' | cut -d, -f1 | tr -d ' ')
+    LOAD_NOW=$(uptime | awk '{print $(NF-2)}' | tr -d ',')
     SUMMARY=$(mktemp)
     run_k6 "$SUMMARY" &
     K6_PID=$!

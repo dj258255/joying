@@ -1,0 +1,4 @@
+label,run,mode,load_before,received,missing,inversions,rt_med_ms,rt_p95_ms
+after,1,new-primary,9.97,1200,0,0,33,80
+after,2,new-primary,9.64,1200,0,0,32,63
+after,3,new-primary,9.75,1200,0,0,34,79
