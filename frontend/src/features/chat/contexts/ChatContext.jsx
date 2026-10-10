@@ -766,8 +766,12 @@ export const ChatProvider = ({ children }) => {
       const firstMessage = existingMessages[0];
 
       const params = { size: DEFAULT_MESSAGE_PAGE_SIZE };
-      if (firstMessage?.timestamp) {
-        params.before = new Date(firstMessage.timestamp).toISOString();
+      // 서버의 before 는 시각이 아니라 메시지 번호(sequence)다. 시각을 보내면 400 으로
+      // 끊긴다 (#98). 화면 맨 위가 번호 없는 메시지(로컬 시스템 메시지 등)일 수 있어
+      // 번호 있는 가장 오래된 메시지를 기준으로 삼는다
+      const oldestWithSequence = existingMessages.find((msg) => msg?.sequence != null);
+      if (firstMessage && oldestWithSequence) {
+        params.before = oldestWithSequence.sequence;
       }
 
       const fetched = await messageApi.getMessages(roomId, params);
