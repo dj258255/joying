@@ -64,6 +64,7 @@ public class ChatRoomService {
 	private final ChatRoomPermissionCache permissionCache;
 	private final ChatBroadcaster chatBroadcaster;
 	private final RedisPubSubPublisher redisPubSubPublisher;
+	private final com.joying.chat.migration.ChatStorageMigration storageMigration;
 
 	public ChatRoomService(ChatRoomRepository chatRoomRepository,
 						   ChatRoomMemberRepository chatRoomMemberRepository,
@@ -77,7 +78,8 @@ public class ChatRoomService {
 						   FileUrlResolver fileUrlResolver,
 						   ChatRoomPermissionCache permissionCache,
 						   ChatBroadcaster chatBroadcaster,
-						   RedisPubSubPublisher redisPubSubPublisher) {
+						   RedisPubSubPublisher redisPubSubPublisher,
+						   com.joying.chat.migration.ChatStorageMigration storageMigration) {
 		this.chatRoomRepository = chatRoomRepository;
 		this.chatRoomMemberRepository = chatRoomMemberRepository;
 		this.chatMessageRepository = chatMessageRepository;
@@ -91,6 +93,7 @@ public class ChatRoomService {
 		this.permissionCache = permissionCache;
 		this.chatBroadcaster = chatBroadcaster;
 		this.redisPubSubPublisher = redisPubSubPublisher;
+		this.storageMigration = storageMigration;
 	}
 
 	/**
@@ -478,7 +481,11 @@ public class ChatRoomService {
 	private ChatMessage saveSystemMessage(Long chatRoomId, String content) {
 		ChatMessage systemMessage = ChatMessage.createSystemMessage(chatRoomId, content);
 		systemMessage.setCreatedAt(Instant.now());
-		return chatMessageRepository.save(systemMessage);
+		ChatMessage saved = chatMessageRepository.save(systemMessage);
+		// 시스템 메시지는 송신 경로 밖이라 미러를 여기서 따로 태운다. 빼먹으면 정본
+		// 교대 뒤 새 DB 읽기에서 이 행만 빠진다 (#123)
+		storageMigration.mirrorToNew(saved);
+		return saved;
 	}
 
 	private void publishSystemMessage(ChatMessage message, Long receiverId) {

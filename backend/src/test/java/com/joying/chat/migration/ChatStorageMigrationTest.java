@@ -3,6 +3,8 @@ package com.joying.chat.migration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import javax.sql.DataSource;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
@@ -52,6 +54,12 @@ class ChatStorageMigrationTest {
 			  is_edited boolean, original_content varchar(2000),
 			  is_deleted boolean, is_read boolean)
 			""");
+		// 운영 기동이 만드는 멱등 유니크와 같은 모양. 정본 교대의 심판이다 (#123)
+		jdbc.execute("""
+			CREATE UNIQUE INDEX uk_chat_message_client_id
+			ON chat_message (chat_room_id, client_message_id)
+			WHERE client_message_id IS NOT NULL
+			""");
 	}
 
 	@AfterAll
@@ -65,8 +73,8 @@ class ChatStorageMigrationTest {
 	}
 
 	private ChatStorageMigration dualWriter() {
-		return new ChatStorageMigration(mock(ChatMetrics.class), "dual-write",
-			target.getJdbcUrl(), target.getUsername(), target.getPassword());
+		return new ChatStorageMigration(mock(ChatMetrics.class), mock(DataSource.class),
+			"dual-write", target.getJdbcUrl(), target.getUsername(), target.getPassword());
 	}
 
 	private ChatMessage message(long room, long seq, String clientMessageId) {
@@ -111,7 +119,7 @@ class ChatStorageMigrationTest {
 	@DisplayName("off 모드는 새 DB 주소가 없어도 아무 일도 하지 않는다")
 	void offModeIsNoop() {
 		ChatStorageMigration migration = new ChatStorageMigration(
-			mock(ChatMetrics.class), "off", "", "", "");
+			mock(ChatMetrics.class), mock(DataSource.class), "off", "", "", "");
 		migration.mirror(message(503L, 1L, "cmid-off"));
 		assertThat(migration.mirroredCount()).isZero();
 	}
@@ -120,7 +128,7 @@ class ChatStorageMigrationTest {
 	@DisplayName("배리어가 서 있으면 송신이 기다리고 내려가면 바로 지나간다")
 	void barrierBlocksUntilReleased() throws Exception {
 		ChatStorageMigration migration = new ChatStorageMigration(
-			mock(ChatMetrics.class), "off", "", "", "");
+			mock(ChatMetrics.class), mock(DataSource.class), "off", "", "", "");
 		migration.barrierOn();
 
 		CountDownLatch passed = new CountDownLatch(1);
@@ -144,5 +152,40 @@ class ChatStorageMigrationTest {
 		long again = System.nanoTime();
 		migration.awaitBarrier();
 		assertThat(Duration.ofNanos(System.nanoTime() - again).toMillis()).isLessThan(50);
+	}
+	@Test
+	@DisplayName("정본 교대 뒤 같은 전송 식별자의 두 번째 삽입은 0행이다")
+	void primaryInsertArbitratesDuplicateTransfer() {
+		ChatStorageMigration migration = dualWriter();
+		migration.barrierOn();
+		migration.setMode("new-primary");
+		migration.barrierOff();
+
+		ChatMessage first = message(504L, 11L, "cmid-dup");
+		ChatMessage second = message(504L, 12L, "cmid-dup");
+
+		assertThat(migration.insertPrimary(first)).isTrue();
+		assertThat(migration.insertPrimary(second)).isFalse();
+		assertThat(jdbc.queryForObject(
+			"SELECT count(*) FROM chat_message WHERE chat_room_id = 504", Long.class))
+			.isEqualTo(1L);
+		// 패자가 읽을 먼저 저장된 행
+		assertThat(migration.findSavedTransfer(504L, "cmid-dup").getId())
+			.isEqualTo(first.getId());
+	}
+
+	@Test
+	@DisplayName("전송 식별자가 없는 정본 삽입은 중재 없이 들어간다")
+	void primaryInsertWithoutClientIdJustInserts() {
+		ChatStorageMigration migration = dualWriter();
+		migration.barrierOn();
+		migration.setMode("new-primary");
+		migration.barrierOff();
+
+		assertThat(migration.insertPrimary(message(505L, 1L, null))).isTrue();
+		assertThat(migration.insertPrimary(message(505L, 2L, null))).isTrue();
+		assertThat(jdbc.queryForObject(
+			"SELECT count(*) FROM chat_message WHERE chat_room_id = 505", Long.class))
+			.isEqualTo(2L);
 	}
 }

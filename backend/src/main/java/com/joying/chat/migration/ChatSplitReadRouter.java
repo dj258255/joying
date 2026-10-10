@@ -47,13 +47,14 @@ public class ChatSplitReadRouter {
 
 	private static final Logger log = LoggerFactory.getLogger(ChatSplitReadRouter.class);
 
-	private static final String COLUMNS = """
+	// 같은 패키지의 ChatStorageMigration(정본 교대의 멱등 조회)도 같이 쓴다
+	static final String COLUMNS = """
 		id, chat_room_id, sequence, sender_id, type, content, image_url, file_url,
 		file_name, file_size, reply_to_message_id, client_message_id, created_at,
 		updated_at, is_edited, original_content, is_deleted, is_read
 		""";
 
-	private static final RowMapper<ChatMessage> ROW_MAPPER = (rs, i) -> restore(rs);
+	static final RowMapper<ChatMessage> ROW_MAPPER = (rs, i) -> restore(rs);
 
 	private final String mode;
 	private final double shadowSampleRate;

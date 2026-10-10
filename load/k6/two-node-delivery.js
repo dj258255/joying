@@ -31,6 +31,9 @@ const ROOM = __ENV.ROOM || '9001';
 const SENDERS = Number(__ENV.SENDERS || 8);
 const PER_SENDER = Number(__ENV.PER_SENDER || 25);
 const OBSERVE_MS = Number(__ENV.OBSERVE_MS || 90000);
+// 0 이면 종전처럼 한꺼번에 보낸다. 값을 주면 그 간격(ms)으로 보내, 컷오버처럼
+// 송신이 이어지는 동안 일어나야 하는 사건을 창 한가운데 둘 수 있다 (#123)
+const SEND_INTERVAL_MS = Number(__ENV.SEND_INTERVAL_MS || 0);
 
 const inversions = new Counter('order_inversions');
 const received = new Counter('messages_received');
@@ -141,7 +144,7 @@ export function sendBurst(data) {
         if (f.command !== 'CONNECTED') {
           return;
         }
-        for (let i = 0; i < PER_SENDER; i++) {
+        const sendOne = function (i) {
           socket.send(
             stomp.send('/app/chat/' + ROOM + '/send', {
               type: 'TEXT',
@@ -149,10 +152,29 @@ export function sendBurst(data) {
               clientMessageId: data.runId + '-vu' + __VU + '-' + i,
             })
           );
+        };
+        if (SEND_INTERVAL_MS > 0) {
+          let i = 0;
+          const chain = function () {
+            sendOne(i);
+            i++;
+            if (i < PER_SENDER) {
+              socket.setTimeout(chain, SEND_INTERVAL_MS);
+            } else {
+              socket.setTimeout(function () {
+                socket.close();
+              }, 20000);
+            }
+          };
+          chain();
+        } else {
+          for (let i = 0; i < PER_SENDER; i++) {
+            sendOne(i);
+          }
+          socket.setTimeout(function () {
+            socket.close();
+          }, 20000);
         }
-        socket.setTimeout(function () {
-          socket.close();
-        }, 20000);
       });
     });
   });
