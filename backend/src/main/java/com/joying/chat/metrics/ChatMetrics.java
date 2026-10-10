@@ -38,6 +38,7 @@ public class ChatMetrics {
 	private final Timer deliveryLatency;
 	private final Counter idempotentHits;
 	private final Counter sequenceFailures;
+	private final Counter sequenceRecoveries;
 	private final Timer orderLockWait;
 	private final Counter orderLockTimeouts;
 	private final Timer mirrorLatency;
@@ -63,6 +64,10 @@ public class ChatMetrics {
 
 		this.sequenceFailures = Counter.builder("chat.message.sequence.failures")
 			.description("번호를 받지 못해 저장을 막은 건수")
+			.register(registry);
+
+		this.sequenceRecoveries = Counter.builder("chat.message.sequence.recoveries")
+			.description("사라진 번호표를 DB 최대값으로 복구한 건수. 0이 아니면 번호표가 축출되고 있다 (#100)")
 			.register(registry);
 
 		// 아래 둘은 순서 중재 모드(joying.chat.ordering.mode=arbiter)에서만 움직인다
@@ -150,6 +155,10 @@ public class ChatMetrics {
 
 	public void sequenceFailure() {
 		sequenceFailures.increment();
+	}
+
+	public void sequenceRecovered() {
+		sequenceRecoveries.increment();
 	}
 
 	public void recordOrderLockWait(long waitedNanos) {
