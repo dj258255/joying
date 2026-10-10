@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -55,17 +56,20 @@ public class ChatSplitReadRouter {
 	private static final RowMapper<ChatMessage> ROW_MAPPER = (rs, i) -> restore(rs);
 
 	private final String mode;
+	private final double shadowSampleRate;
 	private final ChatMetrics chatMetrics;
 	private final JdbcTemplate target;
 	private final ThreadPoolExecutor comparePool;
 
 	public ChatSplitReadRouter(ChatMetrics chatMetrics,
 							   @Value("${joying.chat.read.mode:old}") String mode,
+							   @Value("${joying.chat.read.shadow-sample-rate:1.0}") double shadowSampleRate,
 							   @Value("${joying.chat.migration.target.url:}") String targetUrl,
 							   @Value("${joying.chat.migration.target.username:}") String targetUser,
 							   @Value("${joying.chat.migration.target.password:}") String targetPassword) {
 		this.chatMetrics = chatMetrics;
 		this.mode = mode;
+		this.shadowSampleRate = shadowSampleRate;
 		if (shadow() || serveFromNew()) {
 			if (targetUrl.isBlank()) {
 				throw new IllegalStateException(
@@ -133,6 +137,9 @@ public class ChatSplitReadRouter {
 		if (!shadow()) {
 			return;
 		}
+		if (!sampled(shadowSampleRate, ThreadLocalRandom.current().nextDouble())) {
+			return;
+		}
 		String servedSignature = signature(served);
 		try {
 			comparePool.execute(() -> {
@@ -154,6 +161,17 @@ public class ChatSplitReadRouter {
 		} catch (RejectedExecutionException e) {
 			chatMetrics.shadowDropped();
 		}
+	}
+
+	/**
+	 * 이 조회를 비교 표본으로 뽑을지 정한다 (#124).
+	 *
+	 * <p>전수 비교는 큐(100)가 차면 몰린 구간의 비교가 통째로 빠진다. 표본률을 내리면
+	 * 전 구간에서 고르게 뽑는다. 1.0(기본)이면 전수라 지금까지의 동작과 같고,
+	 * 0.0 이면 모드만 켜 둔 채 비교를 만들지 않는다.
+	 */
+	static boolean sampled(double rate, double roll) {
+		return rate >= 1.0 || roll < rate;
 	}
 
 	/**
