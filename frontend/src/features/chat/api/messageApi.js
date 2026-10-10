@@ -33,17 +33,18 @@ export const messageApi = {
    * 백엔드 스펙:
    * - Query Parameters:
    *   - keyword (optional): 검색 키워드 (있으면 검색 모드)
-   *   - before (optional): ISO8601 형식 - 이 시간 이전의 메시지 조회 (과거 방향, 최신순)
-   *   - after (optional): ISO8601 형식 - 이 시간 이후의 메시지 조회 (놓친 메시지, 오래된 순)
+   *   - before (optional): 메시지 번호(sequence, Long) - 이 번호 이전의 메시지 조회 (과거 방향, 최신순)
+   *   - after (optional): 메시지 번호(sequence, Long) - 이 번호 이후의 메시지 조회 (놓친 메시지, 오래된 순)
+   *   - before와 after를 함께 보내면 400
    *   - page (optional, default: 0): 페이지 번호 (검색 모드에서만 사용)
    *   - size (optional, default: 20): 가져올 개수
    * - 응답: ApiResponse.SuccessBody<List<ChatMessageResponse>>
-   * 
+   *
    * @param {string|number} chatRoomId - 채팅방 ID
    * @param {Object} [params] - 조회 파라미터
    * @param {string} [params.keyword] - 검색 키워드 (있으면 검색 모드)
-   * @param {string|Date} [params.before] - 이 시간 이전의 메시지 조회 (ISO8601 형식, 과거 방향)
-   * @param {string|Date} [params.after] - 이 시간 이후의 메시지 조회 (ISO8601 형식, 놓친 메시지)
+   * @param {number} [params.before] - 이 번호 이전의 메시지 조회 (메시지 sequence, 과거 방향)
+   * @param {number} [params.after] - 이 번호 이후의 메시지 조회 (메시지 sequence, 놓친 메시지)
    * @param {number} [params.page=0] - 페이지 번호 (검색 모드에서만 사용)
    * @param {number} [params.size=20] - 가져올 개수
    * @returns {Promise<Array>} 메시지 목록
@@ -67,16 +68,21 @@ export const messageApi = {
         queryParams.page = page;
         queryParams.size = size;
       } else {
-        // 일반 조회 모드
-        if (before) {
-          // ISO8601 형식으로 변환
-          const beforeDate = before instanceof Date ? before.toISOString() : before;
-          queryParams.before = beforeDate;
+        // 일반 조회 모드. 서버는 before/after 를 메시지 번호(Long)로 받는다.
+        // 시각(ISO8601)을 보내면 400 이고, 아래 catch 가 아니라 호출한 쪽이 알아야 하는 실패다
+        if (before != null) {
+          const beforeSeq = Number(before);
+          if (!Number.isInteger(beforeSeq) || beforeSeq <= 0) {
+            throw new Error(`before 는 메시지 번호(sequence)여야 합니다: ${before}`);
+          }
+          queryParams.before = beforeSeq;
         }
-        if (after) {
-          // ISO8601 형식으로 변환
-          const afterDate = after instanceof Date ? after.toISOString() : after;
-          queryParams.after = afterDate;
+        if (after != null) {
+          const afterSeq = Number(after);
+          if (!Number.isInteger(afterSeq) || afterSeq <= 0) {
+            throw new Error(`after 는 메시지 번호(sequence)여야 합니다: ${after}`);
+          }
+          queryParams.after = afterSeq;
         }
         queryParams.size = size;
       }
@@ -130,24 +136,21 @@ export const messageApi = {
         message: error.message
       });
       
-      // 404 에러는 빈 배열 반환 (채팅방에 메시지가 없는 경우)
+      // 404 만 빈 배열이다 (채팅방에 메시지가 없는 경우). 나머지 실패를 빈 배열로
+      // 돌려주면 "더 없음"과 "못 가져옴"이 같은 모양이 돼서 사용자도 개발자도
+      // 알아차릴 수 없다 (#98). 실패는 호출한 쪽이 실패로 받는다
       if (error.response?.status === 404) {
         if (isDevelopment) {
         console.warn('[messageApi] 메시지를 찾을 수 없습니다. 빈 배열 반환.');
         }
         return [];
       }
-      
-      // 401 에러는 인증 문제
+
       if (error.response?.status === 401) {
         throw new Error('로그인이 필요합니다. 먼저 로그인해주세요.');
       }
-      
-      // 기타 에러는 빈 배열 반환하여 UI가 깨지지 않도록 함
-      if (isDevelopment) {
-      console.warn('[messageApi] 메시지 목록 조회 실패. 빈 배열 반환.');
-      }
-      return [];
+
+      throw new Error(error.response?.data?.message || error.message || '메시지 목록 조회에 실패했습니다.');
     }
   },
 
