@@ -1,0 +1,2 @@
+label,run,mode,load_before,received,missing,inversions,rt_med_ms,rt_p95_ms
+revert,1,dual-write,12.97,1200,0,0,36,69

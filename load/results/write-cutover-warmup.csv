@@ -1,0 +1,2 @@
+label,run,mode,load_before,received,missing,inversions,rt_med_ms,rt_p95_ms
+warmup,1,dual-write,44.6320.1813.62,1200,0,0,37,75

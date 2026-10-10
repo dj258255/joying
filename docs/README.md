@@ -24,7 +24,7 @@
 
 ## 지금 진행 중
 
-여섯 묶음의 측정이 끝났다. 전부 가설과 판정 기준을 재기 전에 이슈에 박아 두고, 잰 뒤에
+일곱 묶음의 측정이 끝났다. 전부 가설과 판정 기준을 재기 전에 이슈에 박아 두고, 잰 뒤에
 바꾸지 않았다.
 
 | 묶음 | 결론 | 결과 |
@@ -35,13 +35,14 @@
 | 안읽음 커서 단일([#116](https://github.com/dj258255/joying/issues/116)) | 방 30개 목록 p95 36.8ms 로 카운터 캐시 제거, 멱등 이중 증가(#99) 구조로 소멸 | [unread-cursor-single.md](performance/unread-cursor-single.md) |
 | 인바운드 백프레셔([#118](https://github.com/dj258255/joying/issues/118)) | 회원당 토큰 버킷(5건/초)이 폭주 17.5초를 기준선 수준(34ms)으로, 사람은 거절 0 | [inbound-backpressure.md](performance/inbound-backpressure.md) |
 | 읽기 전환([#120](https://github.com/dj258255/joying/issues/120)) | 섀도 리드 불일치 0 과 가변 열 재동기화 뒤 방 화면 읽기를 새 DB 로 | [read-switch-shadow.md](performance/read-switch-shadow.md) |
+| 쓰기 컷오버([#123](https://github.com/dj258255/joying/issues/123)) | 배리어 473ms 안에서 정본 교대, 전달 1.05배 · 유실 0, 되돌림도 모드 복귀로 | [write-cutover.md](performance/write-cutover.md) |
 
 그 밖에 남은 것은 아래다.
 
 | | |
 |---|---|
-| 조사에서 나온 결함 | [#98](https://github.com/dj258255/joying/issues/98) 페이징이 조용히 끊김, [#100](https://github.com/dj258255/joying/issues/100) 번호표 축출(#120 측정 환경에서 실물 재현, 서버 쪽 방어가 남음) |
-| 측정이 연 후속 | 쓰기 컷오버(정본 교대, [read-switch-shadow.md](performance/read-switch-shadow.md)의 남은 일), 섀도 비교 표본률 제어 |
+| 조사에서 나온 결함 | [#98](https://github.com/dj258255/joying/issues/98) 페이징이 조용히 끊김. [#100](https://github.com/dj258255/joying/issues/100) 번호표 축출은 실물 재현 뒤 자가 복구를 넣었다(남는 창은 그 수선에 적음) |
+| 측정이 연 후속 | 옛 DB 읽기(검색 · 단건 · 답장 원본)의 이주와 옛 chat_message 걷어 들이기([write-cutover.md](performance/write-cutover.md)의 남은 일) |
 
 ## 골라야 했던 것
 

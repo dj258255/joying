@@ -4,6 +4,7 @@ import java.util.Map;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,6 +44,15 @@ public class ChatMigrationController {
 	@PostMapping("/barrier/off")
 	public Map<String, Object> barrierOff() {
 		migration.barrierOff();
+		return status();
+	}
+
+	/**
+	 * 정본 교대 (#123). 배리어가 서 있지 않으면 거절된다.
+	 */
+	@PostMapping("/mode/{value}")
+	public Map<String, Object> switchMode(@PathVariable String value) {
+		migration.setMode(value);
 		return status();
 	}
 }

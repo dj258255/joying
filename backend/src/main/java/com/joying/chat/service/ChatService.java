@@ -281,6 +281,9 @@ public class ChatService {
 			chatRoomId, rejoining.getNickname() + "님이 다시 들어왔습니다");
 		systemMessage.setCreatedAt(Instant.now());
 		ChatMessage savedMessage = chatMessageRepository.save(systemMessage);
+		// 시스템 메시지는 송신 경로 밖이라 미러를 여기서 따로 태운다. 빼먹으면 정본
+		// 교대 뒤 새 DB 읽기에서 이 행만 빠진다 (#123)
+		storageMigration.mirrorToNew(savedMessage);
 
 		redisPubSubPublisher.publish(ChatMessageResponse.from(savedMessage, null)
 			.toBuilder().receiverId(receiverId).build());
@@ -419,8 +422,11 @@ public class ChatService {
 		String clientMessageId = request.getClientMessageId();
 
 		if (clientMessageId != null) {
-			ChatMessage already = chatMessageRepository
-				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId).orElse(null);
+			// 멱등의 심판은 정본이다. 정본이 새 DB 면 거기서 본다 (#123)
+			ChatMessage already = storageMigration.newPrimary()
+				? storageMigration.findSavedTransfer(chatRoomId, clientMessageId)
+				: chatMessageRepository
+					.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId).orElse(null);
 			if (already != null) {
 				log.info("이미 저장된 전송이다: chatRoomId={}, clientMessageId={}",
 					chatRoomId, clientMessageId);
@@ -443,6 +449,10 @@ public class ChatService {
 		}
 		chatMessage.assign(sequence, clientMessageId);
 
+		if (storageMigration.newPrimary()) {
+			return savePrimaryToNew(chatRoomId, clientMessageId, chatMessage);
+		}
+
 		try {
 			// 바로 밀어 넣어야 제약 위반이 여기서 잡힌다. save 만 부르면 트랜잭션이
 			// 끝날 때 터지고, 그때는 이 자리를 이미 지나쳤다
@@ -459,6 +469,28 @@ public class ChatService {
 				.findByChatRoomIdAndClientMessageId(chatRoomId, clientMessageId)
 				.orElseThrow(() -> e), true);
 		}
+	}
+
+	/**
+	 * 정본이 새 DB 일 때의 저장 (#123).
+	 *
+	 * <p>JPA 경로와 같은 모양이다. 넣어 보고, 조건부 유니크에 걸리면(0행) 같은 전송이
+	 * 동시에 들어와 다른 쪽이 먼저 넣은 것이므로 그 행을 읽어 멱등 히트로 돌려준다.
+	 * 정본 삽입 실패는 송신 실패라 예외를 그대로 올린다. 옛 DB 로의 역방향 미러는
+	 * 송신 경로의 mirror 가 맡는다.
+	 */
+	private SavedOnce savePrimaryToNew(Long chatRoomId, String clientMessageId,
+									   ChatMessage chatMessage) {
+		if (storageMigration.insertPrimary(chatMessage)) {
+			return new SavedOnce(chatMessage, false);
+		}
+		chatMetrics.idempotentHit();
+		ChatMessage winner = storageMigration.findSavedTransfer(chatRoomId, clientMessageId);
+		if (winner == null) {
+			throw new IllegalStateException("멱등 충돌인데 먼저 저장된 행이 없습니다: chatRoomId="
+				+ chatRoomId + ", clientMessageId=" + clientMessageId);
+		}
+		return new SavedOnce(winner, true);
 	}
 
 	/**
